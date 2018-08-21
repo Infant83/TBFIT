@@ -1,0 +1,804 @@
+\documentclass[a4paper,12pt]{scrartcl}
+\usepackage[colorlinks=True,linkcolor=blue,urlcolor=orange]{hyperref}
+\usepackage{fancyvrb}
+\usepackage{xcolor}
+\usepackage{amssymb}
+
+\makeatletter
+\def\namedlabel#1#2{\begingroup
+    #2%
+    \def\@currentlabel{#2}%
+    \phantomsection\label{#1}\endgroup
+}
+\def\verbatim@font{\linespread{1}\normalfont\ttfamily}
+\makeatother
+
+% Title Page
+\title{A short guide to the Tight-Binding FITting (\tbfitname{}) package}
+\author{Hyun-Jung Kim [Infant@kias.re.kr]}
+\newcommand{\testsuite}{\textcolor{blue}{\texttt{testsuite}}}
+\newcommand{\testcase}{\textcolor{green}{\texttt{testcase}}}
+\newcommand{\testparameter}{\textcolor{red}{\texttt{testparameter}}}
+\newcommand{\tbfitname}{\textcolor{blue!85!white}{\texttt{TBFIT}}}
+\newcommand{\textred}[1]{\textcolor{red!85!white}{\texttt{#1}}}
+\newcommand{\textblue}[1]{\textcolor{blue!85!white}{\texttt{#1}}}
+\newcommand{\textgreen}[1]{\textcolor{green!50!black}{\texttt{#1}}}
+\newcommand{\textpink}[1]{\textcolor{red!60!yellow}{\texttt{#1}}}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document is to provide explanation for the input file arguments of the \tbfitname{} package.
+
+\end{abstract}
+\section*{System Requirements}
+All the program has been written by modern \texttt{Fortran90} language. \texttt{LAPACK} library should be properly linked in the makefile.
+
+\newpage
+\part{User's Guide}
+
+\section{INPUT tags of the \texttt{INCAR-TB}}
+
+\begin{description}
+
+    \item[\namedlabel{tag:GETBAND}{GET\_BAND}] $logical$ Default: \texttt{.TRUE.}
+		If \texttt{.TRUE.} \tbfitname{} will perform tight-binding calculations 
+		for band structure evaluation.
+		
+    \item[\namedlabel{tag:TBFIT}{TBFIT}] $logical$ Default: \texttt{.FALSE.}  
+		\subitem \texttt{.TRUE.}  : Perform tight-binding parameter fitting 
+			which is defined in \ref{tag:PFILE}. After fitting is 
+			completed, whatever it is converged or not, 
+			additional tight binding calculations as defined 
+			in the \texttt{INCAR-TB} will be performed.
+		\subitem \texttt{.FALSE.} : Do not perform fitting procedures. 
+			In this case, regular tight binding calculations 
+        	will be performed.
+
+    \item[\namedlabel{tag:MITER}{MITER}] $integer$ Default: \texttt{100} \\
+		Maximum number of iteration for the fitting procedures
+
+    \item[\namedlabel{tag:LSTYPE}{LSTYPE}] $integer$ Default: \texttt{LMDIF} \\
+        Method for parameter fitting.
+		Currently, \tbfitname{} only supports \texttt{LMDIF} method which is the 
+		Levenberg-Marquardt method\footnote{ Kenneth Levenberg, 
+		"A Method for the Solution of Certain Non-Linear Problems in Least Squares" 
+		$Quarterly$ $of$ $Applied$ $Mathematics$ 2, 164 (1944).}$^,$
+		\footnote{Donald Marquardt, "An Algorithm for Least-Squares Estimation of 
+		Nonlinear Parameters" $SIAM$ $Journal$ $on$ $Applied$ $Mathematics$ 11, 
+		431 (1963).} using finite-difference for Jacobian.
+
+    \item[PTOL \& FTOL] $real$ Default: 0.00001\\
+      	Tolerence of iteration of the fitting procedures. 
+	  	\texttt{FTOL} is a tolerence for the difference between target and 
+      	calculated data from tight binding method. 
+	  	\texttt{PTOL} is as tolerence for the tight binding parameters.
+      	Normally, both values below 0.00001 is sufficient to reach 
+	  	a local minima.
+    \item[K\_UNIT] $string$ Default: \texttt{ANGSTROM}
+		\subitem \texttt{ANGSTROM}   : the unit of the $k$-point will be written
+			in \AA$^{-1}$ unit.
+		\subitem \texttt{RECIPROCAL} : the unit of the $k$-point will be written
+			in reciprocal unit (fractional).
+    \item [\namedlabel{tag:PFILE}{PFILE}] $string$
+		File name for tight-binding parameters. Default: \texttt{PARAM\_FIT.dat}
+		For the details, see Sec.\ref{tag:PFILE-detail}.
+    \item[POFILE] $string$
+		Output file name for tight-binding parameters written after fitting 
+		procedures. Default: \texttt{PARAM\_FIT.new.dat}
+    \item[\namedlabel{tag:IS_SK}{IS\_SK} or SLATER\_KOSTER] $logical$ 
+		\subitem \texttt{.TRUE.}  : Slater-Koster type of hopping parameters will 
+			be assumed.
+		\subitem \texttt{.FALSE.}  : User defined or direct hopping parameters will 
+			be assumed.
+    \item[\namedlabel{tag:EFILE}{EFILE}] $string, integer$ \\
+		File name for the $target$ band structure for the fitting procedures. 
+		If the second $integer$ $n$ is followed by,
+		\tbfitname{} will read $n$-th column as a target band. Default is $n$=2.
+		\begin{verbatim}
+		 EFILE DFT_BANDSTRUCTURE.dat 2
+		\end{verbatim}
+
+		\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+		   	label= EFILE DFT\_BANDSTRUCTURE.out example ,
+		   	labelposition=bottomline]
+        \# 1st eigen value
+        \# k-path  energy(eV)
+          0.00000  -12.36137  
+          0.01693  -12.36162  
+          0.03386  -12.36118  
+            [...]
+          0.16932  -12.33324  
+          0.18625  -12.32696  
+          0.20319  -12.32014  
+
+
+        \# 2nd eigen value
+        \# k-path  energy(eV)
+          0.00000  -12.36137  
+          0.01693  -12.36041  
+          0.03386  -12.35875  
+             [...]
+          0.16932  -12.32136  
+          0.18625  -12.31394  
+          0.20319  -12.30600  
+
+
+            [...]
+
+		\end{Verbatim}
+    \item[\namedlabel{tag:GFILE}{GFILE}] $string$ Default: \texttt{POSCAR-TB}\\
+        File name for the geometry and atomic orbital informations. 
+		The format is exactly same as \texttt{POSCAR} of \href{https://www.vasp.at}{\texttt{VASP}}
+		program. For the details of setting atomic orbitals, see Sec.\ref{tag:GFILE-detail}.
+
+        \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+            label= POSCAR-TB example: MoS$_2$ with \texttt{Mo}-$d$ and \texttt{S}-$s$$p$,
+            labelposition=bottomline]
+     MoS2 \# comment
+       1.00000000000000  \# scaling factor
+         3.1716343    0.000000    0.00000  \# lattice vector a1
+         1.5858171    2.746715    0.00000  \# lattice vector a2
+         0.0000000    0.000000   15.00000  \# lattice vector a3
+       Mo  S                               \# atomic species
+         1   2                          \# number of atoms per species
+     Direct     \# coordinate type (direct or cartesian)
+      0.00000 0.00000 0.50000 dz2 dxy dx2 dyz dxz  # coord, orbital
+      0.33333 0.33333 0.60645 s px py pz              
+      0.33333 0.33333 0.39354 s px py pz
+
+        \end{Verbatim}
+
+    \item[\namedlabel{tag:KFILE}{KFILE}] $string$ Default: \texttt{KPOINTS\_BAND}\\
+        File name for the $k$-point setting.
+        The format is exactly same as \texttt{KPOINTS} of \href{https://www.vasp.at}{\texttt{VASP}}
+        program.
+
+        \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+            label= KPOINTS\_BAND $line$ $mode$ example, 
+            labelposition=bottomline]
+     k-points line mode example
+       40  ! intersections
+     Line-mode
+     Reciprocal
+       0.50000000  0.5000000 0 M
+       0.33333333  0.6666666 0 K
+       
+       0.33333333  0.6666666 0 K
+       0.00000000  0.0000000 0 G
+       
+       0.00000000  0.0000000 0 G
+       0.66666666  0.3333333 0 K'
+
+        \end{Verbatim}
+
+        \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+            label= KPOINTS\_BAND $grid$ $mode$ example, 
+            labelposition=bottomline]
+     k-points grid mode example
+       0 
+     GMonkhorst-Pack #'G'amma centered grid mode
+       4  4  1   \# grid  nk_1 nk_2 nk_3
+       0  0  0   \# shift
+        \end{Verbatim}
+
+    \item[\namedlabel{tag:LOCCHG}{LOCCHG}] $logical$ Default: \texttt{.FALSE.}\\
+        Setting tag for local potential.
+        If \texttt{.TRUE.}, one should give proper local potential parameter 
+		in your \ref{tag:PFILE} and should properly setup \ref{tag:param-locpot} 
+		tag in your \ref{tag:GFILE}. For the details, see the explanation of
+		\ref{tag:param-locpot} in Sec.\ref{tag:PFILE-detail}.
+
+    \item[\namedlabel{tag:TYPMAG}{TYPMAG}] $string$ Default: \texttt{NONMAG}\\
+        Setting tag for magnetic moment: \texttt{nonmagnetic}, \texttt{collinear}, 
+		\texttt{noncollinear}
+		If \texttt{collinear} and \texttt{noncollinear} tag is applied, 
+		\ref{tag:MOMENT} or \ref{tag:MOMENT.C} in the \ref{tag:GFILE}
+		should be set up appropriately.
+		For details, see \ref{tag:MOMENT} of the Sec.\ref{tag:GFILE-detail}.
+
+    \item[\namedlabel{tag:LSORB}{LSORB}] $logical$ Default: \texttt{.FALSE.}\\
+        Setting tag for spin-orbit coupling. 
+		If \texttt{.TRUE.}, $lambda\_orb\_spec$ should be properly defined in the
+		\ref{tag:PFILE}. For details, see Sec.\ref{tag:PFILE-detail}
+
+    \item[\namedlabel{tag:LORBIT}{LORBIT}] $logical$ Default: \texttt{.TRUE.}\\
+        Setting tag for orbital decomposed output.
+		If \texttt{.TRUE.} the absolute value of wavefunction coefficient 
+		($<\psi_{nk}|$$\phi$$|\psi_{nk}>$) will be 
+		printed out in \texttt{bandstructure\_TBA.dat} file.
+
+    \item[\namedlabel{tag:IBAND}{IBAND}] $integer$ Default: \texttt{1}\\
+		\texttt{IBAND} is the first eigenstate of the target data of 
+		\ref{tag:EFILE}. This value will be used in the \ref{tag:WEIGHT}
+		\texttt{SET} section.
+
+    \item[\namedlabel{tag:FBAND}{FBAND}] $integer$ Default: \texttt{NEIG} \\
+		\texttt{NEIG} : number of orbital basis of the system.
+		\texttt{FBAND} is the last eigenstate of the target data of 
+		\ref{tag:EFILE}. This value will be used in the \ref{tag:WEIGHT}
+		\texttt{SET} section.
+
+    \item[\namedlabel{tag:SCISSOR}{SCISSOR}] $integer, real$ \\
+		If set, in the fitting procedures, target energy \texttt{EDFT($n$,$k$)}
+		will be shift by amound of the scissor operation. 
+		This operation works as follows: E$_{target}'(n,k)$ = 
+		E$_{target}$($n$,$k$) + $e_{scissor}$ if $n$ $>$= i$_{scissor}$.
+		Note that this operation is only valied if \ref{tag:TBFIT} is \texttt{.TRUE.}. 
+    \begin{verbatim}
+     SCISSOR 29 0.2  # i_scissor = 29 and e_scissor = 0.2 (eV)
+    \end{verbatim}
+
+    \item[\namedlabel{tag:ERANGE}{ERANGE}] $integer$ Default: \texttt{1 NEIG} \\
+		If provided, the energy level between these energy window will be printed
+		out in the \texttt{bandstructure\_TBA.dat} file. 
+    \begin{verbatim}
+     ERANGE  4400 4700  
+    \end{verbatim}
+		Above example means that the energy level from 4400$^{th}$ to 
+		4700$^{th}$ will be printed. 
+		This is particularly useful if you calculate very large
+		systems. By setting \texttt{ERANGE} tag, you can save disk space
+		a lot if \ref{tag:LORBIT} tag is turned on where orbital component
+		information takes huge memory for larger systems.
+
+    \item[\namedlabel{tag:SET}{SET}] $string$ \\
+        Setting tag for various post processings, parameter constraints,
+		and nearest neighbor setups, etc.
+		Available list for the \texttt{SET} tags are as follows,
+ 	\subitem \ref{tag:CONSTRAINT}
+ 	\subitem \ref{tag:NNCLASS}
+ 	\subitem \ref{tag:RIBBON}
+ 	\subitem \ref{tag:BERRYC}
+ 	\subitem \ref{tag:ZAKPHASE}
+ 	\subitem \ref{tag:WCC}
+ 	\subitem \ref{tag:Z2}
+ 	\subitem \ref{tag:EFIELD}
+ 	\subitem \ref{tag:WEIGHT}
+ 	\subitem \ref{tag:DOS}
+ 	\subitem \ref{tag:EIGPLOT}
+ 	\subitem \ref{tag:STMPLOT}
+
+\end{description}
+
+
+\newpage
+
+\section{Details of the \texttt{SET}}\label{tag:SET-detail}
+Each \texttt{SET} tag should be ended up by \texttt{END} tag.
+
+\begin{description}
+
+    \item[\namedlabel{tag:STMPLOT}{STMPLOT}]
+        Setting of integrated eigen state wavefunction $\Sigma |\psi_{nk}(r)|^{2}$ plot.
+		Here, the summation runs over the eigen states within the energy window specified
+		by \texttt{STM\_ERANGE} or equivalently \texttt{STM\_WINDOW}.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= STMPLOT setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}STMPLOT
+      \textgreen{NGRID} 40 40 80 # GRID for CHGCAR-STM output (default = 0.1 ang).
+      \textgreen{STM\_ERANGE} -1.0:0.0  # energy window
+      \textgreen{RCUT} 6.0 # cut off radius(\AA). Beyond this will not be calculated.
+      \textgreen{REPEAT_CELL} T T T  # repeat orbital for each lattice vector?
+         # this logical tag is especially useful if you only 
+         #consider center region of the very large cell.
+         # If set "T T F", orbital contribution which is periodically 
+         # repeated in a3 direction wll not be considered to calculate. 
+         # Try this option if  you have very large cell and you are 
+         # especially interested unitcell ceter.
+    \color{blue}END \color{red}STMPLOT
+ \end{Verbatim}
+
+    \item[\namedlabel{tag:EIGPLOT}{EIGPLOT}]
+        Setting of eigen state wavefunction $\psi_{nk}(r)$ or 
+		charge density $|\psi_{nk}(r)|^{2}$ plot.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= EIGPLOT setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}EIGPLOT
+      \textgreen{IEIG} 3 5   # index(es) n of eigen state.
+      \textgreen{IKPT} 1 10  # index(es) k of k-point.
+      \textgreen{NGRID} 40 40 80 # GRID for CHGCAR output (default = 0.1 ang).
+      \textgreen{RORIGIN} 0.0 0.0 0.0 # shift of the origin of the cube file.
+      \textgreen{WAVEPLOT} .TRUE. # plot wavefunction (.true.) or charge density.
+      \textgreen{RCUT} 6.0 # cut off radius(\AA). Beyond this will not be calculated.
+    \color{blue}END \color{red}EIGPLOT
+ \end{Verbatim}
+
+
+    \item[\namedlabel{tag:DOS}{DOS}]
+        Setting of \texttt{Density of states (DOS)}.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= DOS setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}DOS
+      \textgreen{GKGRID} 100 100 1   # set Gamma centered Monkhorst-Pack grid 
+      \textgreen{KSHIFT} 0.0 0.0 0.0 # shift of k-grid (k-offset)
+      \textgreen{PRINT_KPTS} .TRUE. IBZKPT-DOS_TB # print k-point to the file
+      \textgreen{PRINT_EIG} .TRUE. 1:2 3 # print specified energy surface 
+      \textgreen{PRINT_UNIT} RECIPROCAL # k-point unit (or ANGSTROM 1/A)
+      \textgreen{SMEARING} 0.03 # gaussian smearing. Default = 0.025
+      \textgreen{NEDOS} 2000    # number of grid points in energy window (erange)
+      \textgreen{DOS_ERANGE} -20.0:10.0 # energy window to be plotted
+      \textgreen{DOS_NERANGE} 1:NEIG # energy window to be calculated (integer)
+      \textgreen{DOS_FNAME} DOS_TB_projected.dat # output file name for DOS output
+    \color{blue}END \color{red}DOS
+ \end{Verbatim}
+
+
+    \item[\namedlabel{tag:EFIELD}{EFIELD}]
+        Setting of \texttt{E-field}.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= EFIELD setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}EFIELD
+      \textgreen{EFIELD}  0.0 0.0 0.1  # Efield along z direction
+      \textgreen{EF\_ORIGIN}  0.0 0.0 0.345690593  # (in fractional coordinate)
+     #\textgreen{EF\_CORIGIN} 0 0 0  # (in cartesian coordinate)
+    \color{blue}END \color{red}EFIELD
+ \end{Verbatim}
+
+
+    \item[\namedlabel{tag:WEIGHT}{WEIGHT}]
+		Setting of weight factor for the fitting procedures.
+		\subitem KRANGE $integer$ : range of k-point where the weight factor is applied
+		\subitem TBABND $integer$ : range of eigen states of the tight binding calculation 
+		\subitem DFTBND $integer$ : range of eigen states of the target energy bands
+		\subitem WEIGHT $real$ : weighting factor 
+		\subitem ORBT\_I $ineteger$ : orbital index. $n^{th}$ orbital states will get a penalty
+		\subitem SITE\_I $ineteger$ : site index. \texttt{ORBT\_I}$^{th}$  orbital state 
+		at \texttt{SITE\_I} atom will get a penalty. This prohibit certain orbital character 
+		to be stabilized from the fitting procedures.
+		
+
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= WEIGHT setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}WEIGHT
+      \textgreen{KRANGE}  :            \textgreen{TBABND}  :    \textgreen{DFTBND} IBAND:FBAND \textgreen{WEIGHT} 1
+      \textgreen{KRANGE}  :            \textgreen{TBABND} 17:20 \textgreen{DFTBND} 17:20       \textgreen{WEIGHT} 6 
+      \textgreen{KRANGE} 20:60 100:140 \textgreen{TBABND} 17:20 \textgreen{DFTBND} 17:20       \textgreen{WEIGHT} 20
+      \textgreen{KRANGE} 1     \textgreen{TBABND}  7    \textgreen{ORBT\_I} 1  \textgreen{SITE\_I} Mo1 \textgreen{PENALTY} 200
+    \color{blue}END \color{red}WEIGHT
+ \end{Verbatim}
+
+
+ 	\item[\namedlabel{tag:CONSTRAINT}{CONSTRAINT TBPARAM}]
+		Setting for parameter constraints for the fitting and calculation.
+		The value of the specified two parameter will be kept same during the
+		fitting and tight-binding calculations.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= CONSTRAINT setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}CONSTRAINT
+        \textgreen{e_py_S}  = \textgreen{e_px_S} 
+    \color{blue}END \color{red}CONSTRAINT
+ \end{Verbatim}
+
+		If the second argument `=' is replaced by `==' and the third argument
+		is not present, then this parameter will not be fitted and its initial
+		guess as defined in \ref{tag:PFILE} will be fixed during the fitting procedures.
+		Note that, exactly same effect can be achieved by putting `\texttt{FIXED}' tag
+		at the parameter specification line of the \ref{tag:PFILE}, and the detailed 
+		explanation can be found in \ref{tag:param-fix} of Sec.\ref{tag:PFILE-detail}.
+
+ 	\item[\namedlabel{tag:NNCLASS}{NN\_CLASS}]
+		Setting for nearest neighbor set up. \\
+		If the distance between two atomic species (For example, \texttt{Mo} 
+		and \texttt{S}) are 1st nearest type, and its upper limit is 3.2 
+		angstrom (e.g., below this value will be regarded as the pair), thene
+		we can set as follows,
+        \begin{verbatim}
+         	Mo-S : 3.2  R0 3.171634
+        \end{verbatim}  
+
+		Here, number of dash '-' occurance between two atomic species indicates 
+		the distance class $n$, and the above example represents 1st nearest 
+		hopping between \texttt{Mo} and \texttt{S}. The following \texttt{R0}
+		tag defines optimal bonding distance between two neighbor pair. 
+		This value will be used in the scaling function for the distance
+		dependent hopping parameter.
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= NN\_CLASS setup example,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}NN_CLASS
+        \textgreen{Mo-Mo}  : 3.2   \textgreen{R0} 3.171634
+        \textgreen{S-S}    : 3.28  \textgreen{R0} 3.171634  
+        \textgreen{S--S}   : 3.2   \textgreen{R0} 3.193724  
+        \textgreen{Mo-S}   : 2.5   \textgreen{R0} 2.429624  
+    \color{blue}END \color{red}NN_CLASS
+ \end{Verbatim}
+
+
+ 	\item[\namedlabel{tag:RIBBON}{RIBBON}]
+		Setting for nanoribbon calculations. \\
+		At the initial stages of the calculations, \tbfitname{} will generate
+		\ref{tag:GFILE}\texttt{-ribbon} with the settings bellow.
+		\subitem NSLAB $integer$ : multiplication of unitcell along each direction
+		\subitem VACUUM  $real$  : vacuum spacing along each direction.
+		\subitem KFILE\_R $real$  : \ref{tag:KFILE} for ribbon band structure. 
+			Default: \ref{tag:KFILE}
+		\subitem PRINT\_ONLY\_R $logical$  : if \texttt{.TRUE.} the geometry
+		file will be generated with \texttt{-ribbon} suffix to the \ref{tag:GFILE}
+		and the program will imedietly stops. Default: \texttt{.FALSE.}
+		
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= Ribbon calculation setup,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}RIBBON
+        \color{green!50!black}NSLAB        \color{black}1 20  1
+        \color{green!50!black}VACUUM       \color{black}0 20  0
+        \color{green!50!black}KFILE_R      \color{black}KPOINTS_RIBBON
+        \color{green!50!black}PRINT_ONLY_R \color{black}.FALSE. or. TRUE.
+    \color{blue}END \color{red}RIBBON
+ \end{Verbatim}
+
+%   SET  Z2 # setup for evaluating Z2 index
+%        Z2_ERANGE    1:8   # up to occupied states!! (very important)
+%        Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
+%        Z2_NKDIV    11 111  # number of division of the k-path (odd number suggested)
+%   END  Z2
+
+    \item[\namedlabel{tag:Z2}{Z2\_INDEX}] Automatic calculations for topological index 
+        $[\nu_0\; \nu_1, \nu_2, \nu_3]$ for 3D or $\mathbb{Z}_{2}$ for 2D via \ref{tag:WCC} method. 
+  		(The current version does not support
+        \texttt{MPI} parallelism for the Wannier charge center evaluation subroutine.
+        Hence, do not use multicore for this particular calculation.
+        Nevertheless, the compilation with \texttt{-DMPI} option is accepted.)
+        The output will be written at \texttt{Z2.WCC.}\textgreen{plane\_index}\texttt{.dat} and
+        \texttt{Z2.GAP.}\textgreen{plane\_index}\texttt{.dat}.
+        Here, \textgreen{plane\_index} indicates one of six $B_i$-$B_j$ plane with $B_k$ = 0 or $\pi$.
+        For example, if \textgreen{plane\_index} = \textgreen{0.0-B3.B1\_B2-PLANE}, then it contains
+        WCC information of $B1$-$B2$ plane with $k_z$ = $\pi$.
+        
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= Z2 index calculation using WCC method,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}Z2_INDEX
+        \color{green!50!black}Z2_ERANGE    \color{black}1:28  # upto occupied
+        \color{green!50!black}Z2_DIMENSION \color{black}3D  # or 2D:kz (2D WCC plane perpendicular to kz)
+        \color{green!50!black}Z2_NKDIV  \color{black}21 21 # k-grid for KPATH and k-direction for WCC
+        \color{green!50!black}Z2_CHERN  \color{black}.TRUE. # 1st Chern number of given bands with ERANGE
+    \color{blue}END \color{red}Z2_INDEX
+ \end{Verbatim}
+
+    \item[\namedlabel{tag:WCC}{WCC}]Wannier Charge Center or Wilson loop calculation settings
+        (The current version does not support
+        \texttt{MPI} parallelism for the Wannier charge center evaluation subroutine. 
+        Hence, do not use multicore for this particular calculation. 
+        Nevertheless, the compilation with \texttt{-DMPI} option is accepted.)
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= Wannier charge center (WCC) setup: kz 0.5 (shift),
+    labelposition=bottomline]
+    \color{blue}SET \color{red}WCC
+        \color{green!50!black}WCC_ERANGE \color{black}1:28  # upto occupied
+        \color{green!50!black}WCC_FNAME  \color{black}WCC.OUT.dat 
+        \color{green!50!black}WCC_FNAME_GAP \color{black}WCC.GAP.dat  # largest gap will be written
+        \color{green!50!black}WCC_KPATH  \color{black}0 0 0  1 0 0 # k_init -> k_end (ex, along b1)
+        \color{green!50!black}WCC_KPATH_SHIFT  \color{black}0 0 0.5 # kpoint shift along b3 direction
+        \color{green!50!black}WCC_DIREC  \color{black}2 #k-direction for WCC evolution (1:b1, 2:b2, 3:b3)
+        \color{green!50!black}WCC_NKDIV  \color{black}21 21 # k-grid for KPATH and k-direction (odd number)
+        \color{green!50!black}WCC_CHERN  \color{black}.TRUE. # 1st Chern number of given bands with ERANGE
+    \color{blue}END \color{red}WCC
+ \end{Verbatim}
+
+
+ 	\item[\namedlabel{tag:ZAKPHASE}{ZAK\_PHASE}]
+		Setting for Zak phase calculations. (The current version does not support
+        \texttt{MPI} parallelism for the Zak phase evaluation subroutine. Hence, do not use
+        multicore for this particular calculation. However, the compilation with 
+        \texttt{-DMPI} option is accepted.)
+
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= Zak phase setup,
+    labelposition=bottomline]
+    \color{blue}SET \color{red}ZAK\_PHASE
+        \color{green!50!black}ZAK_ERANGE \color{black}1:28  # upto occupied
+        \color{green!50!black}ZAK_FNAME  \color{black}ZAK_PHASE.OUT.dat 
+        \color{green!50!black}ZAK_KPATH  \color{black}0 0 0  1 0 0 # k_init -> k_end (ex, along b1)
+        \color{green!50!black}ZAK_DIREC  \color{black}2 #k-direction for Zak phase evolution (1:b1, 2:b2, 3:b3)
+        \color{green!50!black}ZAK_NKDIV  \color{black}21 21 # k-grid for KPATH and k-direction
+    \color{blue}END \color{red}ZAK\_PHASE
+ \end{Verbatim}
+
+    \item[\namedlabel{tag:BERRYC}{BERRY\_CURVATURE}]
+		Setting for Berry curvature calculations.
+ \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+	label= Berrycurvature setup,
+	labelposition=bottomline]
+    \color{blue}SET \color{red}BERRY_CURVATURE
+        \color{green!50!black}BERRYC_METHOD \color{black}KUBO # .or. RESTA(not yet supported)
+        \color{green!50!black}BERRYC_ERANGE \color{black}17:18
+        \color{green!50!black}BERRYC_FNAME  \color{black}BERRYCURV.17-18 # output will be \textgreen{BERRYC\_FNAME}.dat
+        \color{green!50!black}BERRYC_DIMENSION \color{black}2D:B3  # 2D plane perpendicular to kz)
+    \color{blue}END \color{red}BERRY_CURVATURE
+ \end{Verbatim}
+
+
+\end{description}
+
+
+\section{Details of the format of \texttt{GFILE}}\label{tag:GFILE-detail}
+%\subsubsection*{Input Syntax for Regular Expression Extraction Pattern}
+\begin{description}
+
+    \item[\namedlabel{tag:ATOMICORB}{Atomic orbital setup}] $string$ \\
+        Hydrogen-like atomic orbital can be specified for the orbital basis.
+        The possible orbital basises are\footnote{Please note that current 
+		version does not support the $f$ orbitals.
+        However, we will include $f$ in the future release of \tbfitname{}. 
+		For the \texttt{Slater-Koster} tables of $f$ orbitals, please see
+		[\texttt{K. Lendi, 
+		\href{https://journals.aps.org/prb/abstract/10.1103/PhysRevB.9.2433}
+		{Phys. Rev. B 9, 2433 (1974)}}].}:
+        \begin{verbatim}
+         s px py pz dz2 dxy dx2 dxz dx2
+        \end{verbatim}
+
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= setup of atomic orbital basis in \ref{tag:GFILE},
+    labelposition=bottomline]
+  0.0 0.0 0.0 s px py pz  \# s, px, py, and pz orbitals at ATOM_A
+  0.0 0.0 0.5 s px py pz  \# s, px, py, and pz orbitals at ATOM_B
+
+\end{Verbatim}
+
+    \item[\namedlabel{tag:CUSTOM}{Custumized atomic orbital setup}] $string$ \\
+        If someone does not want to use \texttt{Slater-Koster} type interatomic
+        hopping parameter, customized atomic orbital can be defined instead.
+        In this case, distance and hopping pair dependent parameterization
+        should be properly defined in the \ref{tag:PFILE}.
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= setup of custumized atomic orbital name $cp1$,
+    labelposition=bottomline]
+  0.0 0.0 0.0 cp1  \# cp1 orbital at ATOM_1
+  0.0 0.0 0.5 cp1  \# cp1 orbital at ATOM_2
+
+\end{Verbatim}
+
+
+    \item[\namedlabel{tag:MOMENT}{MOMENT}] tag $real$ \\
+		Magnetic moment for Each atomic orbital can be assigned as follows,
+	\subitem collinear case: \texttt{0.0}
+    \subitem noncollinear case: \texttt{0.0 0.0 0.0 [$M$ $\theta$ $\phi$]}\\
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= usage of $moment$ tag in \ref{tag:GFILE} with $collinear$ magnetism,
+    labelposition=bottomline]
+  0.0 0.0 0.0 px py pz \textgreen{moment} 0 0  1 \# spin-up for pz
+  0.0 0.0 0.5 px py pz \textgreen{moment} 0 0 -1 \# spin-dn for pz
+
+\end{Verbatim}
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= usage of $moment$ tag in \ref{tag:GFILE} with $noncollinear$ magnetism,
+    labelposition=bottomline]
+  0.0 0.0 0.0 px py pz \textgreen{moment} 0 0 0  0 0 0  1 0 0  \# spin-up for pz
+  0.0 0.0 0.5 px py pz \textgreen{moment} 0 0 0  0 0 0 -1 0 0  \# spin-dn for pz
+
+\end{Verbatim}
+
+    \item[\namedlabel{tag:MOMENT.C}{MOMENT.C}] tag $real$ \\
+        Similar to \ref{tag:MOMENT} but in \texttt{noncollinear} case,
+		the 1$^{st}$, 2$^{nd}$, and 3$^{rd}$ value represents, $m_x$, $m_y$, and $m_z$, respectively.
+		Here, $x$, $y$, and $z$ represents the cartesian axis.
+    \subitem noncollinear case: \texttt{0.0 0.0 0.0 [$M_x$ $M_y$ $M_z$]}\\
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= usage of $moment.c$ tag in \ref{tag:GFILE} with $noncollinear$ magnetism,
+    labelposition=bottomline]
+  0.0 0.0 0.0 px py pz \textgreen{moment} 0 0 0  0 0 0  0 0  1 \# spin-up for pz
+  0.0 0.0 0.5 px py pz \textgreen{moment} 0 0 0  0 0 0  0 0 -1 \# spin-dn for pz
+
+\end{Verbatim}
+
+\end{description}
+
+\section{Details of the format of \texttt{PFILE}}\label{tag:PFILE-detail}
+%\subsubsection*{Input Syntax for Regular Expression Extraction Pattern}
+\begin{description}
+
+    \item[\namedlabel{tag:param-onsite}{ONSITE parameters}] $real$ \\
+		Onsite prameters for each atomic orbital should have the prefix
+		\textgreen{e\_} and joint with the name of the orbital. The suffix
+		should be the atomic species where the orbital placed.
+        \begin{verbatim}
+         e_dx2_Mo      -0.34
+        \end{verbatim}
+
+    \item[\namedlabel{tag:param-hopping}{HOPPING parameters}] $real$ \\
+        The tight binding hopping parameter used in the calculations.
+		\subitem $case 1.)$ \ref{tag:IS_SK} \texttt{.TRUE.} \\
+		In this case, \texttt{Slater-Koster} type parameter should be
+		specified properly. The syntax is as follwos:
+        \begin{Verbatim}[commandchars=\\\{\}]
+         \textgreen{hopping-type}_\textpink{nn-class}_\textred{A}\textblue{B}
+        \end{Verbatim}
+		\texttt{hopping-type} will have one of following prefix: \{ $ss$, $sp$, $sd$, $pp$, 
+		$pd$, $dd$ \}, and one of following suffix: \{$s$, $p$, $d$ \}, which implies
+		$\sigma$-, $\pi$-, and $\delta$-type inteaction.
+		\textpink{nn-class} specifies the distance class. See \ref{tag:NNCLASS} for the 
+		details.
+		\textred{A}\textblue{B} specifies the two atomic species (\textred{A} and \textblue{B} atoms) 
+		where the orbital hopping take place. 
+		For example, for the $dd\delta$ \texttt{Slater-Koster} parameter involved with 
+		the hopping process between the $\textgreen{d}_{z2}$ orbital in \textred{Mo} atom 
+		and $\textgreen{d}_{yz}$ orbital in \textblue{Mo}, 
+		and they are \textpink{2$^{nd}$} neighbor pair, then the parameter should be the following form:
+        \begin{verbatim}
+         ddd_2_MoMo   -0.2
+        \end{verbatim}
+
+		\subitem $case 2.)$ \ref{tag:IS_SK} \texttt{.FALSE.} \\
+		In this case, the customized atomic orbital is assumed and the 
+		following scheme should be applied:
+        \begin{Verbatim}[commandchars=\\\{\}]
+         \textgreen{hopping-type}_\textpink{nn-class}_\textred{A}\textblue{B}
+        \end{Verbatim}
+		Here, the basic structure is same as $case 1.)$, however, the syntax of 
+		\textgreen{hopping-type} is slightly different. 
+		That is: the prefix should have \textgreen{$cc$} since this indicates $customized$ 
+		hopping parameters. For the suffix, one should put user defined 
+		letter that characterize the hopping.	
+		For example,
+        \begin{Verbatim}[commandchars=\\\{\}]
+         \textgreen{cc}\textpink{a}_2_BiBi      0.01
+        \end{Verbatim}
+		represents the hopping between 2$^nd$ neighbor \texttt{Bi} atoms with
+		the `\textpink{$a$}` type of $rule$ which characterizes hopping pair.
+		If you want to setup the $rule$, you have to write the conditions
+		to the source code: \texttt{get\_cc\_param.f90}.
+	
+
+%  ! SET UP 'USER' DEFINED HOPPING RULE
+%  ! NOTE: In THIS example, hopping between A-A sublattice with x-direction characterized by hopping distance
+%  ! at around 11.6 ang is characterized by 'ccx_2_BiBi' since nn_class=2 is predefined in the INCAR-TB 
+%  ! with Bi--Bi : 12.0 R0 12.0 where '--' gives us '2'.
+%  ! Following do loop will find the parameter named 'ccx_2_BiBi' in the 'param_name' and will asign its
+%  ! number as the 'parameter_index' 
+	
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= source code example: get\_cc\_param.f90,
+    labelposition=bottomline]
+
+		   # SET UP THE `USER' DEFINED HOPPING `RULE'
+		   # NOTE: In THIS example, hopping between Bi-Bi atom along 
+		   # x-direction characterized by hopping distance at around 
+		   # 8.6 \AA (cca_2_BiBi) with nn\_class = 2 will be considered.
+		   # Following `\textgreen{if}' routine  will find the parameter named 
+		   # cca_2_BiBi in the 'PFILE' and will asign its number as 
+		   # the `parameter_index'.
+
+	   	[...]
+        \textgreen{elseif( (dij .gt.  8.5) .and. (dij .lt.  8.7)} .and. \textred{&}
+					    (ci_atom .eq. cj_atom) ) then 
+    	  call get_param_name(cc_custom, param_class, `\textgreen{a}', \textred{&} 
+			  			     nn_class, ci_atom, cj_atom, \textred{&}
+							      flag_scale)
+	   	[...]
+
+\end{Verbatim}
+		
+    \item[\namedlabel{tag:param-locpot}{LOCAL\_POTENTIAL}] parameters $real$ \\
+		If you want to apply local potential to the particular atomic site or
+		particular orbital, then you can simply turn on \ref{tag:LOCCHG}
+		(\texttt{.TRUE.}) and write \texttt{local.pot} tag together with the amount of
+		local potential to be applied for each atomic orbitals in the \ref{tag:GFILE}.
+		Next, you have to provide proper scaling parameter ($U_{onsite}^i$) for the local 
+		potential, since the local potential is applied on your Hamiltonian
+		as: $e_{onsite}'^i$ = $e_{onsite}^i$ + $e_{loc.pot}^i$ $\times$ $U_{onsite}^i$,
+		i.e., it modifies onsite energy $e_{onsite}^i$ to $e_{onsite}'^i$.
+		Here, $U_{onsite}^i$ should be defined in your \ref{tag:PFILE} so that
+		the syntax is \texttt{local\_U\_$\textgreen{orbital-type}$\_$\textred{atom-name}$}.
+		$\textgreen{orbital-type}$ is one of $s$, $p$, or $d$ type of orbital and 
+		$\textred{atom-name}$ is the name of atomic species you want to apply the local
+		potential.
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= example of \textgreen{local.pot} tag in \ref{tag:GFILE},
+    labelposition=bottomline]
+  0.0 0.0 0.0 px py pz \textgreen{local.pot}  1  1  1  1  \# positive loc.pot
+  0.0 0.0 0.5 px py pz \textgreen{local.pot} -1 -1 -1 -1  \# negative loc.pot
+
+\end{Verbatim}
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= example of \textgreen{local.pot} parameter  in \ref{tag:PFILE},
+    labelposition=bottomline]
+    local_U_\textgreen{p}_\textred{S}  1.0
+\end{Verbatim}
+
+
+
+    \item[\namedlabel{tag:param-soc}{SOC parameters}] $real$ \\
+		\subitem $case 1.)$ \ref{tag:IS_SK} \texttt{.TRUE.} \\
+       	Every spin-orbit coupling parameters in \texttt{Slater-Koster} method
+		should have the prefix with \texttt{lambda\_} and proper orbital information 
+		\texttt{$p\_$}(as a joinder, for example $p$ orbital) 
+		and species information \texttt{\_S}(as a suffix, for example 
+		\texttt{Sulpur} atom) to precisely indicating the 
+		atomic orbital where the SOC effect will be applied.
+        \begin{verbatim}
+         lambda_p_S    0.2
+        \end{verbatim}
+
+        \subitem $case 2.)$ \ref{tag:IS_SK} \texttt{.FALSE.} \\
+		In the case of user defined hopping parameter (orbital prefix start with $c$,
+		see Sec.\ref{tag:GFILE-detail} for the details) has been defined in the 
+		\ref{tag:GFILE}, $SOC$ can be considered by setting up the Rashba and in-plane
+		spin-orbit interaction.
+		For Rashba type $SOC$, the prefix \texttt{lrashba\_} should be joint with 
+		nearest neighbor class $n$ and hopping pair as follows.
+        \begin{verbatim}
+         lrashba_c_2_BiBi    0.2
+        \end{verbatim}
+		Above setting represents, Rashba type spin-orbit coupling between the
+		custum type orbitals with $c$-prefix of the atom \texttt{Bi} and \texttt{Bi}.
+
+	\item[\namedlabel{tag:param-fix}{Fixing parmeter}] $ $\\
+		If one want some parameters not to be fitted during the fitting 
+		procedures, one can fix thoes parameters by adding \texttt{FIXED} or 
+		\texttt{F}.
+		For example, if you want \texttt{lambda\_p\_S} to be kept as its initial 
+		value, then, set this parameter as follows,
+        \begin{verbatim}
+         lrashba_c_2_BiBi    0.2 FIXED
+        \end{verbatim}
+
+    \item[\namedlabel{tag:param-example}{Example of \ref{tag:PFILE}}] $ $\\
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= example of PFILE: PARAM\_FIT.dat for MoS$_2$ (IS\_SK  .TRUE.),
+    labelposition=bottomline]
+       \textgreen{   e_dz2_Mo}      -0.34636955
+       \textgreen{   e_dx2_Mo}      -0.70447045
+       \textgreen{   e_dxy_Mo}      -0.70447045
+       \textgreen{   e_dxz_Mo}      -0.17913534
+       \textgreen{   e_dyz_Mo}      -0.17913534
+       \textgreen{     e_pz_S}      -2.96500556
+       \textgreen{     e_px_S}      -1.47877518
+       \textgreen{     e_py_S}      -1.47877518
+       \textgreen{      e_s_S}     -10.51138070
+       \textgreen{ dds_1_MoMo}      -1.04598377
+       \textgreen{ ddp_1_MoMo}       0.44731993
+       \textgreen{ ddd_1_MoMo}       0.10237760
+       \textgreen{   pps_1_SS}       0.62323972
+       \textgreen{   ppp_1_SS}       0.03251328
+       \textgreen{  pds_1_MoS}      -2.32384045
+       \textgreen{  pdp_1_MoS}       0.97229680
+       \textgreen{   sss_1_SS}      -0.57287106
+       \textgreen{   sps_1_SS}      -0.33278732
+       \textgreen{   sss_2_SS}      -0.45573348
+       \textgreen{   sps_2_SS}      -0.21906117
+       \textgreen{  sds_1_MoS}       2.66111706
+       \textgreen{lambda_d_Mo}       0.08014531  Fixed
+       \textgreen{ lambda_p_S}       0.07567002  Fixed
+
+\end{Verbatim}
+
+\begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+    label= example of PFILE: PARAM\_FIT.dat for Bi/Si(110) (IS\_SK  .FALSE.),
+    labelposition=bottomline]
+       \textgreen{        e_cp1_Bi}    -0.09222821  
+       \textgreen{      ccb_1_BiBi}     0.01723235  
+       \textgreen{      cca_2_BiBi}     0.13290800  
+       \textgreen{      ccy_3_BiBi}    -0.0         
+       \textgreen{      ccx_4_BiBi}    -0.03544401  
+       \textgreen{lrashba_c_1_BiBi}    -0.01119142  
+       \textgreen{lrashba_c_2_BiBi}     0.04914549  
+       \textgreen{lrashba_c_3_BiBi}    -0.00632175  
+       \textgreen{lrashba_c_4_BiBi}    -0.00636364  
+
+\end{Verbatim}
+	
+
+\end{description}
+
+\end{document}

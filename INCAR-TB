@@ -1,0 +1,53 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ K_UNIT  Angstrm # kpoint unit for output file: ANGSTROM (1/A); default = Angstrom
+  PFILE  PARAM_FIT.dat   # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+  IS_SK  .TRUE.          # parameter type: is it 'Slater-Koster;sk' type
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncol     # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+#LORBIT  .TRUE.     # set orbital decomposed band structure
+
+### FOR RIBBON ##############################################################################################
+  GFILE  POSCAR-TB-ribbon    # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+# GFILE  POSCAR-TB           # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND # default: KPOINTS_BAND
+##########################################################################################################
+
+### set NN-pair information ##############################################################################
+    SET  NN_CLASS  
+         Bi-Bi     : 3.3  R0 3.12019              # maximum distance of 1nn and original distance R1
+         Bi--Bi    : 4.7  R0 4.61269              # maximum distance of 1nn and original distance R1
+         Bi---Bi   : 5.6  R0 5.56889              # maximum distance of 1nn and original distance R1
+    END  NN_CLASS
+##########################################################################################################
+
+### set parameter constraint ##############################################################################
+#   SET  CONSTRAINT TBPARAM
+#        e_py_Bi  = e_px_Bi    
+#   END  CONSTRAINT TBPARAM
+##########################################################################################################
+
+### set ribbon geometry ###################################################################################
+#   SET  RIBBON
+#        NSLAB    4  1  1    # multiplication of unitcell along each direction
+#        VACUUM  10  0  0     # apply vacuum region along each direction 
+#        KFILE_R KPOINTS_BAND # KPOINTS file for ribbon band structure
+##       PRINT_ONLY_R .TRUE.
+#   END  RIBBON
+##########################################################################################################
+
+#   SET  Z2_INDEX # setup for evaluating topological index
+#        Z2_ERANGE    1:10  # up to occupied states!! (very important)
+#        Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
+#        Z2_NKDIV    42 411  # number of division of the k-path (odd number suggested)
+#        GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
+#   END  Z2
+
+    SET  EFIELD
+         EFIELD     0 0 0.05
+         EF_ORIGIN  0 0  .06782332921845835000   # or EF_CENTER (in fractional coordinate)
+    END  EFIELD
+

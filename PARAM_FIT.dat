@@ -1,0 +1,26 @@
+ 
+# PARAM_FIT.new.dat
+# E_TARGET FILE NAME : DOS_atom_projected.dat
+    # KRANGE                    :    TB_RANGE                    :    DF_RANGE          IBAND:FBAND      WEIGHT        4
+    # KRANGE        30:60 120:150    TB_RANGE                 9:12    DF_RANGE                 9:12      WEIGHT      100
+    # KRANGE               60:120    TB_RANGE                 9:12    DF_RANGE                 9:12      WEIGHT       75
+    # KRANGE               60:120    TB_RANGE                  7:8    DF_RANGE                  7:8      WEIGHT       10
+                e_s_Bi       -9.82183292  
+               e_px_Bi       -0.20898401  
+               e_py_Bi       -0.20898401  
+               e_pz_Bi       -0.42471548  
+            sss_1_BiBi        0.26220748  
+            sps_1_BiBi       -1.21637383  
+            pps_1_BiBi       -1.98034095  
+            ppp_1_BiBi        0.51776112  
+            sss_2_BiBi       -0.02544773  
+            sps_2_BiBi       -0.06148924  
+            pps_2_BiBi        0.16443561  
+            ppp_2_BiBi        0.01307278  
+            sss_3_BiBi        0.02459201  
+            sps_3_BiBi        0.19277447  
+            pps_3_BiBi       -0.04192853  
+            ppp_3_BiBi        0.06978611  
+           lambda_p_Bi        1.24014759  
+#          local_U_p_Bi       0.1
+#          local_U_s_Bi       0.1

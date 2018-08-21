@@ -1,0 +1,36 @@
+*  Spin Berry curvature. See Ref. [Yao & Fang, PRL 95, 156601 (2005)]
+
+*. Z2 invariant calculation via Fukui's method or Wilson loop calculation
+
+*. Zak phase calculation
+
+*. Surface green function : get_surface_green
+
+*.Calculate & construct hamiltonian via given Rij and tij : 'read_hopping_dat' and 'set_ham'
+
+*. Print_param routine need to be improved for the case of 'LMDIF' when
+writing '_temp' file. It will be much nice to see if the values are printed in
+horizontal way, not by vertical manner.
+
+*. if xx type of orbital is asigned, the onsite energy evaluation should be
+checked... it seems there is some memory dump sometimes if lmdif iteration is
+increased.
+
+#######################################################################################################
+# list what is done already.
+*. Density of states (DOS) : get_dos routine? Done!! 2018-Jan-26
+*. scaling factor  : done. 2018-Jan-15
+*. constraint parameters: fix parameters not to be relaxed... Done. 2018-Jan-16
+*. spin polarized case : Done. 2018-Feb-01
+*. Spin-orbit coupling : Done. 2018-Feb-01
+*. surface calculation, edge calculation : Done. 2018-Feb-14 
+*. Coordinate system when reading POSCAR : direct, cartesian (not available now...) : Done. 2018-Apr-11
+     For cartesin: see SVDINVERSE routine which makes lattice vector matrice inversion
+     (r1,r2,r3) = inv(transpose(lattmat)) * transpose((coord_x, coord_y, coord_z))
+*. When reading parameter either from file or INCAR-TB, it will be better to
+   write also the comment starting with "#" mark, so that one can easily
+   recognize what kind of interaction parameter it is. Done. 2018-Mar-??
+*. Berry curvature calculation : Done. 2018-Jun-18
+*. eigenstate wavefunction plot routine
+     A. non magnetic case    : 2018-Jan-15
+     B. spin polarized case  : 2018-Jun-11

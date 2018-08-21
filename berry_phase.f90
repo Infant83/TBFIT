@@ -147,6 +147,7 @@ subroutine set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
    do ie = 1, nerange
      do is = 1, PINPT%ispin
        do im = 1, PGEOM%neig
+!        V(im+(is-1)*PGEOM%neig,erange(ie),nkdiv) = V(im+(is-1)*PGEOM%neig,erange(ie),1)  !* F_IJ(-G, PGEOM%o_coord_cart(:,im))
          V(im+(is-1)*PGEOM%neig,erange(ie),nkdiv) = V(im+(is-1)*PGEOM%neig,erange(ie),1)  * F_IJ(-G, PGEOM%o_coord_cart(:,im))
        enddo
      enddo

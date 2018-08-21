@@ -50,7 +50,7 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    endif
 
    PINPT_BERRY%wcc = 0d0 
-   flag_phase = .TRUE. 
+   flag_phase = .FALSE. 
    flag_get_chern = PINPT_BERRY%flag_wcc_get_chern
    wcc = 0d0
 #ifdef MPI

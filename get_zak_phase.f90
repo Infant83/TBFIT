@@ -31,7 +31,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    allocate(PINPT_BERRY%polarization(PINPT%nspin))
    PINPT_BERRY%zak_phase = 0d0
    PINPT_BERRY%polarization = 0d0
-   flag_phase= .TRUE. 
+   flag_phase= .FALSE. 
    zak_phase = 0d0
    zak_phase_= 0d0
 #ifdef MPI

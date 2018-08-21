@@ -50,7 +50,7 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    if_main write(6,'(A)')'START: Z2 EVALUATION'
    if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_z2_range))
 
-   flag_phase = .TRUE. 
+   flag_phase = .FALSE.
    flag_get_chern = PINPT_BERRY%flag_z2_get_chern
    if(size(PINPT_BERRY%z2_axis) .eq. 3) nplane = 2
    if(size(PINPT_BERRY%z2_axis) .eq. 1) nplane = 1

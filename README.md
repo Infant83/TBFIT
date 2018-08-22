@@ -13,6 +13,9 @@ In the future release, I will add some routines for the Green function approach 
 
 For the details and examples you can find documents that describes the input tags in MANUAL folder and several input/output files in EXAMPLE folder, respectively.
 
-MPI NOTE: In the current version, very limited routines are MPI parallelized (basically k-point parallelism is applied for STM, eigenstate plot, band structure calculations, parameter fitting, density of states, and berry curvature, etc.). Unfortunately the Wilson's loop calculation routines are not parallelized yet.
+NOTE: 
+* In the current version, very limited routines are MPI parallelized (basically k-point parallelism is applied for STM, eigenstate plot, band structure calculations, parameter fitting, density of states, and berry curvature, etc.). Unfortunately the Wilson's loop calculation routines are not parallelized yet.
+* If you publish the results of TBFIT then please site as : 
+  Hyun-Jung Kim. (2018, August 21). Tight-binding fitting package (TBFIT) (Version v0.2.1). Zenodo. http://doi.org/10.5281/zenodo.1401335
 
-* a temporary name
+\* a temporary name

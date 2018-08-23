@@ -51,6 +51,7 @@ line: do
           if(flag_skip) linecount = linecount + 1
         else
           call check_comment(inputline,linecount,i,flag_skip)
+          if(flag_skip) linecount = linecount + 1
           if (flag_skip) cycle
         endif
         linecount = linecount + 1

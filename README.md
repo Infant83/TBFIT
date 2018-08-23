@@ -15,7 +15,7 @@ For the details and examples you can find documents that describes the input tag
 
 NOTE: 
 * In the current version, very limited routines are MPI parallelized (basically k-point parallelism is applied for STM, eigenstate plot, band structure calculations, parameter fitting, density of states, and berry curvature, etc.). Unfortunately the Wilson's loop calculation routines are not parallelized yet.
-* If you publish the results of TBFIT then please site as : 
-  Hyun-Jung Kim. (2018, August 21). Tight-binding fitting package (TBFIT) (Version v0.2.1). Zenodo. http://doi.org/10.5281/zenodo.1401335
+* If you publish the results of TBFIT then please site this github version : 
+  Hyun-Jung Kim. (2018, August 21). Tight-binding fitting package (TBFIT) (Version v0.2.2)
 
 \* a temporary name

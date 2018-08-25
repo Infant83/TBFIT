@@ -15,14 +15,14 @@ module parameters
   complex*16, public, parameter   ::      zi=(0.d0,1.d0)
   complex*16, public, parameter   ::     pzi= pi*zi
   complex*16, public, parameter   ::    pzi2=2*pzi
-  complex*16, public, dimension(2,2),   parameter :: pauli_0 = (/  1,  0,  0,  1 /)
-  complex*16, public, dimension(2,2),   parameter :: pauli_x = (/  0,  1,  1,  0 /)
-  complex*16, public, dimension(2,2),   parameter :: pauli_y = (/  0,  1, -1,  0 /) * zi
-  complex*16, public, dimension(2,2),   parameter :: pauli_z = (/  1,  0,  0, -1 /)
-  integer*4,  public, dimension(3,3,3), parameter :: levi_civita = (/0,0,0, 0,0,-1, 0,1,0, & 
+  complex*16, public, dimension(2,2),   parameter :: pauli_0 = reshape((/  1,  0,  0,  1 /), (/2,2/))
+  complex*16, public, dimension(2,2),   parameter :: pauli_x = reshape((/  0,  1,  1,  0 /), (/2,2/))
+  complex*16, public, dimension(2,2),   parameter :: pauli_y = reshape((/  0,  1, -1,  0 /) * zi, (/2,2/))
+  complex*16, public, dimension(2,2),   parameter :: pauli_z = reshape((/  1,  0,  0, -1 /), (/2,2/))
+  integer*4,  public, dimension(3,3,3), parameter :: levi_civita = reshape((/0,0,0, 0,0,-1, 0,1,0, & 
                                                                      0,0,1, 0,0,0, -1,0,0, & 
-                                                                     0,-1,0, 1,0,0, 0,0,0/)
-  integer*4,  public, dimension(3,2),   parameter :: cyclic_axis = (/2,3,1,3,1,2/)
+                                                                     0,-1,0, 1,0,0, 0,0,0/), (/3,3,3/))
+  integer*4,  public, dimension(3,2),   parameter :: cyclic_axis = reshape((/2,3,1,3,1,2/), (/3,2/))
 
   integer*4,  public, parameter   :: max_nparam = 500    !! maximum number of onsite and hopping parameters
   integer*4,  public, parameter   :: max_kpoint = 100000 !! maximum number of kpoints

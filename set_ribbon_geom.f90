@@ -5,7 +5,7 @@ subroutine set_ribbon_geom(PINPT)
    integer*4                 i,i_continue, linecount
    integer*4                 ispec, nspec, natom_spec(100),n_atom_unit, iatom, ld
    integer*4                 ix,iy,iz
-   real*8                    t_latt(3,3), t_latt_inv(3,3)
+   real*8                    t_latt_inv(3,3)
    character*132             filenm_unitcell,filenm_ribbon
    character*264             inputline, c_dummy
    character*40              desc_str

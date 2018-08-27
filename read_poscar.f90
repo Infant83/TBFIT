@@ -327,7 +327,6 @@ line: do
                  read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), desc_str, desc_str, desc_str, temp_orbital(1:PGEOM%n_orbital(i),i)
                else
                  read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), temp_orbital(1:PGEOM%n_orbital(i),i)
-write(6,*)"XXXXX", PGEOM%a_coord(1:3,i)
                endif
              endif
 
@@ -408,7 +407,6 @@ write(6,*)"XXXXX", PGEOM%a_coord(1:3,i)
       PGEOM%a_coord(2,i) = dot_product(t_latt_inv(2,:), t_coord(:))
       PGEOM%a_coord(3,i) = dot_product(t_latt_inv(3,:), t_coord(:))
       PGEOM%a_coord(:,i) = PGEOM%a_coord(:,i) - int(PGEOM%a_coord(:,i))
-write(6,*)"YYYYY", PGEOM%a_coord(1:3,i)
       do iorb=1,PGEOM%n_orbital(i)
         ii = ii + 1
         PGEOM%o_coord(:,ii) = PGEOM%a_coord(:,i)

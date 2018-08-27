@@ -11,7 +11,8 @@ subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   integer*4                   iorb
   integer*4                   pos_index(20), i_index, min_pos, n_flag_sel
   real*8, allocatable      :: local_charge_(:), local_moment_(:,:)
-  real*8                      t_latt(3,3), t_latt_inv(3,3)
+  real*8                      t_latt_inv(3,3)
+  real*8                      t_coord(3)
   character*264               inputline, str2lowcase
   character*132               fname, inputline_dummy, dummy
   character*40                desc_str,dummy1,dummy2,dummy3
@@ -326,6 +327,7 @@ line: do
                  read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), desc_str, desc_str, desc_str, temp_orbital(1:PGEOM%n_orbital(i),i)
                else
                  read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), temp_orbital(1:PGEOM%n_orbital(i),i)
+write(6,*)"XXXXX", PGEOM%a_coord(1:3,i)
                endif
              endif
 
@@ -396,16 +398,17 @@ line: do
   
 ! call check_sanity(PINOT,PGEOM) !!!!! for future work
   if(PGEOM%flag_cartesian) then
-    t_latt = transpose(PGEOM%a_latt)
-    t_latt_inv = inv(t_latt)
+    t_latt_inv = inv(PGEOM%a_latt)
     ii = 0
     allocate(PGEOM%o_coord(3,PGEOM%neig))
     allocate(PGEOM%o_coord_cart(3,PGEOM%neig))
     do i = 1, PGEOM%n_atom
-      PGEOM%a_coord(1,i) = dot_product(t_latt_inv(1,:), PGEOM%a_coord(:,i)) 
-      PGEOM%a_coord(2,i) = dot_product(t_latt_inv(2,:), PGEOM%a_coord(:,i))
-      PGEOM%a_coord(3,i) = dot_product(t_latt_inv(3,:), PGEOM%a_coord(:,i))
+      t_coord=PGEOM%a_coord(:,i)
+      PGEOM%a_coord(1,i) = dot_product(t_latt_inv(1,:), t_coord(:)) 
+      PGEOM%a_coord(2,i) = dot_product(t_latt_inv(2,:), t_coord(:))
+      PGEOM%a_coord(3,i) = dot_product(t_latt_inv(3,:), t_coord(:))
       PGEOM%a_coord(:,i) = PGEOM%a_coord(:,i) - int(PGEOM%a_coord(:,i))
+write(6,*)"YYYYY", PGEOM%a_coord(1:3,i)
       do iorb=1,PGEOM%n_orbital(i)
         ii = ii + 1
         PGEOM%o_coord(:,ii) = PGEOM%a_coord(:,i)

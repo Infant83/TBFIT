@@ -110,8 +110,8 @@ subroutine set_ribbon_geom(PINPT)
             if(i_dummy .ge. 4) then 
               read(inputline,*) coord_unit(1:3), desc_str
               if(flag_cartesian) then
-                t_latt = transpose(a_latt)
-                t_latt_inv = inv(t_latt)
+!               t_latt = transpose(a_latt)
+                t_latt_inv = inv(a_latt)
                 coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit(:))
                 coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit(:))
                 coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit(:))
@@ -125,8 +125,8 @@ subroutine set_ribbon_geom(PINPT)
             if(i_dummy .eq. 3) then 
               read(inputline,*) coord_unit(1:3)
               if(flag_cartesian) then
-                t_latt = transpose(a_latt)
-                t_latt_inv = inv(t_latt)
+!               t_latt = transpose(a_latt)
+                t_latt_inv = inv(a_latt)
                 coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit(:))
                 coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit(:))
                 coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit(:))

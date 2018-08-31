@@ -71,6 +71,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_efield_frac = .false.
   PINPT%flag_efield_cart = .false.
 
+  PINPT_BERRY%flag_wcc_phase = .false.
+  PINPT_BERRY%flag_bc_phase  = .false.
+  PINPT_BERRY%flag_z2_phase  = .false.
+  PINPT_BERRY%flag_zak_phase = .false.
+
   flag_read_energy=.false.
   flag_kfile_ribbon=.false.
   PINPT%gfilenm='POSCAR-TB' !default

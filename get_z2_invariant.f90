@@ -50,7 +50,7 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    if_main write(6,'(A)')'START: Z2 EVALUATION'
    if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_z2_range))
 
-   flag_phase = .FALSE.
+   flag_phase = PINPT_BERRY%flag_z2_phase
 !  flag_phase = .TRUE. 
    flag_get_chern = PINPT_BERRY%flag_z2_get_chern
    if(size(PINPT_BERRY%z2_axis) .eq. 3) nplane = 2
@@ -66,7 +66,7 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    shift(:)       = (/0d0,0.5d0/)
    fnm_header     = PINPT_BERRY%z2_filenm
    fnm_gap_header = PINPT_BERRY%z2_gap_filenm
-   
+   z2_bulk        = 0
 
    if(z2_dimension .ge. 2) then
 axis:do ix = 1, size(z2_axis)
@@ -137,6 +137,7 @@ subroutine write_z2_index(nspin, z2_dimension, z2_bulk)
        write(6,'(A,A)',ADVANCE='no')'  For spin-',cspin(is)
      endif
      if(z2_dimension .eq. 3) then
+       z2_bulk(0,is) = mod(z2_bulk(0,is),2)
        write(6,'(A,4(I1,A))')'  BULK TOPOLOGICAL INDEX: [v0; v1, v2, v3] = [',z2_bulk(0,is),'; ',z2_bulk(1,is),', ', &
                                                                      z2_bulk(2,is),', ',z2_bulk(3,is),']'
      elseif(z2_dimension .le. 2) then
@@ -173,8 +174,10 @@ subroutine get_z2_fname(fname, fnm_header, ip, iaxis)
    caxis(1) ='B1' ;caxis(2)='B2';caxis(3)='B3'
    cplane(1)='0.0';cplane(2)='0.5'
 
-   write(fname,'(10A)')trim(fnm_header),'.',cplane(ip),'-',caxis(iaxis),&
-         '.',caxis(cyclic_axis(iaxis,1)),'_',caxis(cyclic_axis(iaxis,2)),'-PLANE.dat'
+!  write(fname,'(10A)')trim(fnm_header),'.',cplane(ip),'-',caxis(iaxis),&
+!        '.',caxis(cyclic_axis(iaxis,1)),'_',caxis(cyclic_axis(iaxis,2)),'-PLANE.dat'
+!  write(fname,'(6A)')trim(fnm_header),'.',cplane(ip),'-',caxis(iaxis),'-PLANE.dat'
+   write(fname,'(6A)')trim(fnm_header),'.',cplane(ip),'-',caxis(iaxis),'.dat'
 
    return
 endsubroutine
@@ -185,12 +188,15 @@ subroutine store_z2_bulk_index(z2_bulk, z2_index, iaxis, iplane, nspin, z2_dimen
    integer*4    z2_bulk(0:4, nspin)
    integer*4    z2_dimension
 
-   if(z2_dimension .eq. 3 .and. iplane .eq. 2) then
-     z2_bulk(iaxis,:) = z2_index(:)
-   elseif(z2_dimension .eq. 3 .and. iplane .eq. 1 .and. iaxis .eq. 3) then
-     z2_bulk(0,:) = z2_index(:)
+   if(    z2_dimension .eq. 3 .and. iplane .eq. 2 .and. iaxis .ne. 3) then ! store kx1, ky1
+     z2_bulk(iaxis,:) =                z2_index(:)
+   elseif(z2_dimension .eq. 3 .and. iplane .eq. 2 .and. iaxis .eq. 3) then ! store kz1 and add to kz0
+     z2_bulk(iaxis,:) =                z2_index(:)
+     z2_bulk(0    ,:) = z2_bulk(0,:) + z2_index(:)
+   elseif(z2_dimension .eq. 3 .and. iplane .eq. 1 .and. iaxis .eq. 3) then ! store kz0 and add to kz0
+     z2_bulk(0    ,:) = z2_bulk(0,:) + z2_index(:)
    elseif(z2_dimension .le. 2) then
-     z2_bulk(0,:) = z2_index(:)
+     z2_bulk(0    ,:) =                z2_index(:)
    endif
 
    return

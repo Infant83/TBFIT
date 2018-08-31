@@ -26,7 +26,8 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    real*8           wcc_(PINPT_BERRY%wcc_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%wcc_nkpath)
 #endif
    real*8           kpoint(3,PINPT_BERRY%wcc_nkdiv,PINPT_BERRY%wcc_nkpath)
-   logical          flag_phase, flag_get_chern
+   logical          flag_phase
+   logical          flag_get_chern, flag_get_chern_spin
 
 #ifdef MPI
    if_main time1 = MPI_Wtime()
@@ -50,9 +51,10 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    endif
 
    PINPT_BERRY%wcc = 0d0 
-   flag_phase = .FALSE. 
+   flag_phase = PINPT_BERRY%flag_wcc_phase
 !  flag_phase = .TRUE.  
-   flag_get_chern = PINPT_BERRY%flag_wcc_get_chern
+   flag_get_chern      = PINPT_BERRY%flag_wcc_get_chern
+   flag_get_chern_spin = PINPT_BERRY%flag_wcc_get_chern_spin
    wcc = 0d0
 #ifdef MPI
    wcc_= 0d0

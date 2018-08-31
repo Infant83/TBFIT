@@ -80,7 +80,7 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    kpoint = PKPTS%kpoint   ; nkpoint = PKPTS%nkpoint
    neig   = PGEOM%neig     ; ispinor = PINPT%ispinor
    msize  = neig * ispinor ; omega   = 0d0
-   flag_phase = .FALSE.
+   flag_phase = PINPT_BERRY%flag_bc_phase
 !  flag_phase = .TRUE. 
 
 sp:do is = 1, PINPT%nspin

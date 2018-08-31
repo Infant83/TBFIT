@@ -12,6 +12,7 @@ function tij_sk(NN_TABLE,ii,PINPT,tol)
   character*8  ci_orb,cj_orb
   character*20 site_index
   real*8, external:: f_s
+  real*8, external:: f_s2
   real*8, external:: e_onsite_xx
 
   ! NN_TABLE%sk_set_index(0:6,nn)
@@ -498,7 +499,34 @@ function f_s(dda_s,d0,d, mode)
 !  elseif(mode .eq. 4)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
    endif
-
-
 return
 endfunction
+function f_s2(dda_s, dda_s2, d0, d, mode)
+   implicit none
+   integer*4 mode
+   real*8    f_s2
+   real*8    dda_s, dda_s2, d0,d
+
+! mode : scaling function
+! 11 = see Ref. PRB 85.195458 (2012): for interlayer pz-pz interaction of twisted BL graphene
+!    f_s=exp( (-D+D0) / (SFACTOR(1)) )
+! 12 = see Ref. PRB 92.205108 (2015): for interlayer p-p interaction of layered TMDC material
+!    f_s=exp( -(d/d0)^(SFACTOR(1)) )
+! 13 = see PRB 51.16772 (1995): for s-p or p-p interaction of Silicon or Germanium crystal
+!    f_s=(d0/d)^(SFACTOR(1))
+! 14 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
+!      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c
+!    f_s=(d0/d)^(SFACTOR(1))*exp(SFACTOR(1)*( -(d/SFACTOR(2))^(SFACTOR(3)) + -(d0/SFACTOR(2))^(SFACTOR(3)) ))
+
+   if(mode .eq. 11) then
+     f_s2 = Exp( (d0 - d)/(dda_s*d0) ) * dda_s2
+   elseif(mode .eq. 12) then
+     f_s2 = Exp( -(d/d0)**dda_s )
+   elseif(mode .eq. 13) then
+     f_s2 = (d0/d)**(dda_s)
+!  elseif(mode .eq. 14)
+!    f_s2 = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
+   endif
+return
+endfunction
+

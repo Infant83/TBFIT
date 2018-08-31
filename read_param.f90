@@ -8,9 +8,10 @@ subroutine read_param(PINPT, param_const)
    integer*4       i_continue
    real*8          param_const(5,max_nparam)
    character*132   inputline
-   character*40    desc_str, dummy
-   logical         flag_skip
-   external        nitems
+   character*40    desc_str, dummy, dummy2
+   real*8          r_dummy
+   logical         flag_skip, flag_number
+   external        nitems, flag_number
   
    ! start reading basic information
    open(pid_param,FILE=PINPT%pfilenm,status='old',iostat=i_continue)
@@ -61,18 +62,44 @@ subroutine read_param(PINPT, param_const)
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      i_dummy = nitems(inputline) - 1
+
      if(i_dummy .eq. 1) then
        read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i)
+
      elseif( i_dummy .eq. 2) then
        read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy
        dummy = trim(dummy)
+       if(.not. flag_number(dummy) ) then
+         if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
+           param_const(4,i) = 1d0
+           param_const(5,i) = PINPT%param(i)
+         elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
+           param_const(4,i) = 0d0
+         endif
+       elseif( flag_number(dummy) ) then
+         call str2real(dummy, r_dummy)
+         PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
+       endif
+
+     elseif( i_dummy .eq. 3) then
+       read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy2, dummy
+       dummy2= trim(dummy2)
+       if(.not.flag_number(dummy2)) stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+       dummy = trim(dummy)
+       if(flag_number(dummy))     stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+
+       call str2real(dummy2, r_dummy)
+       PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
+
        if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
          param_const(4,i) = 1d0
          param_const(5,i) = PINPT%param(i)
        elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
          param_const(4,i) = 0d0
        endif
+
      endif
+
    enddo
    close(pid_param)
 

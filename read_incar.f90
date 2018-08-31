@@ -202,8 +202,10 @@ mode: select case ( trim(plot_mode) )
       integer*4     nitems
       character*132 inputline
       character*40  desc_str
-      character*40  dummy
-      external      nitems
+      character*40  dummy, dummy2
+      real*8        r_dummy
+      logical       flag_number
+      external      nitems, flag_number
       real*8        param_const(5,max_nparam)
       character(*), parameter :: func = 'set_tbparam'
 
@@ -253,11 +255,39 @@ mode: select case ( trim(plot_mode) )
             if (desc_str .eq. 'END' ) exit   ! finish reading TB-parameters
             i=i+1
             i_dummy = nitems(inputline) - 1
+
             if(i_dummy .eq. 1) then
               read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i)
+
             elseif( i_dummy .eq. 2) then
               read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy
               dummy = trim(dummy)
+              if(.not. flag_number(dummy)) then
+                if(.not. PINPT%flag_pfile) then
+                  if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
+                    param_const(4,i) = 1d0
+                    param_const(5,i) = PINPT%param(i)
+                  elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
+                    param_const(4,i) = 0d0
+                  endif
+                endif
+              elseif(flag_number(dummy)) then
+                if(.not. PINPT%flag_pfile) then
+                  call str2real(dummy, r_dummy)
+                  PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
+                endif
+              endif
+
+            elseif( i_dummy .eq. 3) then
+              read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy2, dummy
+              dummy2= trim(dummy2)
+              if(.not.flag_number(dummy2)) stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+              dummy = trim(dummy)
+              if(flag_number(dummy))     stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+
+              call str2real(dummy2, r_dummy)
+              PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
+              
               if(.not. PINPT%flag_pfile) then
                 if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
                   param_const(4,i) = 1d0
@@ -266,6 +296,7 @@ mode: select case ( trim(plot_mode) )
                   param_const(4,i) = 0d0
                 endif
               endif
+
             endif
           enddo
           PINPT%flag_pincar = .true.
@@ -938,6 +969,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               if_main write(6,'(3A)')'GET_CHERN: (Z2 SET) .FALSE.'
             endif
 
+          case('SET_PHASE')
+            read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_z2_phase
+
         end select
 
       enddo set_wann
@@ -1007,6 +1041,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%wcc_gap_filenm= 'WCC.GAP.dat' ! default
       PINPT_BERRY%wcc_kpath_shift = (/0d0,0d0,0d0/) ! default
       PINPT_BERRY%flag_wcc_get_chern = .false. ! default
+      PINPT_BERRY%flag_wcc_get_chern_spin = .false. ! default
       ikpath = 0
       ik = 0
 
@@ -1060,10 +1095,21 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('GET_CHERN','WCC_CHERN')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_get_chern
             if(PINPT_BERRY%flag_wcc_get_chern) then
-              if_main write(6,'(3A)')'GET_CHERN: (WCC SET) .TRUE. (evaluate Chern number for the bands with ERANGE)'
+              if_main write(6,'(3A)')'GET_CHERN: (WCC SET) .TRUE. (Chern number for the bands with ERANGE)'
             else
               if_main write(6,'(3A)')'GET_CHERN: (WCC SET) .FALSE.'
             endif
+
+          case('GET_CHERN_SPIN','WCC_CHERN_SPIN', 'GET_SPIN_CHERN', 'WCC_SPIN_CHERN')
+            read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_get_chern_spin
+            if(PINPT_BERRY%flag_wcc_get_chern_spin) then
+              if_main write(6,'(3A)')'GET_CHERN:  SPIN_CHERN .TRUE. (WCC SET) (spin Chern number for the bands with ERANGE)'
+            else
+              if_main write(6,'(3A)')'GET_CHERN:  SPIN_CHERN .FALSE. (WCC SET)'
+            endif
+
+          case('SET_PHASE')
+            read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_phase
 
         end select
 
@@ -1184,6 +1230,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             elseif(i_dummy .eq. 2) then
               read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkdiv2
             endif
+
+          case('SET_PHASE')
+            read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_zak_phase
 
         end select
        
@@ -1405,6 +1454,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               endif
             endif
 
+          case('SET_PHASE')
+            read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_bc_phase
+
         end select
       enddo set_berryc
 
@@ -1514,7 +1566,6 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
-      real*8        param_const(5,max_nparam)
       character(*), parameter :: func = 'set_kpoint_file'
       logical       flag_kfile_ribbon 
 

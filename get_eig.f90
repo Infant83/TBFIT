@@ -142,15 +142,15 @@ subroutine set_ham0(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
 
     if(PINPT%flag_slater_koster) then
       if(flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol) * FIJ( kpoint, NN_TABLE%Rij(1:3,nn))
       elseif(.not. flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol) * FIJ( kpoint, NN_TABLE%R  (1:3,nn))
       endif
     elseif(.not.PINPT%flag_slater_koster) then
       if(flag_phase) then
-        Eij = tij_cc(NN_TABLE,nn,PINPT,tol) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
+        Eij = tij_cc(NN_TABLE,nn,PINPT,tol) * FIJ( kpoint, NN_TABLE%Rij(1:3,nn))
       elseif(.not. flag_phase) then
-        Eij = tij_cc(NN_TABLE,nn,PINPT,tol) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
+        Eij = tij_cc(NN_TABLE,nn,PINPT,tol) * FIJ( kpoint, NN_TABLE%R  (1:3,nn))
       endif
     endif
 

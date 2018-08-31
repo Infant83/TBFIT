@@ -125,7 +125,7 @@ subroutine get_overlap_matrix(M, V, phase_shift, neig, nerange)
    M = (0d0,0d0)
    do j = 1, nerange
      do i = 1, nerange
-        M(i,j) = dot_product(V(:,i,1), V(:,j,2) )!*phase_shift)
+        M(i,j) = dot_product(V(:,i,1), V(:,j,2) )
 !       M(i,j) = dot_product(V(:,i,1), V(:,j,2) *phase_shift)
      enddo
    enddo

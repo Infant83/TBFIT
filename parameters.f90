@@ -257,6 +257,11 @@ module parameters
        integer*4                     wcc_nkpath
        integer*4                     wcc_direction
        character*256                 strip_wcc_range
+       logical                       flag_wcc_phase
+       logical                       flag_wcc_get_chern
+       logical                       flag_wcc_get_chern_spin
+       real*8,      allocatable   :: wcc_polarization(:,:)   ! (nspin, nkpath)
+       real*8,      allocatable   :: wcc_chern(:)           ! chern number (nspin)
 
        logical                       flag_zak_evolve
        character*40                  zak_filenm 
@@ -272,10 +277,8 @@ module parameters
        integer*4                     zak_direction
        character*256                 strip_zak_range
        real*8,      allocatable   :: polarization(:)
-       real*8,      allocatable   :: wcc_polarization(:,:)   ! (nspin, nkpath)
-       logical                       flag_wcc_get_chern
-       real*8,      allocatable   :: wcc_chern(:)           ! chern number (nspin)
-
+       logical                       flag_zak_phase
+ 
 
 !      logical                       
        character*256                 strip_z2_range
@@ -291,6 +294,7 @@ module parameters
        logical                       flag_z2_get_chern
        real*8,      allocatable   :: z2_chern(:,:,:)           ! chern number (nspin, nplane, naxis)
        real*8,      allocatable   :: z2_polarization(:,:,:,:)           ! chern number (nspin, nkpath, nplane, naxis)
+       logical                       flag_z2_phase
 
        character*40                  bc_filenm 
        logical                       flag_bc_filenm_provided
@@ -303,6 +307,7 @@ module parameters
        real*8,      allocatable   :: berrycurv(:,:,:) ! (:,:,:) = (1:3 ->Omega_x:z, nkpoints, erange)
        real*8,      allocatable   :: omega(:,:,:,:) ! (neig * ispinor, 3, nspin, nkpoint)
        character*256                 strip_bc_range
+       logical                       flag_bc_phase
 
   endtype berry
 endmodule 

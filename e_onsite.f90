@@ -34,6 +34,25 @@ function e_onsite_xx(ci_orb,cj_orb,PINPT,site_index)
 
 site:  select case( trim(site_index) )
  
+         ! case 'bulk' is only for 1T-TaS2 system
+         case ('bulk', 'ta1')
+           ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
+           ! PARAMETER file with 19-th variable.
+!          call tuned_onsite(PINPT, 0, H)
+           if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
+             ptmp1= PINPT%param(e_xp1_center)
+             if( nint(PINPT%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_center)
+             e_onsite_xx = ptmp1
+!            e_onsite_xx = H(1)
+           elseif( ( trim(ci_orb) .eq. trim(cj_orb) )  .and. &
+                   ((trim(ci_orb) .eq. 'xp2') .or. (trim(ci_orb) .eq. 'xp3')) ) then
+             ptmp1= PINPT%param(e_xp2_center)
+             if( nint(PINPT%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_center)
+             e_onsite_xx = ptmp1
+!            e_onsite_xx = H(2)
+           endif
+
+         ! Below cases are particulary for David-Star TaS2 system
          case ('center')
            ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
            ! PARAMETER file with 19-th variable.

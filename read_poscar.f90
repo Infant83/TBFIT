@@ -490,6 +490,11 @@ line: do
   endif
   close(pid_geom)
 
+#ifdef SPGLIB
+  ! get space group information by SPGLIB
+  call get_symmetry_info(PGEOM)
+#endif
+
   if(myid .eq. 0) write(6,*)'*- END READING GEOMETRY FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '
 

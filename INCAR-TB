@@ -1,53 +1,40 @@
-# Non-linear least squares minimiation method and its input variables
-  TBFIT  F       #
- K_UNIT  Angstrm # kpoint unit for output file: ANGSTROM (1/A); default = Angstrom
-  PFILE  PARAM_FIT.dat   # initial sk-parameter will be read from this file
- POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
-  IS_SK  .TRUE.          # parameter type: is it 'Slater-Koster;sk' type
+# SETUP for GRAPHENE
+  K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+   PFILE  PARAM_FIT.dat    # initial sk-parameter will be read from this file
+   IS_SK  .TRUE.   # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
 
- LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
- TYPMAG  noncol     # set type of magnetic moment: nonmagnetic, collinear, noncollinear
-  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
-#LORBIT  .TRUE.     # set orbital decomposed band structure
+   GFILE  POSCAR-TB       # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+   KFILE  KPOINTS_BAND     # default: KPOINTS_BAND
 
-### FOR RIBBON ##############################################################################################
-  GFILE  POSCAR-TB-ribbon    # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
-# GFILE  POSCAR-TB           # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
-  KFILE  KPOINTS_BAND # default: KPOINTS_BAND
-##########################################################################################################
-
-### set NN-pair information ##############################################################################
-    SET  NN_CLASS  
-         Bi-Bi     : 3.3  R0 3.12019              # maximum distance of 1nn and original distance R1
-         Bi--Bi    : 4.7  R0 4.61269              # maximum distance of 1nn and original distance R1
-         Bi---Bi   : 5.6  R0 5.56889              # maximum distance of 1nn and original distance R1
+  LOCCHG  .TRUE. 
+  TYPMAG  noncol    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+   LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+  LORBIT  .TRUE.     #mz     # set orbital decomposed band structure
+GET_BAND  .TRUE. 
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.8    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
     END  NN_CLASS
-##########################################################################################################
 
-### set parameter constraint ##############################################################################
-#   SET  CONSTRAINT TBPARAM
-#        e_py_Bi  = e_px_Bi    
-#   END  CONSTRAINT TBPARAM
-##########################################################################################################
+    SET  ZAK_PHASE # setup for Zak phase evaluation
+         ZAK_ERANGE 1:8  # up to occupied states!! (very important)
+         ZAK_FNAME  ZAK.OUT.dat #output FNAME "name"
+         ZAK_KPATH    0.0  0 0  1.0   0 0  
+         ZAK_DIREC    2
+         ZAK_NKDIV   21 111 # number of division of the k-path (odd number suggested)
+    END  ZAK_PHASE
 
-### set ribbon geometry ###################################################################################
-#   SET  RIBBON
-#        NSLAB    4  1  1    # multiplication of unitcell along each direction
-#        VACUUM  10  0  0     # apply vacuum region along each direction 
-#        KFILE_R KPOINTS_BAND # KPOINTS file for ribbon band structure
-##       PRINT_ONLY_R .TRUE.
-#   END  RIBBON
-##########################################################################################################
+    SET  Z2_INDEX # setup for evaluating topological index
+         Z2_ERANGE    1:8   # up to occupied states!! (very important)
+         Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
+         Z2_NKDIV    21 111  # number of division of the k-path (odd number suggested)
+         GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
+    END  Z2
 
-#   SET  Z2_INDEX # setup for evaluating topological index
-#        Z2_ERANGE    1:10  # up to occupied states!! (very important)
-#        Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
-#        Z2_NKDIV    42 411  # number of division of the k-path (odd number suggested)
-#        GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
-#   END  Z2
-
-    SET  EFIELD
-         EFIELD     0 0 0.05
-         EF_ORIGIN  0 0  .06782332921845835000   # or EF_CENTER (in fractional coordinate)
-    END  EFIELD
-
+    SET  PARITY_CHECK # Note: Only meaningful when your system have inversion symmetry
+         PARITY_KP     0.0 0.0 0.0  G     # Gamma reciprocal unit 
+         PARITY_KP     0.5 0.0 0.0  M1    # M1    reciprocal unit 
+         PARITY_KP     0.0 0.5 0.0  M2    # M1    reciprocal unit 
+         PARITY_KP     0.5 0.5 0.0  M3    # M1    reciprocal unit 
+         ORIGIN_SHIFT  0.5 0  0           # Origin of the system (direct coord)
+    END

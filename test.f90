@@ -1,20 +1,26 @@
 subroutine test ()
-   use parameters, only:zi
    implicit none
-   real*8  A
+   integer*4  W(3,3)
+   real*8     T(3)
+   real*8     R(3)
+   real*8     R_(3)
+
+   W(1,:) = (/0, -1, 0/)
+   W(2,:) = (/1,  1, 0/)
+   W(3,:) = (/0,  0, 1/)
+
+   T(1)   = 0d0
+   T(2)   = 1d0/2d0
+   T(3)   = 0d0
   
-   
+   R(1)   = 1d0/6d0
+   R(2)   = 1d0/6d0
+   R(3)   = 0d0
 
-!  CALL init_random_seed()         ! see example of RANDOM_SEED
-!  A = 10
-!  call rand(0)
-!  call rand(1)
-!  call RANDOM_NUMBER(A)
+   R_ = matmul(W,R) + T
+ 
+   write(6,*)"XXXX", mod(R_ + 1d0,1d0)
 
-!  write(6,*)"XXXX", A
-
-      stop
-
+stop
 return
 endsubroutine
-

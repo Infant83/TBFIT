@@ -113,7 +113,6 @@ sk: select case ( NN_TABLE%p_class(ii) )
       case ('ss')
         if    (ci_orb(1:1) .eq. 's' .and. cj_orb(1:1) .eq. 's') then
           tij_sk = s
-          exit sk
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
           write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
@@ -124,30 +123,24 @@ sk: select case ( NN_TABLE%p_class(ii) )
       case ('pp') 
         if    (ci_orb(1:2) .eq. 'px' .and. cj_orb(1:2) .eq. 'px') then
           tij_sk = ll*s + (1d0-ll)*p 
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py' .and. cj_orb(1:2) .eq. 'py') then
           tij_sk = mm*s + (1d0-mm)*p 
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz' .and. cj_orb(1:2) .eq. 'pz') then
           tij_sk = nn*s + (1d0-nn)*p 
-          exit sk
 
         elseif( (ci_orb(1:2) .eq. 'px' .and. cj_orb(1:2) .eq. 'py') .or. &
                 (ci_orb(1:2) .eq. 'py' .and. cj_orb(1:2) .eq. 'px') ) then
           tij_sk = lm*(s - p)
-          exit sk
 
         elseif( (ci_orb(1:2) .eq. 'px' .and. cj_orb(1:2) .eq. 'pz') .or. &
                 (ci_orb(1:2) .eq. 'pz' .and. cj_orb(1:2) .eq. 'px') ) then
           tij_sk = ln*(s - p)
-          exit sk
 
         elseif( (ci_orb(1:2) .eq. 'py' .and. cj_orb(1:2) .eq. 'pz') .or. &
                 (ci_orb(1:2) .eq. 'pz' .and. cj_orb(1:2) .eq. 'py') ) then
           tij_sk = mn*(s - p)
-          exit sk
      
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
@@ -159,73 +152,58 @@ sk: select case ( NN_TABLE%p_class(ii) )
       case ('dd')
         if    (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:3) .eq. 'dz2') then
           tij_sk = ((nn-0.5d0*lmp)**2)*s + 3d0*nn*lmp*p + 0.75d0*(lmp**2)*d
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:3) .eq. 'dx2') then
           tij_sk = 0.75d0*(lmm**2)*s + (lmp-(lmm**2))*p + (nn+0.25d0*(lmm**2))*d
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:3) .eq. 'dxy') then
           tij_sk = 3d0*(lm**2)*s + (lmp-4d0*(lm**2))*p + (nn+(lm**2))*d
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:3) .eq. 'dxz') then
           tij_sk = 3d0*ll*nn*s + (ll+nn - 4d0*ll*nn)*p + (mm+ll*nn)*d 
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:3) .eq. 'dyz') then
           tij_sk = 3d0*mm*nn*s + (mm+nn - 4d0*mm*nn)*p + (ll+mm*nn)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:3) .eq. 'dx2') .or. &
                 (ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:3) .eq. 'dz2') ) then
           tij_sk = sin(pi/3d0)*lmm*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*nn*lmm*p + sin(pi/3d0)/2d0*(1d0+nn)*lmm*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:3) .eq. 'dxy') .or. &
                 (ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:3) .eq. 'dz2') ) then
           tij_sk = 2d0*sin(pi/3d0)*lm*(nn-0.5d0*lmp)*s - 4d0*sin(pi/3d0)*lm*nn*p + sin(pi/3d0)*lm*(1d0+nn)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:3) .eq. 'dxz') .or. &
                 (ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:3) .eq. 'dz2') ) then
           tij_sk = 2d0*sin(pi/3d0)*ln*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*ln*(lmp-nn)*p - sin(pi/3d0)*ln*lmp*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:3) .eq. 'dyz') .or. &
                 (ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:3) .eq. 'dz2') ) then
           tij_sk = 2d0*sin(pi/3)*mn*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*mn*(lmp-nn)*p - sin(pi/3d0)*mn*lmp*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:3) .eq. 'dxy') .or. &
                 (ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:3) .eq. 'dx2') ) then
           tij_sk = 1.5d0*lm*lmm*s - 2d0*lm*lmm*p + 0.5d0*lm*lmm*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:3) .eq. 'dxz') .or. &
                 (ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:3) .eq. 'dx2') ) then
           tij_sk = 1.5d0*ln*lmm*s + ln*(1d0-2d0*lmm)*p - ln*(1d0-0.5d0*lmm)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:3) .eq. 'dyz') .or. &
                 (ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:3) .eq. 'dx2') ) then
           tij_sk = 1.5d0*mn*lmm*s - mn*(1d0+2d0*lmm)*p + mn*(1d0+0.5d0*lmm)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:3) .eq. 'dxz') .or. &
                 (ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:3) .eq. 'dxy') ) then
           tij_sk = 3d0*ll*mn*s + mn*(1d0-4d0*ll)*p + mn*(ll-1d0)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:3) .eq. 'dyz') .or. &
                 (ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:3) .eq. 'dxy') ) then
           tij_sk = 3d0*ln*mm*s + ln*(1d0-4d0*mm)*p + ln*(mm-1d0)*d
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:3) .eq. 'dyz') .or. &
                 (ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:3) .eq. 'dxz') ) then
           tij_sk = 3d0*lm*nn*s + lm*(1d0-4d0*nn)*p + lm*(nn-1d0)*d
-          exit sk
 
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
@@ -237,27 +215,21 @@ sk: select case ( NN_TABLE%p_class(ii) )
       case ('sp')
         if    (ci_orb(1:1) .eq. 's' .and. cj_orb(1:2) .eq. 'px') then
           tij_sk = l*s
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'px' .and. cj_orb(1:1) .eq. 's') then
           tij_sk =-l*s
-          exit sk
 
         elseif(ci_orb(1:1) .eq. 's' .and. cj_orb(1:2) .eq. 'py') then
           tij_sk = m*s
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py' .and. cj_orb(1:1) .eq. 's') then
           tij_sk =-m*s
-          exit sk
 
         elseif(ci_orb(1:1) .eq. 's' .and. cj_orb(1:2) .eq. 'pz') then
           tij_sk = n*s
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz' .and. cj_orb(1:1) .eq. 's') then
           tij_sk =-n*s
-          exit sk
 
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
@@ -270,27 +242,22 @@ sk: select case ( NN_TABLE%p_class(ii) )
         if    ( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dz2') .or. &
                 (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = (nn-0.5d0*lmp)*s
-          exit sk
 
         elseif( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dx2') .or. &
                 (ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = sin(pi/3d0)*lmm*s
-          exit sk
 
         elseif( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dxy') .or. &
                 (ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = 2d0*sin(pi/3d0)*lm*s
-          exit sk
 
         elseif( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dxz') .or. &
                 (ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = 2d0*sin(pi/3d0)*ln*s
-          exit sk
 
         elseif( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dyz') .or. &
                 (ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = 2d0*sin(pi/3d0)*mn*s
-          exit sk
 
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
@@ -302,108 +269,78 @@ sk: select case ( NN_TABLE%p_class(ii) )
       case ('pd')
         if    (ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dz2' ) then
           tij_sk = l*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*l*nn*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:2) .eq. 'px'  ) then
           tij_sk =-l*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*l*nn*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dx2' ) then
           tij_sk = sin(pi/3d0)*l*lmm*s + l*(1d0-lmm)*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:2) .eq. 'px'  ) then
           tij_sk =-sin(pi/3d0)*l*lmm*s - l*(1d0-lmm)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dxy' ) then
           tij_sk = 2d0*sin(pi/3d0)*ll*m*s + m*(1d0-2d0*ll)*p 
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:2) .eq. 'px'  ) then
           tij_sk =-2d0*sin(pi/3d0)*ll*m*s - m*(1d0-2d0*ll)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dxz' ) then
           tij_sk = 2d0*sin(pi/3d0)*ll*n*s + n*(1d0-2d0*ll)*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:2) .eq. 'px'  ) then
           tij_sk =-2d0*sin(pi/3d0)*ll*n*s - n*(1d0-2d0*ll)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dyz' ) then
           tij_sk = 2d0*sin(pi/3d0)*lm*n*s - 2d0*lm*n*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:2) .eq. 'px'  ) then
           tij_sk =-2d0*sin(pi/3d0)*lm*n*s + 2d0*lm*n*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py'  .and. cj_orb(1:3) .eq. 'dz2' ) then
           tij_sk = m*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*m*nn*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:2) .eq. 'py'  ) then
           tij_sk =-m*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*m*nn*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py'  .and. cj_orb(1:3) .eq. 'dx2' ) then
           tij_sk = sin(pi/3d0)*m*lmm*s - m*(1d0+lmm)*p 
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:2) .eq. 'py'  ) then
           tij_sk =-sin(pi/3d0)*m*lmm*s + m*(1d0+lmm)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py'  .and. cj_orb(1:3) .eq. 'dxy' ) then
           tij_sk = 2d0*sin(pi/3d0)*mm*l*s + l*(1d0-2d0*mm)*p 
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:2) .eq. 'py'  ) then
           tij_sk =-2d0*sin(pi/3d0)*mm*l*s - l*(1d0-2d0*mm)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py'  .and. cj_orb(1:3) .eq. 'dxz' ) then
           tij_sk = 2d0*sin(pi/3d0)*mn*l*s - 2d0*mn*l*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:2) .eq. 'py'  ) then
           tij_sk =-2d0*sin(pi/3d0)*mn*l*s + 2d0*mn*l*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'py'  .and. cj_orb(1:3) .eq. 'dyz' ) then
           tij_sk = 2d0*sin(pi/3d0)*mm*n*s + n*(1d0-2d0*mm)*p 
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:2) .eq. 'py'  ) then
           tij_sk =-2d0*sin(pi/3d0)*mm*n*s - n*(1d0-2d0*mm)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz'  .and. cj_orb(1:3) .eq. 'dz2' ) then
           tij_sk = n*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*n*lmp*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:2) .eq. 'pz'  ) then
           tij_sk =-n*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*n*lmp*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz'  .and. cj_orb(1:3) .eq. 'dx2' ) then
           tij_sk = sin(pi/3d0)*n*lmm*s - n*lmm*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dx2' .and. cj_orb(1:2) .eq. 'pz'  ) then
           tij_sk =-sin(pi/3d0)*n*lmm*s + n*lmm*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz'  .and. cj_orb(1:3) .eq. 'dxy' ) then
           tij_sk = 2d0*sin(pi/3d0)*ln*m*s - 2d0*ln*m*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxy' .and. cj_orb(1:2) .eq. 'pz'  ) then
           tij_sk =-2d0*sin(pi/3d0)*ln*m*s + 2d0*ln*m*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz'  .and. cj_orb(1:3) .eq. 'dxz' ) then
           tij_sk = 2d0*sin(pi/3d0)*nn*l*s + l*(1d0-2d0*nn)*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dxz' .and. cj_orb(1:2) .eq. 'pz'  ) then
           tij_sk =-2d0*sin(pi/3d0)*nn*l*s - l*(1d0-2d0*nn)*p
-          exit sk
 
         elseif(ci_orb(1:2) .eq. 'pz'  .and. cj_orb(1:3) .eq. 'dyz' ) then
           tij_sk = 2d0*sin(pi/3d0)*nn*m*s + m*(1d0-2d0*nn)*p
-          exit sk
         elseif(ci_orb(1:3) .eq. 'dyz' .and. cj_orb(1:2) .eq. 'pz'  ) then
           tij_sk =-2d0*sin(pi/3d0)*nn*m*s - m*(1d0-2d0*nn)*p
-          exit sk
 
         else
           write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
@@ -417,31 +354,26 @@ sk: select case ( NN_TABLE%p_class(ii) )
         ! xp1 = phi1 = dz2
         if    (ci_orb(1:3) .eq. 'xp1' .and. cj_orb(1:3) .eq. 'xp1') then
           tij_sk = ((nn-0.5d0*lmp)**2)*s + 3d0*nn*lmp*p + 0.75d0*(lmp**2)*d
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'xp2' .and. cj_orb(1:3) .eq. 'xp2') then
           tij_sk = 2.d0/3.d0 * ( 0.75d0*(lmm**2)*s + (lmp-(lmm**2))*p + (nn+0.25d0*(lmm**2))*d ) &
                +1.d0/3.d0 * ( 3d0*mm*nn*s + (mm+nn - 4d0*mm*nn)*p + (ll+mm*nn)*d ) &
                -2.d0/3.d0 * rt2 * ( 1.5d0*mn*lmm*s - mn*(1d0+2d0*lmm)*p + mn*(1d0+0.5d0*lmm)*d )
-          exit sk
 
         elseif(ci_orb(1:3) .eq. 'xp3' .and. cj_orb(1:3) .eq. 'xp3') then
           tij_sk = 2.d0/3.d0 * ( 3d0*(lm**2)*s + (lmp-4d0*(lm**2))*p + (nn+(lm**2))*d ) &
                +1.d0/3.d0 * ( 3d0*ll*nn*s + (ll+nn - 4d0*ll*nn)*p + (mm+ll*nn)*d ) &
                -2.d0/3.d0 * rt2 * ( 3d0*ll*mn*s + mn*(1d0-4d0*ll)*p + mn*(ll-1d0)*d )
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'xp1' .and. cj_orb(1:3) .eq. 'xp2') .or. &
                 (ci_orb(1:3) .eq. 'xp2' .and. cj_orb(1:3) .eq. 'xp1') ) then
           tij_sk =-1.d0/rt3 * ( rt2 * ( sin(pi/3d0)*lmm*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*nn*lmm*p + sin(pi/3d0)/2d0*(1d0+nn)*lmm*d ) &
                             -      ( 2d0*sin(pi/3)*mn*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*mn*(lmp-nn)*p - sin(pi/3d0)*mn*lmp*d ) )
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'xp1' .and. cj_orb(1:3) .eq. 'xp3') .or. &
                 (ci_orb(1:3) .eq. 'xp3' .and. cj_orb(1:3) .eq. 'xp1') ) then
           tij_sk = 1.d0/rt3 * (-rt2 * ( 2d0*sin(pi/3d0)*lm*(nn-0.5d0*lmp)*s - 4d0*sin(pi/3d0)*lm*nn*p + sin(pi/3d0)*lm*(1d0+nn)*d ) &
                             +      ( 2d0*sin(pi/3d0)*ln*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*ln*(lmp-nn)*p - sin(pi/3d0)*ln*lmp*d ) )
-          exit sk
 
         elseif( (ci_orb(1:3) .eq. 'xp2' .and. cj_orb(1:3) .eq. 'xp3') .or. &
                 (ci_orb(1:3) .eq. 'xp3' .and. cj_orb(1:3) .eq. 'xp2') ) then
@@ -449,7 +381,6 @@ sk: select case ( NN_TABLE%p_class(ii) )
                -1.d0/3.d0 * rt2 * ( 1.5d0*ln*lmm*s + ln*(1d0-2d0*lmm)*p - ln*(1d0-0.5d0*lmm)*d ) &
                -1.d0/3.d0 * rt2 * ( 3d0*ln*mm*s + ln*(1d0-4d0*mm)*p + ln*(mm-1d0)*d ) &
                +1.d0/3.d0 *       ( 3d0*lm*nn*s + lm*(1d0-4d0*nn)*p + lm*(nn-1d0)*d )
-          exit sk
 
         else
           write(6,'(A)')' !WARNING! SK_C energy integral is not properly defined or orbital name is improper.'

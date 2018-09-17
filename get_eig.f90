@@ -391,3 +391,52 @@ subroutine print_eig_status(ik, ii, iadd, cpercent, nkpoint)
 return
 endsubroutine
 
+subroutine get_hamk(Hk, NN_TABLE, PINPT, kp, is, neig, flag_phase)
+   use parameters, only: hopping, incar, pauli_0, pauli_x, pauli_y, pauli_z
+   use kronecker_prod, only: kproduct
+   use mpi_setup
+   use phase_factor
+   use do_math
+   implicit none
+   type (hopping) :: NN_TABLE
+   type (incar  ) :: PINPT
+   integer*4         neig
+   integer*4         mpierr
+   integer*4         ik, is
+   real*8            kp(3)
+   complex*16 H0(neig,neig)                             ! slater-koster hopping (k-dependent)
+   complex*16 Hk(neig*PINPT%ispinor,neig*PINPT%ispinor) ! total hamiltonian (k-dependent)
+   complex*16 Hm(neig*PINPT%ispinor,neig*PINPT%ispinor) ! collinear magnetism hamiltonian (k-independent)
+   complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
+   logical  flag_phase
+
+   if(PINPT%flag_collinear) then
+     call set_ham_mag(Hm, NN_TABLE, PINPT, neig)
+   elseif(PINPT%flag_noncollinear) then
+     call set_ham_mag(Hm, NN_TABLE, PINPT, neig)
+     if(PINPT%flag_soc .and. PINPT%flag_slater_koster) call set_ham_soc(Hs, 0d0, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+   endif
+
+
+   if(PINPT%flag_collinear) then
+     call set_ham0(H0, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+     Hk = H0 + ((-1d0)**(is+1)) * Hm
+
+   elseif(PINPT%flag_noncollinear) then
+     if(PINPT%flag_soc) then
+       !set up k-dependent SOC in the case of 'cc' orbitals
+       if(.not. PINPT%flag_slater_koster) call set_ham_soc(Hs, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+       call set_ham0(H0, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+       Hk = kproduct(pauli_0, H0, 2, 2, neig, neig) + Hm + Hs
+     else
+       call set_ham0(H0, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+       Hk = kproduct(pauli_0, H0, 2, 2, neig, neig) + Hm
+     endif
+
+   elseif(.not. PINPT%flag_collinear .and. .not. PINPT%flag_noncollinear) then
+     call set_ham0(Hk, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+   endif
+
+   return
+endsubroutine
+

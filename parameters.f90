@@ -1,6 +1,7 @@
 module parameters
   use mpi_setup
-
+  use iso_c_binding, only:  c_char, c_int, c_double, c_ptr, c_f_pointer
+  character*26, public, parameter ::alphabet='abcdefghijklmnopqrstuvwxyz'
   real*8    , public, parameter   ::      pi=4.d0*atan(1.d0) ! Leibniz's formula for Pi
   real*8    , public, parameter   ::     pi2=2.d0*pi
   real*8    , public, parameter   ::    bohr=0.52917721067d0 ! meter Bohr radius
@@ -10,7 +11,7 @@ module parameters
   real*8    , public, parameter   :: g_elect=2.0023193043617 !! g-factor[see Mol.Phys. 98, 1597(2000) for sign]
   real*8    , public, parameter   ::     rt2=sin( 4.d0*atan(1.d0)/4.d0 ) * 2.d0 ! sqrt(2)
   real*8    , public, parameter   ::     rt3=sin( 4.d0*atan(1.d0)/3.d0 ) * 2.d0 ! sqrt(3)
-  real*8    , public, parameter   :: onsite_tolerance= 0.001
+  real*8    , public, parameter   :: onsite_tolerance= 0.0001 !! symmetry precision
   real*8    , public, parameter   ::     eta=epsilon(1d0)
   complex*16, public, parameter   ::      zi=(0.d0,1.d0)
   complex*16, public, parameter   ::     pzi= pi*zi
@@ -29,7 +30,7 @@ module parameters
   integer*4,  public, parameter   :: max_set_weight = 100000  !! maximum number of "SET WEIGHT" tag
   integer*4,  public, parameter   :: max_pair_type  = 1000    !! maximum number of NN_CLASS pair type
   integer*4,  public, parameter   :: max_dummy      = 9999999 !! maximun number of dummy index for arbitral purpose   
-                              
+  integer*4,  public, parameter   :: max_nsym       = 1000000 !! maximun number of symmetry operation for SPGLIB
   integer*4,  public, parameter   :: pid_energy      = 30 
   integer*4,  public, parameter   :: pid_nntable     = 33
   integer*4,  public, parameter   :: pid_incar       = 78
@@ -105,6 +106,7 @@ module parameters
        logical                       flag_get_z2
        logical                       flag_get_berry_curvature, flag_berryc_separate
        logical                       flag_berry
+       logical                       flag_get_parity
 
        integer*4                     ispin   ! nonmag: 1, collinear: 2, non-collinear: 2
        integer*4                     ispinor ! nonmag: 1, collinear: 1, non-collinear: 2
@@ -160,7 +162,32 @@ module parameters
 
        real*8,      allocatable   :: local_charge(:,:)   ! local net charge (rho_up - rho_dn)
                                           
-
+       !SPGLIB related variables
+       integer*4                     spg_error
+       integer*4                     spg_space_group !space group index
+       integer*4                     spg_hall_number
+       integer*4                     spg_Hermann_Mauguin_number
+       real*8                        spg_transformation_matrix(3,3)
+       real*8                        spg_origin_shift(3)
+       integer*4                     spg_n_operations ! nsym, number of symmetry operations
+       character*11                  spg_international
+       character*17                  spg_hall_symbol
+       character*6                   spg_choice
+       character*6                   spg_point_group
+       character*12                  spg_crystal_system
+       integer*4,   allocatable   :: spg_rotations(:,:,:)   ! {->w,   t} (3,3,spg_n_operations)
+       real*8,      allocatable   :: spg_translations(:,:) !  {  w, ->t} (3,spg_n_operations)
+       integer*4,   allocatable   :: spg_wyckoffs(:)
+       integer*4,   allocatable   :: spg_equivalent_atoms(:) 
+       real*8,      allocatable   :: spg_a_coord_operated(:,:,:) ! (3,n_atom,spg_n_operations)
+       character*7                   spg_schoenflies
+       real*8                        spg_a_latt_primitive(3,3)
+       real*8,      allocatable   :: spg_a_coord_primitive(:,:) !(3,spg_n_atom_primitive)
+       integer*4,   allocatable   :: spg_spec_primitive(:)      !(  spg_n_atom_primitive)
+       integer*4                     spg_n_atom_primitive
+       integer*4,   allocatable   :: spg_det_w(:) ! (spg_n_operation) ! determinant of rotation w (1=proper, -1=improper)
+       integer*4,   allocatable   :: spg_tr_w(:) ! (spg_n_operation) ! trace of rotation w 
+       integer*4,   allocatable   :: spg_type_w(:) ! types of rotation operation of space group
   endtype poscar
 
   type kpoints !PKPTS
@@ -309,5 +336,13 @@ module parameters
        character*256                 strip_bc_range
        logical                       flag_bc_phase
 
+       real*8                        parity_origin(3) !direct coordinate of the orgiin of the system in the given unit cell
+       real*8                        parity_operator(3,3) 
+       integer*4                     parity_nkpoint
+       real*8,      allocatable   :: parity_kpoint(:,:) !(3,parity_nkpoint)
+       real*8,      allocatable   :: parity_kpoint_reci(:,:) !(3,parity_nkpoint)
+       character*10,allocatable   :: parity_kpoint_name(:)
+
   endtype berry
+
 endmodule 

@@ -99,12 +99,10 @@ sp:do is = 1, PINPT%nspin
    call MPI_Reduce(omega, omega_, size(omega), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
    if_main omega = omega_
    PINPT_BERRY%omega = omega
-!  if_main call get_1st_chern_number(PINPT, PINPT_BERRY, PKPTS, PGEOM)
    if_main call print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, ETBA%E, 'total')
    if_main call print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, ETBA%E, 'range')
 #else
    PINPT_BERRY%omega = omega
-!  call get_1st_chern_number(PINPT, PINPT_BERRY, PKPTS, PGEOM)
    call print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, ETBA%E, 'total')
    call print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, ETBA%E, 'range')
 #endif

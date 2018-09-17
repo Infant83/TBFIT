@@ -55,6 +55,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_get_z2=.false.
   PINPT%flag_get_zak_phase=.false.
   PINPT%flag_zak_separate=.false.
+  PINPT%flag_get_parity=.false.
   PINPT%flag_berryc_separate=.false.
   PINPT%flag_zak_kfile_read = .false.
   PINPT%flag_get_berry_curvature = .false.
@@ -102,7 +103,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%nweight = 0
   PKPTS%kunit = 'A' !default 'A' : angstrom or 'R' : reciprocal unit is available
 
-  NN_TABLE%onsite_tolerance = onsite_tolerance ! default
+  NN_TABLE%onsite_tolerance = onsite_tolerance ! default defined in parameters.f90
 
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
@@ -241,7 +242,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             !set Zak phase
             elseif(trim(desc_str) .eq. 'ZAK_PHASE') then
               call set_zak_phase(PINPT, PINPT_BERRY, desc_str)
-           
+ 
+            !set Parity eigenvalue calculation          
+            elseif(trim(desc_str) .eq. 'PARITY' .or. trim(desc_str) .eq. 'PARITY_CHECK') then
+              call set_parity_check(PINPT, PINPT_BERRY, desc_str)
+
             !set Berry curvature
             elseif(trim(desc_str) .eq. 'BERRY_CURVATURE' .or. trim(desc_str) .eq. 'BERRYC') then
               call set_berry_curvature(PINPT, PINPT_BERRY, desc_str)
@@ -292,7 +297,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(flag_gfile_exist) then
     if(PINPT%flag_set_ribbon) call set_ribbon_geom(PINPT)
     call read_poscar(PINPT, PGEOM, NN_TABLE)
-  
+
     !set parameter constraint
     allocate( PINPT%param_const(5,PINPT%nparam) )
     !initialize
@@ -436,6 +441,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
   if(PINPT%flag_get_z2) then
     call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'z2')
+  endif
+  if(PINPT%flag_get_parity) then
+    call get_kpoint(PINPT_BERRY%parity_kpoint, PINPT_BERRY%parity_kpoint_reci, &
+                    PINPT_BERRY%parity_nkpoint, PGEOM)
   endif
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'

@@ -1463,6 +1463,96 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_parity_check(PINPT, PINPT_BERRY, desc_str)
+      type(incar)         :: PINPT
+      type(berry)    :: PINPT_BERRY
+      character*132          inputline
+      character*40           desc_str
+      character(*), parameter :: func = 'set_parity_check'
+      integer*4, external :: nitems
+      logical,   external :: flag_number
+      integer*4              i_dummy, i_continue
+      integer*4              i, nkp
+      character*10           kp_name(10)
+      real*8                 kp(3,10) !reciprocal unit 
+      PINPT%flag_get_parity = .true.
+      nkp = 0
+
+      ! default rotation matrix for the coordinates
+      PINPT_BERRY%parity_operator(:,1) = (/-1d0,    0d0,    0d0/)
+      PINPT_BERRY%parity_operator(:,2) = (/   0d0, -1d0,    0d0/)
+      PINPT_BERRY%parity_operator(:,3) = (/   0d0,    0d0, -1d0/)
+
+
+ set_parity: do while(trim(desc_str) .ne. 'END')
+        read(pid_incar,'(A)',iostat=i_continue) inputline
+        read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+        if(i_continue .ne. 0) cycle      ! skip empty line
+        if(desc_str(1:1).eq.'#') cycle   ! skip comment
+        if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+        select case ( trim(desc_str) )
+          case('PARITY_KP', 'TRIM_POINT', 'TRIM', 'TRIM_KP', 'TRIM_KPOINT', 'PARITY_KPOINT') 
+            ! KPOINT (usually time-reversal invariant momentum point would be meaningful)
+            nkp = nkp + 1
+
+            i_dummy = nitems(inputline)
+
+            if(i_dummy .eq. 4) then
+              read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp)
+              write(kp_name(nkp),'(A,I0)')'KP',nkp
+              if_main write(6,'(A,3F10.5)')'PARITY_KP: ', kp(:,nkp), kp_name(nkp)
+            elseif(i_dummy .gt. 4) then
+              read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp), kp_name(nkp)
+              if(.not. flag_number(kp_name(nkp))) then
+                if_main write(6,'(A,3F10.5,2x,A)')'PARITY_KP: ', kp(:,nkp), trim(kp_name(nkp))
+              else
+                if_main write(6,'(4A)')'    !WANR! Check PARITY_CHECK SETTING tags ->',trim(desc_str), ' ', trim(func)
+                stop
+              endif
+            endif
+          
+          case('PARITY_ORIGIN', 'ORIGIN', 'ORIGIN_SHIFT')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_origin(1:3)
+            if_main write(6,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%parity_origin(1:3), ' (used in PARITY_CHECK)'
+
+          case('PARITY_OP1','SYMMETRY_OP1','ROTATION_MAT1','ROTATION1')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,1)
+          case('PARITY_OP2','SYMMETRY_OP2','ROTATION_MAT2','ROTATION2')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,2)
+          case('PARITY_OP3','SYMMETRY_OP3','ROTATION_MAT3','ROTATION3')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,3)
+
+        end select
+      enddo set_parity
+
+      if( nkp .eq. 0) then
+        PINPT_BERRY%parity_nkpoint = 1
+        allocate(PINPT_BERRY%parity_kpoint(3,1))
+        allocate(PINPT_BERRY%parity_kpoint_reci(3,1))
+        allocate(PINPT_BERRY%parity_kpoint_name(1))
+        if_main write(6,'(A,3F10.5,2x,A)')'PARITY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'
+        PINPT_BERRY%parity_kpoint_reci(:,1) = (/0d0, 0d0, 0d0/) ! set default
+        PINPT_BERRY%parity_kpoint_name(1) = 'Gamma'
+
+      elseif( nkp .ge. 1) then
+        PINPT_BERRY%parity_nkpoint = nkp
+        allocate(PINPT_BERRY%parity_kpoint(3,nkp))
+        allocate(PINPT_BERRY%parity_kpoint_reci(3,nkp))
+        allocate(PINPT_BERRY%parity_kpoint_name(nkp))
+        PINPT_BERRY%parity_kpoint_reci(:,:) = kp(1:3,1:nkp)
+        do i = 1, nkp
+          PINPT_BERRY%parity_kpoint_name(i) = kp_name(i)
+        enddo
+      endif   
+   
+      if_main write(6,'(A,3(F8.5,2x),A)')'  PARITY  [  ', PINPT_BERRY%parity_operator(:,1),']                          '
+      if_main write(6,'(A,3(F8.5,2x),A)')' OPERATOR=[  ', PINPT_BERRY%parity_operator(:,2),'] => R(inv) = P * ( R - ORIGIN )'
+      if_main write(6,'(A,3(F8.5,2x),A)')'     P    [  ', PINPT_BERRY%parity_operator(:,3),']                          '
+
+      return
+   endsubroutine
+
    subroutine set_magnetism_tag(PINPT, inputline)
       type(incar)  ::  PINPT
       integer*4     i_continue

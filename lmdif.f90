@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, PWGHT, PINPT)
   use parameters
   use mpi_setup
@@ -221,10 +222,10 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
           xnorm = enorm ( PINPT%nparam, wa2 )
           fnorm = fnorm1
           iter = iter + 1
-          write(6,'(A)')' '
-          write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
-          write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
-          call print_param(PINPT,0,pfileoutnm_temp,.TRUE.)
+          if_main write(6,'(A)')' '
+          if_main write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
+          if_main write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
+          if_main call print_param(PINPT,0,pfileoutnm_temp,.TRUE.)
         endif
 
 !  Tests for convergence.

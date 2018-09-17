@@ -521,67 +521,15 @@ subroutine set_kpath_plane(kpoint, kpoint_reci, kpath, nkdiv, nkpath, iaxis, kpl
    return
 endsubroutine
 
-subroutine get_1st_chern_number(PINPT, PINPT_BERRY, PKPTS, PGEOM)
-   use parameters, only : kpoints, incar, poscar, berry, pi2, cyclic_axis
-   use do_math, only : area
+subroutine get_parity_matrix_ij(phi1, phi2, nbasis, M, lambda)
    implicit none
-   type(incar)   :: PINPT
-   type(berry)   :: PINPT_BERRY
-   type(kpoints) :: PKPTS
-   type(poscar ) :: PGEOM
-   integer*4        ie, is, ip, ik, iaxis, iplane
-   integer*4        nerange
-   integer*4        erange(PINPT_BERRY%bc_nerange/PINPT%nspin)
-!  real*8           chern(PINPT_BERRY%bc_nerange/PINPT%nspin, PINPT%nspin, 2, size(PINPT_BERRY%bc_axis))
-   real*8           chern(PGEOM%neig*PINPT%ispinor, 3, PINPT%nspin)
-   real*8           dk2(3)
-
-   dk2(1) = area(PGEOM%b_latt(:,2), PGEOM%b_latt(:,3)) / real(PKPTS%ndiv(2)*PKPTS%ndiv(3),8)
-   dk2(2) = area(PGEOM%b_latt(:,3), PGEOM%b_latt(:,1)) / real(PKPTS%ndiv(3)*PKPTS%ndiv(1),8)
-   dk2(3) = area(PGEOM%b_latt(:,1), PGEOM%b_latt(:,2)) / real(PKPTS%ndiv(1)*PKPTS%ndiv(2),8)
-   nerange = PINPT_BERRY%bc_nerange/PINPT%nspin
-
-   chern = 0d0
-
-   do is = 1, PINPT%nspin
-   do iaxis = 1, 3
-   do ie = 1, PGEOM%neig*PINPT%ispinor
-     chern(ie, iaxis, is) = chern(ie, iaxis, is) + sum(PINPT_BERRY%omega(ie, iaxis, is, :)) / pi2 * dk2(3)
-   enddo
-   enddo
-   enddo
-   write(6,*)"XXXX", chern(:,3,1)
-   write(6,*)"XXXX", sum(chern(PINPT_BERRY%bc_erange,3,1))
-!stop
-!ax:do iaxis = 1, size(PINPT_BERRY%bc_axis)
-!  sp:do is = 1, PINPT%nspin
-!       erange = PINPT_BERRY%bc_erange(1+(is-1)*nerange:nerange + (is-1)*nerange)
-!   eig:do ie = 1, nerange
-!      pl:do ip = 1, PKPTS%ndiv(PINPT_BERRY%bc_axis(iaxis))
-!        kp:do ik = 1, PKPTS%nkpoint
-!             if(PKPTS%kpoint_reci(PINPT_BERRY%bc_axis(iaxis),ik) .eq. 0d0) then
-!               iplane = 1
-!               chern_number(ie, is, iplane, iaxis) = chern_number(ie, is, iplane, iaxis) + PINPT_BERRY%omega(ie,PINPT_BERRY%bc_axis(iaxis),is,ik)
-!             elseif(PKPTS%kpoint_reci(PINPT_BERRY%bc_axis(iaxis),ik) .eq. 0.5d0) then                                                         
-!               iplane = 2                                                                                                                     
-!               chern_number(ie, is, iplane, iaxis) = chern_number(ie, is, iplane, iaxis) + PINPT_BERRY%omega(ie,PINPT_BERRY%bc_axis(iaxis),is,ik)
-!             endif
-!           enddo kp
-!         enddo pl
-!       enddo eig
-!     enddo sp
-!   enddo ax
-!   write(6,*)"XXX", sum(chern_number(:,1,1,1))/pi2 * dk2(PINPT_BERRY%bc_axis(1))
-
-
-!write(6,*)"XXXXX", nerange, PINPT_BERRY%bc_axis(1)
-!   do ie = 1, nerange
-!     write(6,*)"XXXX", sum(PINPT_BERRY%omega(ie,1,3,:))/pi2*dk2(PINPT_BERRY%bc_axis(1))
-!   enddo
-
-!  stop
+   integer*4    nbasis
+   complex*16   phi1(nbasis), phi2(nbasis)
+   real*8       M(nbasis, nbasis)
+   complex*16   lambda 
+  
+   lambda = dot_product( phi1, matmul(M, phi2) )
 
    return
 endsubroutine
-
 end module

@@ -150,6 +150,24 @@ subroutine get_kline(kp,kp_reci,nk,PGEOM,kinit_reci,kend_reci)
 
    return
 endsubroutine
+subroutine get_kpoint(kp,kp_,nk,PGEOM)
+   use parameters, only : poscar
+   type(poscar)  :: PGEOM
+   integer*4        nk, ik
+   real*8           kp(3,nk), kp_(3,nk) ! kp_=reciprocal unit
+   real*8           a1(3),a2(3),a3(3), b1(3), b2(3), b3(3)
+  
+   a1=PGEOM%a_latt(1:3,1)
+   a2=PGEOM%a_latt(1:3,2)
+   a3=PGEOM%a_latt(1:3,3)
+   call get_reci(b1,b2,b3, a1, a2, a3)
+   
+   do ik = 1, nk
+     kp(:,ik) =  b1(:)*kp_(1,ik) + b2(:)*kp_(2,ik) + b3(:)*kp_(3,ik)
+   enddo
+
+   return
+endsubroutine
 subroutine get_kgrid(kp,kp_,nk1,nk2,nk3,kshift,PGEOM, flag_gamma)
   use parameters, only : poscar
   implicit none
@@ -316,19 +334,41 @@ subroutine print_param (PINPT, iter, title, flag_print_param)
 return
 endsubroutine
 
-subroutine print_matrix_c(H,msize_row,msize_col, title, iflag)
- use parameters, only : pid_matrix
+module print_matrix
+contains
+
+subroutine print_matrix_c(H,msize_row,msize_col, title, iflag, fmt_)
+ use parameters, only : pid_matrix, eta, zi
  implicit none
  integer*4 i,j,iflag,msize_row,msize_col
  complex*16 H(msize_row,msize_col)
  character (len = *) title
  character*80 fname
+ character(len = *), optional :: fmt_
+ character*80 fmt
+ real*8       a
+
+ if(present(fmt_)) then
+   write(fmt,'(5A)')'(*(2x,',trim(fmt_),'+',trim(fmt_),'i))'
+ else
+   write(fmt,'(A)')"(*(2x,F7.3,'+',F7.3,'i'))"
+ endif
 
  ! iflag=0 : print to monitor, 1: print to file with name 'title'
  if (iflag .eq. 0) then
   write(6,'(A,A)')trim(title),'='
   do i=1,msize_row
-   write(6,999,ADVANCE='YES')H(i,1:msize_col)
+   do j = 1, msize_col
+     if(abs( real(H(i,j))) .lt. 10d0*eta) then 
+       a = aimag(H(i,j))
+       H(i,j) = 0d0 + a * zi  ! be careful !!
+     endif
+     if(abs(aimag(H(i,j))) .lt. 10d0*eta) then 
+        a = real(H(i,j))
+        H(i,j) =  a+ 0d0 * zi ! be careful !!
+     endif
+   enddo
+   write(6,fmt,ADVANCE='YES')H(i,1:msize_col)
   enddo
   write(6,*)''
  elseif(iflag .eq. 1) then
@@ -336,40 +376,67 @@ subroutine print_matrix_c(H,msize_row,msize_col, title, iflag)
   open(pid_matrix,file=fname,status='unknown')
   write(pid_matrix,'(A,A,A)')"# ",trim(title),'='
   do i=1,msize_row
-   write(pid_matrix,998,ADVANCE='YES')H(i,1:msize_col)
+   do j = 1, msize_col
+     if(abs( real(H(i,j))) .lt. 10d0*eta) then 
+       a = aimag(H(i,j))
+       H(i,j) = 0d0 + a * zi  ! be careful !!
+     endif
+     if(abs(aimag(H(i,j))) .lt. 10d0*eta) then
+        a = real(H(i,j))
+        H(i,j) =  a+ 0d0 * zi ! be careful !!
+     endif
+   enddo
+   write(pid_matrix,fmt,ADVANCE='YES')H(i,1:msize_col)
   enddo
   write(pid_matrix,*)''
   close(pid_matrix)
  endif
-999 format( *(2x,F10.5,' + ',F10.5,' i') )
+999 format( *(2x,F7.3,'+',F7.3,'i') )
 998 format( *(2x,F15.8,' + ',F15.8,' i') )
 return
 end subroutine
-subroutine print_matrix_r(H,msize_row,msize_col, title, iflag)
- use parameters, only : pid_matrix
+
+subroutine print_matrix_r(H,msize_row,msize_col, title, iflag,fmt_)
+ use parameters, only : pid_matrix, eta
  implicit none
  integer*4 i,j,iflag,msize_row,msize_col
  real*8 H(msize_row,msize_col)
  character (len = *) title
  character*80 fname
+ character(len = *), optional :: fmt_
+ character*80 fmt
+
+ if(present(fmt_)) then
+   write(fmt,'(3A)')'(4x,*(',trim(fmt_),'))'
+ else
+   write(fmt,'(A)')"(4x,*(F10.5))"
+ endif
 
  ! iflag=0 : print to monitor, 1: print to file with name 'title'
  if (iflag .eq. 0) then
   write(6,'(A,A)')trim(title),'='
   do i=1,msize_row
-   write(6,'(4x,*(F15.8))',ADVANCE='YES')H(i,1:msize_col)
+   do j = 1, msize_col
+     if(abs(H(i,j)) .lt.100d0*eta) H(i,j) = 0d0 ! be careful !!
+   enddo
+   write(6,fmt,ADVANCE='YES')H(i,1:msize_col)
   enddo
  elseif(iflag .eq. 1) then
   write(fname,'(A,A)')trim(title),'.matrix.dat'
   open(pid_matrix,file=fname,status='unknown')
   write(pid_matrix,'(A,A,A)')"# ",trim(title),'='
   do i=1,msize_row
-   write(pid_matrix,'(4x,*(F15.8))',ADVANCE='YES')H(i,1:msize_col)
+   do j = 1, msize_col
+     if(abs(H(i,j)) .lt.100d0*eta) H(i,j) = 0d0 ! be careful !!
+   enddo
+   write(pid_matrix,fmt,ADVANCE='YES')H(i,1:msize_col)
   enddo
   close(pid_matrix)
  endif
 return
 end subroutine
+endmodule
+
 ! subroutine for computing reciprocal lattice vector
 subroutine get_reci(b1,b2,b3, a1,a2,a3)
   use parameters, only : pi

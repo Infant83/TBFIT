@@ -32,6 +32,18 @@ function matproduct_complex(msize,JOBA, A, JOBB, B) result(C)
    complex*16  C(msize, msize)
    complex*16  alpha, beta
    character*1 JOBA, JOBB
+!ZGEMM  performs one of the matrix-matrix operations
+!   C := alpha*op( A )*op( B ) + beta*C,
+!where  op( X ) is one of
+!   op( X ) = X   or   op( X ) = X**T   or   op( X ) = X**H,
+!alpha and beta are scalars, and A, B and C are matrices, with op( A )
+!an m by k matrix,  op( B )  a  k by n matrix and  C an m by n matrix.
+!         JOBA or JOBB is CHARACTER*1
+!          On entry, TRANSA specifies the form of op( A ) to be used in
+!          the matrix multiplication as follows:
+!             JOBA = 'N' or 'n',  op( A ) = A.
+!             JOBA = 'T' or 't',  op( A ) = A**T.
+!             JOBA = 'C' or 'c',  op( A ) = A**H.
 
    alpha = 1d0
    beta  = 0d0
@@ -96,6 +108,29 @@ complex*16 function determinant(N, mat)
         end if
     end do
     determinant = sgn*determinant
+
+endfunction
+
+integer*4 function determinant3i(mat)
+    implicit none
+    integer*4   mat(3,3)
+
+    determinant3i =  mat(1,1) * ( mat(2,2) * mat(3,3) - mat(2,3) * mat(3,2) ) &
+                    -mat(1,2) * ( mat(2,1) * mat(3,3) - mat(2,3) * mat(3,1) ) &
+                    +mat(1,3) * ( mat(2,1) * mat(3,2) - mat(2,2) * mat(3,1) )
+
+endfunction
+
+integer*4 function tracei(mat,mat_size)
+    implicit none
+    integer*4   i, mat_size
+    integer*4   mat(mat_size,mat_size)
+
+    tracei = 0
+
+    do i = 1, mat_size
+      tracei = tracei + mat(i,i)
+    enddo
 
 endfunction
 

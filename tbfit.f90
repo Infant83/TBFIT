@@ -25,12 +25,12 @@ program tbfit
   type (hopping) :: NN_TABLE    ! table for hopping index
 
   !call test()
+  !call test(PINPT, PKPTS, PGEOM)
 
   call mpi_initialize()
 
   if_main call timestamp ('Program start on',t_start)
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE)
-
   if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE)
 
   call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
@@ -49,6 +49,8 @@ program tbfit
   if(PINPT%flag_get_zak_phase)       call get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
   if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
   if(PINPT%flag_get_z2)              call get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+  if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+
 
 ! call MPI_Barrier(mpi_comm_earth, mpierr)
   if_main call timestamp ('Program ends on',t_end)

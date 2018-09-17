@@ -105,8 +105,9 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #else
    call cpu_time(time2)
 #endif
-   if_main write(6,'(A,I1)')'  Z2 INDEX     =   ',z2_index(:)
-   if_main write(6,'(A,F12.3)')'END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1
-
+   if_main_then
+      if(.not. flag_get_chern) write(6,'(A,I1)')'  Z2 INDEX     =   ',z2_index(:)
+      write(6,'(A,F12.3)')'END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1
+   if_main_end
    return
 endsubroutine

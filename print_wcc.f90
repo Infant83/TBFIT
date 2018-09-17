@@ -108,16 +108,20 @@ subroutine write_wcc_header(pid_wcc_, pid_gap_, wcc_filenm, wcc_gap_filenm, stri
    write(pid_wcc_,'(A)')'#       "Gap_jumps -1 -> odd  number of gap jumps,'
    write(pid_wcc_,'(A)')'#       "Gap_jumps  1 -> even (or zero) number of gap jumps'
    if(nspin .eq. 2) then
-     write(pid_wcc_,'(3A,I3)')'# TOPOLOGICAL INDEX:    Z2 INDEX for spin-',c_spin(1 ),' = ', z2_index(1)
-     write(pid_wcc_,'(3A,I3)')'#                                for spin-',c_spin(2 ),' = ', z2_index(2)
+     if(.not. flag_get_chern) then
+       write(pid_wcc_,'(3A,I3)')'# TOPOLOGICAL INDEX:    Z2 INDEX for spin-',c_spin(1 ),' = ', z2_index(1)
+       write(pid_wcc_,'(3A,I3)')'#                                for spin-',c_spin(2 ),' = ', z2_index(2)
+     endif
      if(flag_get_chern) then
-       write(pid_wcc_,'(3A,I3)')'#                  : CHERN NUMBR for spin-',c_spin(1 ),' = ', nint(chern(1))
+       write(pid_wcc_,'(3A,I3)')'# TOPOLOGICAL INDEX: CHERN NUMBR for spin-',c_spin(1 ),' = ', nint(chern(1))
        write(pid_wcc_,'(3A,I3)')'#                                for spin-',c_spin(2 ),' = ', nint(chern(2))
      endif
    elseif(nspin .eq. 1) then
-     write(pid_wcc_,'( A,I3)')'# TOPOLOGICAL INDEX:    Z2 INDEX = ', z2_index(1)
+     if(.not. flag_get_chern) then
+       write(pid_wcc_,'( A,I3)')'# TOPOLOGICAL INDEX:    Z2 INDEX = ', z2_index(1)
+     endif
      if(flag_get_chern) then
-       write(pid_wcc_,'( A,I3)')'#                  : CHERN NUMBR = ', nint(chern(1))
+       write(pid_wcc_,'( A,I3)')'# TOPOLOGICAL INDEX: CHERN NUMBR = ', nint(chern(1))
      endif
    endif
 

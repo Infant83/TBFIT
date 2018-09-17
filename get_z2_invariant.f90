@@ -117,8 +117,10 @@ axis:do ix = 1, size(z2_axis)
    call cpu_time(time2)
 #endif
    
-   if_main call write_z2_index(PINPT%nspin, z2_dimension, z2_bulk)
-   if_main write(6,'(A,F12.3)')'END: Z2 INDEX CALCULATION. TIME ELAPSED (s) =',time2-time1
+   if_main_then
+     if(.not. flag_get_chern) call write_z2_index(PINPT%nspin, z2_dimension, z2_bulk)
+     write(6,'(A,F12.3)')'END: Z2 INDEX CALCULATION. TIME ELAPSED (s) =',time2-time1
+   if_main_end
 
    return
 endsubroutine

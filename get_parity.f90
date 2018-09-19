@@ -41,7 +41,7 @@ subroutine get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    kpoint_name= PINPT_BERRY%parity_kpoint_name
    origin     = PINPT_BERRY%parity_origin
    spin       = (/'up','dn'/)
-   flag_phase = .false. 
+   flag_phase = .true.  
 
    if_main write(6,*)' '
    if_main write(6,'(A)')'START: PARITY EIGENVALUE CALCULATION'
@@ -58,8 +58,7 @@ sp:do is = 1, nspin
        if_main write(6,'(A,I3,1x,A10,A,3F10.5)')'       KPT',ik,kpoint_name(ik),' : ',kpoint_reci(:,ik)
        parity_eigenvalue = 0d0
 
-       call get_hamk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase);Hk_ = Hk
-       call cal_eig_hermitian(Hk_, neig*ispinor, E, .true.)
+       call get_hamk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase) ;Hk_ = Hk
        call symmetrize_hamk(Hk, V, parity_matrix_op, neig, ispinor)
        call cal_eig_hermitian(V, neig*ispinor, E_, .true.)
        call get_symmetry_eigenvalue(parity_eigenvalue, V, parity_matrix_op, neig, ispinor)
@@ -68,10 +67,12 @@ sp:do is = 1, nspin
 !        if(nspin .eq. 2) write(title,'(5A)')'               <i,',trim(spin(is)),'|P|j,',trim(spin(is)),'>'
 !        if(nspin .eq. 1) write(title,'( A)')'               <i|P|j>'
 !        call print_matrix_r(real(parity_eigenvalue),neig*ispinor, neig*ispinor, trim(title),0,'x,F4.0')
-         if(nspin .eq. 2) write(6,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|P|n,',trim(spin(is)),'>'
-         if(nspin .eq. 1) write(6,'( A)')'                   E(n,k)      <n|P|n>'
+         if(nspin .eq. 2) write(6,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|P|n,',trim(spin(is)),'> (parity)'
+         if(nspin .eq. 1) write(6,'( A)')'                   E(n,k)      <n|P|n> (parity)'
+         call cal_eig_hermitian(Hk_, neig*ispinor, E, .false.)
          do i = 1, neig*ispinor
-           write(6,'(A,I5,A,F10.5,3x,*(F5.2,"+",F5.2,"i"))')'      E(n=',i,')', E(i), parity_eigenvalue(i,i)
+!          write(6,'(A,I5,A,F10.5,3x,*(F5.2,"+",F5.2,"i"))')'      E(n=',i,')', E(i), parity_eigenvalue(i,i)
+           write(6,'(A,I5,A,F10.5,3x,*(F11.2))')'      E(n=',i,')', E(i), real(parity_eigenvalue(i,i))
          enddo
        if_main_end
 

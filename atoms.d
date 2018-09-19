@@ -1,16 +1,17 @@
-  POSCAR-TB-ribbon
-  1 1 1 .5 .0 .5                                # nx,ny,nz
-  1  Bi   1.61   0.2 0.5 0.5 1.6           # atom number,atom species,bond length,color
+  POSCAR-TB
+  4 4 1                                 # nx,ny,nz
+  1 C     1.50   0.1 0.4 0.9 1.0           # atom number,atom species,bond length,color
   0.03           0.5 0.5 0.5            # bond width,color
   0                                     # bounding box, 0: off, 1: x, 2:y, 3:z, 4: all 
-  15 30                                 # bounding box, for 1~3: single line "min" to "max"
-  -2 4                                  # bounding box, for 4 : 3 lines mix_i max_i (i=x,y,z)
-  -2 4
+   0 15                                 # bounding box, for 1~3: single line "min" to "max"
+   0 15                                 # bounding box, for 4 : 3 lines mix_i max_i (i=x,y,z)
+  10 16
 
 ################################################################################
 Created,modyfied by Hyun-Jung Kim. Dept of Physics. Hanyang Univ. 2008.1.21 Mon. 
 ################################################################################
   2  H    0.50   0.7 0.0 0.7
+  1  H    0.60   0.0 0.5 0.0 0.6           # atom number,atom species,bond length,color
 1st line contains input file name. 
 You can change into what you want to view. 
 There may be three types you can use as input file, POSCAR CONTCAR CHGCAR.

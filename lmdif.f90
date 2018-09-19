@@ -11,15 +11,15 @@ subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, PWGHT, PI
   real*8  E_DFT(neig*PINPT%ispin,nkpoint)
   external get_eig
   if( PINPT%ls_type == 'LMDIF' ) then
-   write(6,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'
+   if_main write(6,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'
     if ( PINPT%nparam <= 0 .or. nkpoint < PINPT%nparam .or. tol < 0.0D+00) return
     factor = 100.0D+00
     maxfev = PINPT%miter * ( PINPT%nparam + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
     call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, &
                ftol, xtol, gtol, maxfev, epsfcn, factor, info)
-    call infostamp(info,PINPT%ls_type)
-   write(6,*)" End: fitting procedures"
+   if_main  call infostamp(info,PINPT%ls_type)
+   if_main write(6,*)" End: fitting procedures"
   endif
   return
 endsubroutine
@@ -252,6 +252,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
 300 continue
 
 !  Termination, either normal or user imposed.
+  if_main_then
   if(info .eq. 1) then
     write(6,*)' '
     write(6,101)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, ratio <= 2 :',' actred=',actred, &
@@ -290,6 +291,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
     write(6,*)' '
     write(6,108)"  Termination INFO=",info
   endif
+  if_main_end 
 
 101 format(A,I2,A,3(A,E14.7))
 102 format(A,I2,A,2(A,E14.7))
@@ -299,7 +301,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
 106 format(A,I2,A,2(A,E14.7))
 107 format(A,I2,A,2(A,E14.7))
 108 format(A,I2)
-  call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
+  if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
   return
 endsubroutine
 subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, PWGHT, fjac, epsfcn, flag_get_orbital)

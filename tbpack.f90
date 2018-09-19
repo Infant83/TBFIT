@@ -285,15 +285,15 @@ subroutine print_param (PINPT, iter, title, flag_print_param)
       if(PINPT%nweight .ge. 1) then
         do i = 1, PINPT%nweight
           write(pid_param_new,'(3(A13,A20),A13,A8)')'# KRANGE ',trim(PINPT%strip_kp(i)), &
-                                                    '  TB_RANGE ',trim(PINPT%strip_tb(i)), &
-                                                    '  DF_RANGE ',trim(PINPT%strip_df(i)), &
+                                                    '  TBABND ',trim(PINPT%strip_tb(i)), &
+                                                    '  DFTBND ',trim(PINPT%strip_df(i)), &
                                                     '  WEIGHT ',trim(PINPT%strip_wt(i))
         enddo
       endif
       if(PINPT%npenalty_orb .ge. 1) then
         do i = 1, PINPT%npenalty_orb
           write(pid_param_new,'(5(A13,A20))')'# KRANGE ',trim(PINPT%strip_kp_orb(i)), &
-                                         '  TB_RANGE ',trim(PINPT%strip_tb_orb(i)), &
+                                         '  TBABND ',trim(PINPT%strip_tb_orb(i)), &
                                          '  ORB_RANGE ',trim(PINPT%strip_orb(i)), &
                                          '  SITE_RANGE ',trim(PINPT%strip_site(i)), &
                                          '  PENALTY ',trim(PINPT%strip_pen_orb(i))

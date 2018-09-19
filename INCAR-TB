@@ -36,5 +36,7 @@ GET_BAND  .TRUE.
          PARITY_KP     0.5 0.0 0.0  M1    # M1    reciprocal unit 
          PARITY_KP     0.0 0.5 0.0  M2    # M1    reciprocal unit 
          PARITY_KP     0.5 0.5 0.0  M3    # M1    reciprocal unit 
-         ORIGIN_SHIFT  0.5 0  0           # Origin of the system (direct coord)
+         ORIGIN_SHIFT  0.0 0  0           # Origin of the system (direct coord)
     END
+
+ 

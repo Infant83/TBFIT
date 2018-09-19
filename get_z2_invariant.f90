@@ -76,7 +76,11 @@ axis:do ix = 1, size(z2_axis)
     path:do ikpath = 1, nkpath
            call get_eig(NN_TABLE, PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), nkdiv, PINPT, E, V, PGEOM%neig, .true., .false., flag_phase)
            call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
+#ifdef F08
            call get_berry_phase(PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)
+#else
+           call get_berry_phase_svd(PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)
+#endif
            if_main call write_status(ikpath, nkpath, z2_axis(ix), ip)
          enddo path
          call get_z2_fname(z2_filenm    , PINPT_BERRY%z2_filenm    , ip, z2_axis(ix))

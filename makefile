@@ -11,6 +11,7 @@
 #                 : if you want to use this option, please link SPGLIB 
 #                   library path properly in the "Dependencies" section below
 #        -DMPI    : MPI paralallism activation
+#        -DF08    : Fortran 2008 language is accepted or not
 #############################################################################
 
 OPTIONS= -fpp -DMPI -DSPGLIB

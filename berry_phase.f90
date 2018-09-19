@@ -4,10 +4,12 @@ module berry_phase
    use mpi_setup
    use sorting
 
+#ifdef F08
    interface get_berry_phase
     module procedure :: get_berry_phase_det
     module procedure :: get_berry_phase_svd
    end interface
+#endif
 
 contains
 
@@ -45,7 +47,11 @@ sp:do is = 1, PINPT%nspin
        call get_phase_shift(phase_shift, dk, PGEOM, PINPT%ispinor)
        call get_overlap_matrix(M,V(icol:fcol,erange,ik:ik+1),phase_shift,neig,nerange)
        call get_svd(M,U,WT,nerange) ! perform singular valued decomposition for unitary rotation of M
+#ifdef F08
        L = matprod(nerange,L,matprod(nerange,U,WT)) 
+#else
+       L = matmul(L,matmul(U,WT))
+#endif
      enddo kp
 
      call cal_eig_nonsymm(L, nerange, L_eig(:,is))

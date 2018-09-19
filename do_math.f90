@@ -1,11 +1,13 @@
 module do_math
 
+#ifdef F08
    interface matprod
      module procedure :: matproduct_complex
      module procedure :: matproduct_real
      module procedure :: matproduct_complex_normal
      module procedure :: matproduct_real_normal
    end interface
+#endif
 
 contains
 
@@ -185,6 +187,7 @@ subroutine cal_eig_hermitian(H, msize, E, flag_get_orbital)
     implicit none
     integer*4  msize, iflag
     complex*16 H(msize,msize)
+    complex*16 H_(msize,msize)
     real*8     rwork(12*msize)
     real*8     E(msize)
     logical    flag_get_orbital
@@ -214,7 +217,8 @@ subroutine cal_eig_hermitian(H, msize, E, flag_get_orbital)
       CALL ZHEEV( 'V', 'U', msize, H, msize, E, work, 16*msize, rwork, iflag )
     elseif(.not. flag_get_orbital) then
       !JOB = 'N'
-      CALL ZHEEV( 'N', 'U', msize, H, msize, E, work, 16*msize, rwork, iflag )
+      H_ = H
+      CALL ZHEEV( 'N', 'U', msize, H_, msize, E, work, 16*msize, rwork, iflag )
     endif
 
 return

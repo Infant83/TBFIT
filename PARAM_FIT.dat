@@ -12,6 +12,6 @@
         pps_1_CC        3.96049501  
         ppp_1_CC       -2.59174427  
     stoner_I_p_C        0.00000000  Fixed # sublattice potential applied..
-     local_U_p_C        0.50000000        # sublattice potential applied..
-     local_U_s_C        0.50000000        # sublattice potential applied..
-      lambda_p_C        1.52021585  Fixed # artificially increased..
+     local_U_p_C        0.00000000        # sublattice potential applied..
+     local_U_s_C        0.00000000        # sublattice potential applied..
+      lambda_p_C        3.52021585  Fixed # artificially increased..

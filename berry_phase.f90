@@ -538,4 +538,126 @@ subroutine get_parity_matrix_ij(phi1, phi2, nbasis, M, lambda)
 
    return
 endsubroutine
+
+subroutine set_parity_matrix_op(PGEOM, PINPT, parity_matrix_op, parity_operator, origin)
+   use parameters, only: poscar, incar, onsite_tolerance
+   implicit none
+   type (incar)   :: PINPT       ! parameters for input arguments
+   type (poscar)  :: PGEOM       ! parameters for geometry info
+   real*8            parity_operator(3,3)
+   real*8            origin(3)
+   complex*16        parity_matrix_op(PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor)
+   integer*4         i, j, ix, iy, iz
+   integer*4         is, iorb, jorb
+   integer*4         imatrix, jmatrix
+   integer*4         max_x, max_y, max_z
+   real*8            R(3), R_(3)
+   real*8            a1(3), a2(3), a3(3)
+   real*8            pos_i(3), pos_j(3)
+   real*8,external:: enorm
+   character*8       orb_name
+   integer*4         l
+
+   a1=PGEOM%a_latt(1:3,1)
+   a2=PGEOM%a_latt(1:3,2)
+   a3=PGEOM%a_latt(1:3,3)
+   max_x = 1 ;    max_y = 1 ;   max_z = 1
+
+   parity_matrix_op = 0d0
+
+loop_i:do i = 1, PGEOM%n_atom
+     if(PGEOM%n_orbital(i) .eq. 0) cycle loop_i
+     R = PGEOM%a_coord(:,i) - origin
+     pos_i= R(1)*a1(:) + R(2)*a2(:) + R(3)*a3(:)
+
+     do iorb = 1, PGEOM%n_orbital(i)
+       imatrix = sum( PGEOM%n_orbital(1:i) ) - PGEOM%n_orbital(i) + iorb
+       do ix=-max_x,max_x
+       do iy=-max_y,max_y
+       do iz=-max_z,max_z
+  loop_j:do j = 1, PGEOM%n_atom
+           if(PGEOM%n_orbital(j) .eq. 0 .and. PGEOM%spec(i) .eq. PGEOM%spec(j) ) cycle loop_j
+           R_ = PGEOM%a_coord(:,j) - origin
+           R_ = matmul( transpose(parity_operator), R_ )
+           pos_j= (R_(1) + ix)*a1(:) + (R_(2) + iy)*a2(:) + (R_(3) + iz)*a3(:)
+
+           if(enorm(3, pos_i - pos_j) .lt. onsite_tolerance) then
+             ! equivalent (atomic position) under parity operation
+
+             do jorb = 1, PGEOM%n_orbital(j)
+               if( trim(PGEOM%c_orbital(iorb,i)) .eq. trim(PGEOM%c_orbital(jorb,j)) ) then
+                 jmatrix = sum( PGEOM%n_orbital(1:j) ) - PGEOM%n_orbital(j) + jorb
+                 orb_name = trim(PGEOM%c_orbital(iorb,i))
+                 call get_angular_momentum_quantum_number(orb_name, l)
+                 parity_matrix_op(imatrix, jmatrix) = (-1d0)**l
+               endif
+             enddo
+
+             if(PINPT%ispinor .eq. 2) then
+               parity_matrix_op(imatrix + PGEOM%neig, jmatrix + PGEOM%neig) = parity_matrix_op(imatrix, jmatrix)
+             endif
+
+           endif
+
+         enddo loop_j
+       enddo
+       enddo
+       enddo
+     enddo
+   enddo loop_i
+
+   return
+endsubroutine
+
+subroutine get_angular_momentum_quantum_number(orb_name, l)
+   implicit none
+   character*8  orb_name
+   integer*4    l
+
+   select case (orb_name(1:1))
+
+     case('s','S')
+       l = 0
+     case('p','P')
+       l = 1
+     case('d','D')
+       l = 2
+     case('f','F')
+       l = 3
+
+   end select
+
+   return
+endsubroutine
+
+subroutine symmetrize_hamk(H, V, M, neig, ispinor)
+   implicit none
+   integer*4         neig, ispinor
+   complex*16        V(neig*ispinor,neig*ispinor)
+   complex*16        H(neig*ispinor,neig*ispinor)
+   complex*16        M(neig*ispinor,neig*ispinor) ! symmetry operator
+
+   V = (matmul(transpose(M),matmul(H,M)) + H)/2d0
+
+   return
+endsubroutine
+
+subroutine get_symmetry_eigenvalue(L, V, M, neig, ispinor)
+   implicit none
+   integer*4         neig, ispinor
+   integer*4         i,j
+   complex*16        V(neig*ispinor,neig*ispinor)
+   complex*16        L(neig*ispinor,neig*ispinor)
+   complex*16        M(neig*ispinor,neig*ispinor)
+
+
+   do i = 1, neig*ispinor
+     do j = 1, neig*ispinor
+       L(i,j) = dot_product( V(:,i), matmul(M, V(:,j)) )
+     enddo
+   enddo
+
+   return
+endsubroutine
+
 end module

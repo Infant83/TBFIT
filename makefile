@@ -14,7 +14,7 @@
 #        -DF08    : Fortran 2008 language is accepted or not
 #############################################################################
 
-OPTIONS= -fpp -DMPI -DSPGLIB
+OPTIONS= -fpp -DMPI -DF08 -DSPGLIB
 F90    = mpif90 $(OPTIONS)
 FFLAG  = -O3 -heap-arrays -nogen-interfaces
 BIN    = ~/code/bin
@@ -47,7 +47,15 @@ WRITER = plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
 GET    = get_tij.o get_eig.o get_dos.o get_soc.o get_param_class.o \
 		 get_cc_param.o get_berry_curvature.o get_wcc.o get_zak_phase.o \
          get_z2_invariant.o get_parity.o get_symmetry.o
+SYMM   = get_symmetry.o spglib_interface.o
 MINPACK_LIB= get_fit.o minpack_sub.o lmdif.o
+
+SPG    =$(filter-out -DSPGLIB,$(OPTIONS))
+ifeq ($(SPG),-DSPGLIB)
+  SPGLIB_= $(SYMM) $(SPGLIB)
+else
+  SPGLIB_=
+endif
 
 OBJECTS=$(MODULE) tbfit.o tbpack.o $(READER) $(WRITER) $(GET) \
         e_onsite.o $(MINPACK_LIB) $(TEST)

@@ -118,8 +118,10 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
         write(6,'(A,i0,A,i0,A)',advance='no')' KNAME_',iline,' K',iline,','
       endif
 
-      if(iline .eq. PKPTS%nline) then
+      if(iline .eq. PKPTS%nline .and. iline .eq. 1) then
         write(6,'(A)',advance='yes')' KNAME_END KEND) nomirror'
+      elseif(iline .eq. PKPTS%nline .and. iline .gt. 1) then
+        write(6,'(A,i0,A,i0,A)',advance='yes')' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
       endif
     enddo
   ! k-grid mode

@@ -110,7 +110,18 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
         PKPTS%kpoint_reci(1:3, ii ) = PK_reci(1:3,iline) + dk_reci(1:3)*(ik-1)
       enddo    
     enddo
+  
+    do iline=1, PKPTS%nline
+      if(iline .eq. 1) then
+        write(6,'(A)',advance='no')' set xtics (KNAME_INIT KINIT,'
+      elseif(iline .ge. 2 .and. iline .lt. PKPTS%nline) then
+        write(6,'(A,i0,A,i0,A)',advance='no')' KNAME_',iline,' K',iline,','
+      endif
 
+      if(iline .eq. PKPTS%nline) then
+        write(6,'(A)',advance='yes')' KNAME_END KEND) nomirror'
+      endif
+    enddo
   ! k-grid mode
   elseif(PKPTS%flag_kgridmode) then
 

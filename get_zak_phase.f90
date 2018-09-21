@@ -78,7 +78,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
      do ikpath = 1, nkpath-1
        PINPT_BERRY%polarization(is) = PINPT_BERRY%polarization(is) + PINPT_BERRY%zak_phase(is,ikpath) / (nkpath-1)
      enddo
-     write(6,*)" POLARIZATION:", PINPT_BERRY%polarization(is) * area(G1,G2)
+     if_main write(6,*)" POLARIZATION:", PINPT_BERRY%polarization(is) * area(G1,G2)
    enddo
 
 #ifdef MPI

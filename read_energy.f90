@@ -1,5 +1,7 @@
+#include "alias.inc"
 subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   use parameters
+  use mpi_setup
   implicit none
   character*132     fnameu,fnamed
   character*132    inputline
@@ -23,24 +25,24 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
    fnamed = trim(PINPT%efilenmd)
    allocate( EDFT%E(PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint) )
    if(PGEOM%neig*2 .gt. max_eig) then
-     write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
-     write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+     if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+     if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
      stop
    endif
   elseif(PINPT%flag_noncollinear) then
    fnameu = trim(PINPT%efilenmu)
    allocate( EDFT%E(PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint) )
    if(PGEOM%neig .gt. max_eig) then
-     write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
-     write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+     if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+     if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
      stop
    endif
   else
    fnameu = trim(PINPT%efilenmu)
    allocate( EDFT%E(PGEOM%neig,  PKPTS%nkpoint) )
    if(PGEOM%neig .gt. max_eig) then
-     write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
-     write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+     if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+     if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
      stop
    endif
   endif
@@ -55,9 +57,9 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
 
   write(6,*)' '
   if(PINPT%flag_collinear) then
-    write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu), ' and ', trim(fnamed)
+    if_main write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu), ' and ', trim(fnamed)
   else
-    write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu)
+    if_main write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu)
   endif
 
   ie=0
@@ -70,7 +72,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
            read(pid_energy,'(A)',iostat=i_continue) inputline
            if(i_continue<0) exit loop1         ! end of file reached
            if(i_continue>0) then 
-             write(6,*)'Unknown error reading file:',trim(fnameu),func
+             if_main write(6,*)'Unknown error reading file:',trim(fnameu),func
              stop
            endif
            ! check comment and emtpy line
@@ -87,8 +89,8 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
            endif
          enddo
          if(ik .ne. PKPTS%nkpoint) then
-           write(6,'(A,A )')'   !WARN! error in reading ',trim(fnameu)
-           write(6,'(A,I8)')'   Exit.. NKPTS !=',ik
+           if_main write(6,'(A,A )')'   !WARN! error in reading ',trim(fnameu)
+           if_main write(6,'(A,I8)')'   Exit.. NKPTS !=',ik
            stop
          endif
        enddo loop1
@@ -103,7 +105,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
              read(pid_energy+1,'(A)',iostat=i_continue) inputline
              if(i_continue<0) exit loop2         ! end of file reached
              if(i_continue>0) then 
-               write(6,*)'Unknown error reading file:',trim(fnamed),func
+               if_main write(6,*)'Unknown error reading file:',trim(fnamed),func
                stop
              endif
              ! check comment and emtpy line
@@ -120,15 +122,15 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
              endif
            enddo
            if(ik .ne. PKPTS%nkpoint) then
-             write(6,'(A,A )')'   !WARN! error in reading ',trim(fnamed)
-             write(6,'(A,I8)')'   Exit.. NKPTS !=',ik
+             if_main write(6,'(A,A )')'   !WARN! error in reading ',trim(fnamed)
+             if_main write(6,'(A,I8)')'   Exit.. NKPTS !=',ik
              stop
            endif
          enddo loop2
        endif
 
        PGEOM%neig_target=ie - 1
-       write(6,'(A,I8)')' N_TARGET:',PGEOM%neig_target
+       if_main write(6,'(A,I8)')' N_TARGET:',PGEOM%neig_target
 
   allocate( EDFT_all%E(PGEOM%neig_target, PKPTS%nkpoint) )
 
@@ -184,8 +186,8 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   endif
   EDFT_all%E(1:PGEOM%neig_target,1:PKPTS%nkpoint) = EDFT_%E(1:PGEOM%neig_target,1:PKPTS%nkpoint)
 
-  write(6,*)'*- END READING TARGET ENERGY FILE --------------'
-  write(6,*)' '
+  if_main write(6,*)'*- END READING TARGET ENERGY FILE --------------'
+  if_main write(6,*)' '
   close(pid_energy)
   if(PINPT%flag_collinear) close(pid_energy+1)
   deallocate(EDFT_%E)

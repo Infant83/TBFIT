@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, ispin, nkpoint, PWGHT)
   use parameters, only: weight
   implicit none
@@ -67,9 +68,9 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
     ii=0
     kdist = 0.0
     if(trim(PKPTS%k_name(1)) .eq. "G" .or. trim(PKPTS%k_name(1)) .eq. 'g') then
-      if(myid .eq. 0) write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol \G}','"'
+      if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol \G}','"'
     else
-      if(myid .eq. 0) write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'
+      if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'
     endif
     do iline=1,PKPTS%nline*2, 2
       dk_(:)= ( PKPTS%kline(:,iline + 1) - PKPTS%kline(:,iline) ) / (ndivk-1)
@@ -80,27 +81,27 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
         kdist= kdist + enorm(3,dk) * (ndivk-1)
         if( (iline-1)/2 + 2 .lt. 10) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            if(myid .eq. 0) write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
+            if_main write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
                                                   ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"','{/Symbol \G}','"'
           else
-            if(myid .eq. 0) write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
+            if_main write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
                                                   ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"',trim(PKPTS%k_name(iline+1)),'"'
           endif
         elseif(iline .lt. 100) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            if(myid .eq. 0) write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
+            if_main write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
                                                   ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"','{/Symbol \G}','"'
           else
-            if(myid .eq. 0) write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
+            if_main write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
                                                   ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"',trim(PKPTS%k_name(iline+1)),'"'
           endif
         endif
       elseif(iline .ge. 1 .and. iline .eq. PKPTS%nline*2-1) then
         kdist=kdist + enorm(3,dk) * (ndivk-1)
         if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-          if(myid .eq. 0) write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol \G}','"'
+          if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol \G}','"'
         else
-          if(myid .eq. 0) write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'
+          if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'
         endif
       endif
 
@@ -113,15 +114,15 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
   
     do iline=1, PKPTS%nline
       if(iline .eq. 1) then
-        write(6,'(A)',advance='no')' set xtics (KNAME_INIT KINIT,'
+        if_main write(6,'(A)',advance='no')' set xtics (KNAME_INIT KINIT,'
       elseif(iline .ge. 2 .and. iline .lt. PKPTS%nline) then
-        write(6,'(A,i0,A,i0,A)',advance='no')' KNAME_',iline,' K',iline,','
+        if_main write(6,'(A,i0,A,i0,A)',advance='no')' KNAME_',iline,' K',iline,','
       endif
 
       if(iline .eq. PKPTS%nline .and. iline .eq. 1) then
-        write(6,'(A)',advance='yes')' KNAME_END KEND) nomirror'
+        if_main write(6,'(A)',advance='yes')' KNAME_END KEND) nomirror'
       elseif(iline .eq. PKPTS%nline .and. iline .gt. 1) then
-        write(6,'(A,i0,A,i0,A)',advance='yes')' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
+        if_main write(6,'(A,i0,A,i0,A)',advance='yes')' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
       endif
     enddo
   ! k-grid mode

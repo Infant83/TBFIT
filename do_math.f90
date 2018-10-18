@@ -454,7 +454,7 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         flag_success = .true.
       case(3  )                    
         write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_MAX" is too small'
-        write(6,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.2 < NE_MAX <= NEIG'
+        write(6,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'
         write(6,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'
         write(6,'(A)'               )'                                      Please increase NE_MAX.'
         write(6,'(A,I0)'            )'                                      NE_FOUND = ', ne_found

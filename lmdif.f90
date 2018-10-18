@@ -1,12 +1,12 @@
 #include "alias.inc"
-subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, PWGHT, PINPT)
+subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, iband, nband, PWGHT, PINPT)
   use parameters
   use mpi_setup
   implicit none
   type (incar)   :: PINPT 
   type (hopping) :: NN_TABLE
   type (weight)  :: PWGHT
-  integer*4 nkpoint, neig, info, maxfev
+  integer*4 nkpoint, neig, iband, nband, info, maxfev
   real*8  epsfcn,factor, tol, xtol, ftol, gtol, kpoint(3,nkpoint)
   real*8  E_DFT(neig*PINPT%ispin,nkpoint)
   external get_eig
@@ -16,14 +16,14 @@ subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, PWGHT, PI
     factor = 100.0D+00
     maxfev = PINPT%miter * ( PINPT%nparam + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
-    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, &
+    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
                ftol, xtol, gtol, maxfev, epsfcn, factor, info)
    if_main  call infostamp(info,PINPT%ls_type)
    if_main write(6,*)" End: fitting procedures"
   endif
   return
 endsubroutine
-subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, &
+subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
                  ftol, xtol, gtol, maxfev, epsfcn, factor, info)
   use parameters
   use mpi_setup
@@ -31,13 +31,13 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
   type(incar)   :: PINPT
   type(weight)  :: PWGHT
   type(hopping) :: NN_TABLE
-  integer*4     nkpoint,neig
+  integer*4     nkpoint,neig,iband,nband
   integer*4     i,j,l,iter,info,ipvt(PINPT%nparam),maxfev,nfev
   real*8        kpoint(3,nkpoint)
   real*8        actred,delta,diag(PINPT%nparam),dirder,enorm,epsfcn,epsmch,factor
   real*8        fjac(nkpoint,PINPT%nparam),fvec(nkpoint)
-  real*8        E_DFT(neig*PINPT%ispin,nkpoint),E_TBA(neig*PINPT%ispin,nkpoint),wa4(nkpoint)
-  complex*16    V(neig*PINPT%ispin,neig*PINPT%ispin,nkpoint)
+  real*8        E_DFT(neig*PINPT%ispin,nkpoint),E_TBA(nband*PINPT%nspin,nkpoint),wa4(nkpoint)
+  complex*16    V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
   real*8        fnorm,fnorm1,ftol,gnorm,gtol,par
   real*8        pnorm,prered,qtf(PINPT%nparam),ratio,sum2,temp,temp1,temp2,xnorm,xtol
   real*8        wa1(PINPT%nparam),wa2(PINPT%nparam),wa3(PINPT%nparam),param(PINPT%nparam)
@@ -55,11 +55,11 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
   if (ftol < 0.0D+00 .or. xtol < 0.0D+00 .or. gtol < 0.0D+00 .or. maxfev <= 0) go to 300
 
 !  Evaluate the function at the starting point and calculate its norm.
-  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V,  neig, flag_get_orbital, .false., .true.)
+  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V,  neig, iband, nband, flag_get_orbital, .false., .false., .true.)
   if(.not. flag_get_orbital) then
-    call get_fvec(fvec, E_TBA, E_DFT, 0, neig, PINPT%ispin, nkpoint, PWGHT)
+    call get_fvec(fvec, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
   else
-    call get_fvec(fvec, E_TBA, E_DFT, V, neig, PINPT%ispin, nkpoint, PWGHT)
+    call get_fvec(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
   endif
   nfev = 1
   fnorm = enorm ( nkpoint, fvec )
@@ -67,7 +67,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
   iter = 1 ; par = 0.0D+00
 30 continue   !  Beginning of the outer loop.
 !  Calculate the jacobian matrix.
-  call fdjac2 ( get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, PWGHT, fjac, epsfcn, flag_get_orbital)
+  call fdjac2 ( get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)
   nfev = nfev + PINPT%nparam
 !  Compute the QR factorization of the jacobian.
   call qrfac ( nkpoint, PINPT%nparam, fjac, ipvt, wa1, wa2 )
@@ -154,15 +154,15 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
 !  Evaluate the function at X + P and calculate its norm.
         wa2_temp = PINPT%param 
         PINPT%param = wa2
-        call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, flag_get_orbital, .false., .true.)
+        call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, iband, nband, flag_get_orbital, .false., .false., .true.)
         PINPT%param = wa2
         wa2 = PINPT%param
         PINPT%param = wa2_temp
 
         if(.not. flag_get_orbital) then
-          call get_fvec(wa4, E_TBA, E_DFT, 0, neig, PINPT%ispin, nkpoint, PWGHT)
+          call get_fvec(wa4, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
         else
-          call get_fvec(wa4, E_TBA, E_DFT, V, neig, PINPT%ispin, nkpoint, PWGHT)
+          call get_fvec(wa4, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
         endif
         nfev = nfev + 1
         fnorm1 = enorm ( nkpoint, wa4 )
@@ -304,18 +304,18 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, PWGHT, 
   if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
   return
 endsubroutine
-subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, PWGHT, fjac, epsfcn, flag_get_orbital)
+subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)
   use parameters
   use mpi_setup
   implicit none
   type (incar  ) :: PINPT
   type (hopping) :: NN_TABLE
   type (weight)  :: PWGHT
-  integer*4  nkpoint,neig
+  integer*4  nkpoint,neig,iband,nband
   integer*4  i,j
   real*8     eps,epsfcn,epsmch,h,temp,fjac(nkpoint,PINPT%nparam)
-  real*8     wa(nkpoint),fvec(nkpoint),E_TBA(neig*PINPT%ispin,nkpoint),E_DFT(neig*PINPT%ispin,nkpoint),kpoint(3,nkpoint)
-  complex*16 V(neig*PINPT%ispin,neig*PINPT%ispin,nkpoint)
+  real*8     wa(nkpoint),fvec(nkpoint),E_TBA(nband*PINPT%nspin,nkpoint),E_DFT(neig*PINPT%ispin,nkpoint),kpoint(3,nkpoint)
+  complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
   logical    flag_get_orbital
   external   get_eig
 
@@ -327,11 +327,11 @@ subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig,
     if (h == 0.0D+00 ) h=eps
     PINPT%param(j) = temp+h
 
-    call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, flag_get_orbital, .false., .true.)
+    call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, iband, nband, flag_get_orbital, .false., .false., .true.)
     if(.not. flag_get_orbital) then
-      call get_fvec(wa, E_TBA, E_DFT, 0, neig, PINPT%ispin, nkpoint, PWGHT)
+      call get_fvec(wa, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
     else 
-      call get_fvec(wa, E_TBA, E_DFT, V, neig, PINPT%ispin, nkpoint, PWGHT)
+      call get_fvec(wa, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
     endif
 
     PINPT%param(j) = temp

@@ -2,6 +2,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
     use parameters, only: zi, pi, pauli_x, pauli_y, pauli_z, hopping, incar
     use kronecker_prod, only: kproduct
     use phase_factor
+    use print_matrix
     implicit none
     interface
       function FIJ(kp,R)
@@ -33,7 +34,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       Hz = 0d0
       H  = 0d0
 
-nn_sk:do nn = 1, NN_TABLE%n_neighbor
+      do nn = 1, NN_TABLE%n_neighbor
         soc_index = NN_TABLE%soc_param_index(nn)
         i = NN_TABLE%i_matrix(nn) ; j = NN_TABLE%j_matrix(nn)
 
@@ -65,7 +66,7 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
 
         endif
 
-      enddo nn_sk
+      enddo
 
       !SET UP Hamiltonian H_soc*sigma   
       H = kproduct(pauli_x, Hx, 2, 2, neig, neig) &

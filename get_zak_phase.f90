@@ -12,15 +12,16 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    integer*4        mpierr
    integer*4        ikpath, is
    integer*4        nkdiv, nkpath, nerange
+   integer*4        iband, nband
    integer*4        erange(PINPT_BERRY%zak_nerange)
    real*8           time1, time2
    real*8           G1(3), G2(3)
-   real*8           E(PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nkdiv)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nkdiv)
+   real*8           E(PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv)
+   complex*16       V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv)
    real*8           zak_phase(PINPT%nspin,PINPT_BERRY%zak_nkpath)
    real*8           zak_phase_(PINPT%nspin,PINPT_BERRY%zak_nkpath)
    real*8           kpoint(3,PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkpath)
-   logical          flag_phase
+   logical          flag_phase, flag_sparse
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
@@ -31,6 +32,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    allocate(PINPT_BERRY%polarization(PINPT%nspin))
    PINPT_BERRY%zak_phase = 0d0
    PINPT_BERRY%polarization = 0d0
+   flag_sparse= .false.
    flag_phase = PINPT_BERRY%flag_zak_phase
 !  flag_phase= .TRUE.  
    zak_phase = 0d0
@@ -44,15 +46,17 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    G1     = PINPT_BERRY%zak_kpoint(:,nkdiv,1) - PINPT_BERRY%zak_kpoint(:,1,1)
    G2     = PINPT_BERRY%zak_kpoint(:,1,nkpath) - PINPT_BERRY%zak_kpoint(:,1,1)
    nerange= PINPT_BERRY%zak_nerange
+   nband  = PINPT_BERRY%zak_nerange/PINPT%nspin
    erange = PINPT_BERRY%zak_erange
    kpoint = PINPT_BERRY%zak_kpoint
+   iband  = erange(1)
 
    if_main write(6,*)''
    if_main write(6,'(A)')'START: ZAK PHASE EVALUATION'
    if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_zak_range))
 
    do ikpath = 1, nkpath
-     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig,.true.,.false., flag_phase)
+     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true.,flag_sparse, .false., flag_phase)
      call set_periodic_gauge(V, G1, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      call get_berry_phase(zak_phase(:,ikpath), kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
@@ -63,10 +67,6 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    enddo
 
 #ifdef MPI 
-   ! MPI routine is not supported yet...
-!  call MPI_Reduce(zak_phase, zak_phase_, size(zak_phase), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
-!  PINPT_BERRY%zak_phase = zak_phase_
-
    PINPT_BERRY%zak_phase = zak_phase
    if_main call print_zakphase(PINPT, PINPT_BERRY)
 #else

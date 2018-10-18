@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE)
   use parameters
   use read_incar
@@ -71,6 +72,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_efield = .false.
   PINPT%flag_efield_frac = .false.
   PINPT%flag_efield_cart = .false.
+  PINPT%flag_load_nntable= .false.
+  PINPT%flag_sparse = .false.
 
   PINPT_BERRY%flag_wcc_phase = .false.
   PINPT_BERRY%flag_bc_phase  = .false.
@@ -94,6 +97,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%read_energy_column_index_dn = 2 ! default, read 2nd column as target energy (spin_dn)
   PINPT%efield_origin(1:3) = 0d0 ! default
   PINPT%rcut_orb_plot = 5 ! default (unit = angstrom)
+! PINPT%init_erange = -1 ! default
 
   PWGHT%flag_weight_default = .true.
   PWGHT%flag_weight_default_orb = .true.
@@ -132,12 +136,19 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           case('TBFIT','LSTYPE','PTOL','FTOL','MITER')
             call set_tbfit(PINPT, inputline, desc_str)
          
-          case('ERANGE')
-            call set_energy_print_range(PINPT, inputline)
+          case('EWINDOW')
+            call set_energy_window(PINPT, inputline, desc_str)
          
+          case('ERANGE')
+            call set_energy_range(PINPT, inputline, desc_str)
+
           !read KPOINT info file from KFILE
           case('KFILE')
             call set_kpoint_file(PINPT, flag_kfile_ribbon, inputline)
+
+          !load hopping file?
+          case('LOAD_HOP', 'LOAD_TIJ', 'LOAD_NNTABLE')
+            call set_load_nntable(PINPT, inputline, desc_str)
 
           !read GEOMETRY info file from GFILE
           case('GFILE')
@@ -254,11 +265,17 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             !set E-field
             elseif(trim(desc_str) .eq. 'EFIELD') then
               call set_efield(PINPT, desc_str)
-           
+
+    
             endif !SET
          
         end select
       enddo line
+
+  if(PINPT%flag_tbfit_parse) then
+    PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
+  endif
+
 
   if( PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
      if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
@@ -312,6 +329,14 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     !get neighbor hopping index
     call find_nn(PINPT,PGEOM, NN_TABLE)
     call print_nn_table(NN_TABLE,PINPT)
+    if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
+     call load_nn_table(NN_TABLE, PINPT)
+    elseif(PINPT%flag_load_nntable .and. PINPT%flag_tbfit) then
+     if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure. '
+     if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
+     stop
+    endif
+
 
   elseif(.not. flag_gfile_exist) then
     if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%gfilenm),' does not exist!! Exit...'
@@ -445,6 +470,34 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(PINPT%flag_get_parity) then
     call get_kpoint(PINPT_BERRY%parity_kpoint, PINPT_BERRY%parity_kpoint_reci, &
                     PINPT_BERRY%parity_nkpoint, PGEOM)
+  endif
+
+  if(.not.PINPT%flag_erange) then
+    PINPT%init_erange = 1 ! default
+    PINPT%fina_erange = PGEOM%neig*PINPT%ispinor ! default
+    PINPT%nband = PGEOM%neig*PINPT%ispinor ! default
+    if(PINPT%flag_sparse) then
+      ! initial number of ncsr will not exeed n_neighbor. 
+      ! Note that this will be adjusted later in the "get_eig" routine by 
+      ! constructing the Hamiltonian with Compressed Sparse array format.
+      if(PINPT%feast_nemax .le. 0) then
+        PINPT%nband = PGEOM%neig*PINPT%ispinor ! default (do not save memory...)
+        PINPT%init_erange = 1
+        PINPT%fina_erange = PGEOM%neig*PINPT%ispinor
+      elseif(PINPT%feast_nemax .ge. 1) then
+        if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
+          write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'
+          write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
+          write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+          PINPT%nband = PGEOM%neig * PINPT%ispinor
+          PINPT%feast_nemax = PINPT%nband
+        else
+          PINPT%nband = PINPT%feast_nemax
+        endif
+        PINPT%init_erange = 1
+        PINPT%fina_erange = PINPT%nband
+      endif
+    endif
   endif
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'

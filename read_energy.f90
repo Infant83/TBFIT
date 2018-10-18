@@ -55,7 +55,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
     open(pid_energy,file=trim(fnameu), status='old', iostat=i_continue)
   endif
 
-  write(6,*)' '
+  if_main write(6,*)' '
   if(PINPT%flag_collinear) then
     if_main write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu), ' and ', trim(fnamed)
   else

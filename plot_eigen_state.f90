@@ -23,6 +23,8 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    complex*16   psi_r_up(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
    complex*16   psi_r_dn(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
    real*8       time1, time2
+   logical      flag_exist_up, flag_exist_dn
+
    call set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, pid_chg_up, pid_chg_dn, vol, &
                               ng1, ng2, ng3, a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
    call write_info_plot_eig(PINPT)
@@ -30,12 +32,26 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
 en:do ie = 1, PINPT%n_eig_print
      write(6,'(A,I5)')          "   *EIGEN STATE No. : ",PINPT%i_eig_print(ie)
      write(6,'(A)',ADVANCE='no')"   *    K-POINT No. : "
-     iee = PINPT%i_eig_print(ie)
+     iee = PINPT%i_eig_print(ie) - PINPT%init_erange + 1
  kp: do ik = 1, PINPT%n_kpt_print
        write(6,'(I5)',ADVANCE='no')PINPT%i_kpt_print(ik)
        ikk = PINPT%i_kpt_print(ik)    
-       call print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn)
-       call initialize_psi_r(psi_r_up,psi_r_dn, ngrid,PINPT%ispin)
+       call print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn, flag_exist_up, flag_exist_dn)
+       if(.not. flag_exist_up .and. .not. flag_exist_dn) then
+         write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " has not been found"
+         write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
+         write(6,'(A)')         "             No result will be written for this K-POINT. Skip.."
+         cycle kp
+       elseif(.not. flag_exist_up .and. flag_exist_dn) then
+         write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-up has not been found"
+         write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
+         write(6,'(A)')         "             Only spin-dn result will be written for this K-POINT. "
+       elseif(flag_exist_up .and. .not. flag_exist_dn) then
+         write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-dn has not been found"
+         write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
+         write(6,'(A)')         "             Only spin-up result will be written for this K-POINT. "
+       endif
+       call initialize_psi_r(psi_r_up,psi_r_dn, ngrid,PINPT%ispin, flag_exist_up, flag_exist_dn)
 
 cell_z:do iz = -1,1
 cell_y:do iy = -1,1
@@ -56,7 +72,8 @@ cell_x:do ix = -1,1
        enddo cell_z
 
        call write_rho_main(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_up, psi_r_dn, &
-                           PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%flag_plot_wavefunction)
+                           PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%flag_plot_wavefunction, &
+                           flag_exist_up, flag_exist_dn)
 
      enddo kp
      write(6,'(A)',ADVANCE='yes')" "
@@ -72,19 +89,21 @@ cell_x:do ix = -1,1
 
    return
 endsubroutine
-subroutine initialize_psi_r(psi_r_up,psi_r_dn, ngrid, ispin)
+subroutine initialize_psi_r(psi_r_up,psi_r_dn, ngrid, ispin, flag_exist_up, flag_exist_dn)
    implicit none
    integer*4    ispin, ngrid
    complex*16   psi_r_up(ngrid), psi_r_dn(ngrid)
    logical      flag_plot_wavefunction
+   logical      flag_exist_up, flag_exist_dn
 
-   psi_r_up = (0d0,0d0)
+   if(flag_exist_up) psi_r_up = (0d0,0d0)
    
-   if( ispin .eq. 2) psi_r_dn = (0d0,0d0)
+   if( ispin .eq. 2 .and. flag_exist_dn) psi_r_dn = (0d0,0d0)
 
    return
 endsubroutine
-subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,iee,ikk,ETBA,ispin,flag_plot_wavefunction)
+subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,iee,ikk,ETBA,ispin,flag_plot_wavefunction, &
+                     flag_exist_up, flag_exist_dn)
    use parameters, only : incar, energy
    use orbital_wavefunction, only: psi_rho
    type(incar) :: PINPT
@@ -95,36 +114,50 @@ subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,iee,ikk,ETBA,isp
    complex*16   psi_r_up(ngrid)
    complex*16   psi_r_dn(ngrid)
    logical      flag_plot_wavefunction
+   logical      flag_exist_up, flag_exist_dn
 
-   psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, iee, ikk, ETBA, flag_plot_wavefunction, 'up') 
+   if(flag_exist_up) then
+     psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, iee, ikk, ETBA, flag_plot_wavefunction, 'up') 
+   endif
 
-   if(ispin .eq. 2) then ! we calculate dn(or beta)-spin part if coll. or noncol. case
-     psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, iee, ikk, ETBA, flag_plot_wavefunction, 'dn') 
+   if(flag_exist_dn) then
+     if(ispin .eq. 2) then ! we calculate dn(or beta)-spin part if coll. or noncol. case
+       psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, iee, ikk, ETBA, flag_plot_wavefunction, 'dn') 
+     endif
    endif
 
    return
 endsubroutine
 subroutine write_rho_main(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_up, psi_r_dn, &
-                          ispin, nspin, ispinor, flag_plot_wavefunction)
+                          ispin, nspin, ispinor, flag_plot_wavefunction, flag_exist_up, flag_exist_dn)
    implicit none
    integer*4      ispin, ispinor, nspin
    integer*4      pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi
    complex*16     psi_r_up(ngrid), psi_r_dn(ngrid)
    logical        flag_plot_wavefunction
+   logical        flag_exist_up, flag_exist_dn
 
    ! write rho (nonmag, noncol), rho_up (collinear), psi_up.majority (collin,noncollin)
    if(    ispinor .eq. 2 .and. .not. flag_plot_wavefunction) then   ! for noncol (rho)
-     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up+psi_r_dn, .false.)
+     if(flag_exist_up) then
+       call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up+psi_r_dn, .false.)
+     endif
    elseif(ispinor .eq. 2 .and.       flag_plot_wavefunction) then   ! for noncol (psi)
-     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up         , .true. )
-     call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn         , .true. )
-
+     if(flag_exist_up) then
+       call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up         , .true. )
+       call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn         , .true. )
+     endif
    elseif(nspin   .eq. 2                                   ) then   ! for collin (rho or psi)
-     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
-     call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn,flag_plot_wavefunction)
-   
+     if(flag_exist_up) then
+       call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
+     endif
+     if(flag_exist_dn) then
+       call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn,flag_plot_wavefunction)
+     endif
    elseif(ispin   .eq. 1                                   ) then   ! for nonmag (rho or psi)
-     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
+     if(flag_exist_up) then
+       call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
+     endif
    endif
 
 
@@ -161,31 +194,61 @@ subroutine print_PARCHG_main(pid_chg_, ngrid, nline, nwrite, nresi, psi_r, flag_
 
    return
 endsubroutine
-subroutine print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn)
+subroutine print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn, flag_sparse_exist_up, flag_sparse_exist_dn)
    use parameters, only : incar, poscar
    implicit none
    type(incar) :: PINPT
    type(poscar):: PGEOM
    integer*4      ik, ie, pid_chg_up, pid_chg_dn
    character*8    c_extension
+   logical        flag_sparse_exist_up, flag_sparse_exist_dn
+ 
+   flag_sparse_exist_up = .true. ! default
+   flag_sparse_exist_dn = .true. ! default
+   if( ie .le. PINPT%feast_ne(1, ik)) then
+     flag_sparse_exist_up = .true.
+     if(PINPT%ispinor .eq. 2) flag_sparse_exist_dn = .true.
+   else
+     flag_sparse_exist_up = .false.
+     if(PINPT%ispinor .eq. 2) flag_sparse_exist_dn = .false.
+   endif
+   if( PINPT%nspin .eq. 2) then
+     if( ie .le. PINPT%feast_ne(2, ik)) then 
+       flag_sparse_exist_dn = .true.
+     else
+       flag_sparse_exist_dn = .false.
+     endif
+   endif
 
    if(PINPT%flag_plot_wavefunction) then
      if(PINPT%flag_collinear .or. PINPT%flag_noncollinear) then
-       c_extension = '-real-up'; call PARCHG_head(pid_chg_up    ,ik, ie, PINPT,PGEOM, c_extension)
-       c_extension = '-imag-up'; call PARCHG_head(pid_chg_up+100,ik, ie, PINPT,PGEOM, c_extension)
-       c_extension = '-real-dn'; call PARCHG_head(pid_chg_dn    ,ik, ie, PINPT,PGEOM, c_extension)
-       c_extension = '-imag-dn'; call PARCHG_head(pid_chg_dn+100,ik, ie, PINPT,PGEOM, c_extension)
+       if(flag_sparse_exist_up) then
+         c_extension = '-real-up'; call PARCHG_head(pid_chg_up    ,ik, ie, PINPT,PGEOM, c_extension)
+         c_extension = '-imag-up'; call PARCHG_head(pid_chg_up+100,ik, ie, PINPT,PGEOM, c_extension)
+       endif
+       if(flag_sparse_exist_dn) then
+         c_extension = '-real-dn'; call PARCHG_head(pid_chg_dn    ,ik, ie, PINPT,PGEOM, c_extension)
+         c_extension = '-imag-dn'; call PARCHG_head(pid_chg_dn+100,ik, ie, PINPT,PGEOM, c_extension)
+       endif
      elseif(.not. PINPT%flag_collinear .and. .not. PINPT%flag_noncollinear) then
-       c_extension = '-real'; call PARCHG_head(pid_chg_up    ,ik, ie, PINPT,PGEOM, c_extension)
-       c_extension = '-imag'; call PARCHG_head(pid_chg_up+100,ik, ie, PINPT,PGEOM, c_extension)
+       if(flag_sparse_exist_up) then
+         c_extension = '-real'; call PARCHG_head(pid_chg_up    ,ik, ie, PINPT,PGEOM, c_extension)
+         c_extension = '-imag'; call PARCHG_head(pid_chg_up+100,ik, ie, PINPT,PGEOM, c_extension)
+       endif
      endif
 
    elseif(.not. PINPT%flag_plot_wavefunction) then
      if(PINPT%flag_collinear) then
-       c_extension = '-up'; call PARCHG_head(pid_chg_up,ik, ie, PINPT, PGEOM, c_extension)
-       c_extension = '-up'; call PARCHG_head(pid_chg_dn,ik, ie, PINPT, PGEOM, c_extension)
+       if(flag_sparse_exist_up) then
+         c_extension = '-up'; call PARCHG_head(pid_chg_up,ik, ie, PINPT, PGEOM, c_extension)
+       endif
+       if(flag_sparse_exist_dn) then
+         c_extension = '-dn'; call PARCHG_head(pid_chg_dn,ik, ie, PINPT, PGEOM, c_extension)
+       endif
      elseif(.not. PINPT%flag_collinear) then
-       c_extension = ''; call PARCHG_head(pid_chg_up,ik, ie, PINPT, PGEOM, c_extension)
+       if(flag_sparse_exist_up) then
+         c_extension = ''; call PARCHG_head(pid_chg_up,ik, ie, PINPT, PGEOM, c_extension)
+       endif
      endif
 
    endif

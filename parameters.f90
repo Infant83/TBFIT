@@ -1,6 +1,13 @@
 module parameters
   use mpi_setup
   use iso_c_binding, only:  c_char, c_int, c_double, c_ptr, c_f_pointer
+#ifdef MKL_SPARSE
+  use MKL_SPBLAS 
+#endif
+!#ifndef MPI
+!  integer*4,    public, parameter :: nprocs = 1
+!  integer*4,    public, parameter :: myid   = 0
+!#endif
   character*26, public, parameter ::alphabet='abcdefghijklmnopqrstuvwxyz'
   real*8    , public, parameter   ::      pi=4.d0*atan(1.d0) ! Leibniz's formula for Pi
   real*8    , public, parameter   ::     pi2=2.d0*pi
@@ -12,7 +19,8 @@ module parameters
   real*8    , public, parameter   ::     rt2=sin( 4.d0*atan(1.d0)/4.d0 ) * 2.d0 ! sqrt(2)
   real*8    , public, parameter   ::     rt3=sin( 4.d0*atan(1.d0)/3.d0 ) * 2.d0 ! sqrt(3)
   real*8    , public, parameter   :: onsite_tolerance= 0.0001 !! symmetry precision
-  real*8    , public, parameter   ::     eta=epsilon(1d0)
+  real*8    , public, parameter   ::     eta=epsilon(1d0) ! tiny value
+  real*8    , public              :: t1, t0 ! time
   complex*16, public, parameter   ::      zi=(0.d0,1.d0)
   complex*16, public, parameter   ::     pzi= pi*zi
   complex*16, public, parameter   ::    pzi2=2*pzi
@@ -50,6 +58,9 @@ module parameters
   type incar !PINPT
        logical                       flag_get_band  ! default = .true.
 
+       logical                       flag_tbfit_parse, flag_tbfit_parse_
+       logical                       flag_tbfit_test
+
        real*8                        ptol
        real*8                        ftol
        integer*4                     miter,nparam,nparam_const
@@ -60,6 +71,7 @@ module parameters
        logical                       flag_set_param_const
        logical                       flag_slater_koster ! default .true.
        logical                       flag_print_mag
+       logical                       flag_load_nntable ! default .false.
        character*2                   axis_print_mag
        real*8,       allocatable  :: param(:)
        character*20, allocatable  :: param_name(:)
@@ -74,6 +86,7 @@ module parameters
        character*132                 ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
        character*132                 pfilenm,pfileoutnm ! SK parameter file input & output
        character*132                 efilenmu,efilenmd  ! target energy file (spin up & dn)
+       character*132                 nnfilenm           ! hopping integral file name (default = hopping.dat)     
 
        integer*8                     nweight, npenalty_orb
        character*132, allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
@@ -113,6 +126,16 @@ module parameters
        integer*4                     nspin   ! nonmag: 1, collinear: 2, non-collinear: 1
        logical                       flag_local_charge, flag_collinear, flag_noncollinear, flag_soc
 
+       logical                       flag_erange
+       integer*4                     init_erange, fina_erange  ! ie:fe
+       integer*4                     nband ! nonmag: ie:fe, collinear: ie:fe for up or dn, non-collinear: ie:fe
+       logical                       flag_sparse ! if EWINDOW tag has been set up, flag_sparse is forced to be .true.
+       integer*4                     feast_nemax ! maximum number of eigenvalues (=nband_guess)
+       real*8                        feast_emin, feast_emax ! energy window [emin:emax] for FEAST algorithm
+       integer*4                     feast_fpm(128) ! FEAST parameters
+       integer*4,    allocatable  :: feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
+       integer*4                     feast_neguess  ! initial guess for the number of states to be found in interval
+
        logical                       flag_set_ribbon, flag_print_only_ribbon_geom
        integer*4                     ribbon_nslab(3)
        real*8                        ribbon_vacuum(3)
@@ -127,9 +150,6 @@ module parameters
        real*8                        efield(3)
        real*8                        efield_origin(3)
        real*8                        efield_origin_cart(3)
-
-       logical                       flag_erange
-       integer*4                     init_erange, fina_erange
 
   endtype incar
 
@@ -170,10 +190,10 @@ module parameters
        real*8                        spg_transformation_matrix(3,3)
        real*8                        spg_origin_shift(3)
        integer*4                     spg_n_operations ! nsym, number of symmetry operations
-       character*11                  spg_international
-       character*17                  spg_hall_symbol
+       character*12                  spg_international
+       character*18                  spg_hall_symbol
        character*6                   spg_choice
-       character*6                   spg_point_group
+       character*7                   spg_point_group
        character*12                  spg_crystal_system
        integer*4,   allocatable   :: spg_rotations(:,:,:)   ! {->w,   t} (3,3,spg_n_operations)
        real*8,      allocatable   :: spg_translations(:,:) !  {  w, ->t} (3,spg_n_operations)
@@ -248,6 +268,9 @@ module parameters
        integer*4,   allocatable   :: plus_U_param_index(:) ! array size = i, i=ham_index(neig), 
        integer*4,   allocatable   :: soc_param_index(:)    ! soc parameter index for each orbital-orbital pair (nn)
 !      real*8,      allocatable   :: orbital_moment(:,:)   ! (1:3,i) (1:3)=(Lx, Ly, Lz), i=nn_index (nn-class=0)
+
+       real*8,      allocatable   :: tij_file(:) ! hopping amplitude read from file
+
 
   endtype hopping
 
@@ -345,4 +368,17 @@ module parameters
 
   endtype berry
 
+  type spmat ! sparse matrix with Compressed Sparse Row format
+       integer*4                     nnz    ! number of non-zero elements
+       integer*4                     msize  ! matrix size
+       complex*16  ,allocatable   :: H(:)   ! sparse array of square matrix H_square(msize,msize), (n_neighbor)
+       integer*4   ,allocatable   :: I(:)   ! Row    array : if CSR format : I(msize + 1), I(msize+1)-1 = nnz
+                                            !                if COO format : I(nnz)
+       integer*4   ,allocatable   :: J(:)   ! Column array : J(nnz), same size with H
+!#ifdef MKL_SPARSE
+!       type(c_ptr)                :: cptrH   , cptrB   , cptrE   , cptrJ
+!       integer*4,       pointer   ::            ptrB(:),  ptrE(:),  ptrJ(:)
+!       complex*16,      pointer   ::  ptrH(:)
+!#endif
+  endtype spmat
 endmodule 

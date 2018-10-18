@@ -1,31 +1,41 @@
 #include "alias.inc"
-subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, ispin, nkpoint, PWGHT)
-  use parameters, only: weight
+subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
+  use parameters, only: weight, incar
   implicit none
-  integer*4  ik, neig, nkpoint, ispin
-  integer*4  ie
-  real*8     E_TBA(neig*ispin,nkpoint),E_DFT(neig*ispin,nkpoint), dE(neig*ispin), fvec(nkpoint)
-  real*8     orbital_weight_penalty(neig*ispin)
-  complex*16, intent(in) :: V(neig*ispin,neig*ispin,nkpoint)
+  type (weight)  :: PWGHT
+  type (incar )  :: PINPT
+  integer*4  ik, neig, nkpoint
+  integer*4  is, ie, ie_, iband, nband
+  real*8     E_TBA(nband*PINPT%nspin,nkpoint)
+  real*8     E_DFT(neig*PINPT%ispin,nkpoint), dE(nband*PINPT%nspin), fvec(nkpoint)
+  real*8     orbital_weight_penalty(nband*PINPT%nspin)
+  complex*16, intent(in) :: V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
   real*8     enorm
   external   enorm
-  type (weight)  :: PWGHT
 
   if(PWGHT%flag_weight_default_orb) then
 
     do ik=1,nkpoint
-      dE(:) = (E_TBA(:,ik) - E_DFT(:,ik)) * PWGHT%WT(:,ik) 
-      fvec(ik) = enorm ( neig*ispin, dE )
+      do is = 1, PINPT%nspin
+        do ie = 1, PINPT%nband
+          ie_ = ie + iband - 1 + (is-1) * neig
+          dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) 
+        enddo
+      enddo
+      fvec(ik) = enorm ( PINPT%nband*PINPT%ispin, dE )
     enddo
 
   elseif(.not.PWGHT%flag_weight_default_orb) then
 
     do ik=1,nkpoint
-      do ie=1, neig*ispin
-        orbital_weight_penalty(ie) = sum( PWGHT%PENALTY_ORB(:,ie,ik)*abs(V(:,ie,ik)) )
+      do is = 1, PINPT%nspin
+        do ie = 1, PINPT%nband
+          ie_ = ie + iband - 1 + (is-1) * neig
+          orbital_weight_penalty(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
+          dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + orbital_weight_penalty(ie_)
+        enddo
       enddo
-      dE(:) = (E_TBA(:,ik) - E_DFT(:,ik)) * PWGHT%WT(:,ik) + orbital_weight_penalty(:)
-      fvec(ik) = enorm ( neig*ispin, dE )
+      fvec(ik) = enorm ( PINPT%nband*PINPT%ispin, dE )
     enddo
 
   endif
@@ -358,12 +368,11 @@ subroutine print_matrix_c(H,msize_row,msize_col, title, iflag, fmt_)
  complex*16 H(msize_row,msize_col)
  character (len = *) title
  character*80 fname
- character(len = *), optional :: fmt_
+ character(len = *), optional :: fmt_ ! format, ex) f12.5
  character*80 fmt
  real*8       a
-
  if(present(fmt_)) then
-   write(fmt,'(5A)')'(*(2x,',trim(fmt_),'+',trim(fmt_),'i))'
+   write(fmt,'(5A)')'(*(2x,',trim(fmt_),",'+',",trim(fmt_),",'i'))"
  else
    write(fmt,'(A)')"(*(2x,F7.3,'+',F7.3,'i'))"
  endif
@@ -505,6 +514,11 @@ subroutine check_here_r(check_flag)
 return
 endsubroutine
 subroutine strip_off (string, strip, strip_a, strip_b, mode)
+!strip   : strip to be extract out of string
+!strip_a : strip_index a   
+!strip_b : strip_index b
+!ex) string = hello world ! -> strip_a='hello', strip_b='!', strip =' world ' and mode = 1
+
 !mode 0: strip-off where              strip   < strip_b of string 
 !mode 1: strip-off where   strip_a <  strip   < strip_b of string only if strip_a =/ strip b
 !mode 2: strip-off where   strip_a <  strip 

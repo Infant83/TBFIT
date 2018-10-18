@@ -3,6 +3,7 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2, cyclic_axis
    use berry_phase
    use mpi_setup
+   use time
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -10,13 +11,14 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    type(poscar)  :: PGEOM
    type(kpoints) :: PKPTS
    integer*4        mpierr
-   logical          flag_phase, flag_get_chern
+   logical          flag_phase, flag_sparse, flag_get_chern
    integer*4        i, is
    integer*4        nerange, nkdiv, nkpath, nplane
    integer*4        ix, ip, ikpath
+   integer*4        iband, nband
    integer*4        erange(PINPT_BERRY%z2_nerange)
-   real*8           E(PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nkdiv)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nkdiv)
+   real*8           E(PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv)
+   complex*16       V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv)
    real*8           shift(2)
    real*8           k_init_reci(3), k_end_reci(3), kpath(3,2,PINPT_BERRY%z2_nkpath)
    real*8           G(3)
@@ -41,16 +43,13 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
      PINPT_BERRY%z2_polarization = 0d0
    endif
 
-#ifdef MPI
-   if_main time1 = MPI_Wtime()
-#else
-   call cpu_time(time1)
-#endif
+   call time_check(time1, time2, 'init')
+
    if_main write(6,*)''
    if_main write(6,'(A)')'START: Z2 EVALUATION'
    if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_z2_range))
-
-   flag_phase = PINPT_BERRY%flag_z2_phase
+   flag_sparse= .false.
+   flag_phase = PINPT_BERRY%flag_z2_phase ! default = .false.
 !  flag_phase = .TRUE. 
    flag_get_chern = PINPT_BERRY%flag_z2_get_chern
    if(size(PINPT_BERRY%z2_axis) .eq. 3) nplane = 2
@@ -59,6 +58,7 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    cplane(1)='0.0';cplane(2)='0.5'
    erange         = PINPT_BERRY%z2_erange(:)
    nerange        = PINPT_BERRY%z2_nerange
+   nband          = PINPT_BERRY%z2_nerange/PINPT%nspin 
    nkdiv          = PINPT_BERRY%z2_nkdiv
    nkpath         = PINPT_BERRY%z2_nkpath
    z2_axis        = PINPT_BERRY%z2_axis
@@ -67,17 +67,17 @@ subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    fnm_header     = PINPT_BERRY%z2_filenm
    fnm_gap_header = PINPT_BERRY%z2_gap_filenm
    z2_bulk        = 0
-
+   iband          = erange(1)
    if(z2_dimension .ge. 2) then
 axis:do ix = 1, size(z2_axis)
  plane:do ip = 1, nplane
          call set_kpath_plane(PINPT_BERRY%z2_kpoint(:,:,:,ip,ix), PINPT_BERRY%z2_kpoint_reci(:,:,:,ip,ix), kpath, nkdiv, nkpath, z2_axis(ix), shift(ip), PGEOM)
          G = PINPT_BERRY%z2_kpoint(:,nkdiv,1,ip,ix) - PINPT_BERRY%z2_kpoint(:,1,1,ip,ix)
     path:do ikpath = 1, nkpath
-           call get_eig(NN_TABLE, PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), nkdiv, PINPT, E, V, PGEOM%neig, .true., .false., flag_phase)
+           call get_eig(NN_TABLE, PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true., flag_sparse, .false., flag_phase)
            call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
-           call get_berry_phase(PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)
+           call get_berry_phase    (PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #else
            call get_berry_phase_svd(PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
@@ -115,15 +115,11 @@ axis:do ix = 1, size(z2_axis)
      stop
    endif
 
-#ifdef MPI
-   if_main time2 = MPI_Wtime()
-#else
-   call cpu_time(time2)
-#endif
+   call time_check(time1, time2)
    
    if_main_then
      if(.not. flag_get_chern) call write_z2_index(PINPT%nspin, z2_dimension, z2_bulk)
-     write(6,'(A,F12.3)')'END: Z2 INDEX CALCULATION. TIME ELAPSED (s) =',time2-time1
+     write(6,'(A,F12.3)')'END: Z2 INDEX CALCULATION. TIME ELAPSED (s) =',time1
    if_main_end
 
    return

@@ -28,7 +28,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    complex*16    psi_r_up(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
    complex*16    psi_r_dn(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
    character*8   corb(PGEOM%neig)
-   integer*4     stm_erange(PGEOM%neig*PINPT%ispinor,PINPT%nspin), stm_neig(PINPT%nspin)
+   integer*4     stm_erange(PINPT%nband,PINPT%nspin), stm_neig(PINPT%nspin)
    character*2   spin_index_c(2)
 
    spin_index_c(1) = 'up'
@@ -39,20 +39,24 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 
  stm: do istm = 1, PINPT%n_stm
        if_main call print_CHGCAR_stm_head(PINPT, PGEOM, pid_stm_up, pid_stm_dn, istm)
-           call MPI_Barrier(mpi_comm_earth,mpierr)
+#ifdef MPI
+       call MPI_Barrier(mpi_comm_earth,mpierr)
+#endif
        call initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid,PINPT%ispin,PKPTS%nkpoint)
 
    kp: do ikk = 1, PKPTS%nkpoint
          stm_neig = 0; stm_erange = 0 ! initialize
-         call get_stm_erange(PINPT, PKPTS, ETBA%E(:,ikk), neig, stm_neig, stm_erange, istm)
-   spin: do is = 1, PINPT%nspin
+         call get_stm_erange(PINPT, PKPTS, ETBA%E(:,ikk), neig, stm_neig, stm_erange, istm, ikk)
+   spin: do is = 1, PINPT%nspin ! 2 for collinear,  1 for nonmag and non-collinear
            if_main call print_kpoint_index_info_header(stm_neig, PINPT%nspin, is, ikk, PKPTS%kpoint_reci(:,ikk))
-           if_main call print_band_index_info_header(stm_neig, stm_erange, PINPT%nspin, is, PINPT%ispinor, neig)
+           if_main call print_band_index_info_header(stm_neig, stm_erange, PINPT%nspin, is, PINPT%nband)
 
+#ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
            call MPI_Barrier(mpi_comm_earth,mpierr)
+#endif
      band: do ie = 1+myid, stm_neig(is),nprocs
-             iee = stm_erange(ie,is)
+             iee = stm_erange(ie,is) - PINPT%init_erange + 1
     cell_z: do iz =  -PINPT%repeat_cell_orb_plot(3),PINPT%repeat_cell_orb_plot(3) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_y: do iy =  -PINPT%repeat_cell_orb_plot(2),PINPT%repeat_cell_orb_plot(2) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_x: do ix =  -PINPT%repeat_cell_orb_plot(1),PINPT%repeat_cell_orb_plot(1) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
@@ -73,11 +77,12 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 
            enddo band
 
+#ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
            call MPI_Allreduce(psi_r_up(:,ikk), psi_r_up_(:,ikk), size(psi_r_up_(:,ikk)), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
            psi_r_up(:,ikk) = psi_r_up_(:,ikk)
            call MPI_Barrier(mpi_comm_earth,mpierr)
-
+#endif
          enddo spin
        enddo kp
 
@@ -94,8 +99,8 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                                    PINPT%ispin, PINPT%nspin, PINPT%ispinor, .false.)
      enddo stm
 
-   write(6,*)' '
-   write(6,'(A)')'*- END WRITING: STM PLOT'
+   if_main write(6,*)' '
+   if_main write(6,'(A)')'*- END WRITING: STM PLOT'
 
    return
 endsubroutine
@@ -205,38 +210,64 @@ subroutine CHGCAR_stm_head(pid_stm_, istm, PINPT, PGEOM, c_extension)
    return
 endsubroutine
 
-subroutine get_stm_erange(PINPT, PKPTS, E, neig, stm_neig, stm_erange, istm)
+subroutine get_stm_erange(PINPT, PKPTS, E, neig, stm_neig, stm_erange, istm, ikk)
    use parameters, only : incar, poscar, kpoints, energy
    implicit none
    type (incar)   :: PINPT
    type (kpoints) :: PKPTS
-   integer*4     ie, ii, ispin
+   integer*4     ie, ii, ispin, ikk
    integer*4     istm, neig
-   integer*4     stm_erange(neig*PINPT%ispinor,PINPT%nspin), stm_neig(PINPT%nspin)
-   real*8        E(neig * PINPT%ispin)
+   integer*4     stm_erange(PINPT%nband,PINPT%nspin), stm_neig(PINPT%nspin)
+   real*8        E(PINPT%nband * PINPT%nspin)
    character*2   spin_index
+   integer*4     feast_ne(PINPT%nspin)
+
+   if(PINPT%flag_sparse) then
+     feast_ne = PINPT%feast_ne(1:PINPT%nspin, ikk)
+   endif
 
    do ispin = 1, PINPT%nspin
      select case (ispin)
        case(1)
          ii = 0
-         do ie = 1, neig*PINPT%ispinor  ! valid if nonmagnetic and noncollinear case, and spin-up for collinear
-           if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
-             ii = ii + 1
-             stm_erange(ii, 1) = ie
-           endif
-         enddo
-         stm_neig(1) = ii
+         if(PINPT%flag_sparse) then
+           do ie = 1, feast_ne(1)   ! valid for nonmagnetic and noncollinear case, and spin-up for collinear
+             if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
+               ii = ii + 1
+               stm_erange(ii, 1) = ie + PINPT%init_erange - 1
+             endif
+           enddo
+         else
+           do ie = 1, PINPT%nband   ! valid for nonmagnetic and noncollinear case, and spin-up for collinear
+             if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
+               ii = ii + 1
+               stm_erange(ii, 1) = ie + PINPT%init_erange - 1
+             endif
+           enddo
+         endif
+
+         stm_neig(1) = ii ! total number of bands within energy window
 
        case(2)
          ii = 0
-         do ie = 1+neig, neig*2 ! this is only valid if nspin = 2 (collinear) case
-           if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
-             ii = ii + 1
-             stm_erange(ii, 2) = ie
-           endif
-         enddo
+         if(PINPT%flag_sparse .and. feast_ne(2) .ge. 1) then
+           do ie = 1+PINPT%nband, PINPT%nband + feast_ne(2) ! this is only valid if nspin = 2 (collinear) case
+             if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
+               ii = ii + 1
+               stm_erange(ii, 2) = ie + PINPT%init_erange - 1
+             endif
+           enddo
+         else
+           do ie = 1+PINPT%nband, PINPT%nband*2 ! this is only valid if nspin = 2 (collinear) case
+             if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
+               ii = ii + 1
+               stm_erange(ii, 2) = ie + PINPT%init_erange - 1
+             endif
+           enddo
+         endif
+
          stm_neig(2) = ii
+
      end select
    enddo
    return
@@ -323,10 +354,10 @@ subroutine print_kpoint_index_info_header(stm_neig, nspin, is, ikk, kpoint_reci)
    return
 endsubroutine
 
-subroutine print_band_index_info_header(stm_neig,stm_erange,nspin, is, ispinor, neig)
+subroutine print_band_index_info_header(stm_neig,stm_erange,nspin, is, nband)
    implicit none
-   integer*4   nspin, is, neig, ispinor
-   integer*4   stm_neig(nspin), stm_erange(neig*ispinor,nspin)
+   integer*4   nspin, is, nband 
+   integer*4   stm_neig(nspin), stm_erange(nband,nspin)
 
    if( stm_neig(is) .ge. 1 ) then
 

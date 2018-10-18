@@ -4,3 +4,4 @@
 #define if_nsp2            if(PINPT%nspin .eq. 2)
 #define if_ncol            if(PINPT%ispinor .eq. 2)
 #define mpi_kill           call MPI_Abort(mpi_comm_earth, 0, mpierr)
+#define if_test            if(PINPT%flag_tbfit_test)

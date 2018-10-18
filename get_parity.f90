@@ -58,7 +58,7 @@ sp:do is = 1, nspin
        if_main write(6,'(A,I3,1x,A10,A,3F10.5)')'       KPT',ik,kpoint_name(ik),' : ',kpoint_reci(:,ik)
        parity_eigenvalue = 0d0
 
-       call get_hamk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase) ;Hk_ = Hk
+       call get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase) ;Hk_ = Hk
        call symmetrize_hamk(Hk, V, parity_matrix_op, neig, ispinor)
        call cal_eig_hermitian(V, neig*ispinor, E_, .true.)
        call get_symmetry_eigenvalue(parity_eigenvalue, V, parity_matrix_op, neig, ispinor)

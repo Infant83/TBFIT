@@ -10,6 +10,7 @@ program tbfit
 !
   use parameters
   use mpi_setup
+  use time
   implicit none
   external  get_eig
   real*8    t_start,t_end
@@ -24,27 +25,31 @@ program tbfit
   type (weight)  :: PWGHT       ! weight factor for the fitting to target energy
   type (hopping) :: NN_TABLE    ! table for hopping index
 
-  !call test()
   !call test(PINPT, PKPTS, PGEOM)
 
+#ifdef MPI
   call mpi_initialize()
-
+#endif
   if_main call timestamp ('Program start on',t_start)
+          call parse(PINPT) ; if_test call test()
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE)
   if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE)
 
-  call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
   if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature) then
-    call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, PINPT%flag_get_orbital, .true., .true.)
+    call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
+    call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
+                 PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
     if(PINPT%flag_get_band .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+    if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
+    if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
+    if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
   endif
 
-  if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
-  if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
+#ifdef MPI
   call MPI_Barrier(mpi_comm_earth,mpierr)
+#endif
 
   if(PINPT%flag_get_dos)             call get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
-  if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 
   if(PINPT%flag_get_zak_phase)       call get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
   if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
@@ -59,6 +64,8 @@ program tbfit
   deallocate(ETBA%E)
   if(PINPT%flag_get_orbital) deallocate(ETBA%V)
 
+#ifdef MPI
   call mpi_finish()
+#endif
   stop
 end program

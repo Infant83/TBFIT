@@ -1,11 +1,19 @@
 module mpi_setup
 
+#ifdef MPI
    use mpi_basics
 
    implicit none
    integer, allocatable :: task_list(:)
+
+#else
+   integer*4, public, parameter :: myid   = 0
+   integer*4, public, parameter :: nprocs = 1
+#endif
+
    contains
 
+#ifdef MPI
    subroutine mpi_initialize()
      integer*4  mpierr
 
@@ -34,7 +42,7 @@ module mpi_setup
      call get_my_task()
 
      if(flag_use_mpi .and. myid .eq. 0) then
-       write(6,*) " MPI-parallelism will be employed. myid=",myid
+       write(6,'(A,I0,A)') " MPI-parallelism will be employed. Running on ",nprocs," total cores."
      endif
 
    endsubroutine
@@ -72,13 +80,34 @@ module mpi_setup
      call MPI_FINALIZE(mpierr)
    endsubroutine 
 
-   subroutine mpi_job_distribution(njob_total, myjob_init, myjob_fina)
+#endif
+
+   subroutine mpi_job_distribution_chain(njob, ourjob)
      implicit none
-     integer ::   njob_total, myjob_init, myjob_fina
-     integer ::   njob_each    
+     integer*4    njob
+     integer*4    mynjob
+     integer*4    cpuid, mpierr
+     integer*4    nresidue
+#ifdef MPI
+     integer*4    ourjob(nprocs)
+#else
+     integer*4    ourjob(1)
+!    integer*4    myid, nprocs
+!    myid = 0
+!    nprocs = 1
+#endif
 
-     njob_each = njob_total / nprocs
+     mynjob = floor ( real(njob)/real(nprocs) )
+     nresidue = nint (real(njob) - real(mynjob) * real(nprocs))
 
+     do cpuid = 1, nprocs
+       if( cpuid .le. nresidue ) then
+          ourjob(cpuid) = mynjob + 1
+       else
+          ourjob(cpuid) = mynjob
+       endif
+     enddo
 
    endsubroutine
+
 endmodule

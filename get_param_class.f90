@@ -204,7 +204,6 @@ subroutine get_local_U_param_index(local_U_param_index, PINPT, nn_class, param_c
    endif
 
    call get_param_index(PINPT, local_U_param_name, local_U_param_index)
-
 99 format(A,A)   
 
 return
@@ -366,6 +365,7 @@ subroutine get_param(PINPT, param_index, param)
    type(incar) :: PINPT
    integer*4      param_index
    real*8         param
+
 
    ! get parameter value with given parameter index
    if( nint(PINPT%param_const(4, param_index )) .ge. 1 ) then

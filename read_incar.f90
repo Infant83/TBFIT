@@ -431,7 +431,7 @@ mode: select case ( trim(plot_mode) )
     
             PINPT%flag_get_dos = .true.
 !           PINPT%flag_get_band = .true.
-            if_main write(6,'(A)')'  GET_DOS:   .TRUE.'
+            if_main write(6,'(A)')'  GET_DOS: .TRUE.'
             !initialize the default values
             PINPT_DOS%dos_kgrid(1:3) = 0d0
             PINPT_DOS%dos_emin = -10d0
@@ -737,7 +737,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             PINPT%flag_efield_cart = .false.
             read(inputline,*,iostat=i_continue) desc_str,PINPT%efield_origin(1:3)
 !           if_main write(6,'(A,3F12.6)')'EF_ORIGIN:  (in factional coord) ',PINPT%efield_origin(1:3)
-          case('EF_CENTER_CART','EF_ORIGIN_CART') ! field_origin
+          case('EF_CENTER_CART','EF_ORIGIN_CART','EF_CORIGIN') ! field_origin
             PINPT%flag_efield_frac = .false.
             PINPT%flag_efield_cart = .true.
             read(inputline,*,iostat=i_continue) desc_str,PINPT%efield_origin_cart(1:3)
@@ -863,7 +863,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%z2_axis(:) = (/1,2,3/) ! default
       PINPT_BERRY%flag_z2_get_chern = .false. ! default
 
-      if_main write(6,'(A)')'   GET_Z2:  .TRUE. '
+      if_main write(6,'(A)')'   GET_Z2: .TRUE. '
   set_wann: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -969,7 +969,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               if_main write(6,'(3A)')'GET_CHERN: (Z2 SET) .FALSE.'
             endif
 
-          case('SET_PHASE')
+          case('SET_PHASE', 'GET_PHASE', 'PHASE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_z2_phase
 
         end select
@@ -1045,7 +1045,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       ikpath = 0
       ik = 0
 
-      if_main write(6,'(A)')'  GET_WCC:  .TRUE. (GET Wannier charge center)'
+      if_main write(6,'(A)')'  GET_WCC: .TRUE. (GET Wannier charge center)'
   set_wann: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -1108,7 +1108,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               if_main write(6,'(3A)')'GET_CHERN:  SPIN_CHERN .FALSE. (WCC SET)'
             endif
 
-          case('SET_PHASE')
+          case('SET_PHASE', 'GET_PHASE', 'PHASE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_phase
 
         end select
@@ -1181,7 +1181,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       ikpath = 0
       ik = 0
 
-      if_main write(6,'(A)')' ZAK_PHAS:  .TRUE. (GET ZAK PHASE)'
+      if_main write(6,'(A)')' ZAK_PHAS: .TRUE. (GET ZAK PHASE)'
    set_zak: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -1203,9 +1203,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('ZAK_SEPARATE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_zak_separate
             if(PINPT%flag_zak_separate) then
-              if_main write(6,'(A)')' ZAK_SEPR:  .TRUE. (also separate into each eigenstate)'
+              if_main write(6,'(A)')' ZAK_SEPR: .TRUE. (also separate into each eigenstate)'
             elseif(.not. PINPT%flag_zak_separate) then
-              if_main write(6,'(A)')' ZAK_SEPR:  .FALSE. (do not separate into each eigenstate)'
+              if_main write(6,'(A)')' ZAK_SEPR: .FALSE. (do not separate into each eigenstate)'
             endif
 
           ! this option is only for test purpose...
@@ -1231,7 +1231,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkdiv2
             endif
 
-          case('SET_PHASE')
+          case('SET_PHASE','GET_PHASE', 'PHASE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_zak_phase
 
         end select
@@ -1323,7 +1323,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%bc_nkdiv(3)  = 1  ! default
 
       if_main write(6,'(A)')' '
-      if_main write(6,'(A)')' BERRYCRV:  .TRUE. (GET BERRY CURVATURE)'
+      if_main write(6,'(A)')' BERRYCRV: .TRUE. (GET BERRY CURVATURE)'
 
  set_berryc: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -1454,7 +1454,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               endif
             endif
 
-          case('SET_PHASE')
+          case('SET_PHASE', 'GET_PHASE', 'PHASE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_bc_phase
 
         end select
@@ -1749,6 +1749,40 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_load_nntable(PINPT, inputline, tag_name)
+      type(incar)  :: PINPT
+      integer*4       i_continue
+      character*132   inputline
+      character*40    desc_str, tag_name
+      character(*), parameter :: func = 'set_load_nntable'
+      logical         flag_load_nntable, flag_exist
+      integer*4       nitems, i_dummy
+      external        nitems
+
+      read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_load_nntable
+
+      if(PINPT%flag_load_nntable) then
+        i_dummy = nitems(inputline) -1
+
+        if(i_dummy .eq. 2) then
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_load_nntable, PINPT%nnfilenm
+          inquire(file=PINPT%nnfilenm,exist=flag_exist)
+          if(.not.flag_exist) then
+            if_main write(6,'(5A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name), &
+                                   '" tag, but the file "', trim(PINPT%nnfilenm),'" does not exist! Exit...'
+            stop
+          endif
+
+        elseif(i_dummy .eq. 1) then
+          if_main write(6,'(4A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name), &
+                                   '" tag, but the file name has not been defined. Exit...'
+          stop
+        endif
+      endif
+
+      return
+   endsubroutine
+
    subroutine set_target_file(PINPT, flag_read_energy, inputline, input_tag)
       type(incar)  ::  PINPT
       integer*4     i_continue
@@ -1843,29 +1877,37 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character*132 inputline
       character*2   dummy
       character*40  desc_str
+      character*2   str2lowcase
       character(*), parameter :: func = 'set_local_orbital_plot'
-      external      nitems
+      external      nitems, str2lowcase
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital
         if(PINPT%flag_print_orbital) then
-          if_main write(6,'(A)')'  L_ORBIT:   .TRUE.'
+          if_main write(6,'(A)')'  L_ORBIT: .TRUE. | print out projected orbital weight'
           PINPT%flag_get_orbital = .true.
         elseif( .not. PINPT%flag_print_orbital) then
-          if_main write(6,'(A)')'  L_ORBIT:   .FALSE.'
+          if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
           PINPT%flag_get_orbital = .false.
         endif
     
       elseif(i_dummy .eq. 2) then
         PINPT%flag_print_mag = .TRUE.
-        PINPT%axis_print_mag = 'mz'
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag
+        PINPT%axis_print_mag=str2lowcase(PINPT%axis_print_mag)
         if(PINPT%flag_print_orbital) then
-          if_main write(6,'(A)')'  L_ORBIT:   .TRUE.'
-          PINPT%flag_get_orbital = .true.
+          if(PINPT%axis_print_mag .ne. 're' .or. PINPT%axis_print_mag .ne. 'im') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          elseif(PINPT%axis_print_mag .eq. 're') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          elseif(PINPT%axis_print_mag .eq. 'im') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag
+          endif
         elseif( .not. PINPT%flag_print_orbital) then
-          if_main write(6,'(A)')'  L_ORBIT:   .FALSE.'
+          if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
           PINPT%flag_get_orbital = .false.
         endif
    
@@ -1909,11 +1951,11 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         case('TBFIT') !set TBFIT or not
           read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_tbfit
           if(PINPT%flag_tbfit) then
-             if_main write(6,'(A)')'  L_TBFIT:   .TRUE.'
+             if_main write(6,'(A)')'  L_TBFIT: .TRUE.'
           elseif(.not. PINPT%flag_tbfit) then
-             if_main write(6,'(A)')'  L_TBFIT:   .FALSE.'
+             if_main write(6,'(A)')'  L_TBFIT: .FALSE.'
           else
-             if_main write(6,'(A)')'  L_TBFIT:   unknown input variable.. exit program'
+             if_main write(6,'(A)')'  L_TBFIT:  unknown input variable.. exit program'
              stop
           endif
 
@@ -1969,16 +2011,169 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_energy_print_range(PINPT, inputline)
+   subroutine set_energy_window(PINPT, inputline, desc_str)
+      type(incar  )  ::  PINPT
+      integer*4          i_continue
+      integer*4          i_dummy
+      character*132      inputline, dummy_
+      character*40       desc_str, dummy, dummy1, dummy2
+      integer*4          nitems
+      external           nitems
+      character(*), parameter :: func = 'set_energy_window'
+      PINPT%feast_nemax = -1 ! default
+      if(PINPT%flag_erange) then
+        if_main write(6,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'
+        if_main write(6,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '
+        if_main write(6,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'
+        if_main write(6,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '
+        if_main write(6,'(A)') '           for the dense matrix eigenvalue problem.'
+        if_main write(6,'(A)') '           Please deactivate one of the tag to proceed.'
+        if_main write(6,'(A)') '           If you dealing with very large system for the band structure calculation,'
+        if_main write(6,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'
+        if_main write(6,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'
+        if_main write(6,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'
+        if_main write(6,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'
+        if_main write(6,'(A)') '           used instead.'
+        if_main write(6,'(A)') '           Exit program anyway...'
+        stop
+      endif
+
+      call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
+      if(index(dummy_, trim(desc_str)) .ge. 1) then
+        inputline = dummy_
+      endif
+
+      i_dummy = index(inputline,'NE_MAX')
+      if(i_dummy .ge. 1) then 
+        call strip_off (inputline, dummy_, 'NE_MAX', ' ', 2)
+        call str2int(trim(dummy_), PINPT%feast_nemax)
+        call strip_off (inputline, dummy_, ' ', 'NE_MAX', 0)
+        inputline = dummy_
+      elseif(i_dummy .eq. 0) then
+        i_dummy = index(inputline,'NE_MAX')
+        if(i_dummy .ge. 1) then
+          call strip_off (inputline, dummy_, 'NE_MAX', ' ', 2)
+          call str2int(trim(dummy_), PINPT%feast_nemax)
+        call strip_off (inputline, dummy_, ' ', 'NE_MAX', 0)
+          inputline = dummy_
+        endif
+      endif
+
+      call strip_off (inputline, dummy, trim(desc_str), ' ', 2)
+
+      i_dummy = index(dummy,':')
+      
+      if(i_dummy .eq. 0) then
+        if( nitems(inputline) -1 .eq. 0) then
+          if_main write(6,'(A,A)')'  !WARN! No energy window has been defined! Please check EWINDOW tag atain. Exit... ', func
+          stop
+        elseif( nitems(inputline) -1 .eq. 2) then
+          read(inputline,*,iostat=i_continue) desc_str,PINPT%feast_emin, PINPT%feast_emax
+          if_main write(6,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'
+          PINPT%flag_sparse = .true. ! call FEAST algorithom
+        else
+          if_main write(6,'(A,A)')'  !WARN! Please check EWINDOW tag syntax. Exit... Current setting = ',trim(dummy)
+          if_main write(6,'(A,A)')'         Only accept following syntax: EWINDOW EMIN:EMAX  or'
+          if_main write(6,'(A,A)')'                                       EWINDOW EMIN EMAX '
+          if_main write(6,'(A,A)')'         Here, EMIN and EMAX are real*8 values for the eigenvalues to be searched.'
+          stop
+        endif
+
+      elseif(i_dummy .ge. 1) then
+        call strip_off(dummy, dummy1,' ',':',0)
+        call strip_off(dummy, dummy2,':',' ',2)
+        if(len_trim(dummy1) .eq. 0 .or. len_trim(dummy2) .eq. 0) then
+          if_main write(6,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)
+          if_main write(6,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'
+          if_main write(6,'(A,A)')'                                       ERANGE INIT FINA'
+          if_main write(6,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'
+          stop
+        endif
+        call str2real(dummy1,PINPT%feast_emin)
+        call str2real(dummy2,PINPT%feast_emax)
+        if_main write(6,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'
+        PINPT%flag_sparse = .true. ! call FEAST algorithom
+      endif
+
+      if(PINPT%feast_nemax .ge. 1) then
+        ! feast_nemax is upper bound of states to be stored in your output. 
+        ! The states, beyond this criteria will be thrown away.
+        if_main write(6,'(A,I0,A)')'   NE_MAX: ', PINPT%feast_nemax, ' (maximum # of states within [emin:emax])'
+      elseif(PINPT%feast_nemax .le. 0) then
+        if_main write(6,'(A,I0,A)')'   NE_MAX: N_ORBIT * ISPINOR [N_ORBIT:number of orbitals ]'
+        if_main write(6,'(A)')     '                             [ISPINOR:2 for LSORB=.TRUE. ]'
+        if_main write(6,'(A)')     '                             [       :1 for LSORB=.FALSE.]'
+      endif
+
+      return
+   endsubroutine
+
+   subroutine set_energy_range(PINPT, inputline, desc_str)
       type(incar  )  ::  PINPT
       integer*4     i_continue
+      integer*4     i_dummy
       character*132 inputline
-      character*40  desc_str
-      character(*), parameter :: func = 'set_energy_print_range'
+      character*40  desc_str, dummy, dummy1, dummy2
+      integer*4     nitems
+      external      nitems
+      character(*), parameter :: func = 'set_energy_range'
 
-      read(inputline,*,iostat=i_continue) desc_str, PINPT%init_erange, PINPT%fina_erange
-      PINPT%flag_erange = .true.
-      if_main write(6,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'
+      if(PINPT%flag_sparse) then
+        if_main write(6,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'
+        if_main write(6,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '
+        if_main write(6,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'
+        if_main write(6,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '
+        if_main write(6,'(A)') '           for the dense matrix eigenvalue problem.'
+        if_main write(6,'(A)') '           Please deactivate one of the tag to proceed.'
+        if_main write(6,'(A)') '           If you dealing with very large system for the band structure calculation,'
+        if_main write(6,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'
+        if_main write(6,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'
+        if_main write(6,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'
+        if_main write(6,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'
+        if_main write(6,'(A)') '           used instead.'
+        if_main write(6,'(A)') '           Exit program anyway...'
+        stop
+      endif
+
+      call strip_off (inputline, dummy,trim(desc_str),' ',2)
+      i_dummy=index(dummy,':')
+      if(i_dummy .eq. 0) then
+        if( nitems(inputline) -1 .eq. 0) then
+          if_main write(6,'(A,A)')'  !WARN! No range has been defined! Please check ERANGE tag atain. Exit... ', func
+          stop
+        elseif( nitems(inputline) -1 .eq. 1) then
+          read(inputline,*,iostat=i_continue) desc_str,PINPT%init_erange
+          PINPT%fina_erange = PINPT%init_erange
+          if_main write(6,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'
+          PINPT%flag_erange = .true.
+        elseif( nitems(inputline) -1 .eq. 2) then
+          read(inputline,*,iostat=i_continue) desc_str,PINPT%init_erange, PINPT%fina_erange
+          if_main write(6,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'
+          PINPT%flag_erange = .true.
+        else
+          if_main write(6,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)
+          if_main write(6,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'
+          if_main write(6,'(A,A)')'                                       ERANGE INIT FINA'
+          if_main write(6,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'
+          stop
+        endif
+
+      elseif(i_dummy .ge. 1) then
+        call strip_off(dummy, dummy1,' ',':',0)
+        call strip_off(dummy, dummy2,':',' ',2)
+        if(len_trim(dummy1) .eq. 0 .or. len_trim(dummy2) .eq. 0) then
+          if_main write(6,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)
+          if_main write(6,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'
+          if_main write(6,'(A,A)')'                                       ERANGE INIT FINA'
+          if_main write(6,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'
+          stop
+        endif
+        call str2int(dummy1,PINPT%init_erange)
+        call str2int(dummy2,PINPT%fina_erange)
+        if_main write(6,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'
+        PINPT%flag_erange = .true.
+      endif
+      PINPT%nband = PINPT%fina_erange - PINPT%init_erange + 1
 
       return
    endsubroutine
@@ -1991,8 +2186,11 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       integer*4      i_contitue
 
       read(inputline,*,iostat=i_contitue) desc_str, PINPT%flag_get_band
-      if_main write(6,'(A,L4)')'  GET_BND: ', PINPT%flag_get_band
-
+      if(PINPT%flag_get_band) then
+        if_main write(6,'(A)')'  GET_BND: .TRUE.'
+      elseif(.not.PINPT%flag_get_band) then
+        if_main write(6,'(A)')'  GET_BND: .FALSE.'
+      endif
       return
    endsubroutine
 

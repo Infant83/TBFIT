@@ -22,6 +22,18 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    call cpu_time(time1)
 #endif
 
+   if(PINPT%flag_erange) then
+     if_main write(6,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'
+     if_main write(6,'(A)')'           with ERANGE tag. Please comment out ERANGE -> #ERANGE and re-run'
+     if_main write(6,'(A)')'           Exit program...'
+     stop
+   elseif(PINPT%flag_sparse) then
+     if_main write(6,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'
+     if_main write(6,'(A)')'           with EWINDOW tag. Please comment out EWINDOW -> #EWINDOW and re-run'
+     if_main write(6,'(A)')'           Exit program...'
+     stop
+   endif
+
    if(PINPT_BERRY%flag_bc_method_kubo) then
      call get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 
@@ -151,8 +163,6 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 
    write(6,*)"AAAVV "
 stop
-
-!  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E0, V0, neig, .true., .false.)
 
    return
 endsubroutine

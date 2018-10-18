@@ -98,15 +98,15 @@ subroutine get_symmetry_info(PGEOM)
      i_dummy = spg_get_schoenflies(PGEOM%spg_schoenflies, transpose(PGEOM%a_latt), &
                                    PGEOM%a_coord, PGEOM%spec, PGEOM%n_atom, onsite_tolerance)
    endif
-   
+
    if_main_then
    ! write general information
    write(6,'(A,A )'   )'   - Crystal system             : ', trim(PGEOM%spg_crystal_system)
    write(6,'(A,I3)'   )'   - Space group number         : ', PGEOM%spg_space_group
    write(6,'(A,A )'   )'   - Crystal choice             : ', trim(PGEOM%spg_choice)
    write(6,'(A,A)'    )'   - International short symbol : ', trim(PGEOM%spg_international)
-   write(6,'(A,A )'   )'   - Point group symbol         : ', trim(PGEOM%spg_point_group)
-   write(6,'(A,A)'    )'   - Schoenflies symbol         : ', trim(PGEOM%spg_schoenflies)
+!  write(6,'(A,A)'    )'   - Point group symbol         : ', trim(PGEOM%spg_point_group)
+!  write(6,'(A,A)'    )'   - Schoenflies symbol         : ', trim(PGEOM%spg_schoenflies)
    write(6,'(3A,I3,A)')'   - Hall symbol [number]       : ', trim(PGEOM%spg_hall_symbol), &
                                                         ' [', PGEOM%spg_hall_number,']'
    write(6,'(A)'      )'   '

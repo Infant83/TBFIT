@@ -24,7 +24,7 @@ subroutine get_berry_phase_svd(wcc, kpoint, V, PINPT, PGEOM, nkdiv, erange_tot, 
    integer*4        erange_tot(nerange_tot)
    integer*4        erange(nerange_tot/PINPT%nspin)
    real*8           kpoint(3,nkdiv), dk(3)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin,nkdiv)
+   complex*16       V(PGEOM%neig*PINPT%ispin,nerange_tot,nkdiv)
    complex*16       M(nerange_tot/PINPT%nspin,nerange_tot/PINPT%nspin)
    complex*16       L(nerange_tot/PINPT%nspin,nerange_tot/PINPT%nspin)
    complex*16       L_eig(nerange_tot/PINPT%nspin,PINPT%nspin)
@@ -40,8 +40,7 @@ subroutine get_berry_phase_svd(wcc, kpoint, V, PINPT, PGEOM, nkdiv, erange_tot, 
 
 sp:do is = 1, PINPT%nspin
      call set_identity_mat_c(nerange, L)
-     erange = erange_tot(1+(is-1)*nerange:nerange*is)
-
+     erange = erange_tot(1+(is-1)*nerange:nerange*is) - erange_tot(1) - (is-1)*(neig-nerange) + 1
   kp:do ik = 1, nkdiv-1
        icol=1+neig*(is-1) ; fcol=neig*is 
        call get_phase_shift(phase_shift, dk, PGEOM, PINPT%ispinor)
@@ -74,7 +73,7 @@ subroutine get_berry_phase_det(berryp, kpoint, V, PINPT, PGEOM, nkdiv, erange_to
    integer*4        erange_tot(nerange_tot)
    integer*4        erange(nerange_tot/PINPT%nspin)
    real*8           kpoint(3,nkdiv), dk(3)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin,nkdiv)
+   complex*16       V(PGEOM%neig*PINPT%ispin,nerange_tot,nkdiv)
    complex*16       M(nerange_tot/PINPT%nspin,nerange_tot/PINPT%nspin)
    complex*16       phase_shift(PGEOM%neig*PINPT%ispinor)
    real*8           berryp(PINPT%nspin)
@@ -85,7 +84,7 @@ subroutine get_berry_phase_det(berryp, kpoint, V, PINPT, PGEOM, nkdiv, erange_to
    dk      = kpoint(:,2)-kpoint(:,1)
 
 sp:do is = 1, PINPT%nspin
-     erange = erange_tot(1+(is-1)*nerange:nerange*is)
+     erange = erange_tot(1+(is-1)*nerange:nerange*is) - erange_tot(1) - (is-1)*(neig-nerange) + 1
   kp:do ik = 1, nkdiv-1
        icol=1+neig*(is-1) ; fcol=neig*is
        call get_phase_shift(phase_shift, dk, PGEOM, PINPT%ispinor)
@@ -132,7 +131,6 @@ subroutine get_overlap_matrix(M, V, phase_shift, neig, nerange)
    do j = 1, nerange
      do i = 1, nerange
         M(i,j) = dot_product(V(:,i,1), V(:,j,2) )
-!       M(i,j) = dot_product(V(:,i,1), V(:,j,2) *phase_shift)
      enddo
    enddo
    return
@@ -148,13 +146,12 @@ subroutine set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
    integer*4                  nkdiv, nerange
    integer*4                  erange(nerange)
    real*8    , intent(in)  :: G(3)
-   complex*16                 V(PGEOM%neig*PINPT%ispin, PGEOM%neig*PINPT%ispin, nkdiv)
+   complex*16                 V(PGEOM%neig*PINPT%ispin, nerange, nkdiv)
 
    do ie = 1, nerange
      do is = 1, PINPT%ispin
        do im = 1, PGEOM%neig
-         V(im+(is-1)*PGEOM%neig,erange(ie),nkdiv) = V(im+(is-1)*PGEOM%neig,erange(ie),1) 
-!        V(im+(is-1)*PGEOM%neig,erange(ie),nkdiv) = V(im+(is-1)*PGEOM%neig,erange(ie),1)  * F_IJ(-G, PGEOM%o_coord_cart(:,im))
+         V(im+(is-1)*PGEOM%neig,ie,nkdiv) = V(im+(is-1)*PGEOM%neig,ie,1) 
        enddo
      enddo
    enddo
@@ -261,7 +258,6 @@ subroutine get_omega(omega_, E_, V_, dxH, dyH,dzH, msize)
    real*8       de2
    complex*16   zeta
 
-!  zeta  = zi * eta
    omega = (0d0,0d0)
    omega_= (0d0,0d0)
    do n = 1, msize
@@ -286,7 +282,6 @@ subroutine get_omega(omega_, E_, V_, dxH, dyH,dzH, msize)
    enddo
 
    omega_= -2d0*aimag(omega)
-!  omega_= real(omega)
    return
 endsubroutine
 

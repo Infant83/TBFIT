@@ -1,4 +1,4 @@
-function tij_sk(NN_TABLE,ii,PINPT,tol)
+function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init)
   use parameters, only : pi, rt2, rt3, hopping, incar
   implicit none
   type (hopping)  :: NN_TABLE
@@ -14,6 +14,7 @@ function tij_sk(NN_TABLE,ii,PINPT,tol)
   real*8, external:: f_s
   real*8, external:: f_s2
   real*8, external:: e_onsite_xx
+  logical  flag_init
 
   ! NN_TABLE%sk_set_index(0:6,nn)
   !    0        1     2    3     4      5     6
@@ -29,6 +30,10 @@ function tij_sk(NN_TABLE,ii,PINPT,tol)
   !       see e_onsite_xx routine to see how the 'param_name' is constructed
   !       in the case of param_class = 'xx' which is based on the 'site_index' subtag.
 
+  if(PINPT%flag_load_nntable .and. .not. flag_init) then
+    tij_sk = NN_TABLE%tij_file(ii)
+    return
+  endif
 
   iscale_mode = 1 ! default = 1, see 'f_s' function for the detail.
 
@@ -355,11 +360,13 @@ sk: select case ( NN_TABLE%p_class(ii) )
         if    (ci_orb(1:3) .eq. 'xp1' .and. cj_orb(1:3) .eq. 'xp1') then
           tij_sk = ((nn-0.5d0*lmp)**2)*s + 3d0*nn*lmp*p + 0.75d0*(lmp**2)*d
 
+        ! xp2 = -2/rt6 dx2 + 1/rt3 dyz
         elseif(ci_orb(1:3) .eq. 'xp2' .and. cj_orb(1:3) .eq. 'xp2') then
           tij_sk = 2.d0/3.d0 * ( 0.75d0*(lmm**2)*s + (lmp-(lmm**2))*p + (nn+0.25d0*(lmm**2))*d ) &
                +1.d0/3.d0 * ( 3d0*mm*nn*s + (mm+nn - 4d0*mm*nn)*p + (ll+mm*nn)*d ) &
                -2.d0/3.d0 * rt2 * ( 1.5d0*mn*lmm*s - mn*(1d0+2d0*lmm)*p + mn*(1d0+0.5d0*lmm)*d )
 
+        ! xp3 = -2/rt6 dxy + 1/rt3 dxz
         elseif(ci_orb(1:3) .eq. 'xp3' .and. cj_orb(1:3) .eq. 'xp3') then
           tij_sk = 2.d0/3.d0 * ( 3d0*(lm**2)*s + (lmp-4d0*(lm**2))*p + (nn+(lm**2))*d ) &
                +1.d0/3.d0 * ( 3d0*ll*nn*s + (ll+nn - 4d0*ll*nn)*p + (mm+ll*nn)*d ) &

@@ -9,7 +9,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    type(incar  ) :: PINPT
    type(poscar ) :: PGEOM
    type(kpoints) :: PKPTS
-   integer*4        i,ie,nkpoint,nparam,neig, nediv, ispin
+   integer*4        i,ie,nkpoint,nparam,neig, nediv, ispin, nspin
    integer*4        ik,nk1,nk2,nk3
    integer*4        iband, fband, nband
    integer*4        is, ispin_print
@@ -28,9 +28,11 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    real*8           fgauss
    external         fgauss  
    character*40     fname_header
-   
+   logical          flag_sparse
+
    neig    = PGEOM%neig
    ispin   = PINPT%ispin
+   nspin   = PINPT%nspin
    nk1     = PINPT_DOS%dos_kgrid(1)  
    nk2     = PINPT_DOS%dos_kgrid(2)  
    nk3     = PINPT_DOS%dos_kgrid(3)  
@@ -44,7 +46,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    g_smear = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 
-   if(PINPT%flag_noncollinear) then
+   flag_sparse = .false.
+   if(PINPT%flag_noncollinear) then ! set default fband if fband has not been pre-defined
      if(fband .eq. 999999) fband = neig * 2
    else
      if(fband .eq. 999999) fband = neig
@@ -63,8 +66,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    allocate( param_const(5,nparam) )
    param   = PINPT%param
    param_const = PINPT%param_const
-   allocate( E(neig*ispin,nkpoint) )
-   allocate( V(neig*ispin,neig*ispin,nkpoint) )
+   allocate( E(nband*nspin,nkpoint) )
+   allocate( V(neig*ispin,nband*nspin,nkpoint) )
    allocate( kpoint(3,nkpoint) )
    allocate( kpoint_reci(3,nkpoint) )
    allocate( PINPT_DOS%dos_kpoint(3,nkpoint) )
@@ -89,14 +92,16 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      if(myid .eq. 0) call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
    endif
 
-   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, PINPT%flag_get_orbital, .true., .true.)
+   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, PINPT%flag_get_orbital, flag_sparse, .true., .true.)
    sigma = g_smear
 
+#ifdef MPI
    call MPI_Barrier(mpi_comm_earth, mpierr)
+#endif
 
 kp:do ik = 1 + myid, nkpoint, nprocs
  eig:do ie = 1, nediv
- dosum:do i = iband, fband
+ dosum:do i = 1, nband
          if(PINPT%flag_collinear) then
            x = e_range(ie) - E(i,ik)
            dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
@@ -110,9 +115,14 @@ kp:do ik = 1 + myid, nkpoint, nprocs
      enddo eig
    enddo kp
 
+#ifdef MPI
    if(flag_use_mpi)  call MPI_REDUCE(dos_up, PINPT_DOS%dos_up, nediv, MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
    if(flag_use_mpi .and. PINPT%flag_collinear) call MPI_REDUCE(dos_dn, PINPT_DOS%dos_dn, nediv, MPI_REAL8, MPI_SUM, 0, &
                                                                mpi_comm_earth, mpierr)
+#else
+   PINPT_DOS%dos_up = dos_up
+   if(PINPT%flag_collinear) PINPT_DOS%dos_dn = dos_dn
+#endif
    if(myid .eq. 0)  call print_dos(PINPT_DOS, PINPT)
 
    if(PINPT_DOS%dos_flag_print_eigen .and. myid .eq. 0) then
@@ -123,10 +133,10 @@ kp:do ik = 1 + myid, nkpoint, nprocs
      do i = 1, PINPT_DOS%dos_n_ensurf
        call get_ensurf_fname_header(PINPT_DOS%dos_ensurf(i), fname_header)
        do is = 1, ispin_print
-         E_(is,:)   = E(  PINPT_DOS%dos_ensurf(i) + (is-1)*neig, :)
-         V_(:,is,:) = V(:,PINPT_DOS%dos_ensurf(i) + (is-1)*neig, :)
+         E_(is,:)   = E(  PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
+         V_(:,is,:) = V(:,PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
        enddo
-      call print_energy_ensurf(kpoint, nkpoint, ispin_print, E_, V_, PGEOM, PINPT, fname_header, PINPT_DOS%dos_kunit)
+      call print_energy_ensurf(kpoint, nkpoint,PINPT_DOS%dos_ensurf(i), ispin_print, E_, V_, PGEOM, PINPT, fname_header, PINPT_DOS%dos_kunit)
      enddo
    endif
 

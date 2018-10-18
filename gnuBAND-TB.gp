@@ -11,12 +11,6 @@ pi2= 4*atan(1) * 2
        K5=       5.129131 ; KNAME_5   ="{/Symbol \G}"
        K6=       6.609783 ; KNAME_6   ="M1"
      KEND=       7.464639 ; KNAME_END ="K'"
-
-#   KINIT=       0.000000 ; KNAME_INIT="{/Symbol \G}"
-#      K2=       1.709710 ; KNAME_2   ="K'"
-#      K3=       2.564566 ; KNAME_3   ="M"
-#      K4=       3.419421 ; KNAME_4   ="K"
-#    KEND=       5.129131 ; KNAME_END ="{/Symbol \G}"
  set xtics (KNAME_INIT KINIT,  KNAME_2 K2, KNAME_3 K3, KNAME_4 K4,KNAME_5 K5, KNAME_6 K6,KNAME_END KEND) nomirror
 #set xtics (KNAME_INIT KINIT,  KNAME_2 K2, KNAME_3 K3, KNAME_4 K4, KNAME_END KEND) nomirror
 #set xtics (KNAME_3 K3, KNAME_4 K4, KNAME_END KEND) nomirror
@@ -57,7 +51,7 @@ set cbrange [-10:10]
  result_gap='Z2.GAP.0.0-B3.dat'
  result_crn='Z2.GAP.0.0-B3.dat'
  result_zak='ZAK.OUT.dat'
-  plot result_tba          u 1:2        w l       lw  .3          lc rgb 'black' ti "TBA",\
+  plot result_tba          u 1:2        w p ps .2  lw  .3          lc rgb 'black' ti "TBA",\
 
 set origin 0.5,0
 unset ylabel

@@ -32,7 +32,9 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    integer*4         nn_class
    external enorm
    external tij_sk, tij_cc
+   logical  flag_init
 
+   flag_init = .true.
    max_nn= PGEOM%n_atom * max_neighbor * PGEOM%max_orb * PGEOM%max_orb
    allocate( NN_TABLE_dummy%i_atom(max_nn)   )
    allocate( NN_TABLE_dummy%j_atom(max_nn)   )
@@ -134,11 +136,11 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                                            PGEOM%c_spec(PGEOM%spec(i)))
                                if(     PINPT%flag_slater_koster) then 
                                  NN_TABLE_dummy%sk_index_set(0,nn)  = onsite_param_index
-                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol)
+                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
                                elseif(.not.PINPT%flag_slater_koster) then 
                                  if(param_class .eq. 'cc') then
                                    NN_TABLE_dummy%cc_index_set(0,nn)  = onsite_param_index
-                                   NN_TABLE_dummy%tij(nn)             = tij_cc(NN_TABLE_dummy,nn,PINPT,onsite_tol)
+                                   NN_TABLE_dummy%tij(nn)             = tij_cc(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
                                  else
                                    NN_TABLE_dummy%tij(nn)             = 0d0
                                  endif
@@ -209,7 +211,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                  NN_TABLE_dummy%sk_index_set(5,nn)  = index_pi_scale
                                  NN_TABLE_dummy%sk_index_set(6,nn)  = index_delta_scale
 
-                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol)
+                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
                                elseif(.not. PINPT%flag_slater_koster) then ! cc index : custum orbital hopping index
                                  
                                  ! CASE: USER DEFINED CUSTOM HOPPING
@@ -218,7 +220,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                    call get_cc_index_set(index_custom, NN_TABLE_dummy, nn, PINPT, &
                                                          PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)) )
                                    NN_TABLE_dummy%cc_index_set(1,nn)  = index_custom
-                                   NN_TABLE_dummy%tij(nn)             = tij_cc(NN_TABLE_dummy,nn,PINPT,onsite_tol)
+                                   NN_TABLE_dummy%tij(nn)             = tij_cc(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
 
                                    if(PINPT%flag_soc) then
 
@@ -283,6 +285,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    if(     PINPT%flag_slater_koster) allocate( NN_TABLE%sk_index_set(0:6,nn)  )
    if(.not.PINPT%flag_slater_koster) allocate( NN_TABLE%cc_index_set(0:3,nn)  )
    allocate( NN_TABLE%tij(nn)      )
+   if(     PINPT%flag_load_nntable ) allocate( NN_TABLE%tij_file(nn)          )
    allocate( NN_TABLE%soc_param_index(nn) )
 
    NN_TABLE%i_atom(1:nn)           = NN_TABLE_dummy%i_atom(1:nn)
@@ -330,7 +333,88 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
 return
 endsubroutine
-subroutine print_nn_table (NN_TABLE, PINPT)
+subroutine load_nn_table(NN_TABLE, PINPT)
+   use parameters, only : hopping, incar, pid_nntable
+   use mpi_setup
+   implicit none
+   type (hopping) :: NN_TABLE
+   type (incar  ) :: PINPT
+   integer*4         ii
+   integer*4         iatom,jatom,mi,mj
+   integer*4         i_onsite,i_sig,i_pi,i_del
+   integer*4         n_class, i_sigs,i_pis,i_dels
+   integer*4         i_lambda,i_stoner,i_localU
+   integer*4         i_tij, i_soc, i_rashba
+   real*8            tij
+   real*8            R(3),D,D0
+   character*5       ci,cj,ptype
+   logical           flag_soc, flag_slater_koster, flag_local_charge, flag_plus_U, flag_collinear
+
+   flag_soc = PINPT%flag_soc
+   flag_slater_koster = PINPT%flag_slater_koster
+   flag_local_charge = PINPT%flag_local_charge
+   flag_plus_U = PINPT%flag_plus_U
+   flag_collinear = PINPT%flag_collinear
+
+   open(pid_nntable, file=PINPT%nnfilenm, status='old')
+   read(pid_nntable,*)     ! ignore fist line  
+
+   do ii=1, NN_TABLE%n_neighbor
+     if(flag_soc) then
+
+       if(flag_slater_koster) then
+         if(flag_local_charge) then
+           read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii), i_lambda, i_stoner, i_localU
+         else
+           read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii), i_lambda, i_stoner
+         endif
+       else
+         if(flag_local_charge) then
+           read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class,  NN_TABLE%tij_file(ii), i_soc, i_rashba, i_stoner, i_localU
+         else
+           read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class,  NN_TABLE%tij_file(ii), i_soc, i_rashba, i_stoner
+         endif
+       endif
+
+     elseif(.not. flag_soc) then
+
+       if(flag_slater_koster) then
+         if(flag_collinear) then
+           if(flag_local_charge) then
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii), i_stoner, i_localU
+           else
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii), i_stoner
+           endif
+         else
+           if(flag_local_charge) then
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii), i_localU
+           else
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_sig, i_pi, i_del, i_sigs, i_pis, i_dels, n_class, NN_TABLE%tij_file(ii)
+           endif
+         endif
+       else
+         if(flag_collinear) then
+           if(flag_local_charge) then
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class, NN_TABLE%tij_file(ii), i_stoner, i_localU
+           else                                                                                                   
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class, NN_TABLE%tij_file(ii), i_stoner
+           endif
+         else
+           if(flag_local_charge) then
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class, NN_TABLE%tij_file(ii), i_localU
+           else                                                                                                          
+             read(pid_nntable,*)iatom,jatom,R(:),D,D0,mi,ci,mj,cj,ptype,i_onsite, i_tij, n_class, NN_TABLE%tij_file(ii)   
+           endif
+         endif
+       endif
+     endif
+   enddo
+
+   close(pid_nntable)
+
+return
+endsubroutine
+subroutine print_nn_table(NN_TABLE, PINPT)
  use parameters, only : hopping, incar, pid_nntable
  use mpi_setup
  implicit none
@@ -348,10 +432,10 @@ subroutine print_nn_table (NN_TABLE, PINPT)
  open(pid_nntable, file='hopping.dat', status='unknown')
  if(flag_soc) then
    if(flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom          RIJ(x,y,z)            |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  sig   pi  del sig_s pi_s del_s  nn_class  t_IJ(eV)   lambda_i   stoner_i'
    elseif(.not. flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom          RIJ(x,y,z)            |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  t_IJ  nn_class  t_IJ(eV)   lsoc_i  lrashba_i  stoner_i'
    endif
    if(flag_local_charge) then
@@ -363,10 +447,10 @@ subroutine print_nn_table (NN_TABLE, PINPT)
    write(pid_nntable,'(A)',ADVANCE='yes')' '
  else
    if(flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom          RIJ(x,y,z)            |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  sig   pi  del sig_s pi_s del_s  nn_class  t_IJ(eV)'
    elseif(.not. flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom          RIJ(x,y,z)            |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  t_IJ  nn_class  t_IJ(eV)'
    endif
    if(flag_collinear) then
@@ -380,6 +464,7 @@ subroutine print_nn_table (NN_TABLE, PINPT)
    endif
    write(pid_nntable,'(A)',ADVANCE='yes')' '
  endif
+
  do ii = 1, NN_TABLE%n_neighbor
    if(flag_soc) then
      if(flag_slater_koster) then

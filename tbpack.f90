@@ -22,7 +22,7 @@ subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, 
           dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) 
         enddo
       enddo
-      fvec(ik) = enorm ( PINPT%nband*PINPT%ispin, dE )
+      fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
     enddo
 
   elseif(.not.PWGHT%flag_weight_default_orb) then
@@ -35,7 +35,7 @@ subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, 
           dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + orbital_weight_penalty(ie_)
         enddo
       enddo
-      fvec(ik) = enorm ( PINPT%nband*PINPT%ispin, dE )
+      fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
     enddo
 
   endif

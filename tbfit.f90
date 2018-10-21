@@ -24,6 +24,7 @@ program tbfit
   type (energy)  :: ETBA        ! calculated energy with given TB-parameters
   type (weight)  :: PWGHT       ! weight factor for the fitting to target energy
   type (hopping) :: NN_TABLE    ! table for hopping index
+  type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
 
   !call test(PINPT, PKPTS, PGEOM)
 
@@ -32,8 +33,8 @@ program tbfit
 #endif
   if_main call timestamp ('Program start on',t_start)
           call parse(PINPT) ; if_test call test()
-          call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE)
-  if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE)
+          call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA)
+  if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
 
   if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature) then
     call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)

@@ -63,6 +63,7 @@ module parameters
 
        real*8                        ptol
        real*8                        ftol
+       integer*4                     ga_npop
        integer*4                     miter,nparam,nparam_const
        integer*4                     read_energy_column_index, read_energy_column_index_dn
        logical                       flag_tbfit, flag_pfile, flag_pincar
@@ -369,16 +370,42 @@ module parameters
   endtype berry
 
   type spmat ! sparse matrix with Compressed Sparse Row format
-       integer*4                     nnz    ! number of non-zero elements
-       integer*4                     msize  ! matrix size
-       complex*16  ,allocatable   :: H(:)   ! sparse array of square matrix H_square(msize,msize), (n_neighbor)
-       integer*4   ,allocatable   :: I(:)   ! Row    array : if CSR format : I(msize + 1), I(msize+1)-1 = nnz
-                                            !                if COO format : I(nnz)
-       integer*4   ,allocatable   :: J(:)   ! Column array : J(nnz), same size with H
-!#ifdef MKL_SPARSE
-!       type(c_ptr)                :: cptrH   , cptrB   , cptrE   , cptrJ
-!       integer*4,       pointer   ::            ptrB(:),  ptrE(:),  ptrJ(:)
-!       complex*16,      pointer   ::  ptrH(:)
-!#endif
+       integer*4                     nnz     ! number of non-zero elements
+       integer*4                     msize   ! matrix size
+       complex*16  ,allocatable   :: H(:)    ! sparse array of square matrix H_square(msize,msize), (n_neighbor)
+       integer*4   ,allocatable   :: I(:)    ! Row    array : if CSR format : I(msize + 1), I(msize+1)-1 = nnz
+                                             !                if COO format : I(nnz)
+       integer*4   ,allocatable   :: J(:)    ! Column array : J(nnz), same size with H
   endtype spmat
+
+  type gainp ! input/control parameters for genetic algorithm
+       integer*4                     npop    ! number of individuals in a population (default is 100)
+       integer*4                     ngene   ! number of significant digits (number of genes) retained 
+                                             !           in chromosomal encoding (default is 6).
+       real*8                        pcross  ! crossover probability ; must be  <= 1.0 (default : 0.85)
+       real*8                        pmutmn  ! minimum mutation rate; must be >= 0.0 (default is 0.0005)
+       real*8                        pmutmx  ! mmaximum mutation rate; must be <= 1.0 (default is 0.25)
+       real*8                        pmut    ! initial mutation rate; should be small (default is 0.005)
+       integer*4                     imut    ! mutation mode; 1/2/3/4/5 (default is 2).
+                                             ! 1=one-point mutation, fixed rate.
+                                             ! 2=one-point, adjustable rate based on fitness.
+                                             ! 3=one-point, adjustable rate based on distance.
+                                             ! 4=one-point+creep, fixed rate.
+                                             ! 5=one-point+creep, adjustable rate based on fitness.
+                                             ! 6=one-point+creep, adjustable rate based on distance.
+       real*8                        fdif    ! relative fitness differential; range from 0(none) to 1(maximum). (default 1)
+       integer*4                     irep    ! reproduction plan; 1 = Full generational replacement
+                                             !                    2 = Steady-state-replace-random
+                                             !                    3 = Steady-state-replace-worst (default)
+       integer*4                     ielite  ! elitism flag; 0/1=off/on (default is 0)
+                                             !               (Applies only to reproduction plans 1 and 2)
+       integer*4                     ivrb    ! printed output 0/1/2=None/Minimal/Verbose  (default : 0)
+       real*8                        convtol ! convergence tolerance; must be > 0.0 (default is 0.0001)
+       integer*4                     convwin ! convergence window; must be >= 0
+                                             ! This is the number of consecutive solutions
+                                             ! within the tolerance for convergence to be declared (default is 20)
+       real*8                        iguessf ! fraction of the initial population to set equal to the initial guess.
+                                             ! (none) to 1.0 (all). (default is 0.1 or 10%).
+       integer*4                     iseed   ! random seed value; must be > 0 (default is 999)
+  endtype gainp
 endmodule 

@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE)
+subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PKAIA)
   use parameters
   use read_incar
   use berry_phase
@@ -33,6 +33,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   type(energy)  :: EDFT_all
   type(weight)  :: PWGHT 
   type(hopping) :: NN_TABLE
+  type(gainp)   :: PKAIA
 
   fname   = 'INCAR-TB'
   i_dummy = 9999
@@ -109,6 +110,22 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
   NN_TABLE%onsite_tolerance = onsite_tolerance ! default defined in parameters.f90
 
+  PKAIA%npop    = 100
+  PKAIA%ngene   = 6
+  PKAIA%pcross  = 0.85d0
+  PKAIA%pmutmn  = 0.0005d0
+  PKAIA%pmutmx  = 0.25d0
+  PKAIA%pmut    = 0.005d0
+  PKAIA%imut    = 2
+  PKAIA%fdif    = 1.0d0
+  PKAIA%irep    = 3
+  PKAIA%ielite  = 0
+  PKAIA%ivrb    = 0
+  PKAIA%convtol = 0.0001d0
+  PKAIA%convwin = 20.0d0
+  PKAIA%iguessf = 0.1d0
+  PKAIA%iseed   = 999
+
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
   open (pid_incar, FILE=fname,iostat=i_continue)
@@ -135,7 +152,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           case('TBFIT','LSTYPE','PTOL','FTOL','MITER')
             call set_tbfit(PINPT, inputline, desc_str)
-         
+
           case('EWINDOW')
             call set_energy_window(PINPT, inputline, desc_str)
          
@@ -266,7 +283,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             elseif(trim(desc_str) .eq. 'EFIELD') then
               call set_efield(PINPT, desc_str)
 
-    
+            !set parameters for the Genetic Algorithm of PIKAIA library
+            elseif(trim(desc_str) .eq. 'GA') then
+              call set_gainp(PKAIA, desc_str)    
+ 
             endif !SET
          
         end select
@@ -275,7 +295,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(PINPT%flag_tbfit_parse) then
     PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
   endif
-
 
   if( PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
      if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam

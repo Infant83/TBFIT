@@ -575,8 +575,8 @@ subroutine set_param_const(PINPT,PGEOM)
 
 !  allocate( PINPT%param_const(5,PINPT%nparam) )
 !  PINPT%param_const(1,:) = 0d0
-!  PINPT%param_const(2,:) = 99999d0
-!  PINPT%param_const(3,:) =-99999d0
+!  PINPT%param_const(2,:) = 20d0 ! default
+!  PINPT%param_const(3,:) =-20d0 ! default
 !  PINPT%param_const(4,:) = 0d0
 !  PINPT%param_const(5,:) = 0d0
    do i = 1, PINPT%nparam_const

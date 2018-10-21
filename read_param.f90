@@ -46,8 +46,8 @@ subroutine read_param(PINPT, param_const)
    allocate( PINPT%param(PINPT%nparam) )
    allocate( PINPT%param_name(PINPT%nparam) )
    param_const(1,1:PINPT%nparam) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
-   param_const(2,1:PINPT%nparam) = 99999d0
-   param_const(3,1:PINPT%nparam) =-99999d0
+   param_const(2,1:PINPT%nparam) = 20d0 ! default upper bound
+   param_const(3,1:PINPT%nparam) =-20d0 ! default lower bound
    param_const(4,1:PINPT%nparam) = 0d0
    param_const(5,1:PINPT%nparam) = 0d0
    

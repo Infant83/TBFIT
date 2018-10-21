@@ -63,6 +63,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
   endif
   nfev = 1
   fnorm = enorm ( nkpoint, fvec )
+
 !  Initialize Levenberg-Marquardt parameter and iteration counter.
   iter = 1 ; par = 0.0D+00
 30 continue   !  Beginning of the outer loop.
@@ -158,7 +159,6 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
         PINPT%param = wa2
         wa2 = PINPT%param
         PINPT%param = wa2_temp
-
         if(.not. flag_get_orbital) then
           call get_fvec(wa4, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
         else

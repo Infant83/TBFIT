@@ -1963,6 +1963,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
           if(PINPT%ls_type .eq. 'LMDIF' .or. PINPT%ls_type .eq. 'lmdif' ) then
             if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'
+          elseif(PINPT%ls_type .eq. 'PIKAIA' .or. PINPT%ls_type .eq. 'GA' .or. &
+                 PINPT%ls_type .eq. 'pikaia' .or. PINPT%ls_type .eq. 'ga' ) then
+            if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'
           else
             if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,' is not defined or not available in the current version. Exit..'
             stop
@@ -1976,9 +1979,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ftol
           if_main write(6,'(A,F15.8)')'    F_TOL:  ',PINPT%ftol
 
-        case('MITER') !set maximum iteration
+        case('MITER') !set maximum iteration % maximum # of generations for GA
           read(inputline,*,iostat=i_continue) desc_str, PINPT%miter
           if_main write(6,'(A,I8)')' MAX_ITER:  ',PINPT%miter
+          
+        case('NPOP') ! set number of generation for genetic algorithm
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%ga_npop
+          if_main write(6,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop
 
       end select
 
@@ -2007,6 +2014,100 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str, desc_str, NN_TABLE%onsite_tolerance
       if_main write(6,'(A,F16.4)')'ONSITETOL:',NN_TABLE%onsite_tolerance
+
+      return
+   endsubroutine
+
+   subroutine set_gainp(PKAIA, desc_str)
+      type(gainp)    ::  PKAIA
+      integer*4          i_continue
+      integer*4          i_dummy
+      character*132      inputline, dummy_
+      character*40       desc_str
+      integer*4          nitems
+      external           nitems
+      character(*), parameter :: func = 'set_gainp'
+     
+
+      if_main write(6,'(A,3F10.5,A)')'   * PARAMETERS FOR GENETIC ALGORITM *'
+      if_main write(6,'(A,3F10.5,A)')'   -----------------------------------'
+
+  set_pkaia: do while(trim(desc_str) .ne. 'END')
+        read(pid_incar,'(A)',iostat=i_continue) inputline
+        read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+        if(i_continue .ne. 0) cycle      ! skip empty line
+        if(desc_str(1:1).eq.'#') cycle   ! skip comment
+        if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+        call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
+        if(index(dummy_, trim(desc_str)) .ge. 1) then
+          inputline = dummy_
+        endif
+
+        select case ( trim(desc_str) )
+
+          case('NPOP')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%npop
+            if_main write(6,'(A,I8      )')'     NPOP: ', PKAIA%npop
+
+          case('NGENE')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%ngene
+            if_main write(6,'(A,I8      )')'    NGENE: ', PKAIA%ngene
+
+          case('PCROSS')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%pcross
+            if_main write(6,'(A, F10.5  )')'   PCROSS: ', PKAIA%pcross
+
+          case('RMUTMIN')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmutmn
+            if_main write(6,'(A, F10.5  )')' MIN_MUTR: ', PKAIA%pmutmn
+
+          case('RMUTMAX')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmutmx
+            if_main write(6,'(A, F10.5  )')' MAX_MUTR: ', PKAIA%pmutmx
+
+          case('RMUTINI')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmut
+            if_main write(6,'(A, F10.5  )')' INI_MUTR: ', PKAIA%pmut
+
+          case('MUT_MOD')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%imut
+            if_main write(6,'(A, I8     )')' MUT_MODE: ', PKAIA%imut
+
+          case('FDIF')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%fdif
+            if_main write(6,'(A, F10.5  )')'     FDIF: ', PKAIA%fdif
+
+          case('IREP')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%irep
+            if_main write(6,'(A, I8     )')'     IREP: ', PKAIA%irep
+
+          case('IELITE')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%ielite
+            if_main write(6,'(A, I8     )')'   IELITE: ', PKAIA%ielite
+
+          case('VERBOSE')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%ivrb  
+            if_main write(6,'(A, I8     )')'  VERBOSE: ', PKAIA%ivrb  
+
+          case('CONVTOL')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%convtol
+            if_main write(6,'(A, F10.5  )')'  CONVTOL: ', PKAIA%convtol
+
+          case('CONVWIN')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%convwin
+            if_main write(6,'(A, F10.5  )')'  CONVWIN: ', PKAIA%convwin
+
+          case('IGUESSF')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%iguessf
+            if_main write(6,'(A, F10.5  )')'  IGUESSF: ', PKAIA%iguessf
+
+          case('ISEED'  )
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
+            if_main write(6,'(A, F10.5  )')' RANDSEED: ', PKAIA%iseed  
+
+        end select
+      enddo set_pkaia
 
       return
    endsubroutine

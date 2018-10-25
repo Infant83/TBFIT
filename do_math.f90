@@ -326,7 +326,7 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
 
 return
 endsubroutine
-
+#ifdef MKL_SPARSE
 subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag, ne_prev)
     use parameters, only: spmat
     use time
@@ -458,7 +458,7 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         write(6,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'
         write(6,'(A)'               )'                                      Please increase NE_MAX.'
         write(6,'(A,I0)'            )'                                      NE_FOUND = ', ne_found
-!       write(6,'(A,I0)'            )'                                      NE_MAX   = ', ne_guess
+        write(6,'(A,I0)'            )'                                      NE_MAX   = ', ne_guess
         flag_success = .true.
       case(2  )                    
         write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'
@@ -504,6 +504,7 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
 
 return
 endsubroutine
+#endif
 !  ZGEEV computes for an N-by-N complex nonsymmetric matrix H, the
 !  eigenvalues and, optionally, the left and/or right eigenvectors.
 !  The right eigenvector VR of H satisfies

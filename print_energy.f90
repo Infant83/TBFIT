@@ -26,7 +26,7 @@ subroutine print_energy_ensurf (kpoint, nkpoint,ie, ispin_print, E, V, PGEOM, PI
 
             write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', ie,' -th eigen'
             if(.not. PINPT%flag_print_orbital) then
-              write(pid_energy,'(A)',ADVANCE='yes')' '
+              write(pid_energy,'(A)',ADVANCE='yes')''
             elseif(  PINPT%flag_print_orbital) then
               if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
@@ -135,7 +135,7 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
       eig:do ie =1, PINPT%nband !init_e, fina_e
             write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'     
             if(.not. flag_print_orbital) then
-              write(pid_energy,'(A)',ADVANCE='NO')' '
+              write(pid_energy,'(A)',ADVANCE='NO')''
             elseif(  flag_print_orbital) then
               if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '

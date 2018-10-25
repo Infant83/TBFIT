@@ -18,6 +18,7 @@ subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   character*40                desc_str,dummy1,dummy2,dummy3
   character*8, allocatable :: temp_orbital(:,:)
   character*20,allocatable :: site_c_index_(:)
+  logical,     allocatable :: flag_site_c_index_(:)
   character*10                site_index
   character*20                locpot_index
   character(*), parameter  :: func = 'read_poscar'
@@ -107,10 +108,11 @@ line: do
                      PGEOM%n_orbital(PGEOM%n_atom), &
                      local_charge_(PGEOM%n_atom*max_orb_temp), &
                      local_moment_(3,PGEOM%n_atom*max_orb_temp), &
-                     site_c_index_(PGEOM%n_atom), &
+                     site_c_index_(PGEOM%n_atom), flag_site_c_index_(PGEOM%n_atom), &
                      temp_orbital(max_orb_temp, PGEOM%n_atom) )
                      local_charge_ = 0d0 ! initialize as zero
                      local_moment_ = 0d0 ! initialize as zero
+                     flag_site_c_index_ = .false. ! initialize as .false.
            if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')' '
            do i=1,PGEOM%n_spec
              if(i .eq. 1)then
@@ -285,7 +287,8 @@ line: do
                endif ! moment
              endif
 
-             if(pos_index(3) .ne. 0) then ! site_index
+             if(pos_index(3) .ne. 0) then ! site_index 
+               !if site_index is predefined in the POSCAR with Site_index tag: flag_site_cindex = .true. and use it as site_cindex
                call strip_off(trim(inputline), dummy, trim(site_index), '', 2)
                i_dummy = nitems(dummy)
                if(i_dummy .ne. 1) then
@@ -294,26 +297,28 @@ line: do
                  stop
                else
                  read(dummy,*)site_c_index_(i)
+                 flag_site_c_index_(i) = .true.
                endif
              else
-              dummy2 = PGEOM%c_spec(PGEOM%spec(i))
-              if( i .lt. 10) then
-                write(dummy3,'(I1)') i
-              elseif( i .ge. 10 .and. i .lt. 100) then
-                write(dummy3,'(I2)') i
-              elseif( i .ge. 100 .and. i .lt. 1000) then
-                write(dummy3,'(I3)') i
-              elseif( i .ge. 1000 .and. i .lt. 10000) then
-                write(dummy3,'(I4)') i
-              elseif( i .ge. 10000 .and. i .lt. 100000) then
-                write(dummy3,'(I5)') i
-              elseif( i .ge. 100000 .and. i .lt. 1000000) then
-                write(dummy3,'(I6)') i
-              endif
-              i_dummy2 = len_trim(dummy2)
-              i_dummy3 = len_trim(dummy3)
-              write(site_c_index_(i),'(2A)') dummy2(1:i_dummy2),dummy3(1:i_dummy3)
-              site_c_index_(i) = str2lowcase(site_c_index_(i))
+               !if site_index is not predefined in the POSCAR with Site_index tag: flag_site_cindex = .false. and use atom_name+atom_number as site_cindex
+               dummy2 = PGEOM%c_spec(PGEOM%spec(i))
+               if( i .lt. 10) then
+                 write(dummy3,'(I1)') i
+               elseif( i .ge. 10 .and. i .lt. 100) then
+                 write(dummy3,'(I2)') i
+               elseif( i .ge. 100 .and. i .lt. 1000) then
+                 write(dummy3,'(I3)') i
+               elseif( i .ge. 1000 .and. i .lt. 10000) then
+                 write(dummy3,'(I4)') i
+               elseif( i .ge. 10000 .and. i .lt. 100000) then
+                 write(dummy3,'(I5)') i
+               elseif( i .ge. 100000 .and. i .lt. 1000000) then
+                 write(dummy3,'(I6)') i
+               endif
+               i_dummy2 = len_trim(dummy2)
+               i_dummy3 = len_trim(dummy3)
+               write(site_c_index_(i),'(2A)') dummy2(1:i_dummy2),dummy3(1:i_dummy3)
+               site_c_index_(i) = str2lowcase(site_c_index_(i))
              endif !site_index
 
              ii = ii+PGEOM%n_orbital(i)-1
@@ -478,7 +483,9 @@ line: do
 
   ! store site_index
   allocate(NN_TABLE%site_cindex(PGEOM%n_atom)) ! site_index for each atomic site
+  allocate(NN_TABLE%flag_site_cindex(PGEOM%n_atom)) ! flag for site_index for each atomic site
   NN_TABLE%site_cindex = site_c_index_
+  NN_TABLE%flag_site_cindex =flag_site_c_index_
 
   if (linecount == 0) then
     if(myid .eq. 0) write(6,*)'Attention - empty input file: ',trim(fname),' , ',func
@@ -492,7 +499,7 @@ line: do
 
 #ifdef SPGLIB
   ! get space group information by SPGLIB
-  call get_symmetry_info(PGEOM)
+  if(PINPT%flag_spglib) call get_symmetry_info(PGEOM)
 #endif
 
   if(myid .eq. 0) write(6,*)'*- END READING GEOMETRY FILE ---------------------'

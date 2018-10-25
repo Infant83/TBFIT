@@ -132,7 +132,8 @@ return
 endsubroutine
 subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
                             index_sigma_scale,index_pi_scale,index_delta_scale, &
-                            PINPT, param_class, nn_class, ci_atom, cj_atom, i_atom, j_atom)
+                            PINPT, param_class, nn_class, ci_atom, cj_atom, i_atom, j_atom, &
+                            ci_site, cj_site, flag_use_site_cindex)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT
@@ -143,11 +144,10 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    integer*4                   index_sigma_scale,index_pi_scale,index_delta_scale
    character*16                cij_pair
    character*2                 param_class
-   character*20                c_dummy
-   character*20                sk_sigma, sk_pi, sk_delta
-   character*20                sk_sigma_scale, sk_pi_scale, sk_delta_scale
    character*8, intent(in) ::  ci_atom , cj_atom
-   logical      flag_scale
+   character*20,intent(in) ::  ci_site , cj_site 
+   character*28            ::  ci_atom_, cj_atom_
+   logical      flag_scale, flag_use_site_cindex
 
    ! initialize  
    index_sigma       =  0
@@ -157,15 +157,34 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    index_pi_scale    =  0
    index_delta_scale =  0
 
-   flag_scale = .false.
-   call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma)
-   call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi   )
-   call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta)
+   if(.not.flag_use_site_cindex) then
 
-   flag_scale = .true. 
-   call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale)
-   call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   )
-   call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale)
+     flag_scale = .false.
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi   )
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta)
+
+     flag_scale = .true. 
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   )
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale)
+
+   elseif(flag_use_site_cindex) then
+
+     write(ci_atom_,'(A,A)')trim(ci_atom),trim(ci_site)
+     write(cj_atom_,'(A,A)')trim(cj_atom),trim(cj_site)
+
+     flag_scale = .false.
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi   )
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta)
+
+     flag_scale = .true.
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma_scale)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi_scale   )
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta_scale)
+
+   endif
 
 return
 endsubroutine
@@ -178,8 +197,7 @@ subroutine get_local_U_param_index(local_U_param_index, PINPT, nn_class, param_c
    integer*4     local_U_param_index
    character*8   ci_atom
    character*2   param_class, param_class_
-   character*20  c_dummy
-   character*20  local_U_param_name 
+   character*40  local_U_param_name 
 
 
    !initialize
@@ -218,8 +236,7 @@ subroutine get_plus_U_param_index(plus_U_param_index, PINPT, nn_class, param_cla
    integer*4      plus_U_param_index
    character*8    ci_atom
    character*2   param_class, param_class_
-   character*20  c_dummy
-   character*20  plus_U_param_name
+   character*40  plus_U_param_name
 
    !initialize
    plus_U_param_index = 0
@@ -249,8 +266,7 @@ subroutine get_stoner_I_param_index(stoner_I_param_index, PINPT, nn_class, param
    integer*4     stoner_I_param_index
    character*8   ci_atom
    character*2   param_class, param_class_
-   character*20  c_dummy
-   character*20  stoner_I_param_name
+   character*40  stoner_I_param_name
 
 
   !initialize
@@ -279,16 +295,15 @@ subroutine get_param_name(param_name, param_class, param_type, nn_class, ci_atom
    implicit none
    integer*4    lia, lja, lp
    integer*4    nn_class
-   character*8  ci_atom, cj_atom
    character*2  param_class
    character*8  param_type
-   character*20 param_name
+   character*40 param_name
    logical      flag_scale
+   character(*), intent(in) ::  ci_atom, cj_atom
 
    lia = len_trim(ci_atom)
    lja = len_trim(cj_atom)
    lp  = len_trim(param_class)
-
 
    if(.not. flag_scale) then
      if(nn_class .lt. 10) then
@@ -320,10 +335,10 @@ subroutine get_param_name_index(PINPT, param_class, param_type, nn_class, ci_ato
    integer*4      i_atempt
    integer*4      nn_class
    integer*4      param_index
-   character*8    ci_atom, cj_atom
+   character(*),intent(in) ::    ci_atom, cj_atom
    character*2    param_class
    character*8    param_type
-   character*20   param_name
+   character*40   param_name
    logical        flag_scale  
 
 loop:do i_atempt = 0, 1
@@ -334,7 +349,6 @@ loop:do i_atempt = 0, 1
        call get_param_index(PINPT, param_name, param_index)
        if(param_index .gt. 0) exit loop 
      enddo loop
-
    return
 endsubroutine
 subroutine get_param_index(PINPT, param_name, param_index)
@@ -343,11 +357,21 @@ subroutine get_param_index(PINPT, param_name, param_index)
    type(incar) :: PINPT
    integer*4      i
    integer*4      param_index
-   character*20   param_name
+   character(*), intent(in) ::  param_name
+   character*40   pname_file, pname 
+   character*40   str2lowcase
+   external    :: str2lowcase
+
+   pname = adjustl(trim(param_name))
+   pname = str2lowcase(pname)
 
    ! find parameter index with given parameter name
    do i = 1, PINPT%nparam
-     if( adjustl(trim(PINPT%param_name(i))) .eq. adjustl(trim(param_name)) ) then
+     pname_file=adjustl(trim(PINPT%param_name(i)))
+     pname_file=str2lowcase(pname_file)
+!    if( adjustl(trim(PINPT%param_name(i))) .eq. adjustl(trim(param_name)) ) then
+
+     if( trim(pname_file) .eq. adjustl(trim(pname)) ) then
        if( nint(PINPT%param_const(1,i)) .ge. 1 ) then
          param_index = nint(PINPT%param_const(1,i), 4) ! set constraint condition: if equal to
        else

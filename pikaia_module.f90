@@ -85,7 +85,7 @@
         !other solution inputs (with default values):
         integer  :: np                 = 100
         integer  :: ngen               = 500
-        integer  :: nd                 = 5
+        integer  :: nd                 = 6
         real(wp) :: pcross             = 0.85_wp
         integer  :: imut               = 2
         real(wp) :: pmuti              = 0.005_wp  !! initial value of pmut

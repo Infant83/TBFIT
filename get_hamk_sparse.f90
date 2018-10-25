@@ -1,4 +1,5 @@
 #include "alias.inc"
+#ifdef MKL_SPARSE
 subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, &
                            flag_sparse_zero_SHm, flag_sparse_zero_SHs)
   use parameters, only : incar, hopping, spmat
@@ -92,17 +93,29 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
       if(.not. flag_sparse_zero_SHm) then
         istat = MKL_SPARSE_Z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, S0  , alpha, Sm, Sk_)    
         call sparse_error_report('MKL_SPARSE_z_ADD: S0+Sm=Sk_', istat)
+        istat = MKL_SPARSE_DESTROY(Sm)    
+        if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sm ', istat)
+        istat = MKL_SPARSE_DESTROY(S0)    
+        if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
       endif
 
       if(.not. flag_sparse_zero_SHm) then
         if(.not. flag_sparse_zero_SHs) then
           istat = MKL_SPARSE_Z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, Sk_ , alpha, Ss, Sk)
           call sparse_error_report('MKL_SPARSE_z_ADD: Sk_+Ss=Sk', istat)
+          istat = MKL_SPARSE_DESTROY(Sk_)
+          if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sk_', istat)
+          istat = MKL_SPARSE_DESTROY(Ss)    
+          if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Ss ', istat)
         endif
       else
         if(.not. flag_sparse_zero_SHs) then
           istat = MKL_SPARSE_Z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, S0  , alpha, Ss, Sk)
           call sparse_error_report('MKL_SPARSE_z_ADD: S0 +Ss=Sk', istat)
+          istat = MKL_SPARSE_DESTROY(S0)    
+          if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
+          istat = MKL_SPARSE_DESTROY(Ss)    
+          if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Ss ', istat)
         endif
       endif
 
@@ -119,15 +132,16 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
           call sparse_export_csr(S0, SHk)
         endif
       endif
-
-      istat = MKL_SPARSE_DESTROY(Sk_)
-      if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sk_', istat)
-      istat = MKL_SPARSE_DESTROY(Ss)    
-      if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Ss ', istat)
-      istat = MKL_SPARSE_DESTROY(Sm)    
-      if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sm ', istat)
-      istat = MKL_SPARSE_DESTROY(S0)    
-      if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
+!write(6,*)"CCCCC"
+!stop
+!     istat = MKL_SPARSE_DESTROY(Sk_)
+!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sk_', istat)
+!     istat = MKL_SPARSE_DESTROY(Ss)    
+!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Ss ', istat)
+!     istat = MKL_SPARSE_DESTROY(Sm)    
+!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sm ', istat)
+!     istat = MKL_SPARSE_DESTROY(S0)    
+!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
     else
       call kproduct_pauli_0_CSR(SH0)
       call sparse_create_csr_handle(S0, SH0)
@@ -548,6 +562,8 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
 
 return
 endsubroutine
+#endif
+
 subroutine get_hopping_integral(Eij, NN_TABLE, nn, PINPT, tol, kpoint, FIJ_, flag_phase)
   use parameters, only : zi, hopping, incar
   use phase_factor

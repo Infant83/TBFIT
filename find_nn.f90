@@ -32,7 +32,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    integer*4         nn_class
    external enorm
    external tij_sk, tij_cc
-   logical  flag_init
+   logical  flag_init, flag_use_site_cindex
 
    flag_init = .true.
    max_nn= PGEOM%n_atom * max_neighbor * PGEOM%max_orb * PGEOM%max_orb
@@ -197,13 +197,15 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
                                !SET HOPPING energies
                                if(PINPT%flag_slater_koster) then
-    
+                                 
                                  ! CASE: SLATER_KOSTER TYPE HOPPING
+                                 flag_use_site_cindex = logical(NN_TABLE%flag_site_cindex(i) .and. NN_TABLE%flag_site_cindex(j))
                                  call get_sk_index_set(index_sigma,index_pi,index_delta, &
                                                        index_sigma_scale,index_pi_scale,index_delta_scale, &
                                                        PINPT, param_class, nn_class, &
                                                        PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
-                                                       PGEOM%spec(i), PGEOM%spec(j) )
+                                                       PGEOM%spec(i), PGEOM%spec(j), &
+                                                       NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex )
                                  NN_TABLE_dummy%sk_index_set(1,nn)  = index_sigma
                                  NN_TABLE_dummy%sk_index_set(2,nn)  = index_pi
                                  NN_TABLE_dummy%sk_index_set(3,nn)  = index_delta 

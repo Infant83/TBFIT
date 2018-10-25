@@ -57,7 +57,7 @@ module parameters
 
   type incar !PINPT
        logical                       flag_get_band  ! default = .true.
-
+       logical                       flag_spglib    ! default = .true. ! write space group information
        logical                       flag_tbfit_parse, flag_tbfit_parse_
        logical                       flag_tbfit_test
 
@@ -75,7 +75,7 @@ module parameters
        logical                       flag_load_nntable ! default .false.
        character*2                   axis_print_mag
        real*8,       allocatable  :: param(:)
-       character*20, allocatable  :: param_name(:)
+       character*40, allocatable  :: param_name(:)
        character*40, allocatable  :: c_const(:,:)
        real*8,       allocatable  :: param_const(:,:) ! i=1 -> 'is same as'
                                                       ! i=2 -> 'is lower than' (.le.) : maximum bound  ! not available yet
@@ -261,6 +261,7 @@ module parameters
        integer*4                     n_neighbor
 
        character*20,allocatable   :: site_cindex(:)  ! site indicator
+       logical,     allocatable   :: flag_site_cindex(:) ! flag site indicator has been defined or not
        real*8,      allocatable   :: local_charge(:) !i=ham_index(neig)
        real*8,      allocatable   :: local_moment(:,:) !(1:3,i) (1:3)=(mi, theta, phi), i=ham_idx(neig)
        real*8,      allocatable   :: local_moment_rot(:,:) !(1:3,i) (1:3)=(mx, my, mz)=-I*mi_dot_sigma, i=ham_idx
@@ -407,5 +408,6 @@ module parameters
        real*8                        iguessf ! fraction of the initial population to set equal to the initial guess.
                                              ! (none) to 1.0 (all). (default is 0.1 or 10%).
        integer*4                     iseed   ! random seed value; must be > 0 (default is 999)
+       real*8                        lower_bound, upper_bound
   endtype gainp
 endmodule 

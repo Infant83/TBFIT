@@ -45,11 +45,18 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
       else
         ne_prev = 0
       endif
+#ifdef MKL_SPARSE
       call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
                              PINPT%feast_ne(1:PINPT%nspin,ik),ik, &
                              flag_sparse_SHm, flag_sparse_SHs, ne_prev)
       
+#else
+
+      if_main write(6,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'
+      if_main write(6,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'
+      stop
+#endif
     elseif(.not.flag_sparse) then
       call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
@@ -62,9 +69,11 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 #ifdef MPI
   call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
   if(flag_vector) call MPI_ALLREDUCE(EE%V, V, size(V), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+#ifdef MKL_SPARSE
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
     PINPT%feast_ne = feast_ne
+#endif
   endif
 #else
   E = EE%E ; if(flag_vector) V = EE%V
@@ -73,6 +82,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
 return
 endsubroutine
+#ifdef MKL_SPARSE
 subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
                              nemax, flag_vector, flag_init, flag_phase, ne_found,ik, &
                              flag_sparse_SHm, flag_sparse_SHs,ne_prev)
@@ -121,6 +131,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
 
 return
 endsubroutine
+#endif
 subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nband, flag_vector, flag_init, flag_phase)
   use parameters, only : incar, hopping
   use mpi_setup
@@ -694,6 +705,7 @@ subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
 
 return
 endsubroutine
+#ifdef MKL_SPARSE
 subroutine cal_eig_sparse(SHk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag_vector, &
                           emin, emax, ne_found, feast_fpm, feast_info, ne_prev)
    use parameters, only : spmat
@@ -724,11 +736,12 @@ subroutine adjust_ne_guess(feast_info, is, ne_found, kp, ik, neig, nemax, PINPT)
    integer*4    nemax
  
    if(ne_found .eq. 0) then
-     PINPT%feast_neguess = 4
+     PINPT%feast_neguess = nint(PINPT%feast_nemax/2d0)
    elseif(ne_found .ge. 1) then
-     PINPT%feast_neguess = nint(ne_found * 1.5 + 2)
+     PINPT%feast_neguess = nint(ne_found * 1.5 + 4)
      if(PINPT%feast_neguess .gt. nemax) PINPT%feast_neguess = nemax
    endif
 
 return
 endsubroutine
+#endif

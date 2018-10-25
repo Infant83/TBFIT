@@ -75,7 +75,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_efield_cart = .false.
   PINPT%flag_load_nntable= .false.
   PINPT%flag_sparse = .false.
-
+#ifdef SPGLIB
+  PINPT%flag_spglib = .true.
+#endif
   PINPT_BERRY%flag_wcc_phase = .false.
   PINPT_BERRY%flag_bc_phase  = .false.
   PINPT_BERRY%flag_z2_phase  = .false.
@@ -182,6 +184,12 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           !if(myid .eq. 0) write fitted TB-parameter to POFILE
           case('POFILE')
            call set_tbparam_out_file(PINPT, inputline)
+
+#ifdef SPGLIB
+          !if(myid .eq. 0) write fitted TB-parameter to POFILE
+          case('SPGLIB')
+           call set_spglib_write(PINPT, inputline,desc_str)
+#endif
 
           ! LSPIN tag. 1:non-collinear or NM, 2:collinear
           case('TYPMAG')

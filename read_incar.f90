@@ -2029,7 +2029,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_gainp'
      
 
-      if_main write(6,'(A,3F10.5,A)')'   * PARAMETERS FOR GENETIC ALGORITM *'
+      if_main write(6,'(A,3F10.5,A)')'   * PARAMETERS FOR GENETIC ALGORITHM *'
       if_main write(6,'(A,3F10.5,A)')'   -----------------------------------'
 
   set_pkaia: do while(trim(desc_str) .ne. 'END')
@@ -2106,8 +2106,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
             if_main write(6,'(A, F10.5  )')' RANDSEED: ', PKAIA%iseed  
 
+          case('UBOUND')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%upper_bound
+            if_main write(6,'(A, F10.5  )')'   UBOUND: ', PKAIA%upper_bound
+
+          case('LBOUND')
+            read(inputline,*,iostat=i_continue) desc_str, PKAIA%lower_bound
+            if_main write(6,'(A, F10.5  )')'   LBOUND: ', PKAIA%lower_bound
+
         end select
       enddo set_pkaia
+
+      if_main write(6,'(A,3F10.5,A)')'   * END READING: GENETIC ALGORITHM PARAMETERS*'
+      if_main write(6,'(A,3F10.5,A)')'   ---------------------------------------------'
 
       return
    endsubroutine
@@ -2284,9 +2295,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       type(incar) :: PINPT
       character*132  inputline
       character*40   desc_str
-      integer*4      i_contitue
+      integer*4      i_continue
 
-      read(inputline,*,iostat=i_contitue) desc_str, PINPT%flag_get_band
+      read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_get_band
       if(PINPT%flag_get_band) then
         if_main write(6,'(A)')'  GET_BND: .TRUE.'
       elseif(.not.PINPT%flag_get_band) then
@@ -2294,5 +2305,25 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       endif
       return
    endsubroutine
+
+#ifdef SPGLIB
+   subroutine set_spglib_write(PINPT, inputline, desc_str)
+      implicit none
+      type(incar) :: PINPT
+      character*132  inputline
+      character*40   desc_str
+      integer*4      i_continue
+
+      read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_spglib
+
+      if(PINPT%flag_spglib) then
+        if_main write(6,'(A)')'   SPGLIB: .TRUE.'
+      elseif(.not.PINPT%flag_spglib) then
+        if_main write(6,'(A)')'   SPGLIB: .FALSE.'
+      endif
+
+      return
+   endsubroutine
+#endif
 
 endmodule

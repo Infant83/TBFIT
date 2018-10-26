@@ -5,7 +5,7 @@ subroutine set_ribbon_geom(PINPT)
    integer*4                 i,i_continue, linecount
    integer*4                 ispec, nspec, natom_spec(100),n_atom_unit, iatom, ld
    integer*4                 ix,iy,iz
-   real*8                    t_latt_inv(3,3)
+   real*8                    t_latt_inv(3,3), t_latt(3,3)
    character*132             filenm_unitcell,filenm_ribbon
    character*264             inputline, c_dummy
    character*40              desc_str
@@ -13,6 +13,7 @@ subroutine set_ribbon_geom(PINPT)
    real*8                    a_latt(3,3),a_latt_ribbon(3,3)
    real*8                    enorm
    real*8                    coord_unit(3), coord_ribbon(3)
+   real*8                    coord_unit_(3)
    integer*8                 i_dummy, nitems
    logical                   flag_skip
    logical                   flag_selective, flag_direct, flag_cartesian
@@ -51,6 +52,7 @@ subroutine set_ribbon_geom(PINPT)
           write(pid_geom_ribbon,'(3F20.12)') a_latt(1:3,i) * ( PINPT%ribbon_nslab(i) + PINPT%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
           a_latt_ribbon(1:3,i) = a_latt(1:3,i) * ( PINPT%ribbon_nslab(i) + PINPT%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
         enddo
+        t_latt_inv = inv(a_latt)
         linecount = linecount + 2
         cycle
       elseif(linecount .eq. 6 ) then
@@ -111,11 +113,12 @@ subroutine set_ribbon_geom(PINPT)
               read(inputline,*) coord_unit(1:3), desc_str
               if(flag_cartesian) then
 !               t_latt = transpose(a_latt)
-                t_latt_inv = inv(a_latt)
-                coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit(:))
-                coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit(:))
-                coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit(:))
+                coord_unit_ = coord_unit
+                coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit_(:))
+                coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit_(:))
+                coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit_(:))
                 coord_unit(:) = coord_unit(:) - int(coord_unit(:))
+
               endif
 !             do i = 1,3
 !               if(coord_unit(i) .lt. 0) coord_unit(i) = coord_unit(i) + 1d0
@@ -125,11 +128,11 @@ subroutine set_ribbon_geom(PINPT)
             if(i_dummy .eq. 3) then 
               read(inputline,*) coord_unit(1:3)
               if(flag_cartesian) then
-!               t_latt = transpose(a_latt)
-                t_latt_inv = inv(a_latt)
-                coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit(:))
-                coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit(:))
-                coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit(:))
+!               t_latt_inv = inv(a_latt)
+                coord_unit_ = coord_unit
+                coord_unit(1) = dot_product(t_latt_inv(1,:), coord_unit_(:))
+                coord_unit(2) = dot_product(t_latt_inv(2,:), coord_unit_(:))
+                coord_unit(3) = dot_product(t_latt_inv(3,:), coord_unit_(:))
                 coord_unit(:) = coord_unit(:) - int(coord_unit(:))
               endif
 !             do i = 1,3
@@ -189,7 +192,7 @@ subroutine set_ribbon_geom(PINPT)
 
    close(pid_geom)
    close(pid_geom_ribbon)
-
+stop
    if(PINPT%flag_print_only_ribbon_geom) then
      write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'
      write(6,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'

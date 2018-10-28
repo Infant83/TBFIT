@@ -73,8 +73,8 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
     PINPT%feast_ne = feast_ne
-#endif
   endif
+#endif
 #else
   E = EE%E ; if(flag_vector) V = EE%V
 #endif

@@ -1636,14 +1636,16 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       real*8        param_const(5,max_nparam)
       character(*), parameter :: func = 'set_tbparam_file'
 
-      read(inputline,*,iostat=i_continue) desc_str, PINPT%pfilenm
-      if(allocated(PINPT%param) .or. allocated(PINPT%param_name) .or. PINPT%flag_pincar) then
-         PINPT%flag_pincar=.false.
-         deallocate(PINPT%param)
-         deallocate(PINPT%param_name)
-         if_main write(6,'(A)')'  !WARN!  TB-parameter is alread set by TBPARAM in the INCAR-TB,'
-         if_main write(6,'(A)')'  !WARN!  however, since the external TB-parameter file is provided,'
-         if_main write(6,'(A,A,A)')'  !WARN!  those valeus from ',trim(PINPT%pfilenm),' will be read in priori'
+      if(.not. PINPT%flag_pfile) then
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%pfilenm
+        if(allocated(PINPT%param) .or. allocated(PINPT%param_name) .or. PINPT%flag_pincar) then
+           PINPT%flag_pincar=.false.
+           deallocate(PINPT%param)
+           deallocate(PINPT%param_name)
+           if_main write(6,'(A)')'  !WARN!  TB-parameter is alread set by TBPARAM in the INCAR-TB,'
+           if_main write(6,'(A)')'  !WARN!  however, since the external TB-parameter file is provided,'
+           if_main write(6,'(A,A,A)')'  !WARN!  those valeus from ',trim(PINPT%pfilenm),' will be read in priori'
+        endif
       endif
       if_main write(6,'(A,A)')' PARA_FNM:  ',trim(PINPT%pfilenm)
       call read_param(PINPT, param_const)
@@ -2303,6 +2305,32 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       elseif(.not.PINPT%flag_get_band) then
         if_main write(6,'(A)')'  GET_BND: .FALSE.'
       endif
+      return
+   endsubroutine
+
+   subroutine set_nn_max(PINPT, inputline,desc_str)
+      implicit none
+      type(incar) :: PINPT
+      character*132  inputline
+      character*40   desc_str, dummy_, dummy
+      integer*4      i_continue
+      integer*4      nitems
+      external       nitems
+
+
+      call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
+      if(index(dummy_, trim(desc_str)) .ge. 1) then
+        inputline = dummy_
+      endif
+
+      if(nitems(inputline) -1 .eq. 3) then
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%nn_max(1:3)
+        if_main write(6,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)
+      else
+        if_main write(6,'(A)')'    !WARN! Error in reading NN_MAX tag. Exit program...'
+        stop
+      endif
+
       return
    endsubroutine
 

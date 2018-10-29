@@ -39,7 +39,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   i_dummy = 9999
   PINPT%flag_get_band=.true.
   PINPT%flag_erange=.false.
-  PINPT%flag_pfile=.false.
+  if(.not. PINPT%flag_parse .and. .not. PINPT%flag_pfile) PINPT%flag_pfile=.false.
   PINPT%flag_pincar=.false.
   PINPT%flag_tbfit=.false.
   PINPT%flag_print_only_target=.false.
@@ -87,7 +87,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   flag_kfile_ribbon=.false.
   PINPT%gfilenm='POSCAR-TB' !default
   PINPT%kfilenm='KPOINTS_BAND' !default
-  PINPT%pfilenm='PARAM_FIT.dat' !default
+  if(.not. PINPT%flag_parse .and. .not. PINPT%flag_pfile) PINPT%pfilenm='PARAM_FIT.dat' !default
   PINPT%pfileoutnm='PARAM_FIT.new.dat' !default
   PINPT%efilenmu=' '
   PINPT%efilenmd=' '
@@ -101,6 +101,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%efield_origin(1:3) = 0d0 ! default
   PINPT%rcut_orb_plot = 5 ! default (unit = angstrom)
 ! PINPT%init_erange = -1 ! default
+  PINPT%nn_max(1:3) = 3 ! default
 
   PWGHT%flag_weight_default = .true.
   PWGHT%flag_weight_default_orb = .true.
@@ -180,6 +181,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           !hopping type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
           case('IS_SK', 'SLATER_KOSTER')
            call set_hopping_type(PINPT, inputline)
+
+          !how many times the unit cell is repeated in finding nearest neighbor pair?
+          case('NN_MAX')
+           call set_nn_max(PINPT,inputline,desc_str)
 
           !if(myid .eq. 0) write fitted TB-parameter to POFILE
           case('POFILE')

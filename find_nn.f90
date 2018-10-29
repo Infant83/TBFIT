@@ -7,7 +7,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    type (hopping) :: NN_TABLE
    type (hopping) :: NN_TABLE_dummy
    character(*), parameter :: func = 'find_nn'
-   integer*4, parameter :: max_neighbor = 100
+   integer*4, parameter :: max_neighbor = 30
    integer*4   nn, i, j, iorb, jorb, ix, iy, iz, imatrix, jmatrix, max_nn, ii
    integer*4   index_sigma,index_pi,index_delta   !sk param index
    integer*4   index_sigma_scale,index_pi_scale,index_delta_scale ! sk scale param index
@@ -77,9 +77,10 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    if(myid .eq. 0) write(6,*)' '
    if(myid .eq. 0) write(6,*)'*- START SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'
 
-   max_x = 3
-   max_y = 3
-   max_z = 3
+   max_x = PINPT%nn_max(1)
+   max_y = PINPT%nn_max(2)
+   max_z = PINPT%nn_max(3)
+
    max_nn_dist = maxval(PGEOM%nn_dist(:))
    nn=0;
 

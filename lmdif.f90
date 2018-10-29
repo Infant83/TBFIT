@@ -142,7 +142,6 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
         do j = 1, PINPT%nparam
           if( nint(PINPT%param_const(1,j)) .eq. 0 ) then
             wa2(j) = PINPT%param(j) + wa1(j)
-if(j .eq. 12) write(6,*)"ZZZZZ", wa2(12), nint(PINPT%param_const(1,12))
           elseif( nint(PINPT%param_const(1,j)) .ge. 1) then
             wa2(j) = PINPT%param( nint(PINPT%param_const(1,j)) ) + wa1(j)
           endif

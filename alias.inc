@@ -5,3 +5,9 @@
 #define if_ncol            if(PINPT%ispinor .eq. 2)
 #define mpi_kill           call MPI_Abort(mpi_comm_earth, 0, mpierr)
 #define if_test            if(PINPT%flag_tbfit_test)
+
+#ifdef MPI
+#define kill_job           call mpi_finish() ; stop  
+#else
+#define kill_job           stop
+#endif

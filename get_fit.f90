@@ -13,6 +13,8 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
    type (weight)  :: PWGHT       ! weight factor for the fitting to target energy
    type (hopping) :: NN_TABLE    ! table for hopping index
    type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
+   logical           flag_conv
+   integer*4         j,ifit,mxfit
 
    if(PINPT%flag_sparse) then
      if_main write(6,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'
@@ -20,6 +22,15 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
      if_main write(6,'(A)') '           Exit program...'
      stop
    endif
+
+   flag_conv = .false.
+   mxfit = PINPT%mxfit
+   if(mxfit .le. 0) then
+     if_main write(6,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'
+     if_main write(6,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'
+     kill_job
+   endif
+   ifit = 0
 
    !print target energy to file
    if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, &
@@ -30,8 +41,55 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
 
    ! fitting parameter
    if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif') then
-     call leasqr_lm ( get_eig, NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, EDFT%E, PGEOM%neig, &
-                               PINPT%init_erange, PINPT%nband, PWGHT, PINPT)
+ fit:do while( ifit .le. mxfit .or. .not. flag_conv)
+       ifit = ifit + 1
+
+       if_main write(6,'(A)')' '
+       if_main write(6,'(A,I0,A)')' **START ',ifit,'-th LMDIF run'
+       if_main write(6,'(A)')' '
+
+       call leasqr_lm ( get_eig, NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, EDFT%E, PGEOM%neig, &
+                                 PINPT%init_erange, PINPT%nband, PWGHT, PINPT)
+
+       if_main write(6,'(A,I0,A)')'           Check constraint: upper and lower bounds'
+       if_main write(6,'(A,I0,A)')'    =========================================================='
+
+       flag_conv = .true.
+       do j = 1, PINPT%nparam
+         if( nint(PINPT%param_const(1,j)) .eq. 0) then
+           if(PINPT%param(j) .lt. PINPT%param_const(3,j)) then ! lower bound  
+             PINPT%param(j) = PINPT%param_const(3,j)
+             flag_conv = .false.
+             if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,j),' --> ', &
+                                                      trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+           elseif(PINPT%param(j) .gt. PINPT%param_const(2,j)) then !upper bound
+             PINPT%param(j) = PINPT%param_const(2,j)
+             flag_conv = .false.
+             if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,j),' --> ', &
+                                                      trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+           endif
+         elseif(nint(PINPT%param_const(1,j)) .ge. 1) then
+           if(PINPT%param(j) .lt. PINPT%param_const(3,nint(PINPT%param_const(1,j)))) then !lower bound
+             PINPT%param(j) = PINPT%param_const(3,nint(PINPT%param_const(1,j)))
+             flag_conv = .false.
+             if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,nint(PINPT%param_const(1,j))),' --> ', &
+                                                      trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+           elseif(PINPT%param(j) .gt. PINPT%param_const(2,nint(PINPT%param_const(1,j)))) then !upper bound
+             PINPT%param(j) = PINPT%param_const(2,nint(PINPT%param_const(1,j)))
+             flag_conv = .false.
+             if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,nint(PINPT%param_const(1,j))),' --> ', &
+                                                      trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+           endif
+         endif
+       enddo
+
+       if_main write(6,'(A,I0,A)')'    =========================================================='
+       if_main write(6,'(A)')' '
+       if_main write(6,'(A,I0,A)')' **  END ',ifit,'-th LMDIF run'
+       if_main write(6,'(A)')' '
+       if(flag_conv .or. ifit .eq. mxfit) exit fit
+     enddo fit
+
    elseif(trim(PINPT%ls_type) .eq. 'PIKAIA' .or. trim(PINPT%ls_type) .eq. 'GA' .or. &
           trim(PINPT%ls_type) .eq. 'pikaia' .or. trim(PINPT%ls_type) .eq. 'ga' ) then
      call gen_algo  ( get_eig, NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, EDFT%E, PGEOM%neig, &

@@ -139,7 +139,7 @@
 
     abstract interface
     
-        subroutine pikaia_func(me,param,gofit,kpoint, nkpoint, neig, iband, nband,NN_TABLE,E_DFT,PWGHT,PINPT)  
+        subroutine pikaia_func(me,param,gofit,kpoint, nkpoint, neig, iband, nband,NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)  
             !! The interface for the function that pikaia will be maximizing.
         import :: wp,pikaia_class, incar, hopping, weight
         implicit none
@@ -150,8 +150,9 @@
         integer,                intent(in) :: nkpoint, neig, iband, nband
         real(wp),dimension(neig*PINPT%ispin,nkpoint),intent(in) :: E_DFT
         real(wp),intent(out)               :: gofit !! fitness value
-        real(wp),dimension(me%n),intent(in)   :: param !! optimization variable vector
+        real(wp),dimension(me%n),intent(inout)   :: param !! optimization variable vector
         real(wp),dimension(3,nkpoint),intent(in) :: kpoint
+        logical                            :: flag_lmdif
         end subroutine pikaia_func
 
         subroutine iter_func(me,iter,param,gofit,nparam,header_written)
@@ -490,6 +491,7 @@
     real(wp),parameter :: big = huge(1.0_wp)    !! a large number
 
     logical               header_written
+    real(wp)                          fitns_dummy
 
     !initialize:
     call rninit(me%iseed)
@@ -517,7 +519,7 @@
         do k=1,me%n    !make sure they are all within the [0,1] bounds
             xguess(k) = max( 0.0_wp, min(1.0_wp,xguess(k)) )
         end do
-        call me%ff(xguess,fguess,NN_TABLE,E_DFT,PWGHT,PINPT)
+        call me%ff(xguess,fguess,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
 
         !how many elements in the population to set to xguess?:
         ! [at least 1, at most n]
@@ -545,7 +547,11 @@
         enddo
 
         ! get fitness for each populations
-        call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT)
+        if(PINPT%flag_ga_with_lmdif) then
+          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
+        else
+          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+        endif
     end do
 
     !Rank initial population by fitness order
@@ -573,6 +579,12 @@
             !4. decode offspring genotypes
             call me%decode(gn1,ph(:,1))
             call me%decode(gn2,ph(:,2))
+
+            !4'.get lmdif fit for the geotypes 
+            if (PINPT%flag_ga_with_lmdif) then
+              call me%ff(ph(:,1),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
+              call me%ff(ph(:,2),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
+            endif            
 
             !5. insert into population
             if (me%irep==1) then
@@ -675,7 +687,7 @@
 !
 !  Wrapper for the user's function that is used by the main pikaia routine
 !  The scaled_param input to this function comes from pikaia, and will be between [0,1].
-    subroutine func_wrapper(me,scaled_param,gofit,NN_TABLE,E_DFT,PWGHT,PINPT)
+    subroutine func_wrapper(me,scaled_param,gofit,NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)
     use parameters, only : hopping, weight, incar
     implicit none
     type(incar)                         :: PINPT
@@ -683,12 +695,13 @@
     type(hopping)                       :: NN_TABLE
     class(pikaia_class),intent(inout)   :: me   ! pikaia class
     real(wp),dimension(me%neig*PINPT%ispin,me%nkp) :: E_DFT
-    real(wp),dimension(me%n),intent(in) :: scaled_param    ! optimization variable vector [0,1]
+    real(wp),dimension(me%n),intent(inout) :: scaled_param    ! optimization variable vector [0,1]
     real(wp),intent(out)                :: gofit   ! fitness value
     real(wp),dimension(me%n)            :: param    !unscaled x vector: [xu,xl]
     real(wp),dimension(3,me%nkp)        :: kpoint
     integer                             :: nkpoint, iband, nband, neig
-    
+    logical                                flag_lmdif
+
     !map each x variable from [0,1] to [xl,xu]:
     param = me%xl + me%del*scaled_param
 
@@ -699,7 +712,13 @@
     neig   = me%neig
 
     !call the user's function with param:
-    call me%user_f(param,gofit, kpoint, nkpoint, neig, iband, nband, NN_TABLE,E_DFT,PWGHT,PINPT)
+    call me%user_f(param,gofit, kpoint, nkpoint, neig, iband, nband, NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)
+
+    if(PINPT%flag_ga_with_lmdif) then
+      !scale input initial guess to be [0,1]:
+      scaled_param = (param-me%xl)/me%del
+    endif  
+
     end subroutine func_wrapper
 !*****************************************************************************************
 
@@ -1336,7 +1355,7 @@ stop
     type(hopping)                       :: NN_TABLE
     class(pikaia_class),intent(inout)             :: me
     real(wp),dimension(me%neig*PINPT%ispin,me%nkp),intent(in) :: E_DFT
-    real(wp),dimension(me%n,2),intent(in)         :: ph
+    real(wp),dimension(me%n,2),intent(inout)      :: ph
     real(wp),dimension(me%n,me%np),intent(inout)  :: oldph
     real(wp),dimension(me%np),intent(inout)       :: fitns
     integer,dimension(me%np),intent(inout)        :: ifit
@@ -1351,7 +1370,7 @@ stop
     main_loop : do j=1,2
 
         !1. compute offspring fitness (with caller's fitness function)
-        call me%ff(ph(:,j),fit,NN_TABLE,E_DFT,PWGHT,PINPT)
+        call me%ff(ph(:,j),fit,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
 
         !2. if fit enough, insert in population
         do i=me%np,1,-1
@@ -1446,7 +1465,7 @@ stop
         !if using elitism, introduce in new population fittest of old
         !population (if greater than fitness of the individual it is
         !to replace)
-        call me%ff(newph(:,1),f,NN_TABLE,E_DFT,PWGHT,PINPT)
+        call me%ff(newph(:,1),f,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
 
         if (f<fitns(ifit(me%np))) then
             newph(:,1)=oldph(:,ifit(me%np))
@@ -1461,7 +1480,7 @@ stop
         oldph(:,i)=newph(:,i)
 
         !get fitness using caller's fitness function
-        call me%ff(oldph(:,i),fitns(i),NN_TABLE,E_DFT,PWGHT,PINPT)
+        call me%ff(oldph(:,i),fitns(i),NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
 
     end do
 

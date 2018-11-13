@@ -78,6 +78,7 @@ module mpi_setup
      integer*4  mpierr
 
      call MPI_FINALIZE(mpierr)
+     stop
    endsubroutine 
 
 #endif

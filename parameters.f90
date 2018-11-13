@@ -15,6 +15,7 @@ module parameters
   real*8    , public, parameter   :: hartree=27.21138602d0 ! eV   Hartree energy
   real*8    , public, parameter   ::    hbar=4.135667662d-15/pi2  ! eV*s Plank constant
   real*8    , public, parameter   ::       c=0.262465831d0 !! constant c = 2m/hbar**2 [1/eV Ang^2] 
+  real*8    , public, parameter   ::     k_B=8.6173303d-5  !! Boltzmann constant = 2m/hbar**2 [1/eV Ang^2] 
   real*8    , public, parameter   :: g_elect=2.0023193043617 !! g-factor[see Mol.Phys. 98, 1597(2000) for sign]
   real*8    , public, parameter   ::     rt2=sin( 4.d0*atan(1.d0)/4.d0 ) * 2.d0 ! sqrt(2)
   real*8    , public, parameter   ::     rt3=sin( 4.d0*atan(1.d0)/3.d0 ) * 2.d0 ! sqrt(3)
@@ -33,12 +34,12 @@ module parameters
                                                                      0,-1,0, 1,0,0, 0,0,0/), (/3,3,3/))
   integer*4,  public, dimension(3,2),   parameter :: cyclic_axis = reshape((/2,3,1,3,1,2/), (/3,2/))
 
-  integer*4,  public, parameter   :: max_nparam = 500    !! maximum number of onsite and hopping parameters
-  integer*4,  public, parameter   :: max_kpoint = 100000 !! maximum number of kpoints
-  integer*4,  public, parameter   :: max_set_weight = 100000  !! maximum number of "SET WEIGHT" tag
-  integer*4,  public, parameter   :: max_pair_type  = 1000    !! maximum number of NN_CLASS pair type
-  integer*4,  public, parameter   :: max_dummy      = 9999999 !! maximun number of dummy index for arbitral purpose   
-  integer*4,  public, parameter   :: max_nsym       = 1000000 !! maximun number of symmetry operation for SPGLIB
+  integer*4,  public, parameter   :: max_nparam      = 500    !! maximum number of onsite and hopping parameters
+  integer*4,  public, parameter   :: max_kpoint      = 100000 !! maximum number of kpoints
+  integer*4,  public, parameter   :: max_set_weight  = 100000  !! maximum number of "SET WEIGHT" tag
+  integer*4,  public, parameter   :: max_pair_type   = 1000    !! maximum number of NN_CLASS pair type
+  integer*4,  public, parameter   :: max_dummy       = 9999999 !! maximun number of dummy index for arbitral purpose   
+  integer*4,  public, parameter   :: max_nsym        = 1000000 !! maximun number of symmetry operation for SPGLIB
   integer*4,  public, parameter   :: pid_energy      = 30 
   integer*4,  public, parameter   :: pid_nntable     = 33
   integer*4,  public, parameter   :: pid_incar       = 78
@@ -59,12 +60,17 @@ module parameters
        logical                       flag_get_band  ! default = .true.
        logical                       flag_spglib    ! default = .true. ! write space group information
        logical                       flag_tbfit_parse, flag_tbfit_parse_
+       logical                       flag_kfile_parse
+       logical                       flag_miter_parse, flag_mxfit_parse
+       logical                       flag_lorbit_parse
+       logical                       flag_parse
        logical                       flag_tbfit_test
+       logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
 
        real*8                        ptol
        real*8                        ftol
        integer*4                     ga_npop
-       integer*4                     miter,nparam,nparam_const
+       integer*4                     miter,mxfit,nparam,nparam_const
        integer*4                     read_energy_column_index, read_energy_column_index_dn
        logical                       flag_tbfit, flag_pfile, flag_pincar
        logical                       flag_print_only_target, flag_print_param
@@ -89,7 +95,9 @@ module parameters
        character*132                 efilenmu,efilenmd  ! target energy file (spin up & dn)
        character*132                 nnfilenm           ! hopping integral file name (default = hopping.dat)     
 
-       integer*8                     nweight, npenalty_orb
+       integer*4                     nn_max(3) ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
+
+       integer*4                     nweight, npenalty_orb
        character*132, allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
        character*132, allocatable :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
 
@@ -380,6 +388,7 @@ module parameters
   endtype spmat
 
   type gainp ! input/control parameters for genetic algorithm
+       integer*4                     mgen    ! maximum number of GA iterations (generation) (default : 500)
        integer*4                     npop    ! number of individuals in a population (default is 100)
        integer*4                     ngene   ! number of significant digits (number of genes) retained 
                                              !           in chromosomal encoding (default is 6).

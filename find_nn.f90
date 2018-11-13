@@ -577,11 +577,11 @@ subroutine set_param_const(PINPT,PGEOM)
 !                       i=4 -> is fixed : not to be fitted, just stay    ! its original value will be stored in PINPT%param_const(i=5,:)
 
 !  allocate( PINPT%param_const(5,PINPT%nparam) )
-!  PINPT%param_const(1,:) = 0d0
-!  PINPT%param_const(2,:) = 20d0 ! default
-!  PINPT%param_const(3,:) =-20d0 ! default
-!  PINPT%param_const(4,:) = 0d0
-!  PINPT%param_const(5,:) = 0d0
+!  PINPT%param_const(1,:) = 0d0  ! same as 
+!  PINPT%param_const(2,:) = 20d0 ! upper bound
+!  PINPT%param_const(3,:) =-20d0 ! lower bound
+!  PINPT%param_const(4,:) = 0d0  ! fixed 1:true 0:no
+!  PINPT%param_const(5,:) = 0d0  ! fixed value
    do i = 1, PINPT%nparam_const
 
      if( trim(PINPT%c_const(2,i)) .eq. '=' ) then

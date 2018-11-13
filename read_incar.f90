@@ -239,8 +239,8 @@ mode: select case ( trim(plot_mode) )
           allocate( PINPT%param(PINPT%nparam), PINPT%param_name(PINPT%nparam) )
           if(.not. PINPT%flag_pfile) then
             param_const(1,1:PINPT%nparam) = 0d0
-            param_const(2,1:PINPT%nparam) = 99999d0
-            param_const(3,1:PINPT%nparam) =-99999d0
+            param_const(2,1:PINPT%nparam) = 20d0
+            param_const(3,1:PINPT%nparam) =-20d0
             param_const(4,1:PINPT%nparam) = 0d0
             param_const(5,1:PINPT%nparam) = 0d0
 
@@ -1108,7 +1108,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               if_main write(6,'(3A)')'GET_CHERN:  SPIN_CHERN .FALSE. (WCC SET)'
             endif
 
-          case('SET_PHASE', 'GET_PHASE', 'PHASE')
+          case('SET_PHASE', 'GET_PHASE', 'PHASE', 'WCC_PHASE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_phase
 
         end select
@@ -1883,6 +1883,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_local_orbital_plot'
       external      nitems, str2lowcase
 
+      PINPT%flag_print_mag = .false.
+
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital
@@ -1964,10 +1966,17 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         case('LSTYPE') !set non-linear regression scheme
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
           if(PINPT%ls_type .eq. 'LMDIF' .or. PINPT%ls_type .eq. 'lmdif' ) then
-            if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'
+            PINPT%ls_type = 'LMDIF'
+            if_main write(6,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'
           elseif(PINPT%ls_type .eq. 'PIKAIA' .or. PINPT%ls_type .eq. 'GA' .or. &
                  PINPT%ls_type .eq. 'pikaia' .or. PINPT%ls_type .eq. 'ga' ) then
-            if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'
+            PINPT%ls_type = 'GA'
+            if_main write(6,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'
+          elseif(PINPT%ls_type .eq. 'ga+lmdif' .or. PINPT%ls_type .eq. 'GA+LMDIF' .or. &
+                 PINPT%ls_type .eq. 'lmdif+ga' .or. PINPT%ls_type .eq. 'LMDIF+GA') then
+            PINPT%flag_ga_with_lmdif=.true.
+            if_main write(6,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based + Levenberg-Marquardt non-linear regression'
+            PINPT%ls_type = 'GA'
           else
             if_main write(6,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,' is not defined or not available in the current version. Exit..'
             stop
@@ -1982,9 +1991,17 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           if_main write(6,'(A,F15.8)')'    F_TOL:  ',PINPT%ftol
 
         case('MITER') !set maximum iteration % maximum # of generations for GA
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%miter
-          if_main write(6,'(A,I8)')' MAX_ITER:  ',PINPT%miter
-          
+          if(.not. PINPT%flag_miter_parse) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%miter
+            if_main write(6,'(A,I8)')' MAX_ITER:  ',PINPT%miter
+          endif     
+
+        case('MXFIT') !set maximum number of repeat for LMDIF after achieving local minima
+          if(.not. PINPT%flag_mxfit_parse) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%mxfit
+            if_main write(6,'(A,I8)')'  MAX_FIT:  ',PINPT%mxfit
+          endif
+
         case('NPOP') ! set number of generation for genetic algorithm
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ga_npop
           if_main write(6,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop
@@ -2047,6 +2064,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         endif
 
         select case ( trim(desc_str) )
+!         case('LMDIF')
+!            read(inputline,*,iostat=i_continue) desc_str, PKAIA%flag_ga_with_lmdif
+!            if_main write(6,'(A,L       )')'    LMDIF: ', PKAIA%flag_ga_with_lmdif
+
+          case('MGEN')
+             read(inputline,*,iostat=i_continue) desc_str, PKAIA%mgen
+             if_main write(6,'(A,I8      )')'     MGEN: ', PKAIA%mgen
 
           case('NPOP')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%npop

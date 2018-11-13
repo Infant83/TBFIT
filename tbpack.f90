@@ -652,7 +652,7 @@ function nitems(string)
   implicit none
   logical blank
   integer*4 nitems,l,i
-  character(*) string
+  character(*),intent(in) :: string
   nitems=0
   l=len_trim(string)
   blank = .true.

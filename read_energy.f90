@@ -86,6 +86,16 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
              read(inputline,*,iostat=i_continue) dummy, EDFT_%E(ie, ik)
            elseif(PINPT%read_energy_column_index .eq. 3) then
              read(inputline,*,iostat=i_continue) dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .eq. 4) then
+             read(inputline,*,iostat=i_continue) dummy, dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .eq. 5) then
+             read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .eq. 6) then
+             read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .eq. 7) then
+             read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .eq. 8) then
+             read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
            endif
          enddo
          if(ik .ne. PKPTS%nkpoint) then

@@ -192,7 +192,7 @@ subroutine set_ribbon_geom(PINPT)
 
    close(pid_geom)
    close(pid_geom_ribbon)
-stop
+
    if(PINPT%flag_print_only_ribbon_geom) then
      write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'
      write(6,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'

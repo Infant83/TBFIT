@@ -10,21 +10,35 @@ subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, iband, nb
   real*8  epsfcn,factor, tol, xtol, ftol, gtol, kpoint(3,nkpoint)
   real*8  E_DFT(neig*PINPT%ispin,nkpoint)
   external get_eig
+  logical  flag_write_info
+
   if( PINPT%ls_type == 'LMDIF' ) then
    if_main write(6,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'
     if ( PINPT%nparam <= 0 .or. nkpoint < PINPT%nparam .or. tol < 0.0D+00) return
     factor = 100.0D+00
     maxfev = PINPT%miter * ( PINPT%nparam + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
+    flag_write_info = .true.
     call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
-               ftol, xtol, gtol, maxfev, epsfcn, factor, info)
+               ftol, xtol, gtol, maxfev, epsfcn, factor, info, flag_write_info)
    if_main  call infostamp(info,PINPT%ls_type)
    if_main write(6,*)" End: fitting procedures"
+
+  elseif( PINPT%ls_type == 'GA' ) then
+    if ( PINPT%nparam <= 0 .or. nkpoint < PINPT%nparam .or. tol < 0.0D+00) return
+    factor = 100.0D+00
+    maxfev = PINPT%miter * ( PINPT%nparam + 1 )
+    ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
+    flag_write_info = .false. 
+    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
+               ftol, xtol, gtol, maxfev, epsfcn, factor, info, flag_write_info)
+
   endif
+
   return
 endsubroutine
 subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
-                 ftol, xtol, gtol, maxfev, epsfcn, factor, info)
+                 ftol, xtol, gtol, maxfev, epsfcn, factor, info, flag_write_info)
   use parameters
   use mpi_setup
   implicit none
@@ -44,6 +58,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
   real*8        wa2_temp(PINPT%nparam)
   character*132 pfileoutnm_temp
   logical       flag_get_orbital, flag_collinear, flag_noncollinear, flag_soc
+  logical       flag_write_info
   external      get_eig
 ! flag_collinear = PINPT%flag_collinear
 ! flag_noncollinear = PINPT%flag_noncollinear
@@ -142,8 +157,10 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
         do j = 1, PINPT%nparam
           if( nint(PINPT%param_const(1,j)) .eq. 0 ) then
             wa2(j) = PINPT%param(j) + wa1(j)
+
           elseif( nint(PINPT%param_const(1,j)) .ge. 1) then
             wa2(j) = PINPT%param( nint(PINPT%param_const(1,j)) ) + wa1(j)
+
           endif
         enddo
         wa3(1:PINPT%nparam) = diag(1:PINPT%nparam) * wa1(1:PINPT%nparam)
@@ -222,10 +239,12 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
           xnorm = enorm ( PINPT%nparam, wa2 )
           fnorm = fnorm1
           iter = iter + 1
-          if_main write(6,'(A)')' '
-          if_main write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
-          if_main write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
-          if_main call print_param(PINPT,0,pfileoutnm_temp,.TRUE.)
+          if(flag_write_info) then
+            if_main write(6,'(A)')' '
+            if_main write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
+            if_main write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
+            if_main call print_param(PINPT,0,pfileoutnm_temp,.TRUE.)
+          endif
         endif
 
 !  Tests for convergence.
@@ -252,46 +271,48 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
 300 continue
 
 !  Termination, either normal or user imposed.
-  if_main_then
-  if(info .eq. 1) then
-    write(6,*)' '
-    write(6,101)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, ratio <= 2 :',' actred=',actred, &
-                                                                                                 ' prered=',prered, &
-                                                                                                 ' ratio=',ratio
-  elseif(info .eq. 2) then
-    write(6,*)' '
-    write(6,102)"  Termination INFO=",info,' , condition: delta <= xtol*xnorm :',' delta=',delta, &
-                                                                                 ' xtol*xnorm=',xtol*xnorm
-  elseif(info .eq. 3) then
-    write(6,*)' '
-    write(6,103)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, delta<=xtol*xnorm :',' actred=',actred, &
-                                                                                                        ' prered=',prered, &
-                                                                                                        ' delta=',delta, &
-                                                                                                        ' xtol*xnorm=',xtol*xnorm
-  elseif(info .eq. 5) then
-    write(6,*)' '
-    write(6,104)"  Termination INFO=",info,' , condition: miter*(nparam+1) <= nfev :',' miter=',PINPT%miter, &
-                                                                                      ' nparam=',PINPT%nparam, &
-                                                                                      ' nfev=',nfev
-  elseif(info .eq. 6) then
-    write(6,*)' '
-    write(6,105)"  Termination INFO=",info,' , condition: |actred|,prered <= epsmch, ratio <= 2 :',' actred=',actred, & 
-                                                                                                   ' prered=',prered, &
-                                                                                                   ' epsmch=',epsmch, &
-                                                                                                   ' ratio=',ratio
-  elseif(info .eq. 7) then
-    write(6,*)' '
-    write(6,106)"  Termination INFO=",info,' , condition: delta <= epsmch*xnorm :',' delta=',delta, &
-                                                                                   ' epsmch*xnorm=',epsmch*xnorm
-  elseif(info .eq. 4) then
-    write(6,*)' '
-    write(6,107)"  Termination INFO=",info,' , condition: gnorm <= epsmch :',' gnorm=',gnorm, &
-                                                                             ' epsmch=',epsmch
-  else
-    write(6,*)' '
-    write(6,108)"  Termination INFO=",info
-  endif
-  if_main_end 
+    if(flag_write_info) then
+      if_main_then
+        if(info .eq. 1) then
+          write(6,*)' '
+          write(6,101)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, ratio <= 2 :',' actred=',actred, &
+                                                                                                       ' prered=',prered, &
+                                                                                                       ' ratio=',ratio
+        elseif(info .eq. 2) then
+          write(6,*)' '
+          write(6,102)"  Termination INFO=",info,' , condition: delta <= xtol*xnorm :',' delta=',delta, &
+                                                                                       ' xtol*xnorm=',xtol*xnorm
+        elseif(info .eq. 3) then
+          write(6,*)' '
+          write(6,103)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, delta<=xtol*xnorm :',' actred=',actred, &
+                                                                                                              ' prered=',prered, &
+                                                                                                              ' delta=',delta, &
+                                                                                                              ' xtol*xnorm=',xtol*xnorm
+        elseif(info .eq. 5) then
+          write(6,*)' '
+          write(6,104)"  Termination INFO=",info,' , condition: miter*(nparam+1) <= nfev :',' miter=',PINPT%miter, &
+                                                                                            ' nparam=',PINPT%nparam, &
+                                                                                            ' nfev=',nfev
+        elseif(info .eq. 6) then
+          write(6,*)' '
+          write(6,105)"  Termination INFO=",info,' , condition: |actred|,prered <= epsmch, ratio <= 2 :',' actred=',actred, & 
+                                                                                                         ' prered=',prered, &
+                                                                                                         ' epsmch=',epsmch, &
+                                                                                                         ' ratio=',ratio
+        elseif(info .eq. 7) then
+          write(6,*)' '
+          write(6,106)"  Termination INFO=",info,' , condition: delta <= epsmch*xnorm :',' delta=',delta, &
+                                                                                         ' epsmch*xnorm=',epsmch*xnorm
+        elseif(info .eq. 4) then
+          write(6,*)' '
+          write(6,107)"  Termination INFO=",info,' , condition: gnorm <= epsmch :',' gnorm=',gnorm, &
+                                                                                   ' epsmch=',epsmch
+        else
+          write(6,*)' '
+          write(6,108)"  Termination INFO=",info
+        endif
+      if_main_end 
+    endif
 
 101 format(A,I2,A,3(A,E14.7))
 102 format(A,I2,A,2(A,E14.7))
@@ -301,7 +322,11 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
 106 format(A,I2,A,2(A,E14.7))
 107 format(A,I2,A,2(A,E14.7))
 108 format(A,I2)
-  if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
+
+    if(flag_write_info) then
+      if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
+    endif
+
   return
 endsubroutine
 subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)

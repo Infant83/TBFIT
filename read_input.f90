@@ -51,7 +51,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_default_stm_ngrid = .true.
   PINPT%flag_default_rorigin= .true.
   PINPT%flag_print_orbital=.false.
-  PINPT%flag_get_orbital=.false.
+  if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
+  if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
   PINPT%flag_get_z2=.false.
@@ -86,12 +87,13 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   flag_read_energy=.false.
   flag_kfile_ribbon=.false.
   PINPT%gfilenm='POSCAR-TB' !default
-  PINPT%kfilenm='KPOINTS_BAND' !default
+  if(.not. PINPT%flag_kfile_parse) PINPT%kfilenm='KPOINTS_BAND' !default
   if(.not. PINPT%flag_parse .and. .not. PINPT%flag_pfile) PINPT%pfilenm='PARAM_FIT.dat' !default
   PINPT%pfileoutnm='PARAM_FIT.new.dat' !default
   PINPT%efilenmu=' '
   PINPT%efilenmd=' '
-  PINPT%miter = 100     ! default 
+  if(.not. PINPT%flag_miter_parse) PINPT%miter = 30      ! default 
+  if(.not. PINPT%flag_mxfit_parse) PINPT%mxfit = 1       ! default 
   PINPT%ftol  = 0.00001 ! default 
   PINPT%ptol  = 0.00001 ! default 
   PINPT%ispin = 1 ! default (1 : nonmag, 2: collinear & noncollinear)
@@ -113,6 +115,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
   NN_TABLE%onsite_tolerance = onsite_tolerance ! default defined in parameters.f90
 
+  PINPT%flag_ga_with_lmdif=.false.
+  PKAIA%mgen    = 500
   PKAIA%npop    = 100
   PKAIA%ngene   = 6
   PKAIA%pcross  = 0.85d0
@@ -153,7 +157,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           case('GET_BAND', 'BAND')
             call set_get_band(PINPT,inputline, desc_str)
 
-          case('TBFIT','LSTYPE','PTOL','FTOL','MITER')
+          case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT')
             call set_tbfit(PINPT, inputline, desc_str)
 
           case('EWINDOW')
@@ -164,8 +168,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           !read KPOINT info file from KFILE
           case('KFILE')
-            call set_kpoint_file(PINPT, flag_kfile_ribbon, inputline)
-
+            if(.not. PINPT%flag_kfile_parse) then
+              call set_kpoint_file(PINPT, flag_kfile_ribbon, inputline)
+            endif
           !load hopping file?
           case('LOAD_HOP', 'LOAD_TIJ', 'LOAD_NNTABLE')
             call set_load_nntable(PINPT, inputline, desc_str)
@@ -230,7 +235,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           !set orbital decomposed output or not
           case('LORBIT')
-            call set_local_orbital_print(PINPT, inputline)
+            if(.not. PINPT%flag_lorbit_parse) then
+              call set_local_orbital_print(PINPT, inputline)
+            endif
 
           ! kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A)
           case('K_UNIT')
@@ -316,7 +323,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
      enddo
   elseif( PINPT%flag_tbfit .and. .not. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
      if(myid .eq. 0) write(6,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!'
-     stop
+     kill_job
   endif
 
   if (linecount == 0) then
@@ -333,7 +340,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_collinear) then
       if(len_trim(PINPT%efilenmu) .eq. 0 .or. len_trim(PINPT%efilenmd) .eq. 0) then
         if(myid .eq. 0) write(6,'(A)')'  !WARN!  EFILE has not been set properly. Check EFILE or EFILEU, EFILED. Exit program.'
-        stop
+        kill_job
       endif
       inquire(file=PINPT%efilenmu,exist=flag_efileu_exist)
       inquire(file=PINPT%efilenmd,exist=flag_efiled_exist)
@@ -366,13 +373,13 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     elseif(PINPT%flag_load_nntable .and. PINPT%flag_tbfit) then
      if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure. '
      if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
-     stop
+     kill_job
     endif
 
 
   elseif(.not. flag_gfile_exist) then
     if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%gfilenm),' does not exist!! Exit...'
-    stop
+    kill_job
   endif
 
   if(PINPT%flag_default_ngrid) then
@@ -407,8 +414,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     call read_kpoint(PINPT%kfilenm,PKPTS,PGEOM)
   elseif( (.not. flag_kfile_exist .and. PINPT%flag_get_band) .or. &
           (.not. flag_kfile_exist .and. PINPT%flag_get_berry_curvature) ) then
-    if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%kfilenm),' does not exist!! Exit...'
-    stop
+    if_main write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%kfilenm),' does not exist!! Exit...'
+    kill_job
   endif
 
   ! read info: target energy to be fitted with
@@ -434,12 +441,12 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
       call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
 
-      if(PINPT%flag_print_only_target .and. myid .eq. 0) then
-        call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
+      if(PINPT%flag_print_only_target ) then
+        if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
                                   'band_structure_DFT.dat')
-        if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
-        if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
-        stop
+        if_main  write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
+        if_main  write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
+        kill_job
       endif
 
     elseif(.not. PWGHT%flag_weight_default) then
@@ -452,13 +459,13 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
                         PINPT%strip_df(i), PINPT%strip_wt(i))
       enddo
 
-      if(PINPT%flag_print_only_target .and. myid .eq. 0) then
-        call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
-                                  'band_structure_DFT.dat')
+      if(PINPT%flag_print_only_target ) then
+        if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
+                                         'band_structure_DFT.dat')
 
-        if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
-        if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
-        stop
+        if_main write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
+        if_main write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
+        kill_job
       endif
 
     endif
@@ -478,11 +485,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
   elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist .and. flag_read_energy) then
     if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%efilenmu),' does not exist!! Exit...'
-    stop
+    kill_job
 
   elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist .and. .not. flag_read_energy) then
     if(myid .eq. 0) write(6,'(A)')'  !WARN! TBFIT=.true. but the target data (EFILE) does not specified. Exit...'
-    stop
+    kill_job
   endif
 
   if(PINPT%flag_get_zak_phase) then

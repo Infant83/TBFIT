@@ -467,8 +467,8 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         flag_success = .false.
         iter = iter + 1
       case(1  )                    
-!       write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'
-!       write(6,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'
+        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'
+        write(6,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'
         flag_success = .true. 
       ! Sucessful exit
       case(0  )                    

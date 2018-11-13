@@ -41,7 +41,7 @@ subroutine get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    kpoint_name= PINPT_BERRY%parity_kpoint_name
    origin     = PINPT_BERRY%parity_origin
    spin       = (/'up','dn'/)
-   flag_phase = .true.  
+   flag_phase = .true. 
 
    if_main write(6,*)' '
    if_main write(6,'(A)')'START: PARITY EIGENVALUE CALCULATION'

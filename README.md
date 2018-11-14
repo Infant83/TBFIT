@@ -1,5 +1,5 @@
 # TBFIT
-Tight-binding FITting package (TBFIT*)
+Tight-binding parameter FITting package (TBFIT*)
 
 Now you can fit your tight-binding parameters via Slatet-Koster method with a very little effort.
 

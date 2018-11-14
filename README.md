@@ -16,6 +16,6 @@ For the details and examples you can find documents that describes the input tag
 
 NOTE: 
 * If you publish the results of TBFIT then please site this github version : 
-  Hyun-Jung Kim. Tight-binding fitting package (TBFIT-v0.2.6) (2018)
+  Hyun-Jung Kim. Tight-binding parameter fitting package (TBFIT-v0.2.8) (2018)
 
 \* a temporary name

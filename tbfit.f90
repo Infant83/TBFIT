@@ -40,10 +40,13 @@ program tbfit
     call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
     call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
                  PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
-    if(PINPT%flag_get_band .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+    if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+    if(PINPT%flag_print_ldos .and. myid .eq. 0) call print_energy_ldos(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
     if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
     if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
     if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
+    if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PKPTS,PGEOM,NN_TABLE) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
+
   endif
 
 #ifdef MPI

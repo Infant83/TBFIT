@@ -200,7 +200,8 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                if(PINPT%flag_slater_koster) then
                                  
                                  ! CASE: SLATER_KOSTER TYPE HOPPING
-                                 flag_use_site_cindex = logical(NN_TABLE%flag_site_cindex(i) .and. NN_TABLE%flag_site_cindex(j))
+!                                flag_use_site_cindex = logical(NN_TABLE%flag_site_cindex(i) .and. NN_TABLE%flag_site_cindex(j))
+                                 flag_use_site_cindex = .false.    ! BE CAREFUL ! This is for TaS2 system only...
                                  call get_sk_index_set(index_sigma,index_pi,index_delta, &
                                                        index_sigma_scale,index_pi_scale,index_delta_scale, &
                                                        PINPT, param_class, nn_class, &
@@ -560,77 +561,5 @@ subroutine print_nn_table(NN_TABLE, PINPT)
 98 format( 1x,I6,I6,3F10.5,2F10.5,I6,3x,A5,I6,3x,A5,6X, A4,2X, 7I5, I6, 3x, F12.5,3x,I3)
 96 format( 1x,I6,I6,3F10.5,2F10.5,I6,3x,A5,I6,3x,A5,6X, A4,2X, 2I5, I6, 3x, F12.5,3x,I3,6x,I3)
  close(pid_nntable)
-return
-endsubroutine
-subroutine set_param_const(PINPT,PGEOM)
-   use parameters, only : incar, poscar
-   use mpi_setup
-   implicit none
-   integer*4     i, ii, i_a, i_b
-   character*40  dummy
-   type(poscar)  :: PGEOM
-   type(incar)   :: PINPT
-
-!PINPT%param_const(i,:) i=1 -> is same as
-!                       i=2 -> is lower than (.le.) : set maximum bound  ! functionality is not available yet
-!                       i=3 -> is lower than (.ge.) : set minimum bound  ! functionality is not available yet
-!                       i=4 -> is fixed : not to be fitted, just stay    ! its original value will be stored in PINPT%param_const(i=5,:)
-
-!  allocate( PINPT%param_const(5,PINPT%nparam) )
-!  PINPT%param_const(1,:) = 0d0  ! same as 
-!  PINPT%param_const(2,:) = 20d0 ! upper bound
-!  PINPT%param_const(3,:) =-20d0 ! lower bound
-!  PINPT%param_const(4,:) = 0d0  ! fixed 1:true 0:no
-!  PINPT%param_const(5,:) = 0d0  ! fixed value
-   do i = 1, PINPT%nparam_const
-
-     if( trim(PINPT%c_const(2,i)) .eq. '=' ) then
-       dummy = trim(PINPT%c_const(3,i))
-       if( dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f')then  ! check if fixed
-         do ii = 1, PINPT%nparam
-           if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-         enddo
-         PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
-         PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
-       else
-         do ii = 1, PINPT%nparam
-           if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-           if( trim(PINPT%c_const(3,i)) .eq. trim(PINPT%param_name(ii)) ) i_b = ii
-         enddo
-         PINPT%param_const(1,i_a) = real(i_b)
-       endif
-       cycle
-
-     elseif( trim(PINPT%c_const(2,i)) .eq. '<=' ) then 
-
-       do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-       enddo
-       call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(2,i_a) )
-       cycle
-
-     elseif( trim(PINPT%c_const(2,i)) .eq. '>=' ) then
-
-       do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-       enddo
-       call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(3,i_a) )
-       cycle
-
-     elseif( trim(PINPT%c_const(2,i)) .eq. '==' ) then
-
-       do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-       enddo
-       PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
-       PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
-       cycle
-
-     else
-       if(myid .eq. 0) write(6,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...'
-       stop
-     endif
-   enddo
-
 return
 endsubroutine

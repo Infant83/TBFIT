@@ -12,6 +12,7 @@ function e_onsite_xx(ci_orb,cj_orb,PINPT,site_index)
   character*8       ci_orb, cj_orb
   character*20      site_index
   real*8            H(4)
+  logical           flag_use_tuned_onsite
 
   e_onsite_xx  = 0.d0
   ptmp1        = 0.d0
@@ -31,6 +32,8 @@ function e_onsite_xx(ci_orb,cj_orb,PINPT,site_index)
   e_xp2_wing2  =  8
   e_xp3_wing2  =  9
   e_xp12_wing2 =  10
+
+  flag_use_tuned_onsite = .false.
 
 site:  select case( trim(site_index) )
  
@@ -56,256 +59,387 @@ site:  select case( trim(site_index) )
          case ('center')
            ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
            ! PARAMETER file with 19-th variable.
-           call tuned_onsite(PINPT, 0, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 0, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_center)
-!            if( nint(PINPT%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_center)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_center)
+               if( nint(PINPT%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_center)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) )  .and. &
                    ((trim(ci_orb) .eq. 'xp2') .or. (trim(ci_orb) .eq. 'xp3')) ) then
-!            ptmp1= PINPT%param(e_xp2_center)
-!            if( nint(PINPT%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_center)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(2)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_center)
+               if( nint(PINPT%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_center)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(2)
+             endif
            endif
 
          case ('wing1_a')
            ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
            ! PARAMETER file with 19-th variable.
-           call tuned_onsite(PINPT, 1, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing1)
-!            if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing1)
+               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(2)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(2)
+             endif
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(3)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(3)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing1)
-!            if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing1)
+               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(4)
+             endif
+
            endif
 
          case ('wing1_b')
            call tuned_onsite(PINPT, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing1)
-!            if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing1)
+               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
-             e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
-             e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing1)
-!            if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
-!            e_onsite_xx = -0.5d0*ptmp1
-             e_onsite_xx = -0.5d0*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing1)
+               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               e_onsite_xx = -0.5d0*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing1)
-!            if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
-!            e_onsite_xx = -0.5d0*rt3*ptmp1
-             e_onsite_xx = -0.5d0*rt3*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing1)
+               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               e_onsite_xx = -0.5d0*rt3*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*rt3*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
-             e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
+             endif
+
            endif
 
          case ('wing1_c')
-           call tuned_onsite(PINPT, 1, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing1)
-!            if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing1)
+               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
-             e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
-             e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing1)
-!            if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
-!            e_onsite_xx = -0.5d0*ptmp1
-             e_onsite_xx = -0.5d0*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing1)
+               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               e_onsite_xx = -0.5d0*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing1)
-!            if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
-!            e_onsite_xx =  0.5d0*rt3*ptmp1
-             e_onsite_xx =  0.5d0*rt3*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing1)
+               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               e_onsite_xx =  0.5d0*rt3*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx =  0.5d0*rt3*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
-!            ptmp1= PINPT%param(e_xp2_wing1)
-!            ptmp2= PINPT%param(e_xp3_wing1)
-!            if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-!            if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
-!            e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
-             e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing1)
+               ptmp2= PINPT%param(e_xp3_wing1)
+               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
+             endif
+
            endif
 
          case ('wing2_a')
-           call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing2)
-!            if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing2)
+               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(2)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(2)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(3)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(3)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing2)
-!            if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing2)
+               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(4)
+             endif
+
            endif
 
          case ('wing2_b')
-           call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing2)
-!            if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing2)
+               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
-             e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
-             e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing2)
-!            if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
-!            e_onsite_xx = -0.5d0*ptmp1
-             e_onsite_xx = -0.5d0*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing2)
+               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               e_onsite_xx = -0.5d0*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing2)
-!            if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
-!            e_onsite_xx = -0.5d0*rt3*ptmp1
-             e_onsite_xx = -0.5d0*rt3*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing2)
+               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               e_onsite_xx = -0.5d0*rt3*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*rt3*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
-             e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
+             endif
+
            endif
 
          case ('wing2_c')
-           call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-!            ptmp1= PINPT%param(e_xp1_wing2)
-!            if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
-!            e_onsite_xx = ptmp1
-             e_onsite_xx = H(1)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp1_wing2)
+               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               e_onsite_xx = ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = H(1)
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
-             e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
-             e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing2)
-!            if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
-!            e_onsite_xx = -0.5d0*ptmp1
-             e_onsite_xx = -0.5d0*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing2)
+               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               e_onsite_xx = -0.5d0*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -0.5d0*H(4)
+             endif
+
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
-!            ptmp1= PINPT%param(e_xp12_wing2)
-!            if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
-!            e_onsite_xx =  0.5d0*rt3*ptmp1
-             e_onsite_xx =  0.5d0*rt3*H(4)
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp12_wing2)
+               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               e_onsite_xx =  0.5d0*rt3*ptmp1
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx =  0.5d0*rt3*H(4)
+             endif
            elseif( ( trim(ci_orb) .ne. trim(cj_orb) ) .and. &
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
-!            ptmp1= PINPT%param(e_xp2_wing2)
-!            ptmp2= PINPT%param(e_xp3_wing2)
-!            if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-!            if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
-!            e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
-             e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
+             if(.not. flag_use_tuned_onsite) then
+               ptmp1= PINPT%param(e_xp2_wing2)
+               ptmp2= PINPT%param(e_xp3_wing2)
+               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
+             elseif(flag_use_tuned_onsite) then
+               e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
+             endif
+
            endif
 
        end select site

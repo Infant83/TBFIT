@@ -1871,6 +1871,39 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_ldos_project_print(PINPT, inputline)
+      type(incar)  ::  PINPT
+      integer*4        i_continue
+      integer*4        nitems
+      integer*4        i_dummy
+      character*132    inputline, dummy_
+      character*40     desc_str, dummy
+      character*2      str2lowcase
+      character(*), parameter :: func = 'set_ldos_project_print'
+      external      nitems, str2lowcase
+
+      call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
+      if(index(dummy_, 'LDOS') .ge. 1) then
+        inputline = dummy_
+      endif
+
+      i_dummy = nitems(inputline) - 1
+      if(i_dummy .eq. 1) then
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_ldos
+        if(PINPT%flag_print_ldos) then
+          if_main write(6,'(A)')'   L_LDOS: .TRUE. | print out projected orbital weight for each atom'
+          PINPT%flag_get_orbital = .true.
+        elseif( .not. PINPT%flag_print_ldos) then
+          if_main write(6,'(A)')'   L_LDOS: .FALSE.'
+          PINPT%flag_get_orbital = .false.
+        endif
+
+      endif
+
+
+      return
+   endsubroutine
+
    subroutine set_local_orbital_print(PINPT, inputline)
       type(incar)  ::  PINPT
       integer*4     i_continue
@@ -2033,6 +2066,47 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str, desc_str, NN_TABLE%onsite_tolerance
       if_main write(6,'(A,F16.4)')'ONSITETOL:',NN_TABLE%onsite_tolerance
+
+      return
+   endsubroutine
+
+   subroutine set_effective(PINPT, desc_str)
+      type(incar)    ::  PINPT     
+      integer*4          i_continue,i_dummy
+      character*132      inputline, dummy_
+      character*40       desc_str
+      integer*4          nitems
+      external           nitems
+      real*8             init,fina
+      character(*), parameter :: func = 'set_effective'
+
+ set_eff: do while(trim(desc_str) .ne. 'END')
+        read(pid_incar, '(A)', iostat = i_continue) inputline
+        read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+        if(i_continue .ne. 0) cycle      ! skip empty line
+        if(desc_str(1:1).eq.'#') cycle   ! skip comment
+        if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+        call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
+        if(index(dummy_, trim(desc_str)) .ge. 1) then
+          inputline = dummy_
+        endif
+
+        select case( trim(desc_str) )
+          case('EFF_ORB') 
+            call strip_off(inputline, PINPT%eff_orb_dummyc, trim(desc_str), ' ',2)
+            if_main write(6,'(A,A)')'  EFF_ORB: ',trim(PINPT%eff_orb_dummyc)
+
+          case('EFF_EWINDOW')
+            call get_window(init,fina,inputline, desc_str)
+            if_main write(6,'(A,F10.5,A,F10.5,A)')' EFF_WIND: (EFF_EWINDOW) [', init,' : ', fina,']'
+            PINPT%eff_emin = init
+            PINPT%eff_emax = fina
+        endselect
+
+      enddo set_eff
+
+      PINPT%flag_get_effective_ham = .true.
 
       return
    endsubroutine
@@ -2377,5 +2451,6 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 #endif
+
 
 endmodule

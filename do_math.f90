@@ -185,7 +185,8 @@ endsubroutine
 ! The computed eigenvectors are orthonormal.
 subroutine cal_eig_hermitian(H, msize, E, flag_get_orbital)
     implicit none
-    integer*4  msize, iflag
+    integer*4, intent(in) ::  msize 
+    integer*4  iflag
     complex*16 H(msize,msize)
     complex*16 H_(msize,msize)
     real*8     rwork(12*msize)
@@ -623,8 +624,8 @@ function inv(A) result(Ainv)
    real*8, dimension(:,:), intent(in) :: A
    real*8, dimension(size(A,1),size(A,2)) :: Ainv
    real*8, dimension(size(A,1)) :: work ! work array for LAPACK
-   integer*8, dimension(size(A,1)) :: ipiv ! pipov indices
-   integer*8 :: n, info
+   integer*4, dimension(size(A,1)) :: ipiv ! pipov indices
+   integer*4 :: n, info
 
    ! External procedures defined in LAPACK
    external DGETRF
@@ -650,6 +651,26 @@ function inv(A) result(Ainv)
 !     stop 'Matrix inversion failed!'
 !  end if
 
+endfunction
+
+function invc(A) result(Ainv)
+   implicit none
+   complex*16, dimension(:,:), intent(in) :: A
+   complex*16, dimension(size(A,1), size(A,2)) :: Ainv
+   complex*16, dimension(size(A,1)) :: work
+   integer*4,  dimension(size(A,1)) :: ipiv
+   integer*4                        :: n, info
+   external ZGETRF
+   external ZGETRI
+
+   Ainv = A
+   n = size(A,1)
+
+   call ZGETRF(n, n, Ainv, n, ipiv, info)
+
+   call ZGETRI(n, Ainv, n, ipiv, work, n, info)
+
+return
 endfunction
 
 function area(a,b) result(S)

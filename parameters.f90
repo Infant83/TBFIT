@@ -62,9 +62,10 @@ module parameters
        logical                       flag_tbfit_parse, flag_tbfit_parse_
        logical                       flag_kfile_parse
        logical                       flag_miter_parse, flag_mxfit_parse
-       logical                       flag_lorbit_parse
+       logical                       flag_lorbit_parse, flag_ldos_parse
        logical                       flag_parse
        logical                       flag_tbfit_test
+       logical                       flag_inputcard_fname_parse
        logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
 
        real*8                        ptol
@@ -75,6 +76,7 @@ module parameters
        logical                       flag_tbfit, flag_pfile, flag_pincar
        logical                       flag_print_only_target, flag_print_param
        logical                       flag_print_orbital, flag_get_orbital
+       logical                       flag_print_ldos
        logical                       flag_set_param_const
        logical                       flag_slater_koster ! default .true.
        logical                       flag_print_mag
@@ -84,11 +86,12 @@ module parameters
        character*40, allocatable  :: param_name(:)
        character*40, allocatable  :: c_const(:,:)
        real*8,       allocatable  :: param_const(:,:) ! i=1 -> 'is same as'
-                                                      ! i=2 -> 'is lower than' (.le.) : maximum bound  ! not available yet
-                                                      ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! not available yet
+                                                      ! i=2 -> 'is lower than' (.le.) : maximum bound  ! <=  20 
+                                                      ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! >= -20 or >= 0.001 (if scale factor)
                                                       ! i=4 -> 'is fixed' : fixed during fitting       ! original value will be 
                                                                                                        ! copied to PINPT%param_const(i=5,:)
        character*8                   ls_type   ! fitting method
+       character*132                 ifilenm            ! input tag file (default = INCAR-TB, specified by -input ifilenm in command-line)
        character*132                 kfilenm,gfilenm    ! kpoint file, geometry file
        character*132                 ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
        character*132                 pfilenm,pfileoutnm ! SK parameter file input & output
@@ -160,6 +163,11 @@ module parameters
        real*8                        efield_origin(3)
        real*8                        efield_origin_cart(3)
 
+       ! construct effective hamiltonian
+       logical                       flag_get_effective_ham
+       character*132                 eff_orb_dummyc
+       real*8                        eff_emin, eff_emax
+
   endtype incar
 
   type poscar !PGEOM
@@ -167,6 +175,7 @@ module parameters
        integer*4                     neig_total ! neig_up + neig_dn
        integer*4                     neig_target
        integer*4                     nbasis  ! normally neig = nbasis
+       integer*4                     neig_eff   ! number of orbital basis for the effective ham (for up and dn)
 
        integer*4                     n_spec, n_atom
        integer*4,   allocatable   :: i_spec(:) ! number of atoms per each species (1:n_spec)
@@ -175,6 +184,8 @@ module parameters
        real*8,      allocatable   :: a_coord(:,:) ! atomic  coordinate (1:3, 1:n_atom) (direct, fractional)
        real*8,      allocatable   :: o_coord(:,:) ! orbital coordinate (1:3, 1:neig) (direct, fractional)
        real*8,      allocatable   :: o_coord_cart(:,:) ! orbital coordinate (1:3, 1:neig) (cartesian)
+       integer*4,   allocatable   :: i_eff_orb(:) ! matrix index (diagonal) for effective hamiltonian setup (1:neig_eff * nspin)
+                                                  ! this is only used for constructing NN_TABLE array
 
        integer*4                     max_orb  ! maximum number of orbitals asigned in each atomic site
        integer*4,   allocatable   :: n_orbital(:) ! number of orbitals per atomic site
@@ -255,10 +266,10 @@ module parameters
        real*8,      allocatable   :: R(:,:)   ! cell periodicity where orbital j sits on
        real*8,      allocatable   :: Dij(:)   ! distance between orbital i and j
        real*8,      allocatable   :: Dij0(:)
-       integer*4,   allocatable   :: i_matrix(:) 
-       character*8, allocatable   :: ci_orb(:)
-       integer*4,   allocatable   :: j_matrix(:)
-       character*8, allocatable   :: cj_orb(:)
+       integer*4,   allocatable   :: i_matrix(:) ! matrix index (1:neig)
+       character*8, allocatable   :: ci_orb(:)   ! orbital character for i_matrix
+       integer*4,   allocatable   :: j_matrix(:) ! matrix index (1:neig)
+       character*8, allocatable   :: cj_orb(:)   ! orbital character for j_matrix
        character*2, allocatable   :: p_class(:)
        integer*4,   allocatable   :: n_class(:)
        integer*4,   allocatable   :: sk_index_set(:,:) ! (i,nn), i=onsite(0),sigma(1),  pi(2),  delta(3)
@@ -281,6 +292,7 @@ module parameters
 
        real*8,      allocatable   :: tij_file(:) ! hopping amplitude read from file
 
+       integer*4,   allocatable   :: i_eff_orb(:) ! effective orbital index (1:neig * ispin) ! only meaningful if ERANGE=full
 
   endtype hopping
 

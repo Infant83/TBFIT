@@ -35,7 +35,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   type(hopping) :: NN_TABLE
   type(gainp)   :: PKAIA
 
-  fname   = 'INCAR-TB'
+  if(.not. PINPT%flag_inputcard_fname_parse) then 
+    fname   = 'INCAR-TB'
+  elseif(PINPT%flag_inputcard_fname_parse) then
+    fname   = PINPT%ifilenm
+  endif
   i_dummy = 9999
   PINPT%flag_get_band=.true.
   PINPT%flag_erange=.false.
@@ -53,6 +57,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_print_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
+  if(.not. PINPT%flag_ldos_parse)   PINPT%flag_print_ldos=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
   PINPT%flag_get_z2=.false.
@@ -76,6 +81,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_efield_cart = .false.
   PINPT%flag_load_nntable= .false.
   PINPT%flag_sparse = .false.
+  PINPT%flag_get_effective_ham=.false.
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -239,6 +245,12 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
               call set_local_orbital_print(PINPT, inputline)
             endif
 
+          !set orbital decomposed output onto each atomic site
+          case('LDOS')
+            if(.not. PINPT%flag_ldos_parse) then
+              call set_ldos_project_print(PINPT,inputline)
+            endif
+
           ! kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A)
           case('K_UNIT')
             call set_kpoint_unit(PKPTS, inputline)
@@ -307,6 +319,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             elseif(trim(desc_str) .eq. 'GA') then
               call set_gainp(PKAIA, desc_str)    
  
+            !set effective hamiltonian
+            elseif(trim(desc_str) .eq. 'EFFECTIVE') then
+              call set_effective(PINPT, desc_str)
+
             endif !SET
          
         end select
@@ -375,7 +391,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
      if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
      kill_job
     endif
-
 
   elseif(.not. flag_gfile_exist) then
     if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%gfilenm),' does not exist!! Exit...'
@@ -538,6 +553,15 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
       endif
     endif
   endif
+
+  if(PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
+    if_main write(6,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'
+    if_main write(6,'(A)')'           Exit program...'
+    kill_job
+  elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
+    call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
+  endif
+
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '

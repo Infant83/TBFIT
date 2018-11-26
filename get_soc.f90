@@ -102,6 +102,11 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
 
+          ! set SOC between i_orb and j_orb separated by |dij|, originated from E-field due to neighbor atom nearby the hopping path
+          
+!         H(i,j)      = H(i,j)      + zi*lambda_soc    * NN_TABLE%Dij(nn) F 
+
+
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
           call get_param(PINPT,    soc_index, lambda_soc   )
 

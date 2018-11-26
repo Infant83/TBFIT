@@ -514,6 +514,47 @@ subroutine check_here_r(check_flag)
 
 return
 endsubroutine
+subroutine get_window(init,fina,inputline,desc_str)
+  use mpi_setup
+  implicit none
+  integer*4      nitems, i_dummy
+  external       nitems
+  character*132  inputline, dummy
+  character*40   desc_str, dummy1, dummy2
+  real*8         init,fina
+
+  call strip_off(inputline, dummy, ' ', '#',0) ! cut off unnecessary comments
+  if(index(dummy, trim(desc_str)) .ge. 1) then
+    inputline = dummy
+  endif
+
+  call strip_off(inputline, dummy, trim(desc_str), ' ', 2) ! cut off description strip
+
+  if(index(dummy, ':') .gt. 1) then
+    call strip_off(dummy, dummy1, ' ', ':', 0) ! cut off init
+    call str2real(dummy1, init)
+    call strip_off(dummy, dummy1, ':', ' ', 2) ! cut off fina
+    call str2real(dummy1, fina)
+  elseif(index(dummy,':') .eq. 0) then
+    if(nitems(dummy) .ne. 2) then
+      if_main write(6,'(A)')'    !WARN! Number of items to be read is not equal to 2 in the EWINDOW'
+      if_main write(6,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '
+      if_main write(6,'(A)')'           or                       INIT_E FINA_E (ex, -2 2) '
+      if_main write(6,'(A)')'           Exit program...'
+      kill_job
+    elseif(nitems(dummy) .eq. 2) then
+      read(dummy,*) init, fina
+    endif
+  elseif(index(dummy,':') .eq. 1) then
+      if_main write(6,'(A)')'    !WARN! INIT_ENERGY and FINAL_ENERGY has not been declaired properly.'
+      if_main write(6,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '
+      if_main write(6,'(A)')'           Exit program...'
+      kill_job
+  endif
+
+return
+endsubroutine
+
 subroutine strip_off (string, strip, strip_a, strip_b, mode)
 !strip   : strip to be extract out of string
 !strip_a : strip_index a   
@@ -668,6 +709,28 @@ function nitems(string)
   enddo
   return
 endfunction
+subroutine str2logical(string,flag_logical,flag)
+  use mpi_setup
+  implicit none
+  character(*),intent(in) :: string
+  logical, intent(out) :: flag, flag_logical
+  integer*4 iflag
+
+  read(string, *, iostat=iflag) flag
+
+  if(iflag .ge. 1) then
+    flag_logical = .false.
+    flag = .true.
+  elseif(iflag .eq. 0) then
+    flag_logical = .true.
+    flag = .true.
+  elseif(iflag .lt. 0) then
+    flag_logical = .true.
+    flag = .true.
+  endif
+
+  return
+endsubroutine
 subroutine str2int(string,w)
   implicit none
   character(*),intent(in) :: string

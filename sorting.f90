@@ -51,6 +51,56 @@ subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
    return
 endsubroutine
 
+subroutine get_sort_index_1D_int(isort_index, target_variable, nvariable, sort_mode)
+   implicit none
+   integer*4    nvariable
+   integer*4    i, j, itemp
+   integer*4    isort_index(nvariable)
+   integer*4       target_variable(nvariable)
+   integer*4       target_variable_(nvariable)
+   integer*4       temp
+   character(*), intent(in) :: sort_mode
+
+   isort_index(1:nvariable) = (/1:nvariable/)
+   target_variable_ = target_variable
+
+   select case (sort_mode(1:3))
+
+     case('inc','asc')
+       do i = nvariable - 1,1, -1
+         do j = 1, i
+           if(target_variable_(j+1) .lt. target_variable_(j)) then
+             temp = target_variable_(j)
+             target_variable_(j) = target_variable_(j+1)
+             target_variable_(j+1) = temp
+
+             itemp = isort_index(j)
+             isort_index(j) = isort_index(j+1)
+             isort_index(j+1) = itemp
+           endif
+         enddo
+       enddo
+
+      case('dec','des')
+       do i = nvariable - 1,1, -1
+         do j = 1, i
+           if(target_variable_(j+1) .gt. target_variable_(j)) then
+             temp = target_variable_(j)
+             target_variable_(j) = target_variable_(j+1)
+             target_variable_(j+1) = temp
+
+             itemp = isort_index(j)
+             isort_index(j) = isort_index(j+1)
+             isort_index(j+1) = itemp
+           endif
+         enddo
+       enddo
+
+   endselect
+
+   return
+endsubroutine
+
 subroutine get_sort_variable_1D(target_variable, nvariable, sort_mode)
    implicit none
    integer*4    i
@@ -58,11 +108,31 @@ subroutine get_sort_variable_1D(target_variable, nvariable, sort_mode)
    integer*4    isort_index(nvariable)
    real*8       target_variable(nvariable)
    real*8       target_variable_(nvariable)
-   character*10 sort_mode
+   character(*), intent(in) :: sort_mode
 
    target_variable_ = target_variable
 
    call get_sort_index_1D(isort_index, target_variable_, nvariable, trim(sort_mode))
+
+   do i = 1, nvariable
+     target_variable(i) = target_variable_(isort_index(i))
+   enddo
+
+   return
+endsubroutine
+
+subroutine get_sort_variable_1D_int(target_variable, nvariable, sort_mode)
+   implicit none
+   integer*4    i
+   integer*4    nvariable
+   integer*4    isort_index(nvariable)
+   integer*4    target_variable(nvariable)
+   integer*4    target_variable_(nvariable)
+   character(*), intent(in) :: sort_mode
+
+   target_variable_ = target_variable
+
+   call get_sort_index_1D_int(isort_index, target_variable_, nvariable, trim(sort_mode))
 
    do i = 1, nvariable
      target_variable(i) = target_variable_(isort_index(i))

@@ -4,8 +4,10 @@ subroutine parse(PINPT)
    use mpi_setup
    implicit none
    character*20        option, value
+   character*20        dummy
    integer*4           narg, iarg
    logical,external :: flag_number
+   logical             flag_logical, flag
    type(incar)      :: PINPT
    
    PINPT%flag_parse       = .false.
@@ -15,13 +17,31 @@ subroutine parse(PINPT)
    PINPT%flag_miter_parse = .false.
    PINPT%flag_mxfit_parse = .false.
    PINPT%flag_lorbit_parse= .false.
+   PINPT%flag_ldos_parse  = .false.
+   PINPT%flag_inputcard_fname_parse = .false.
    narg = iargc()
    
+
+  if_main  write(6,*)' '
+  if_main  write(6,*)'---- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS'
+
  arg:do iarg = 1, narg
        call getarg(iarg, option)
        if(.not. flag_number(trim(option))) then
          if(trim(option) .eq. '-h') then
            if_main call help()
+
+         elseif(trim(option) .eq. '-input') then
+           PINPT%flag_inputcard_fname_parse = .true.
+           call getarg(iarg+1, value)
+           if_main write(6,'(2A)')'  IN_FILE: ',trim(value)
+           inquire(file=trim(value),exist=flag)
+           if(.not. flag) then
+             if_main write(6,'(3A)')'    !WARN! INPUT_FILE:"',trim(value),'" does not exist! Check again... Exit program.'
+             kill_job
+           elseif(flag) then
+             PINPT%ifilenm = trim(value)
+           endif
 
          elseif(trim(option) .eq. '-fit' .or. trim(option) .eq. '-f') then
            PINPT%flag_tbfit_parse  = .true.
@@ -97,11 +117,40 @@ subroutine parse(PINPT)
              if_main write(6,'( A)')'  L_ORBIT: .TRUE. | print out projected orbital weight'
            endif
 
+         elseif(trim(option) .eq. '-ldos') then
+           PINPT%flag_parse = .true.
+           PINPT%flag_lorbit_parse = .true.
+           PINPT%flag_get_orbital = .true.
+           PINPT%flag_print_mag = .false.
+           PINPT%flag_ldos_parse = .true.
+
+           if(iarg + 1 .le. narg) then 
+             call getarg(iarg+1, value)
+             read(value,*)dummy
+             call str2logical(dummy,flag_logical, flag)
+             if(flag_logical) then 
+               PINPT%flag_print_ldos = flag
+             else
+               PINPT%flag_print_ldos = .true.
+             endif
+           elseif(iarg + 1 .gt. narg) then
+              PINPT%flag_print_ldos = .true.
+           endif
+    
+           if(PINPT%flag_print_ldos) then
+             if_main write(6,'(A)')'  L_LDOS: .TRUE. | print out atom projected orbital weight'
+           elseif(.not. PINPT%flag_print_ldos) then
+             if_main write(6,'(A)')'  L_LDOS: .FALSE.'
+           endif
+
          endif
 
        endif
 
      enddo arg
+
+   if_main  write(6,*)'---- END READING INPUT FROM: COMMAND-LINE ARGUMENTS ---------------------'
+   if_main  write(6,*)' '
 
    return
 endsubroutine
@@ -116,6 +165,7 @@ subroutine help()
    write(6,'(A)')"                                 "
    write(6,'(A)')"   -h         : print help pages"
    write(6,'(A)')"                                 "
+   write(6,'(A)')"   -input INP : enforce to read INP file instead of INCAR-TB for the input card file"
    write(6,'(A)')"   -fit       : enforce to run with 'fitting' mode"
    write(6,'(A)')"   -nofit     : enforce not to run with 'fitting' even if the TBFIT tag is set to .TRUE."
    write(6,'(A)')"   -miter MIT : enforce to set maximum number of iteration for LMDIF to MIT in prior to the MITER tag"
@@ -127,7 +177,7 @@ subroutine help()
    write(6,'(A)')"           mx : enforce     to print magnetization mx " 
    write(6,'(A)')"           my : enforce     to print magnetization mz " 
    write(6,'(A)')"           mz : enforce     to print magnetization mz " 
-
+   write(6,'(A)')"   -ldos      : enforce    to print orbital information for each atom in separate file"
    stop
 
    return

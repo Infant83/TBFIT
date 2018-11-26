@@ -291,7 +291,8 @@ subroutine get_hamk_dense(Hk, H0, Hm, Hs, is, kpoint, PINPT, neig, NN_TABLE, fla
 endsubroutine
 subroutine get_matrix_index(ie, fe, im, fm, is, nband, neig, ispinor)
   implicit none
-  integer*4    ie, fe, im, fm, is, nband, neig, ispinor
+  integer*4, intent(out)::  ie, fe, im, fm
+  integer*4, intent(in) ::  is, nband, neig, ispinor
 
   ! initial and final index for row index of E(ie:fe) and column index of V(:,ie:fe)
   ie = 1 + (is-1)*nband
@@ -547,8 +548,12 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
           if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
             H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
                                               * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+            H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                              * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
           else
             H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                              * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
                                               * PINPT%param(NN_TABLE%stoner_I_param_index(i))
           endif
         endif
@@ -559,8 +564,12 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
           if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
             H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
                                                * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
+            H(i+neig,i) = H(i+neig,i)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                               * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
           else
             H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                               * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
+            H(i,i+neig) = H(i,i+neig)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
                                                * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
           endif
         endif
@@ -598,6 +607,7 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    ! neig  : number of orbital basis
    ! nspin : 2 for collinear 1 for non-collinear
    ! ispin : 2 for collinear 2 for non-collinear
+
 
    allocate(ETBA%E(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
    allocate(ETBA%V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
@@ -685,7 +695,9 @@ subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
    use do_math
    use mpi_setup
    implicit none
-   integer*4              neig, iband, nband, ispinor, ispin, msize
+   integer*4, intent(in):: iband, nband, neig, ispinor, ispin
+!  integer*4              neig, iband, nband, ispinor, ispin, msize
+   integer*4              msize
    complex*16             Hk(neig*ispinor,neig*ispinor)
    complex*16             V(neig*ispinor,nband)
    real*8                 E(nband)

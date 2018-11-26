@@ -323,6 +323,8 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
 107 format(A,I2,A,2(A,E14.7))
 108 format(A,I2)
 
+    call update_param( PINPT )
+
     if(flag_write_info) then
       if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
     endif

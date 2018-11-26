@@ -5,7 +5,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   implicit none
   character*132     fnameu,fnamed
   character*132    inputline
-  character*40  desc_str,dummy
+  character*40  desc_str,dummy, dummy_(1000)
   character(*), parameter :: func = 'read_energy'
   integer*4, parameter :: max_eig = 1000000
   integer*4        ie, ik, i_continue, line_tot
@@ -96,8 +96,11 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
              read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
            elseif(PINPT%read_energy_column_index .eq. 8) then
              read(inputline,*,iostat=i_continue) dummy, dummy, dummy, dummy, dummy, dummy, dummy, EDFT_%E(ie, ik)
+           elseif(PINPT%read_energy_column_index .ge. 9) then
+             read(inputline,*,iostat=i_continue) dummy_(1:PINPT%read_energy_column_index-1), EDFT_%E(ie, ik)
            endif
          enddo
+
          if(ik .ne. PKPTS%nkpoint) then
            if_main write(6,'(A,A )')'   !WARN! error in reading ',trim(fnameu)
            if_main write(6,'(A,I8)')'   Exit.. NKPTS !=',ik

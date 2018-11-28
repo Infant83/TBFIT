@@ -104,6 +104,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%ptol  = 0.00001 ! default 
   PINPT%ispin = 1 ! default (1 : nonmag, 2: collinear & noncollinear)
   PINPT%ispinor = 1 ! default (1 : nonmag, collinear 2: noncollinear)
+  PINPT%nspin = 1 ! default (1 : nonmag, 2: collinear, 1: noncollinear)
   PINPT%read_energy_column_index = 2 ! default, read 2nd column as target energy (NM or spin_up)
   PINPT%read_energy_column_index_dn = 2 ! default, read 2nd column as target energy (spin_dn)
   PINPT%efield_origin(1:3) = 0d0 ! default
@@ -118,6 +119,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PWGHT%nweight = 0
   PINPT%nweight = 0
   PKPTS%kunit = 'A' !default 'A' : angstrom or 'R' : reciprocal unit is available
+
 
   NN_TABLE%onsite_tolerance = onsite_tolerance ! default defined in parameters.f90
 

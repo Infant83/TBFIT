@@ -323,6 +323,12 @@ subroutine print_param (PINPT, iter, title, flag_print_param)
                                          '  PENALTY ',trim(PINPT%strip_pen_orb(i))
         enddo
       endif
+      
+      if(PINPT%flag_pfile_index) then
+        write(pid_param_new, '(A)') ' PRINT_INDEX .TRUE.'
+      else
+        write(pid_param_new, '(A)') ' PRINT_INDEX .FALSE.'
+      endif
     else
       write ( pid_param_new, '(A)' ) trim ( title )
     endif
@@ -332,18 +338,38 @@ subroutine print_param (PINPT, iter, title, flag_print_param)
       if( nint(PINPT%param_const(1,i)) .eq. 0) then ! if do not have pair
 
         if( nint(PINPT%param_const(4,i)) .eq. 1) then ! if fixed
-          write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
+          if( .not. PINPT%flag_pfile_index) then
+            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
+          else
+            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
+          endif
         else
-          write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param(i),'  '
+          if( .not. PINPT%flag_pfile_index) then
+            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param(i),'  '
+          else
+            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param(i),'  '
+          endif
         endif
 
       elseif( nint(PINPT%param_const(1,i)) .ge. 1) then
 
         if( nint( PINPT%param_const( 4,nint(PINPT%param_const(1,i)) ) ) .eq. 1) then
 !         write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param( nint(PINPT%param_const(1,i)) ), '  Fixed'
-          write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
+          if( .not. PINPT%flag_pfile_index) then
+            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), &
+                                                           PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
+          else
+            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), &
+                                                                  PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
+          endif
         else
-          write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
+          if( .not. PINPT%flag_pfile_index) then
+            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), &
+                                                           PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
+          else
+            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), &
+                                                                  PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
+          endif
         endif
 
       endif

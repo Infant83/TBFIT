@@ -32,7 +32,7 @@ program tbfit
   call mpi_initialize()
 #endif
   if_main call timestamp ('Program start on',t_start)
-          call parse(PINPT) ; if_test call test()
+          call parse(PINPT, PKPTS) ; if_test call test()
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA)
   if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
 

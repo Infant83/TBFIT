@@ -1,10 +1,11 @@
-subroutine read_kpoint(fname, PKPTS, PGEOM)
-  use parameters, only : kpoints, poscar, pid_kpoint
+#include "alias.inc"
+subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
+  use parameters, only : kpoints, poscar, pid_kpoint, incar
   use mpi_setup
   implicit none
   integer*4, parameter :: max_kline=100
   integer*4     i_continue, nitems,ndiv_temp
-  integer*4     i,linecount
+  integer*4     i,linecount, i_dummy
   real*8        kline_dummy(3,max_kline)
   real*8, allocatable :: kpts_cart(:,:), kpts_reci(:,:)
   character*132 inputline,fname
@@ -14,13 +15,14 @@ subroutine read_kpoint(fname, PKPTS, PGEOM)
   external      nitems
   type(kpoints) :: PKPTS
   type(poscar)  :: PGEOM
+  type(incar )  :: PINPT
   PKPTS%flag_cartesianK = .false.
   PKPTS%flag_reciprocal = .false.
   PKPTS%flag_kgridmode  = .false.
   PKPTS%flag_klinemode  = .false.
 
-  if(myid .eq. 0) write(6,*)' '
-  if(myid .eq. 0) write(6,*)'*- READING KPOINTS FILE: ',trim(fname)
+  if_main write(6,*)' '
+  if_main write(6,*)'*- READING KPOINTS FILE: ',trim(fname)
   open (pid_kpoint, FILE=fname,iostat=i_continue)
   linecount = 0 
 
@@ -28,7 +30,7 @@ subroutine read_kpoint(fname, PKPTS, PGEOM)
         read(pid_kpoint,'(A)',iostat=i_continue) inputline
         if(i_continue<0) exit               ! end of file reached
         if(i_continue>0) then
-          if(myid .eq. 0) write(6,*)'Unknown error reading file:',trim(fname),func
+          if_main write(6,*)'Unknown error reading file:',trim(fname),func
         endif
         linecount = linecount + 1
         call check_comment(inputline,linecount,i,flag_skip) ; if (flag_skip ) cycle
@@ -49,21 +51,25 @@ subroutine read_kpoint(fname, PKPTS, PGEOM)
          elseif(linecount .eq. 3) then
            read(inputline,*,iostat=i_continue) desc_str
            if(desc_str(1:1) .eq. 'L' .or. desc_str(1:1) .eq. 'l') then
-             if(myid .eq. 0) write(6,'(A)')'   K_MODE: Line-mode'
+             if_main write(6,'(A)')'   K_MODE: Line-mode'
              PKPTS%flag_klinemode=.true.
-             allocate( PKPTS%ndiv(1) )
-             PKPTS%ndiv(1) = ndiv_temp
-             if(myid .eq. 0) write(6,'(A,I8)')'    N_DIV:',PKPTS%ndiv
+             if(.not. PINPT%flag_ndiv_line_parse) then
+               if(.not. allocated(PKPTS%ndiv)) allocate( PKPTS%ndiv(1) )
+               PKPTS%ndiv(1) = ndiv_temp
+               if_main write(6,'(A,I8)')'    N_DIV:',PKPTS%ndiv
+             else
+               if_main write(6,'(A,I8)')'    N_DIV: (set by -nkp_line option) ',PKPTS%ndiv
+             endif
            elseif(desc_str(1:1) .eq. 'G' .or. desc_str(1:1) .eq. 'g') then
              linecount = linecount + 1
-             if(myid .eq. 0) write(6,'(A)')'   K_MODE: Gamma-centered'
+             if_main write(6,'(A)')'   K_MODE: Gamma-centered'
              PKPTS%flag_gamma=.true.
-             allocate( PKPTS%ndiv(3) )
+             if(.not. allocated(PKPTS%ndiv)) allocate( PKPTS%ndiv(3) )
            elseif(desc_str(1:1) .eq. 'M' .or. desc_str(1:1) .eq. 'm') then
              linecount = linecount + 1
-             if(myid .eq. 0) write(6,'(A)')'   K_MODE: non Gamma-centered'
+             if_main write(6,'(A)')'   K_MODE: non Gamma-centered'
              PKPTS%flag_gamma=.false.
-             allocate( PKPTS%ndiv(3) )
+             if(.not. allocated(PKPTS%ndiv)) allocate( PKPTS%ndiv(3) )
            endif
 
          ! k-vector type
@@ -73,19 +79,24 @@ subroutine read_kpoint(fname, PKPTS, PGEOM)
                 PKPTS%flag_klinemode .eq. .true. ) then 
              PKPTS%flag_reciprocal=.true.
              PKPTS%flag_cartesianK=.false.
-             if(myid .eq. 0) write(6,'(A)')'   K_TYPE: Reciprocal unit'
+             if_main write(6,'(A)')'   K_TYPE: Reciprocal unit'
            elseif( (desc_str(1:1) .eq. 'C' .or. desc_str(1:1) .eq. 'c'  .or.  &
                     desc_str(1:1) .eq. 'K' .or. desc_str(1:1) .eq. 'k') .and. &
                     PKPTS%flag_klinemode .eq. .true. ) then
              PKPTS%flag_reciprocal=.false.
              PKPTS%flag_cartesianK=.true.
-             if(myid .eq. 0) write(6,'(A)')'   K_TYPE: Cartesian unit (1/A)'
+             if_main write(6,'(A)')'   K_TYPE: Cartesian unit (1/A)'
            endif
 
          ! k-grid if .not. 'linemode' .and. 'kgridmode)
          elseif(linecount .eq. 5 .and. PKPTS%flag_klinemode .eq. .false.) then
-           read(inputline,*,iostat=i_continue) PKPTS%ndiv(1:3)
-           if(myid .eq. 0) write(6,'(A,4x,3I4)')'   K_GRID:',PKPTS%ndiv(1:3)
+           if(.not. PINPT%flag_ndiv_grid_parse) then
+             read(inputline,*,iostat=i_continue) PKPTS%ndiv(1:3)
+             if_main write(6,'(A,4x,3I4)')'   K_GRID:',PKPTS%ndiv(1:3)
+           else
+             read(inputline,*,iostat=i_continue) i_dummy, i_dummy, i_dummy
+             if_main write(6,'(A,4x,3I4)')'   K_GRID: (set by -nkp_grid option)',PKPTS%ndiv(1:3)
+           endif
            PKPTS%flag_kgridmode=.true.
          elseif(linecount .eq. 6 .and. PKPTS%flag_klinemode .eq. .false.) then
            read(inputline,*,iostat=i_continue) PKPTS%k_shift(1:3)

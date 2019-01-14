@@ -52,7 +52,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    else
      if(fband .eq. 999999) fband = neig
    endif
-   nband   = PINPT_DOS%dos_fband - PINPT_DOS%dos_iband + 1
+   nband   = fband - iband + 1
 
    a1=PGEOM%a_latt(1:3,1)
    a2=PGEOM%a_latt(1:3,2)

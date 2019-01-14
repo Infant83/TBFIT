@@ -356,6 +356,7 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
    nbasis = PGEOM%neig
    sigma='sigma_0 '
 
+
    if(PINPT%flag_sparse) then
      ne_found = PINPT%feast_ne
    else
@@ -382,11 +383,26 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
               if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
               if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
-              write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+              if(PINPT%axis_print_mag .ne. 'wf') then
+                write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+              elseif(PINPT%axis_print_mag .eq. 'wf') then
+                write(pid_energy, '(1A)',ADVANCE='NO') '# wavefunction coeff.:          |ci>               '
+              endif
               do im=1,nbasis
-                write(pid_energy, '(I9)',ADVANCE='NO')im
+                if(PINPT%axis_print_mag .ne. 'wf') then
+                  write(pid_energy, '(I9)',ADVANCE='NO')im
+                elseif(PINPT%axis_print_mag .eq. 'wf') then
+                  write(pid_energy, '(I38)',ADVANCE='NO')im
+                endif
               enddo
               write(pid_energy,'(A)')''
+
+!             if(PINPT%ispinor .eq. 2 .and. PINPT%axis_print_mag .eq. 'wf') then
+!               do im=1,nbasis
+!                 write(pid_energy, '(51x, 2A19)',ADVANCE='NO')'up','dn'
+!               enddo
+!               write(pid_energy,'(A)')''
+!             endif
             endif
 
          kp:do ik = 1, nkpoint
@@ -408,12 +424,15 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
             basis:do im=1,nbasis-1
                     if(PINPT%ispinor .eq. 2) then
                       c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
+
                       if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! up - dn : mz
                       elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mx') then
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
                       elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
+                      elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+                        write(pid_energy,'(2(F9.4,F9.4,"i"))',ADVANCE='NO') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
                       else
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
                       endif
@@ -430,6 +449,8 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                       write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
                       write(pid_energy,'(*(F9.4))',ADVANCE='YES') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
+                    elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+                      write(pid_energy,'(2(F9.4,F9.4,"i"))',ADVANCE='YES') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
                     else
                       write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
                     endif

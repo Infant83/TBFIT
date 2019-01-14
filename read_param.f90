@@ -5,7 +5,8 @@ subroutine read_param(PINPT, param_const)
    character(*), parameter :: func = 'read_param'
    integer*4       nitems
    integer*4       i, i_dummy, i_dummy2
-   integer*4       i_continue
+   integer*4       i_continue, i_index
+   logical         flag_index
    real*8          param_const(5,max_nparam)
    character*132   inputline
    character*40    desc_str, dummy, dummy2
@@ -32,6 +33,11 @@ subroutine read_param(PINPT, param_const)
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
+     call check_print_tag(inputline, PINPT%flag_pfile_index, flag_skip)
+     if(flag_skip) then 
+       i = i - 1; cycle
+     endif
+
    enddo
    close(pid_param)
    if( i .ne. 0) then
@@ -61,14 +67,34 @@ subroutine read_param(PINPT, param_const)
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
+     call check_print_tag(inputline, PINPT%flag_pfile_index, flag_skip)
+     if(flag_skip) then
+       i = i - 1; cycle
+     endif
+
      i_dummy = nitems(inputline) - 1
+     call check_param_indexing(flag_index, inputline)
+
+     if( flag_index ) then 
+       i_dummy = i_dummy - 1
+     else
+       i_dummy = i_dummy
+     endif
 
      if(i_dummy .eq. 1) then
-       read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i)
+       if(.not. flag_index) then
+         read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i)
+       else
+         read(inputline,*,iostat=i_continue) i_index, PINPT%param_name(i),PINPT%param(i)
+       endif
        call set_scale_default(param_const(3,i), PINPT%param_name(i))
 
      elseif( i_dummy .eq. 2) then
-       read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy
+       if(.not. flag_index) then
+         read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy
+       else
+         read(inputline,*,iostat=i_continue) i_index, PINPT%param_name(i),PINPT%param(i),dummy
+       endif
        call set_scale_default(param_const(3,i), PINPT%param_name(i))
        dummy = trim(dummy)
        if(.not. flag_number(dummy) ) then
@@ -84,7 +110,11 @@ subroutine read_param(PINPT, param_const)
        endif
 
      elseif( i_dummy .eq. 3) then
-       read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy2, dummy
+       if(.not. flag_index) then
+         read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy2, dummy
+       else
+         read(inputline,*,iostat=i_continue) i_index, PINPT%param_name(i),PINPT%param(i),dummy2, dummy
+       endif
        call set_scale_default(param_const(3,i), PINPT%param_name(i))
 
        dummy2= trim(dummy2)
@@ -210,4 +240,38 @@ subroutine update_param(PINPT)
    enddo
 
 return
+endsubroutine
+
+subroutine check_param_indexing(flag_index,inputline)
+   implicit none
+   logical              flag_index
+   character*40         dummy
+   character*132        inputline
+   logical, external :: flag_number
+
+   read(inputline, *) dummy
+   
+   if( flag_number(trim(dummy)) ) then
+     flag_index = .true.
+   else
+     flag_index = .false.
+   endif
+
+endsubroutine
+
+subroutine check_print_tag(inputline, flag_pfile_index, flag_skip)
+   implicit none
+   logical        flag_pfile_index, flag_skip
+   character*132  inputline
+   character*40   dummy, dummy1
+
+   read(inputline, *) dummy
+
+   if( trim(dummy) .eq. 'PRINT_INDEX' ) then
+     read(inputline, *) dummy1, flag_pfile_index
+     flag_skip = .true.
+   else
+     flag_skip = .false.
+   endif
+
 endsubroutine

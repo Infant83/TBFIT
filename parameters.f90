@@ -61,6 +61,8 @@ module parameters
        logical                       flag_spglib    ! default = .true. ! write space group information
        logical                       flag_tbfit_parse, flag_tbfit_parse_
        logical                       flag_kfile_parse
+       logical                       flag_ndiv_line_parse, flag_ndiv_grid_parse
+       logical                       flag_pfile_index
        logical                       flag_miter_parse, flag_mxfit_parse
        logical                       flag_lorbit_parse, flag_ldos_parse
        logical                       flag_parse

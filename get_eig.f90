@@ -60,7 +60,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
     elseif(.not.flag_sparse) then
       call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
-
     endif
 
     call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)

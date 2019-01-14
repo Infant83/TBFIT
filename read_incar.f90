@@ -1916,7 +1916,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_local_orbital_plot'
       external      nitems, str2lowcase
 
-      PINPT%flag_print_mag = .false.
+!     PINPT%flag_print_mag = .true. 
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then

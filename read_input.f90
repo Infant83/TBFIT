@@ -58,6 +58,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   if(.not. PINPT%flag_ldos_parse)   PINPT%flag_print_ldos=.false.
+  PINPT%flag_pfile_index=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
   PINPT%flag_get_z2=.false.
@@ -342,6 +343,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   elseif( PINPT%flag_tbfit .and. .not. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
      if(myid .eq. 0) write(6,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!'
      kill_job
+  elseif( .not. PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
+     if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     do i=1,PINPT%nparam
+       if(myid .eq. 0) write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+     enddo
   endif
 
   if (linecount == 0) then
@@ -428,7 +434,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
   ! read info: kpoint 
   if(flag_kfile_exist) then
-    call read_kpoint(PINPT%kfilenm,PKPTS,PGEOM)
+    call read_kpoint(PINPT%kfilenm,PKPTS,PGEOM,PINPT)
   elseif( (.not. flag_kfile_exist .and. PINPT%flag_get_band) .or. &
           (.not. flag_kfile_exist .and. PINPT%flag_get_berry_curvature) ) then
     if_main write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%kfilenm),' does not exist!! Exit...'

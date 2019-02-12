@@ -95,12 +95,39 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 
        ! we write spin-dependent STM data if collinear. 
        ! if someone want to plot total STM (psi_r_up -> psi_r_up + psi_r_dn),
-       if_main call write_rho_main(pid_stm_up, pid_stm_dn, ngrid, nline, nwrite, nresi, psi_r_up_total, psi_r_dn_total, &
+       if_main call write_rho_main_stm(pid_stm_up, pid_stm_dn, ngrid, nline, nwrite, nresi, psi_r_up_total, psi_r_dn_total, &
                                    PINPT%ispin, PINPT%nspin, PINPT%ispinor, .false.)
      enddo stm
 
    if_main write(6,*)' '
    if_main write(6,'(A)')'*- END WRITING: STM PLOT'
+
+   return
+endsubroutine
+
+subroutine write_rho_main_stm(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_up, psi_r_dn, &
+                          ispin, nspin, ispinor, flag_plot_wavefunction)
+   implicit none
+   integer*4      ispin, ispinor, nspin
+   integer*4      pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi
+   complex*16     psi_r_up(ngrid), psi_r_dn(ngrid)
+   logical        flag_plot_wavefunction
+
+   ! write rho (nonmag, noncol), rho_up (collinear), psi_up.majority (collin,noncollin)
+   if(    ispinor .eq. 2 .and. .not. flag_plot_wavefunction) then   ! for noncol (rho)
+     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up+psi_r_dn, .false.)
+   elseif(ispinor .eq. 2 .and.       flag_plot_wavefunction) then   ! for noncol (psi)
+     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up         , .true. )
+     call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn         , .true. )
+
+   elseif(nspin   .eq. 2                                   ) then   ! for collin (rho or psi)
+     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
+     call print_PARCHG_main(pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_dn,flag_plot_wavefunction)
+
+   elseif(ispin   .eq. 1                                   ) then   ! for nonmag (rho or psi)
+     call print_PARCHG_main(pid_chg_up, ngrid, nline, nwrite, nresi, psi_r_up,flag_plot_wavefunction)
+   endif
+
 
    return
 endsubroutine

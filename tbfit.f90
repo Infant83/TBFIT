@@ -28,7 +28,6 @@ program tbfit
   type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
 
 #ifdef MPI
-checkVVV , 'aaaa'
   call mpi_initialize()
 ! call test()
 #endif

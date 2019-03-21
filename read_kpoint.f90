@@ -76,20 +76,20 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
          elseif(linecount .eq. 4) then
            read(inputline,*,iostat=i_continue) desc_str
            if( (desc_str(1:1) .eq. 'R' .or. desc_str(1:1) .eq. 'r') .and. &
-                PKPTS%flag_klinemode .eq. .true. ) then 
+                PKPTS%flag_klinemode ) then 
              PKPTS%flag_reciprocal=.true.
              PKPTS%flag_cartesianK=.false.
              if_main write(6,'(A)')'   K_TYPE: Reciprocal unit'
            elseif( (desc_str(1:1) .eq. 'C' .or. desc_str(1:1) .eq. 'c'  .or.  &
                     desc_str(1:1) .eq. 'K' .or. desc_str(1:1) .eq. 'k') .and. &
-                    PKPTS%flag_klinemode .eq. .true. ) then
+                    PKPTS%flag_klinemode ) then
              PKPTS%flag_reciprocal=.false.
              PKPTS%flag_cartesianK=.true.
              if_main write(6,'(A)')'   K_TYPE: Cartesian unit (1/A)'
            endif
 
          ! k-grid if .not. 'linemode' .and. 'kgridmode)
-         elseif(linecount .eq. 5 .and. PKPTS%flag_klinemode .eq. .false.) then
+         elseif(linecount .eq. 5 .and. .not. PKPTS%flag_klinemode) then
            if(.not. PINPT%flag_ndiv_grid_parse) then
              read(inputline,*,iostat=i_continue) PKPTS%ndiv(1:3)
              if_main write(6,'(A,4x,3I4)')'   K_GRID:',PKPTS%ndiv(1:3)
@@ -98,12 +98,12 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
              if_main write(6,'(A,4x,3I4)')'   K_GRID: (set by -nkp_grid option)',PKPTS%ndiv(1:3)
            endif
            PKPTS%flag_kgridmode=.true.
-         elseif(linecount .eq. 6 .and. PKPTS%flag_klinemode .eq. .false.) then
+         elseif(linecount .eq. 6 .and. .not. PKPTS%flag_klinemode) then
            read(inputline,*,iostat=i_continue) PKPTS%k_shift(1:3)
            if(myid .eq. 0) write(6,'(A,4x,3F9.5)')'  K_SHIFT:',PKPTS%k_shift(1:3)
 
          ! k-line if 'linemode'
-         elseif(linecount .ge. 5 .and. PKPTS%flag_klinemode .eq. .true.) then
+         elseif(linecount .ge. 5 .and. PKPTS%flag_klinemode) then
            backspace(pid_kpoint)
            PKPTS%nline=0;i=0
     kline: do 

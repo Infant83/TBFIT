@@ -63,7 +63,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #else
      call get_berry_phase_det(zak_phase(:,ikpath), kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
-     if_main write(6,'(A,I,A,I)')"  STATUS: ",ikpath,' / ',nkpath
+     if_main write(6,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath
    enddo
 
 #ifdef MPI 

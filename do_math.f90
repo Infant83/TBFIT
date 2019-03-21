@@ -559,11 +559,11 @@ subroutine set_identity_mat_c(msize, A)
    integer*4    i
    complex*16   A(msize,msize)
 
-   A = (0d0,0d0)
+   A = (0.d0,0.d0)
 
    do i = 1, msize
 
-     A(i,i) = (1d0,0d0)
+     A(i,i) = (1.d0,0.d0)
 
    enddo
 
@@ -593,6 +593,7 @@ elemental real*8 function arg(z)
    complex*16,intent(in) :: z
 
    arg = atan2(aimag(z),real(z))
+!  arg = aimag(log(z))
 
    return
 endfunction

@@ -306,7 +306,6 @@ mode: select case ( trim(plot_mode) )
           if_main write(6,'(A,A,A)')'    !WARNING! TB-parameter will be read from externl file if set by PFILE'
         endif
       endif
-
       return
    endsubroutine
 
@@ -417,7 +416,7 @@ mode: select case ( trim(plot_mode) )
       type(incar )  ::  PINPT
       type(dos)     :: PINPT_DOS
 !     integer*4, parameter :: max_dummy = 9999999
-      integer*4     i, ii, i_continue
+      integer*4     i, ii, k, i_continue
       integer*4     nitems
       external      nitems
       character(*), parameter :: func = 'set_dos'
@@ -606,7 +605,7 @@ mode: select case ( trim(plot_mode) )
                             call str2int(dummy3,i_dummy4)
                             call strip_off(trim(strip_dummy(i)), dummy3, ':', ' ', 2)
                             call str2int(dummy3,i_dummy5)
-                            i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/i_dummy4:i_dummy5/)
+                            i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/ (k, k=i_dummy4, i_dummy5) /)
                             ii = ii + i_dummy5 - i_dummy4
                           endif
                         enddo
@@ -2196,7 +2195,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
           case('CONVWIN')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%convwin
-            if_main write(6,'(A, F10.5  )')'  CONVWIN: ', PKAIA%convwin
+            if_main write(6,'(A, I8     )')'  CONVWIN: ', PKAIA%convwin
 
           case('IGUESSF')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iguessf
@@ -2204,7 +2203,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
           case('ISEED'  )
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
-            if_main write(6,'(A, F10.5  )')' RANDSEED: ', PKAIA%iseed  
+            if_main write(6,'(A, I8     )')' RANDSEED: ', PKAIA%iseed  
 
           case('UBOUND')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%upper_bound

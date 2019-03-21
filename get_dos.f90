@@ -9,7 +9,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    type(incar  ) :: PINPT
    type(poscar ) :: PGEOM
    type(kpoints) :: PKPTS
-   integer*4        i,ie,nkpoint,nparam,neig, nediv, ispin, nspin
+   integer*4        i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin
    integer*4        ik,nk1,nk2,nk3
    integer*4        iband, fband, nband
    integer*4        is, ispin_print
@@ -42,7 +42,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    nediv   = PINPT_DOS%dos_nediv
    emax    = PINPT_DOS%dos_emax
    emin    = PINPT_DOS%dos_emin
-   e_range = emin + (/0:nediv-1/) * (emax - emin)/dble(nediv - 1)
+   e_range = emin + (/(k, k=0,nediv-1)/) * (emax - emin)/dble(nediv - 1)
    g_smear = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 

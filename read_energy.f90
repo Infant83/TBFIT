@@ -8,7 +8,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   character*40  desc_str,dummy, dummy_(1000)
   character(*), parameter :: func = 'read_energy'
   integer*4, parameter :: max_eig = 1000000
-  integer*4        ie, ik, i_continue, line_tot
+  integer*4        ie, ik, k, i_continue, line_tot
   integer*4                 size_range
   integer*4, allocatable :: irange(:),irange_up(:), irange_dn(:)
 
@@ -155,7 +155,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
     if(PWGHT%fband .eq. -9999) PWGHT%fband = PGEOM%neig
   endif
 
-  size_range = size( (/PWGHT%iband:PWGHT%fband/) )
+  size_range = size( (/(k, k=PWGHT%iband,PWGHT%fband)/) )
   if(PINPT%flag_collinear) then
     allocate( irange_up(size_range) )
     allocate( irange_dn(size_range) )
@@ -167,13 +167,13 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   endif
   
   if(PINPT%flag_collinear) then
-    irange_up = (/PWGHT%iband:PWGHT%fband/)
+    irange_up = (/(k, k=PWGHT%iband,PWGHT%fband)/)
     irange_dn = irange_up + PGEOM%neig_target / 2
     irange = (/irange_up, irange_dn/)
   elseif(PINPT%flag_noncollinear) then
-    irange = (/PWGHT%iband:PWGHT%fband/)
+    irange = (/(k, k=PWGHT%iband,PWGHT%fband)/)
   else
-    irange = (/PWGHT%iband:PWGHT%fband/)
+    irange = (/(k, k=PWGHT%iband,PWGHT%fband)/)
   endif
 
   if(PINPT%flag_collinear) then

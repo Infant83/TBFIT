@@ -1,5 +1,5 @@
 subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
-    use parameters, only: zi, pi, pauli_x, pauli_y, pauli_z, hopping, incar
+    use parameters, only: zi, pi, pi2, pauli_x, pauli_y, pauli_z, hopping, incar
     use kronecker_prod, only: kproduct
     use phase_factor
     use print_matrix
@@ -17,16 +17,18 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
     integer*4                  nn, i, j
     integer*4                  soc_index, rashba_index
     real*8                     lambda_soc, lambda_rashba
+    real*8                     hop_signx, hop_signy, hop_signatom
     real*8                     k(3)
     complex*16                 H(neig*2,neig*2) 
     complex*16                 Hx(neig,neig), Hy(neig,neig), Hz(neig,neig)
     complex*16                 F
     character*8                ci_orb, cj_orb
+    character*20               ci_atom, cj_atom
     complex*16                 L_x, L_y, L_z
     external                   L_x, L_y, L_z
     logical                    flag_phase
     complex*16                 prod
-    real*8                     lsign
+    real*8                     lsign, hsign
 
     if(PINPT%flag_slater_koster) then
       Hx = 0d0
@@ -79,6 +81,9 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       Hz = 0d0
       H  = 0d0
       
+     !WARNING!! This setting is only valid for Bi/Si(110) case with certain atomic geometry and lattice vectors,
+     !          since the sign convention is only valid and meaningful for this particular case.
+     !          If you are dealing with other system, please construct your own hamltonian setup.
 nn_cc:do nn = 1, NN_TABLE%n_neighbor
         soc_index    = NN_TABLE%cc_index_set(2,nn)
         rashba_index = NN_TABLE%cc_index_set(3,nn)
@@ -102,22 +107,42 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
 
-          ! set SOC between i_orb and j_orb separated by |dij|, originated from E-field due to neighbor atom nearby the hopping path
-          
-!         H(i,j)      = H(i,j)      + zi*lambda_soc    * NN_TABLE%Dij(nn) F 
 
-
+          ! set SOC between i_orb and j_orb separated by |dij|, 
+          ! originated from E-field due to neighbor atom nearby the hopping path
+          ! H_SOC = sigma_<<ij>> i * lsoc * v_ij * ci' * sigma_z * cj
+          ! v_ij = di x dj / (|di x dj|) , di(dj) are vector connecting nearest neigbohor
+          ! atom from i (to j).
+          hop_signx= NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn)
+          hop_signy= NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn)
+          ci_atom = NN_TABLE%site_cindex(NN_TABLE%i_atom(nn))
+          cj_atom = NN_TABLE%site_cindex(NN_TABLE%j_atom(nn))
+          if( ci_atom(1:2) .eq. 'b1') hop_signatom = 1.0
+          if( ci_atom(1:2) .eq. 'b2') hop_signatom =-1.0
+          H(i,j)           = H(i     ,j     ) + zi*lambda_soc * hop_signatom * hop_signx * F & ! for spin-up sigma_z
+                                              + zi*lambda_soc * hop_signatom * hop_signy * F
+          H(i+neig,j+neig) = H(i+neig,j+neig) - zi*lambda_soc * hop_signatom * hop_signx * F & ! for spin-dn sigma_z
+                                              - zi*lambda_soc * hop_signatom * hop_signy * F
+          H(j,i)            = conjg(H(i,j))
+          H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
           call get_param(PINPT,    soc_index, lambda_soc   )
 
           ! This model is only for Kane-mele type of SOC. Be careful..
-          prod=exp(-3*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
-          lsign  = sign(1d0,aimag(prod))
-          H(i,j)            = H(i,j)           + lambda_soc * exp(-lsign * zi * pi / 2) * F
-          H(i+neig, j+neig) = H(i+neig,j+neig) + lambda_soc * exp( lsign * zi * pi / 2) * F
-          H(j,i) = conjg(H(i,j))
+          prod=exp(-2d0*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
+          hsign  = sign(1d0,aimag(prod))
+          ci_atom = NN_TABLE%site_cindex(NN_TABLE%i_atom(nn))
+          cj_atom = NN_TABLE%site_cindex(NN_TABLE%j_atom(nn))
+          if( ci_atom(1:1) .eq. 'a') lsign = -1.0d0
+          if( ci_atom(1:1) .eq. 'b') lsign =  1.0d0
+          H(i,j)            = H(i,j)           + zi * lambda_soc * lsign * hsign * F 
+          H(i+neig,j+neig)  = H(i+neig,j+neig) - zi * lambda_soc * lsign * hsign * F 
+          H(j,i)            = conjg(H(i,j))
           H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
 
+!         H(i+neig, j+neig) = H(i+neig,j+neig) - zi * lambda_soc * exp( lsign * zi * pi * 2) * F
+!         H(j,i) = conjg(H(i,j))
+!         H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
         elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered
           call get_param(PINPT, rashba_index, lambda_rashba)
 
@@ -128,6 +153,9 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
                                     + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * -zi    ! sigma_y 
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
+! write(6,*)"XXX ",nn, lambda_rashba * NN_TABLE%Rij(2,nn) / NN_TABLE%Dij(nn), lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) 
+! write(6,*)"LLL ", lambda_rashba, NN_TABLE%Rij(2,nn),  NN_TABLE%Dij(nn)
+! if (nn .eq. 1) stop
         endif
 
       enddo nn_cc 

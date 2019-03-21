@@ -39,6 +39,42 @@ subroutine leasqr_lm (get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, iband, nb
 endsubroutine
 subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, nband, PWGHT, &
                  ftol, xtol, gtol, maxfev, epsfcn, factor, info, flag_write_info)
+!*****************************************************************************80
+!
+!! LMDIF minimizes M functions in N variables by the Levenberg-Marquardt method.
+!
+!  Discussion:
+!
+!    LMDIF minimizes the sum of the squares of M nonlinear functions in
+!    N variables by a modification of the Levenberg-Marquardt algorithm.
+!    The user must provide a subroutine which calculates the functions.
+!    The jacobian is then calculated by a forward-difference approximation.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    06 April 2010
+!
+!  Author:
+!
+!    Original FORTRAN77 version by Jorge More, Burton Garbow, Kenneth Hillstrom.
+!    FORTRAN90 version by John Burkardt.
+!
+!  Modified: by Hyun-Jung Kim (KIAS, Infant@kias.re.kr)
+!    14 December 2017
+!    Modified for the TBFIT purpose.
+!    The original source code can be found in: https://people.sc.fsu.edu/~jburkardt/f_src/minpack/minpack.html
+!  Reference:
+!
+!    Jorge More, Burton Garbow, Kenneth Hillstrom,
+!    User Guide for MINPACK-1,
+!    Technical Report ANL-80-74,
+!    Argonne National Laboratory, 1980.
+!
+
   use parameters
   use mpi_setup
   implicit none
@@ -332,6 +368,40 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, PINPT, E_DFT, neig, iband, 
   return
 endsubroutine
 subroutine fdjac2 (get_eig, NN_TABLE, kpoint, nkpoint, PINPT, fvec, E_DFT, neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)
+
+!*****************************************************************************80
+!
+!! FDJAC2 estimates an M by N jacobian matrix using forward differences.
+!
+!  Discussion:
+!
+!    This subroutine computes a forward-difference approximation
+!    to the M by N jacobian matrix associated with a specified
+!    problem of M functions in N variables.
+!
+!  Licensing:
+!
+!    This code is distributed under the GNU LGPL license.
+!
+!  Modified:
+!
+!    06 April 2010
+!  Author:
+!
+!    Original FORTRAN77 version by Jorge More, Burton Garbow, Kenneth Hillstrom.
+!    FORTRAN90 version by John Burkardt.
+!
+!  Modified: by Hyun-Jung Kim (KIAS, Infant@kias.re.kr)
+!    14 December 2017
+!    Modified for the TBFIT purpose.
+!    The original source code can be found in: https://people.sc.fsu.edu/~jburkardt/f_src/minpack/minpack.html
+!  Reference:
+!
+!    Jorge More, Burton Garbow, Kenneth Hillstrom,
+!    User Guide for MINPACK-1,
+!    Technical Report ANL-80-74,
+!    Argonne National Laboratory, 1980.
+!
   use parameters
   use mpi_setup
   implicit none

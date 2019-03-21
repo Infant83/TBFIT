@@ -15,6 +15,7 @@ contains
 
 subroutine get_berry_phase_svd(wcc, kpoint, V, PINPT, PGEOM, nkdiv, erange_tot, nerange_tot)
    use parameters, only: incar, poscar, zi, pi2, pi
+   use print_matrix
    implicit none
    type(incar  ) :: PINPT
    type(poscar)  :: PGEOM
@@ -33,28 +34,37 @@ subroutine get_berry_phase_svd(wcc, kpoint, V, PINPT, PGEOM, nkdiv, erange_tot, 
    complex*16       WT(nerange_tot/PINPT%nspin,nerange_tot/PINPT%nspin)
    complex*16       phase_shift(PGEOM%neig*PINPT%ispinor)
    real*8           wcc(nerange_tot/PINPT%nspin,PINPT%nspin)
-
+   character*8      dummyc
    nerange = nerange_tot/PINPT%nspin
    neig    = PGEOM%neig*PINPT%ispinor
-   dk      = kpoint(:,2)-kpoint(:,1)
 
 sp:do is = 1, PINPT%nspin
      call set_identity_mat_c(nerange, L)
      erange = erange_tot(1+(is-1)*nerange:nerange*is) - erange_tot(1) - (is-1)*(neig-nerange) + 1
   kp:do ik = 1, nkdiv-1
        icol=1+neig*(is-1) ; fcol=neig*is 
+       dk  = kpoint(:,ik+1)-kpoint(:,ik)
        call get_phase_shift(phase_shift, dk, PGEOM, PINPT%ispinor)
        call get_overlap_matrix(M,V(icol:fcol,erange,ik:ik+1),phase_shift,neig,nerange)
+!      write(dummyc,'("M",I0)')ik
+!      call print_matrix_c(M, 2, 2, trim(dummyc),0, 'F10.4')
        call get_svd(M,U,WT,nerange) ! perform singular valued decomposition for unitary rotation of M
 #ifdef F08
        L = matprod(nerange,L,matprod(nerange,U,WT)) 
+!      U  = conjg(transpose(U ))
+!      WT = conjg(transpose(WT))
+!      L = matprod(nerange,matprod(nerange,WT,U),L) 
+!      L = matmul(L,matmul(WT,U))
+!      L = matprod(nerange,L,matprod(nerange,'C',WT,'C',U))
 #else
        L = matmul(L,matmul(U,WT))
+!      U  = conjg(transpose(U ))
+!      L = matmul(L,matmul(WT,U))
 #endif
      enddo kp
 
      call cal_eig_nonsymm(L, nerange, L_eig(:,is))
-     wcc(:,is) = dmod(-arg(L_eig(:,is))/pi2+10d0,1d0) ! get unimodular of -arg(L_eig) where L_eig = exp(-i*phi)
+     wcc(:,is) = dmod(-arg(L_eig(:,is))/pi2+10.0d0,1d0) ! get unimodular of -arg(L_eig) where L_eig = exp(-i*phi)
                                                       ! For details See: [D. Gresch et al., PRB 95 075146 (2017)]
      call get_sort_variable_1D(wcc(:,is),nerange,'ascending')
    enddo sp
@@ -99,7 +109,7 @@ sp:do is = 1, PINPT%nspin
 endsubroutine
 
 subroutine get_phase_shift(phase_shift, dk, PGEOM, ispinor)
-   use parameters, only: poscar, incar
+   use parameters, only: poscar, incar, zi
    use phase_factor, only : F_IJ
    implicit none
    type(poscar) :: PGEOM
@@ -111,7 +121,15 @@ subroutine get_phase_shift(phase_shift, dk, PGEOM, ispinor)
 
    do is = 1, ispinor
      do ibasis = 1, PGEOM%neig
-       phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ(-dk, PGEOM%o_coord_cart(:, ibasis))
+!      phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ(-dk, PGEOM%o_coord_cart(:, ibasis))
+       
+       phase_shift(ibasis + (is-1)*PGEOM%neig) = cos(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
+                                                     dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &  
+                                                     dk(3) * PGEOM%o_coord_cart(3, ibasis)) - &
+                                                 sin(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
+                                                     dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &
+                                                     dk(3) * PGEOM%o_coord_cart(3, ibasis)) *-zi
+
      enddo
    enddo
 
@@ -130,7 +148,7 @@ subroutine get_overlap_matrix(M, V, phase_shift, neig, nerange)
    M = (0d0,0d0)
    do j = 1, nerange
      do i = 1, nerange
-        M(i,j) = dot_product(V(:,i,1), V(:,j,2) )
+        M(i,j) = dot_product( V(:,i,1) , V(:,j,2)*phase_shift  )
      enddo
    enddo
    return
@@ -310,7 +328,7 @@ endsubroutine
 subroutine get_chern_number(chern, polarization, wcc, nspin, nkpath, nerange_tot)
    use parameters, only : pi2
    implicit none
-   integer*4    ik, is
+   integer*4    ik, is, k
    integer*4    imin
    integer*4    nerange_tot, nerange
    integer*4    nspin, nkpath
@@ -335,7 +353,7 @@ subroutine get_chern_number(chern, polarization, wcc, nspin, nkpath, nerange_tot
    polarization(:,1) = polarization_(:,1)
    do is = 1, nspin
      do ik = 1, nkpath - 1
-       delta_p(:) =  polarization_(is, ik+1) - polarization_(is, ik)+ (/-2:2/)
+       delta_p(:) =  polarization_(is, ik+1) - polarization_(is, ik)+ (/(k, k=-2,2)/)
        chern(is) = chern(is) + delta_p(minloc( abs(delta_p),1 ))
        polarization(is,ik+1) = polarization(is,ik) + delta_p(minloc( abs(delta_p),1 ))
      enddo    
@@ -404,7 +422,7 @@ subroutine find_largest_gap(largest_gap, clock_direct, z2_index, wcc, nspin, nkp
        do ie = 1, nerange
         phi3 = pi2 * wcc(ie,is,ikpath+1)
         directed_area = sin(phi2-phi1) + sin(phi3-phi2) + sin(phi1-phi3)
-        clock_direct(is,ikpath)  = int4(sign(1d0,directed_area)) * clock_direct(is,ikpath)
+        clock_direct(is,ikpath)  = int(sign(1d0,directed_area)) * clock_direct(is,ikpath)
        enddo
        if(kk .le. 0.5d0) z2_index(is) = z2_index(is) * clock_direct(is,ikpath)
      enddo

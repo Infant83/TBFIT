@@ -388,11 +388,12 @@ endsubroutine
 module print_matrix
 contains
 
-subroutine print_matrix_c(H,msize_row,msize_col, title, iflag, fmt_)
+subroutine print_matrix_c(H_,msize_row,msize_col, title, iflag, fmt_)
  use parameters, only : pid_matrix, eta, zi
  implicit none
  integer*4 i,j,iflag,msize_row,msize_col
  complex*16 H(msize_row,msize_col)
+ complex*16 H_(msize_row,msize_col)
  character (len = *) title
  character*80 fname
  character(len = *), optional :: fmt_ ! format, ex) f12.5
@@ -404,9 +405,11 @@ subroutine print_matrix_c(H,msize_row,msize_col, title, iflag, fmt_)
    write(fmt,'(A)')"(*(2x,F7.3,'+',F7.3,'i'))"
  endif
 
+ H = H_
+
  ! iflag=0 : print to monitor, 1: print to file with name 'title'
  if (iflag .eq. 0) then
-  write(6,'(A,A)')trim(title),'='
+  write(6,'(A,A)')trim(title),'= ['
   do i=1,msize_row
    do j = 1, msize_col
      if(abs( real(H(i,j))) .lt. 10d0*eta) then 
@@ -418,7 +421,12 @@ subroutine print_matrix_c(H,msize_row,msize_col, title, iflag, fmt_)
         H(i,j) =  a+ 0d0 * zi ! be careful !!
      endif
    enddo
-   write(6,fmt,ADVANCE='YES')H(i,1:msize_col)
+   write(6,fmt,ADVANCE='NO')H(i,1:msize_col)
+   if(i .eq. msize_row) then
+     write(6,'(A)',ADVANCE='YES')'];'
+   elseif(i .lt. msize_row) then
+     write(6,'(A)',ADVANCE='YES')';'
+   endif
   enddo
   write(6,*)''
  elseif(iflag .eq. 1) then
@@ -543,7 +551,7 @@ endsubroutine
 subroutine get_window(init,fina,inputline,desc_str)
   use mpi_setup
   implicit none
-  integer*4      nitems, i_dummy
+  integer*4      nitems, i_dummy, mpierr
   external       nitems
   character*132  inputline, dummy
   character*40   desc_str, dummy1, dummy2
@@ -767,11 +775,18 @@ subroutine str2int(string,w)
 return
 end subroutine
 subroutine str2real(string,w)
+  use mpi_setup
   implicit none
   character(*),intent(in) :: string
   real*8,intent(out)   :: w
+  integer*4 i_number, mpierr
 
-  read(string,*) w
+  read(string,*,iostat=i_number) w
+
+  if(i_number .ne. 0) then
+    if_main write(6,'(A)')' !!!! Error !!! "string" cannot be stored in "real" value. str2real. Exit.'
+    kill_job
+  endif
 
 return
 end subroutine

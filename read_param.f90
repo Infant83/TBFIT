@@ -133,7 +133,6 @@ subroutine read_param(PINPT, param_const)
        endif
 
      endif
-
    enddo
    close(pid_param)
 
@@ -178,42 +177,55 @@ subroutine set_param_const(PINPT,PGEOM)
        dummy = trim(PINPT%c_const(3,i))
        if( dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f')then  ! check if fixed
          do ii = 1, PINPT%nparam
-           if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
+           if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) then 
+             i_a = ii
+             PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
+             PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
+           endif
          enddo
-         PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
-         PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
        else
+         i_a = 0
          do ii = 1, PINPT%nparam
            if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
-           if( trim(PINPT%c_const(3,i)) .eq. trim(PINPT%param_name(ii)) ) i_b = ii
          enddo
-         PINPT%param_const(1,i_a) = real(i_b)
+         do ii = 1, PINPT%nparam
+           if( trim(PINPT%c_const(3,i)) .eq. trim(PINPT%param_name(ii)) .and. i_a .ne. 0 ) then 
+             i_b = ii
+             PINPT%param_const(1,i_a) = real(i_b)
+           endif
+         enddo
        endif
        cycle
 
      elseif( trim(PINPT%c_const(2,i)) .eq. '<=' ) then
 
        do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
+         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) then 
+           i_a = ii
+           call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(2,i_a) )
+         endif
        enddo
-       call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(2,i_a) )
        cycle
 
      elseif( trim(PINPT%c_const(2,i)) .eq. '>=' ) then
 
        do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
+         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) then 
+           i_a = ii
+           call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(3,i_a) )
+         endif
        enddo
-       call str2real( trim(PINPT%c_const(3,i)), PINPT%param_const(3,i_a) )
        cycle
 
      elseif( trim(PINPT%c_const(2,i)) .eq. '==' ) then
 
        do ii = 1, PINPT%nparam
-         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) i_a = ii
+         if( trim(PINPT%c_const(1,i)) .eq. trim(PINPT%param_name(ii)) ) then 
+           i_a = ii
+           PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
+           PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
+         endif
        enddo
-       PINPT%param_const(4,i_a) = 1d0 !turn on fix the parameter to be remained as the initial guess
-       PINPT%param_const(5,i_a) = PINPT%param(i_a) ! save its value to PINPT%param_const(5,i_a)
        cycle
 
      else

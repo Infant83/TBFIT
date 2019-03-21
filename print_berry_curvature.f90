@@ -7,7 +7,7 @@ subroutine print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, E0, plot_mode)
    type(kpoints) :: PKPTS
    type(poscar ) :: PGEOM
    integer*4        nerange
-   integer*4        is, ie, iee, ik, ik_sort
+   integer*4        is, ie, iee, ik, ik_sort, k
    integer*4        ieig, feig
    integer*4        nkpoint
    integer*4        erange(PGEOM%neig*PINPT%ispin)
@@ -36,7 +36,7 @@ subroutine print_berrycurvature(PINPT, PINPT_BERRY, PKPTS, PGEOM, E0, plot_mode)
 
    if(plot_mode .eq. 'total') then
      nerange = PGEOM%neig * PINPT%ispin
-     erange  = (/1:nerange/)
+     erange  = (/(k, k=1,nerange)/)
      fname_header   = 'BERRYCURV_TBA.total'
    elseif(plot_mode .eq. 'range') then
      nerange= PINPT_BERRY%bc_nerange / PINPT%nspin

@@ -39,14 +39,14 @@ subroutine write_wcc_main(pid_wcc_,pid_gap_, nerange, nspin, nkpath, wcc, larges
 
    do ie = 1, nerange
      if(nspin .eq. 2) then
-       write(pid_wcc_,'(A,I,A)')'# k-path, ',ie,'-th wcc (up, dn)'
+       write(pid_wcc_,'(A,I0,A)')'# k-path, ',ie,'-th wcc (up, dn)'
        if(flag_get_chern) then
          if(ie .eq. 1) write(pid_gap_,'(A    )')'# k-path, largest gap of wannier charge center (up, dn), polarization evolution (up, dn)'
        else
          if(ie .eq. 1) write(pid_gap_,'(A    )')'# k-path, largest gap of wannier charge center (up, dn)'
        endif
      else
-       write(pid_wcc_,'(A,I,A)')'# k-path, ',ie,'-th wcc'
+       write(pid_wcc_,'(A,I0,A)')'# k-path, ',ie,'-th wcc'
        if(flag_get_chern) then
          if(ie .eq. 1) write(pid_gap_,'(A    )')'# k-path, largest gap of wannier charge center, polarization evolution'
        else

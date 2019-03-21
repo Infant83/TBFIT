@@ -72,13 +72,18 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
    do ikpath = 1,  nkpath
      call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase)
+!    write(6,*)"BBBB", E(:,1), erange
+!    write(6,*)"CCCC", V(:,1,1)
+!    stop
      call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      call get_berry_phase(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #else
      call get_berry_phase_svd(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
-     if_main write(6,'(A,I,A,I)')"  STATUS: ",ikpath,' / ',nkpath
+     if_main write(6,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath
+!     write(6,*)"WWWW ", wcc(:,1,ikpath)
+! stop
    enddo
 
 #ifdef MPI

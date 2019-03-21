@@ -11,6 +11,7 @@ program tbfit
   use parameters
   use mpi_setup
   use time
+  use version
   implicit none
   external  get_eig
   real*8    t_start,t_end
@@ -26,12 +27,13 @@ program tbfit
   type (hopping) :: NN_TABLE    ! table for hopping index
   type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
 
-  !call test(PINPT, PKPTS, PGEOM)
-
 #ifdef MPI
+checkVVV , 'aaaa'
   call mpi_initialize()
+! call test()
 #endif
-  if_main call timestamp ('Program start on',t_start)
+! if_main call timestamp ('Program start on',t_start)
+  if_main call version_stamp(t_start)
           call parse(PINPT, PKPTS) ; if_test call test()
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA)
   if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
@@ -65,8 +67,8 @@ program tbfit
   if_main call timestamp ('Program ends on',t_end)
   if_main write(6,'(A,F13.3)')'  Time elapsed:',t_end - t_start
   
-  deallocate(ETBA%E)
-  if(PINPT%flag_get_orbital) deallocate(ETBA%V)
+  if(allocated(ETBA%E))      deallocate(ETBA%E)
+  if(PINPT%flag_get_orbital .and. allocated(ETBA%V) ) deallocate(ETBA%V)
 
 #ifdef MPI
   call mpi_finish()

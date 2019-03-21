@@ -34,17 +34,18 @@ subroutine parse(PINPT,PKPTS)
          if(trim(option) .eq. '-h') then
            if_main call help()
 
-         elseif(trim(option) .eq. '-input') then
-           PINPT%flag_inputcard_fname_parse = .true.
-           call getarg(iarg+1, value)
-           if_main write(6,'(2A)')'  IN_FILE: ',trim(value)
-           inquire(file=trim(value),exist=flag)
-           if(.not. flag) then
-             if_main write(6,'(3A)')'    !WARN! INPUT_FILE:"',trim(value),'" does not exist! Check again... Exit program.'
-             kill_job
-           elseif(flag) then
-             PINPT%ifilenm = trim(value)
-           endif
+!        -input option has been deprecated as Scalapack inclusion (HJK, 7th Mar. 2019)
+!        elseif(trim(option) .eq. '-input') then
+!          PINPT%flag_inputcard_fname_parse = .true.
+!          call getarg(iarg+1, value)
+!          if_main write(6,'(2A)')'  IN_FILE: ',trim(value)
+!          inquire(file=trim(value),exist=flag)
+!          if(.not. flag) then
+!            if_main write(6,'(3A)')'    !WARN! INPUT_FILE:"',trim(value),'" does not exist! Check again... Exit program.'
+!            kill_job
+!          elseif(flag) then
+!            PINPT%ifilenm = trim(value)
+!          endif
 
          elseif(trim(option) .eq. '-fit' .or. trim(option) .eq. '-f') then
            PINPT%flag_tbfit_parse  = .true.

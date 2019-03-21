@@ -54,7 +54,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
    use parameters
    use mpi_setup
    implicit none
-   integer*4        i, nitems, pos, size_now, size_new
+   integer*4        i, k, nitems, pos, size_now, size_new
    integer*4        nrange
    integer*4        init,fina
    integer*4, allocatable :: irange(:), irange_new(:), krange(:), tbrange(:), dfrange(:)
@@ -147,14 +147,15 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+!      irange_new=(/irange,init:fina/)
+       irange_new=(/irange,(/(k, k=init,fina)/)/)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -249,14 +250,14 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange, (/(k, k=init,fina)/) /)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -359,14 +360,14 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange, (/(k, k=init,fina)/) /)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -408,7 +409,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
    type(poscar)  :: PGEOM
    type(incar )  :: PINPT
    type(hopping) :: NN_TABLE
-   integer*4        i, j, nitems, pos
+   integer*4        i, j, k, nitems, pos
    integer*4        size_irange
    integer*4, intent(in)  :: size_orbrange
    integer*4, intent(out) :: size_siterange
@@ -487,7 +488,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
            stop
          elseif(.not. allocated(irange)) then
            allocate(irange(PGEOM%n_atom))
-           irange(1:PGEOM%n_atom) = (/1:PGEOM%n_atom/)
+           irange(1:PGEOM%n_atom) = (/(k, k=1,PGEOM%n_atom)/)
          endif
        else
          if(flag_number(dummy)) then
@@ -516,11 +517,11 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
          if(.not. allocated(irange)) then
            size_range_dummy = fina - init + 1
            allocate(irange(size_range_dummy))
-           irange(1:size_range_dummy) = (/init:fina/)
+           irange(1:size_range_dummy) = ((/(k, k=init,fina)/) )
          elseif(allocated(irange)) then
            size_range_dummy = fina - init + 1
            allocate(irange_new(size(irange) + size_range_dummy))
-           irange_new = (/irange, init:fina/)
+           irange_new = (/irange, (/(k, k=init,fina)/) /)
            deallocate(irange)
            allocate(irange(size(irange_new)))
            irange = irange_new
@@ -555,7 +556,7 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
    use parameters
    use mpi_setup
    type(poscar)  :: PGEOM
-   integer*4        i, nitems, pos, size_now, size_new
+   integer*4        i, k, nitems, pos, size_now, size_new
    integer*4, intent(out) :: size_orbrange
    integer*4, intent(out) :: orbrange_dummy(PGEOM%max_orb)
    integer*4        nrange
@@ -620,14 +621,14 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange, (/(k, k=init,fina)/) /)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -657,7 +658,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
    type(incar )  :: PINPT
    type(weight)  :: PWGHT
    type(poscar)  :: PGEOM
-   integer*4        i, nitems, pos, size_now, size_new
+   integer*4        i, k, nitems, pos, size_now, size_new
    integer*4, intent(out) :: size_dfrange
    integer*4, intent(out) :: dfrange_dummy(PGEOM%neig_target)
    integer*4        nrange
@@ -756,14 +757,14 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange,(/(k, k=init,fina)/) /)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -804,7 +805,7 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
    implicit none
    type(incar )  :: PINPT
    type(poscar)  :: PGEOM
-   integer*4        i, nitems, pos, size_now, size_new
+   integer*4        i, k, nitems, pos, size_now, size_new
    integer*4, intent(out) :: size_tbrange
    integer*4, intent(out) :: tbrange_dummy(PGEOM%neig*PINPT%ispin)
    integer*4        nrange
@@ -901,14 +902,14 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
 
      endif
 
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange, (/(k, k=init,fina)/)/)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new
@@ -946,7 +947,7 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
    use mpi_setup
    implicit none
    type(kpoints) :: PKPTS
-   integer*4        i, nitems, pos, size_now, size_new
+   integer*4        i, k, nitems, pos, size_now, size_new
    integer*4, intent(out) :: size_krange
    integer*4, intent(out) :: krange_dummy(PKPTS%nkpoint)
    integer*4        nrange
@@ -1025,14 +1026,14 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
 
      endif
  
-     size_new= size( (/init:fina/) )
+     size_new= size( (/(k, k=init,fina)/) )
      if(.not. allocated(irange)) then
        allocate(irange(size_new))
-       irange(:)=( (/init:fina/) )
+       irange(:)=( (/(k, k=init,fina)/) )
      elseif(  allocated(irange)) then
        size_now= size(irange)
        allocate(irange_new(size_now+size_new))
-       irange_new=(/irange,init:fina/)
+       irange_new=(/irange, (/(k, k=init,fina)/)/)
        deallocate(irange)
        allocate(irange(size_now+size_new))
        irange=irange_new

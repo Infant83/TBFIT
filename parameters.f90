@@ -169,7 +169,6 @@ module parameters
        logical                       flag_get_effective_ham
        character*132                 eff_orb_dummyc
        real*8                        eff_emin, eff_emax
-
   endtype incar
 
   type poscar !PGEOM
@@ -269,9 +268,9 @@ module parameters
        real*8,      allocatable   :: Dij(:)   ! distance between orbital i and j
        real*8,      allocatable   :: Dij0(:)
        integer*4,   allocatable   :: i_matrix(:) ! matrix index (1:neig)
-       character*8, allocatable   :: ci_orb(:)   ! orbital character for i_matrix
-       integer*4,   allocatable   :: j_matrix(:) ! matrix index (1:neig)
-       character*8, allocatable   :: cj_orb(:)   ! orbital character for j_matrix
+       character*8, allocatable   :: ci_orb(:)   ! orbital character for n-th nn_neighbor hopping
+       integer*4,   allocatable   :: j_matrix(:) ! matrix index (1:neig) 
+       character*8, allocatable   :: cj_orb(:)   ! orbital character for n-th nn_neighbor hopping
        character*2, allocatable   :: p_class(:)
        integer*4,   allocatable   :: n_class(:)
        integer*4,   allocatable   :: sk_index_set(:,:) ! (i,nn), i=onsite(0),sigma(1),  pi(2),  delta(3)
@@ -433,4 +432,5 @@ module parameters
        integer*4                     iseed   ! random seed value; must be > 0 (default is 999)
        real*8                        lower_bound, upper_bound
   endtype gainp
+
 endmodule 

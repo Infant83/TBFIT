@@ -4,14 +4,14 @@ contains
 subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
    implicit none
    integer*4    nvariable
-   integer*4    i, j, itemp
+   integer*4    i, j, k, itemp
    integer*4    isort_index(nvariable)
    real*8       target_variable(nvariable)
    real*8       target_variable_(nvariable)
    real*8       temp
    character*10 sort_mode
 
-   isort_index(1:nvariable) = (/1:nvariable/)
+   isort_index(1:nvariable) = (/(k, k=1,nvariable)/)
    target_variable_ = target_variable
 
    select case (sort_mode(1:3))
@@ -54,14 +54,14 @@ endsubroutine
 subroutine get_sort_index_1D_int(isort_index, target_variable, nvariable, sort_mode)
    implicit none
    integer*4    nvariable
-   integer*4    i, j, itemp
+   integer*4    i, j, k, itemp
    integer*4    isort_index(nvariable)
    integer*4       target_variable(nvariable)
    integer*4       target_variable_(nvariable)
    integer*4       temp
    character(*), intent(in) :: sort_mode
 
-   isort_index(1:nvariable) = (/1:nvariable/)
+   isort_index(1:nvariable) = (/ (k, k=1,nvariable)/)
    target_variable_ = target_variable
 
    select case (sort_mode(1:3))
@@ -143,7 +143,7 @@ endsubroutine
 
 subroutine get_sort_index(isort_index, target_variable, target_dimension, nvariable)
    implicit none
-   integer*4             i, j
+   integer*4             i, j, k
    integer*4             idimension
    integer*4             nvariable, target_dimension
    integer*4             isort_index(nvariable)
@@ -153,7 +153,7 @@ subroutine get_sort_index(isort_index, target_variable, target_dimension, nvaria
    integer*4             itemp
    real*8 t1,t2
 
-   isort_index(1:nvariable) = (/1:nvariable/)
+   isort_index(1:nvariable) = (/(k, k=1,nvariable)/)
    target_variable_ = target_variable
    call cpu_time(t1)
 

@@ -233,7 +233,8 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                      call get_soc_cc_param_index(index_custom_soc, NN_TABLE_dummy, nn, PINPT, &
                                                          PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), soc_type )
                                      NN_TABLE_dummy%cc_index_set(2,nn)  = index_custom_soc
-       
+write(6,*)"BBBBB ", index_custom_soc, PINPT%param_name(8),PINPT%param_const(1,8)
+if(index_custom_soc .eq. 40) stop
                                      ! out-of-plane SOC in the lattice model => rashba SOC due to out-of-plane symmetry breaking or E_field(z)
                                      soc_type = 'lrashba'
                                      call get_soc_cc_param_index(index_custom_soc, NN_TABLE_dummy, nn, PINPT, &
@@ -481,6 +482,7 @@ subroutine print_nn_table(NN_TABLE, PINPT)
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
                                          NN_TABLE%p_class(ii), NN_TABLE%cc_index_set(0:1,ii), NN_TABLE%n_class(ii), NN_TABLE%tij(ii), &
                                          NN_TABLE%cc_index_set(2:3,ii)
+
      endif
      if( (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii))  .and. (NN_TABLE%Dij(ii) .lt. NN_TABLE%onsite_tolerance) ) then
        write(pid_nntable,'(8x,I3)',ADVANCE='no')NN_TABLE%stoner_I_param_index(NN_TABLE%i_matrix(ii))

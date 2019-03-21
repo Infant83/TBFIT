@@ -5,9 +5,14 @@
 #define if_ncol            if(PINPT%ispinor .eq. 2)
 #define mpi_kill           call MPI_Abort(mpi_comm_earth, 0, mpierr)
 #define if_test            if(PINPT%flag_tbfit_test)
-
+#define checkXXX           write(6,*)'XXX '
+#define checkZZZ           write(6,*)'ZZZ '
+#define checkVVV           write(6,*)'VVV '
+#define checkJJJ           write(6,*)'JJJ '
+#define checkKKK           write(6,*)'KKK '
+#define checkAAA           write(6,*)'AAA '
 #ifdef MPI
-#define kill_job           call mpi_finish() ; stop  
+#define kill_job           call MPI_BARRIER(mpi_comm_earth, mpierr); call mpi_finish()
 #else
 #define kill_job           stop
 #endif

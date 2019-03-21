@@ -283,6 +283,10 @@ subroutine get_stoner_I_param_index(stoner_I_param_index, PINPT, nn_class, param
 
      ! for TaS2, user defined xx-class
      if( adjustl(trim(param_class_)) .eq. 'xx' ) write(stoner_I_param_name ,  99)'stoner_I_x_',ci_atom(1:liatom)
+
+     ! for Bi/Si110, user defined cc-class
+     if( adjustl(trim(param_class_)) .eq. 'cc' ) write(stoner_I_param_name ,  99)'stoner_I_c_',ci_atom(1:liatom)
+
    endif
 
    call get_param_index(PINPT, stoner_I_param_name, stoner_I_param_index)
@@ -374,6 +378,7 @@ subroutine get_param_index(PINPT, param_name, param_index)
      if( trim(pname_file) .eq. adjustl(trim(pname)) ) then
        if( nint(PINPT%param_const(1,i)) .ge. 1 ) then
          param_index = nint(PINPT%param_const(1,i), 4) ! set constraint condition: if equal to
+   write(6,*)"XXX ", pname, pname_file, i, param_index
        else
          param_index = i
        endif

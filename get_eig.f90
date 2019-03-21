@@ -35,8 +35,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 #endif
 
   call initialize_all (EE, neig, nband, nkp, PINPT, flag_vector, flag_sparse, flag_stat, ii, iadd, stat, t1, t0, flag_init)
-
-!k_loop:do ik= 1 + myid, nkp, nprocs
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
     if(flag_sparse) then
       if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then 
@@ -60,6 +58,9 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
     elseif(.not.flag_sparse) then
       call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
+!     WRITE(6,*)"NBAND", nband
+!     write(6,*)"RRRRR", EE%E(:,1)
+!     write(6,*)"TTTTT", EE%V(:,1,1)
     endif
 
     call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
@@ -136,6 +137,7 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
   use mpi_setup
   use print_matrix
   use time
+  use do_math
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
   integer*4  neig, iband, nband
@@ -149,12 +151,17 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
   complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
   logical    flag_vector, flag_init, flag_phase
   real*8     t1, t0
+  real*8     E_(4)
   ! This routine calculates all the eigenvalues within [iband:iband+nband-1] using Hamiltonian Hk with dense matrix format.
-
+   E_ = 0d0
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) Hm, Hs will be kept during ik-run. (Hs will be modified if flag_slater_koster=.false.)
       call get_hamk_dense(Hk, H0, Hm, Hs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase) 
-
+!     call print_matrix_c(Hk, 4, 4, 'Hk', 0, 'F12.8')
+!     call cal_eig_hermitian(Hk, 4, E_,.true.)
+!     call print_matrix_c(Hk, 4, 4, 'Vk', 0, 'F12.8')
+!     write(6,*)"EEEE", E_
+! stop
       call get_matrix_index(ie, fe, im, fm, is, nband, neig, PINPT%ispinor)
       call cal_eig(Hk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
     enddo sp
@@ -261,13 +268,13 @@ subroutine get_hamk_dense(Hk, H0, Hm, Hs, is, kpoint, PINPT, neig, NN_TABLE, fla
   complex*16 Hk(neig*PINPT%ispinor,neig*PINPT%ispinor) ! total hamiltonian (k-dependent)
 
   if(is .eq. 1) call set_ham0(H0, kpoint, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
-
   if(flag_init) then
     if(PINPT%flag_collinear) then
       call set_ham_mag(Hm, NN_TABLE, PINPT, neig)
     elseif(PINPT%flag_noncollinear) then
       call set_ham_mag(Hm, NN_TABLE, PINPT, neig)
-      if(PINPT%flag_soc .and. PINPT%flag_slater_koster) call set_ham_soc(Hs, 0d0, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+      if(PINPT%flag_soc .and. PINPT%flag_slater_koster) &
+        call set_ham_soc(Hs, 0d0, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
     endif
     flag_init = .false.
   endif
@@ -277,7 +284,8 @@ subroutine get_hamk_dense(Hk, H0, Hm, Hs, is, kpoint, PINPT, neig, NN_TABLE, fla
   elseif(PINPT%flag_noncollinear) then
     if(PINPT%flag_soc) then
       !set up k-dependent SOC in the case of 'cc' orbitals
-      if(.not. PINPT%flag_slater_koster) call set_ham_soc(Hs, kpoint, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+      if(.not. PINPT%flag_slater_koster) &
+        call set_ham_soc(Hs, kpoint, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
       Hk = kproduct(pauli_0, H0, 2, 2, neig, neig) + Hm + Hs
     else
       Hk = kproduct(pauli_0, H0, 2, 2, neig, neig) + Hm
@@ -399,12 +407,14 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       endif
     endif
 
-    if(i .eq. j) then
+    if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
       if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
       else
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
       endif
+    elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+      H(i,j) = H(i,j) + Eij
     else
       H(i,j) = H(i,j) + Eij
       H(j,i) = H(j,i) + conjg(Eij)

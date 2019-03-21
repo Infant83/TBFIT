@@ -408,7 +408,7 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    implicit none
    type(incar)  ::  PINPT
    type(poscar) ::  PGEOM
-   integer*4        i, iorbital, iatom, iorb
+   integer*4        i, iorbital, iatom, iorb, mpierr
    integer*4        neig, ngrid, nwrite, nline, nresi
    integer*4        ng1, ng2, ng3
    integer*4        pid_chg_up, pid_chg_dn

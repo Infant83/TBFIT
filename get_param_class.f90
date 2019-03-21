@@ -378,7 +378,7 @@ subroutine get_param_index(PINPT, param_name, param_index)
      if( trim(pname_file) .eq. adjustl(trim(pname)) ) then
        if( nint(PINPT%param_const(1,i)) .ge. 1 ) then
          param_index = nint(PINPT%param_const(1,i), 4) ! set constraint condition: if equal to
-   write(6,*)"XXX ", pname, pname_file, i, param_index
+!  write(6,*)"XXX ", pname, pname_file, i, param_index
        else
          param_index = i
        endif

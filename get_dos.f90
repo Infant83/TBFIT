@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    use parameters  
    use mpi_setup
@@ -29,6 +30,16 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    external         fgauss  
    character*40     fname_header
    logical          flag_sparse
+   real*8           time1, time2
+
+#ifdef MPI
+   if_main time1 = MPI_Wtime()
+#else
+   call cpu_time(time1)
+#endif
+
+   if_main write(6,*)''
+   if_main write(6,'(A)')'START: DOS EVALUATION'
 
    neig    = PGEOM%neig
    ispin   = PINPT%ispin
@@ -92,6 +103,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      if(myid .eq. 0) call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
    endif
 
+
    call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, PINPT%flag_get_orbital, flag_sparse, .true., .true.)
    sigma = g_smear
 
@@ -148,6 +160,13 @@ kp:do ik = 1 + myid, nkpoint, nprocs
    if(allocated(V_)) deallocate( V_)
    deallocate( kpoint )
    deallocate( kpoint_reci )
+
+#ifdef MPI
+   if_main time2 = MPI_Wtime()
+#else
+   call cpu_time(time2)
+#endif
+   if_main  write(6,'(A,F12.3)')'END: DOS EVALUATION. TIME ELAPSED (s) =',time2-time1
 
 return
 endsubroutine
@@ -229,7 +248,7 @@ subroutine print_dos(PINPT_DOS, PINPT)
   do ie = 1, PINPT_DOS%dos_nediv
     if(.not.PINPT%flag_collinear) then
       write(pid_dos,'(F16.8,1x,F16.8)')e_range(ie), dos_data(ie,1)
-    elseif(.not.PINPT%flag_collinear) then
+    elseif(PINPT%flag_collinear) then
       write(pid_dos,'(F16.8,1x,2F16.8)')e_range(ie), dos_data(ie,1:2)
     endif
   enddo

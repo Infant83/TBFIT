@@ -30,7 +30,8 @@ subroutine print_energy_ensurf (kpoint, nkpoint,ie, ispin_print, E, V, PGEOM, PI
               if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
               if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
-              write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma= ',sigma
+              write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma= ',sigma
+              write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
               do im=1,nbasis-1
                 write(pid_energy, '(I9)',ADVANCE='NO')im
               enddo
@@ -130,7 +131,8 @@ spin:do is = 1, ispin_print
          if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
          if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
          if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
-         write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+         write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+         write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
          do im=1,nbasis
            write(pid_energy, '(I9)',ADVANCE='NO')im
          enddo
@@ -248,7 +250,8 @@ spin:do is = 1, ispin_print
          if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
          if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
          
-         write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma     
+         write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma     
+         write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
          do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
            write(pid_energy, '(I9)',ADVANCE='NO')im
          enddo
@@ -384,9 +387,11 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
               if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
               if(PINPT%axis_print_mag .ne. 'wf') then
-                write(pid_energy, '(2A)',ADVANCE='NO') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+                write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+                write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
               elseif(PINPT%axis_print_mag .eq. 'wf') then
-                write(pid_energy, '(1A)',ADVANCE='NO') '# wavefunction coeff.:          |ci>               '
+                write(pid_energy, '(1A)',ADVANCE='YES') '# wavefunction coeff.:          |ci>               '
+                write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
               endif
               do im=1,nbasis
                 if(PINPT%axis_print_mag .ne. 'wf') then

@@ -12,14 +12,17 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
    character*16     cij_pair
    character*2      param_class
    character*20     c_dummy
-   character*8      c_orb
+   character*8      ci_orb, cj_orb
    logical          flag_scale
 
    rij(1:3)   = NN_TABLE%Rij(1:3,ii)
    dij        = NN_TABLE%Dij(    ii)
    nn_class   = NN_TABLE%n_class(ii)
    param_class= NN_TABLE%p_class(ii)
-   c_orb      = NN_TABLE%ci_orb(ii)
+   ci_orb     = NN_TABLE%ci_orb(ii)
+   cj_orb     = NN_TABLE%cj_orb(ii)
+   lia        = len_trim(ci_atom)
+   lja        = len_trim(cj_atom)
 
    ! initialize
    index_custom = 0  !initialize to zero
@@ -32,60 +35,74 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
    ! with Bi--Bi : 12.0 R0 12.0 where '--' gives us '2'.
    ! Following do loop will find the parameter named 'ccx_2_BiBi' in the 'param_name' and will asign its
    ! number as the 'parameter_index' 
-   if(c_orb(1:3) .eq. 'cp1') then ! nn_hopping parameter set for Bi/Si110 distinguished by 'cp1' orbital name
-     if    ( (dij .gt. 11.5) .and. (dij .lt. 11.7) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AA-x hoping
+   if(ci_orb(1:3) .eq. 'cp1' .and. cj_orb(1:3) .eq. 'cp1') then ! nn_hopping parameter set for Bi/Si110 distinguished by 'cp1' orbital name
+     if    ( (dij .gt. 11.5) .and. (dij .lt. 11.7) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-x hoping
        call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     elseif( (dij .gt. 10.8) .and. (dij .lt. 11.1) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AA-y hoping
+     elseif( (dij .gt. 10.8) .and. (dij .lt. 11.1) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-y hoping
        call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     ! Pmgx
-     elseif( (dij .gt.  8.5) .and. (dij .lt.  8.7) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-a hoping
+     ! H2
+     elseif( (dij .gt.  8.5) .and. (dij .lt.  8.7) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-a hoping
        call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt.  7.3) .and. (dij .lt.  7.5) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-b hoping
+     elseif( (dij .gt.  7.3) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-b hoping
        call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     ! Pmgy
-     elseif( (dij .gt.  9.3) .and. (dij .lt.  9.6) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-c hoping
+     ! H3
+     elseif( (dij .gt.  9.3) .and. (dij .lt.  9.6) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-c hoping
        call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt.  6.5) .and. (dij .lt.  6.9) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-d hoping
+     elseif( (dij .gt.  6.5) .and. (dij .lt.  6.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-d hoping
        call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     ! Pmgx/Pmgy interface
-     elseif( (dij .gt.  9.6) .and. (dij .lt.  9.8) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
-       call get_param_name_index(PINPT, param_class, 'l', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt. 13.4) .and. (dij .lt. 13.6) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AB-r hoping
-       call get_param_name_index(PINPT, param_class, 'r', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt. 11.8) .and. (dij .lt. 12.1) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-t hoping
-       call get_param_name_index(PINPT, param_class, 't', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt. 10.1) .and. (dij .lt. 10.4) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AB-b hoping
-       call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
      endif
 
-   elseif(c_orb(1:3) .eq. 'cp2') then ! nn_hopping parameter set for Bi/Ge110 distinguished by 'cp2' orbital name
-     if    ( (dij .gt. 11.9) .and. (dij .lt. 12.3) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AA-x hoping
+   elseif(ci_orb(1:3) .eq. 'cp2' .and. cj_orb(1:3) .eq. 'cp2') then ! nn_hopping parameter set for Bi/Ge110 distinguished by 'cp2' orbital name
+     if    ( (dij .gt. 11.9) .and. (dij .lt. 12.3) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-x hoping
        call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt. 11.2) .and. (dij .lt. 11.5) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AA-y hoping
+     elseif( (dij .gt. 11.2) .and. (dij .lt. 11.5) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-y hoping
        call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     ! Pmgx
-     elseif( (dij .gt.  8.7) .and. (dij .lt.  9.0) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-a hoping
+     ! H2
+     elseif( (dij .gt.  8.7) .and. (dij .lt.  9.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-a hoping
        call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt.  7.7) .and. (dij .lt.  7.9) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-b hoping
+     elseif( (dij .gt.  7.7) .and. (dij .lt.  7.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-b hoping
        call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
-     ! Pmgy
-     elseif( (dij .gt.  9.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-c hoping
+     ! H3
+     elseif( (dij .gt.  9.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-c hoping
        call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt.  6.8) .and. (dij .lt.  7.5) .and. (ci_atom(1:1) .eq. cj_atom(1:1)) ) then  ! AB-d hoping
+     elseif( (dij .gt.  6.8) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-d hoping
        call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+     endif
+   endif
 
+  ! H2/H3 interface
+   if(ci_orb(1:3) .eq. 'cp2' .and. cj_orb(1:3) .eq. 'cp2' .and. index_custom .eq. 0) then  ! for Bi/Ge(110)-H2/H3 interface
+     if    ( (dij .gt.  8.7) .and. (dij .lt.  9.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B3-2 hoping
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+     elseif( (dij .gt.  7.7) .and. (dij .lt.  7.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B3-1 hoping
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+
+     elseif( (dij .gt.  9.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B1/B4-2 hopping
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+     elseif( (dij .gt.  6.8) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B1/B4-1 hopping
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+
+     elseif( (dij .gt. 10.0) .and. (dij .lt. 14.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B4-1~4 hopping
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+     endif
+   endif
+
+!  elseif(ci_orb(1:3) .ne. cj_orb(1:3)) then
 !need to be updated : KHJ 2019. March 12 , if updated please delete this comment line.
-     ! Pmgx/Pmgy interface
-     elseif( (dij .gt.  7.0) .and. (dij .lt.  8.0) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     elseif( (dij .gt.  8.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+!    ! Pmgx/Pmgy interface
+
+!    if    ( (dij .gt. 
+
+!    elseif( (dij .gt.  7.0) .and. (dij .lt.  8.0) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
+!      call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
+!    elseif( (dij .gt.  8.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
+!      call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 
 !    elseif( (dij .gt.  9.6) .and. (dij .lt.  9.8) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AA-l hoping
 !      call get_param_name_index(PINPT, param_class, 'l', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
@@ -95,9 +112,9 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
 !      call get_param_name_index(PINPT, param_class, 't', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
 !    elseif( (dij .gt. 10.1) .and. (dij .lt. 10.4) .and. (ci_atom(1:1) .ne. cj_atom(1:1)) ) then  ! AB-b hoping
 !      call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom)
-     endif
+!    endif
 
-   endif
+!  endif
 
    ! setup for kane-mele 
    if    ( (dij .gt. 1.3d0) .and. (dij .lt. 1.6d0) ) then
@@ -200,7 +217,7 @@ function tij_cc(NN_TABLE,ii,PINPT,tol,flag_init)
     cc_index = NN_TABLE%cc_index_set(0,ii)
     if( cc_index .gt. 0 ) then 
       call get_param(PINPT, cc_index, tij_cc)
-      if(PINPT%flag_efield) then
+      if(PINPT%flag_efield .and. (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)) ) then
         tij_cc = tij_cc - dot_product(PINPT%efield(1:3), NN_TABLE%i_coord(1:3,ii) - PINPT%efield_origin_cart(1:3))
       endif
     endif

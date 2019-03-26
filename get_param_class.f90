@@ -368,7 +368,7 @@ subroutine get_param_index(PINPT, param_name, param_index)
 
    pname = adjustl(trim(param_name))
    pname = str2lowcase(pname)
-
+   param_index = 0
    ! find parameter index with given parameter name
    do i = 1, PINPT%nparam
      pname_file=adjustl(trim(PINPT%param_name(i)))
@@ -396,11 +396,16 @@ subroutine get_param(PINPT, param_index, param)
    real*8         param
 
 
-   ! get parameter value with given parameter index
-   if( nint(PINPT%param_const(4, param_index )) .ge. 1 ) then
-     param = PINPT%param_const(5, param_index ) ! set constraint condition: if fixed
-   else
-     param = PINPT%param( param_index )
+   if(param_index .ne. 0) then
+     ! get parameter value with given parameter index
+     if( nint(PINPT%param_const(4, param_index )) .ge. 1 ) then
+       param = PINPT%param_const(5, param_index ) ! set constraint condition: if fixed
+     else
+       param = PINPT%param( param_index )
+     endif
+
+   elseif(param_index .eq. 0) then
+     param = 0.d0
    endif
 
 return

@@ -365,7 +365,7 @@ subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,
     do while (.not. flag_success .and. iter .le. 5)
       call zfeast_hcsrev(UPLO, msize, SHk%H, SHk%I, SHk%J, fpm, epsout, loop, emin, emax, ne_guess, &
                          E_, V_, ne_found, res, iflag)
-      call report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found)
+      call report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
     enddo
 
     if(ne_found .ge. 1) then
@@ -397,7 +397,7 @@ subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,
 
 return
 endsubroutine
-subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found)
+subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
     implicit none
     integer*4    iflag, idummy
     integer*4    iter, max_iter
@@ -406,6 +406,7 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
     character*8  argument(16)
     real*8       emin, emax
     integer*4    ne_guess, ne_found   
+    integer*4    nemax
 
     argument(1)  = 'UPLO    '
     argument(2)  = 'msize   '
@@ -454,13 +455,16 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=4  ,   Only the subspace has been returned using fpm(14)=1'
         flag_success = .true.
       case(3  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_MAX" is too small'
+        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_GUESS" is too small'
         write(6,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'
         write(6,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'
-        write(6,'(A)'               )'                                      Please increase NE_MAX.'
+        write(6,'(A)'               )'                                      Please increase NE_GUESS.'
         write(6,'(A,I0)'            )'                                      NE_FOUND = ', ne_found
-        write(6,'(A,I0)'            )'                                      NE_MAX   = ', ne_guess
-        flag_success = .true.
+        write(6,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess
+        write(6,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.1*NE_MAX)'
+        write(6,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.1*nemax)
+        ne_guess = ne_guess + ceiling(0.1*nemax)
+        flag_success = .false.
       case(2  )                    
         write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'
         write(6,'(A, I0, I0)'       )'           -> increase refinement loops from ', fpm(4), fpm(4) + 10
@@ -468,8 +472,8 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         flag_success = .false.
         iter = iter + 1
       case(1  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'
-        write(6,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'
+!       write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'
+!       write(6,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'
         flag_success = .true. 
       ! Sucessful exit
       case(0  )                    

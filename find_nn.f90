@@ -1,6 +1,8 @@
+#include "alias.inc"
 subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    use parameters
    use mpi_setup
+   use time
    implicit none
    type (poscar)  :: PGEOM
    type (incar)   :: PINPT
@@ -33,6 +35,11 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    external enorm
    external tij_sk, tij_cc
    logical  flag_init, flag_use_site_cindex
+#ifdef MPI
+   integer*4                  nn_temp, nn_mpi(nprocs), nn_mpi_disp(0:nprocs-1), mpierr
+
+   nn_mpi = 0
+#endif
 
    flag_init = .true.
    max_nn= PGEOM%n_atom * max_neighbor * PGEOM%max_orb * PGEOM%max_orb
@@ -68,6 +75,14 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    NN_TABLE%stoner_I_param_index = 0
    NN_TABLE%local_U_param_index = 0
    NN_TABLE%plus_U_param_index = 0
+#ifdef MPI
+   allocate( NN_TABLE_dummy%stoner_I_param_index(PGEOM%neig) )
+   allocate( NN_TABLE_dummy%local_U_param_index(PGEOM%neig) )
+   allocate( NN_TABLE_dummy%plus_U_param_index(PGEOM%neig) )
+   NN_TABLE_dummy%stoner_I_param_index = 0
+   NN_TABLE_dummy%local_U_param_index = 0
+   NN_TABLE_dummy%plus_U_param_index = 0
+#endif
 
    onsite_tol = NN_TABLE%onsite_tolerance
    a1=PGEOM%a_latt(1:3,1)
@@ -76,6 +91,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
    if(myid .eq. 0) write(6,*)' '
    if(myid .eq. 0) write(6,*)'*- START SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'
+   call time_check(t1,t0,'init')
 
    max_x = PINPT%nn_max(1)
    max_y = PINPT%nn_max(2)
@@ -84,7 +100,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    max_nn_dist = maxval(PGEOM%nn_dist(:))
    nn=0;
 
- loop_i:do i=1,PGEOM%n_atom
+ loop_i:do i=1+myid, PGEOM%n_atom, nprocs
           if(PGEOM%n_orbital(i) .eq. 0) cycle loop_i
           pos_i= PGEOM%a_coord(1,i)*a1(:) + &
                  PGEOM%a_coord(2,i)*a2(:) + &
@@ -264,12 +280,24 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
           enddo !iorb
         enddo loop_i
 
+#ifdef MPI
+   nn_mpi(myid+1) = nn
+   call MPI_ALLGATHER(nn,1, MPI_INTEGER4, nn_mpi,1,MPI_INTEGER, mpi_comm_earth, mpierr)
+   nn_mpi_disp(0) = 0
+   do ii = 1, nprocs-1
+     nn_mpi_disp(ii)= nn_mpi_disp(ii - 1) + nn_mpi(ii)
+   enddo
+   call MPI_ALLREDUCE(nn, nn_temp, 1, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+   nn = nn_temp
+#endif
+
    NN_TABLE%n_neighbor = nn
    if (nn .gt. max_nn) then
      if(myid .eq. 0) write(6,'(A,I8,A,A)')'  !WARN! Total number of Neighbor pair is exeed MAX_NN=100*N_ATOM*MAX_ORB=',max_nn, &
                           ' Exit... Please recompile with larger MAX_NN', func 
      stop
    endif
+
 
    allocate( NN_TABLE%i_atom(nn)   )
    allocate( NN_TABLE%j_atom(nn)   )
@@ -291,6 +319,60 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    if(     PINPT%flag_load_nntable ) allocate( NN_TABLE%tij_file(nn)          )
    allocate( NN_TABLE%soc_param_index(nn) )
 
+#ifdef MPI
+   call MPI_ALLGATHERV(NN_TABLE_dummy%i_atom(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%i_atom, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%j_atom(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%j_atom, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%Dij(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%Dij, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%Dij0(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%Dij0, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%i_matrix(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%i_matrix, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%j_matrix(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%j_matrix, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%n_class(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%n_class, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%tij(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%tij, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%soc_param_index(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%soc_param_index, &
+                       nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+   do ii = 1, 3
+     call MPI_ALLGATHERV(NN_TABLE_dummy%i_coord(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%i_coord(ii,1:nn_mpi(myid+1))), MPI_REAL8, &
+                         NN_TABLE%i_coord(ii,:), nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+     call MPI_ALLGATHERV(NN_TABLE_dummy%j_coord(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%j_coord(ii,1:nn_mpi(myid+1))), MPI_REAL8, &
+                         NN_TABLE%j_coord(ii,:), nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+     call MPI_ALLGATHERV(NN_TABLE_dummy%Rij(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%Rij(ii,1:nn_mpi(myid+1))), MPI_REAL8, &
+                         NN_TABLE%Rij(ii,:), nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+     call MPI_ALLGATHERV(NN_TABLE_dummy%R(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%R(ii,1:nn_mpi(myid+1))), MPI_REAL8, &
+                         NN_TABLE%R(ii,:), nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   enddo
+   if(PINPT%flag_slater_koster) then
+     do ii = 0, 6
+       call MPI_ALLGATHERV(NN_TABLE_dummy%sk_index_set(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%sk_index_set(ii,1:nn_mpi(myid+1))), MPI_INTEGER4, &
+                           NN_TABLE%sk_index_set(ii,:), nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+     enddo
+   elseif(.not. PINPT%flag_slater_koster) then
+     do ii = 0, 3
+       call MPI_ALLGATHERV(NN_TABLE_dummy%cc_index_set(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%cc_index_set(ii,1:nn_mpi(myid+1))), MPI_INTEGER4, &
+                           NN_TABLE%cc_index_set(ii,:), nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+     enddo
+   endif
+   call MPI_ALLREDUCE(NN_TABLE%stoner_I_param_index, NN_TABLE_dummy%stoner_I_param_index, PGEOM%neig, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+   call MPI_ALLREDUCE(NN_TABLE%local_U_param_index, NN_TABLE_dummy%local_U_param_index, PGEOM%neig, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+   call MPI_ALLREDUCE(NN_TABLE%plus_U_param_index, NN_TABLE_dummy%plus_U_param_index, PGEOM%neig, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+   NN_TABLE%stoner_I_param_index(1:PGEOM%neig) = NN_TABLE_dummy%stoner_I_param_index(1:PGEOM%neig)
+   NN_TABLE%local_U_param_index(1:PGEOM%neig) = NN_TABLE_dummy%local_U_param_index(1:PGEOM%neig)
+   NN_TABLE%plus_U_param_index(1:PGEOM%neig) = NN_TABLE_dummy%plus_U_param_index(1:PGEOM%neig)
+
+   call MPI_ALLGATHERV(NN_TABLE_dummy%ci_orb(1:nn_mpi(myid+1)), nn_mpi(myid+1)*8, MPI_CHAR, NN_TABLE%ci_orb, &
+                       nn_mpi*8, nn_mpi_disp*8, MPI_CHAR, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%cj_orb(1:nn_mpi(myid+1)), nn_mpi(myid+1)*8, MPI_CHAR, NN_TABLE%cj_orb, &
+                       nn_mpi*8, nn_mpi_disp*8, MPI_CHAR, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%p_class(1:nn_mpi(myid+1)), nn_mpi(myid+1)*2, MPI_CHAR, NN_TABLE%p_class, &
+                       nn_mpi*2, nn_mpi_disp*2, MPI_CHAR, mpi_comm_earth, mpierr)
+#else
    NN_TABLE%i_atom(1:nn)           = NN_TABLE_dummy%i_atom(1:nn)
    NN_TABLE%j_atom(1:nn)           = NN_TABLE_dummy%j_atom(1:nn)
    NN_TABLE%i_coord(:,1:nn)        = NN_TABLE_dummy%i_coord(:,1:nn)
@@ -309,6 +391,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    if(.not.PINPT%flag_slater_koster) NN_TABLE%cc_index_set(0:3,1:nn) = NN_TABLE_dummy%cc_index_set(0:3,1:nn)
    NN_TABLE%tij(1:nn)              = NN_TABLE_dummy%tij(1:nn)
    NN_TABLE%soc_param_index(1:nn)  = NN_TABLE_dummy%soc_param_index(1:nn)
+#endif
 
    deallocate( NN_TABLE_dummy%i_atom   )
    deallocate( NN_TABLE_dummy%j_atom   )
@@ -328,11 +411,19 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    if(.not.PINPT%flag_slater_koster) deallocate( NN_TABLE_dummy%cc_index_set )
    deallocate( NN_TABLE_dummy%tij      )
    deallocate( NN_TABLE_dummy%soc_param_index )
+#ifdef MPI
+   deallocate( NN_TABLE_dummy%stoner_I_param_index )
+   deallocate( NN_TABLE_dummy%local_U_param_index )
+   deallocate( NN_TABLE_dummy%plus_U_param_index )
+#endif
 
    if(myid .eq. 0) write(6,'(A,I8)')'  N_NEIGH:',NN_TABLE%n_neighbor
 
+   call time_check(t1,t0,'end')
+   if(myid .eq. 0) write(6,'(A,F12.6)')"  TIME for FINDING NEIGBOR PAIRS (s)", t1
    if(myid .eq. 0) write(6,*)' '
    if(myid .eq. 0) write(6,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS' 
+   if(myid .eq. 0) write(6,*)' '
 
 return
 endsubroutine

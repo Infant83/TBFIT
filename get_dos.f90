@@ -12,7 +12,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    type(kpoints) :: PKPTS
    integer*4        i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin
    integer*4        ik,nk1,nk2,nk3
-   integer*4        iband, fband, nband
+   integer*4        iband, fband, nband, nband_found
    integer*4        is, ispin_print
    integer*4        mpierr
    real*8           kshift(3)
@@ -29,9 +29,13 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    real*8           fgauss
    external         fgauss  
    character*40     fname_header
-   logical          flag_sparse
    real*8           time1, time2
-
+   logical          flag_sparse
+   integer*4        feast_nemax_save
+   integer*4        feast_fpm_save(128)
+   integer*4, allocatable :: feast_ne_save(:,:)
+   real*8           feast_emin_save, feast_emax_save
+  
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
@@ -57,13 +61,33 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    g_smear = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 
-   flag_sparse = .false.
+
    if(PINPT%flag_noncollinear) then ! set default fband if fband has not been pre-defined
      if(fband .eq. 999999) fband = neig * 2
    else
      if(fband .eq. 999999) fband = neig
    endif
    nband   = fband - iband + 1
+
+   if(PINPT_DOS%dos_flag_sparse) then ! set for FEAST eigen solver if DOS_SPARSE=.TRUE.
+     flag_sparse = PINPT_DOS%dos_flag_sparse
+
+     if(PINPT%flag_sparse) then
+       feast_emin_save = PINPT%feast_emin
+       feast_emax_save = PINPT%feast_emax
+       feast_fpm_save  = PINPT%feast_fpm
+       feast_nemax_save= PINPT%feast_nemax
+       if(allocated(PINPT%feast_ne)) then
+         allocate(feast_ne_save(PINPT%nspin, PKPTS%nkpoint))
+         feast_ne_save = PINPT%feast_ne
+         deallocate(PINPT%feast_ne)
+       endif
+     endif
+
+     PINPT%feast_emin  = emin
+     PINPT%feast_emax  = emax
+     PINPT%feast_nemax = nband
+   endif
 
    a1=PGEOM%a_latt(1:3,1)
    a2=PGEOM%a_latt(1:3,2)
@@ -103,8 +127,9 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      if(myid .eq. 0) call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
    endif
 
+   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, &
+                PINPT%flag_get_orbital, flag_sparse, .true., .true.)
 
-   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, PINPT%flag_get_orbital, flag_sparse, .true., .true.)
    sigma = g_smear
 
 #ifdef MPI
@@ -113,17 +138,38 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
 
 kp:do ik = 1 + myid, nkpoint, nprocs
  eig:do ie = 1, nediv
- dosum:do i = 1, nband
+  dsum:do i = 1, nband
          if(PINPT%flag_collinear) then
-           x = e_range(ie) - E(i,ik)
-           dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
-           x = e_range(ie) - E(i+neig,ik)
-           dos_dn(ie) = dos_dn(ie) + fgauss(sigma,x) * dkv
+           if(.not.flag_sparse) then
+             x = e_range(ie) - E(i,ik)
+             dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
+             x = e_range(ie) - E(i+neig,ik)
+             dos_dn(ie) = dos_dn(ie) + fgauss(sigma,x) * dkv
+           elseif(flag_sparse) then
+             if(i .le. PINPT%feast_ne(1,ik)) then
+               x = e_range(ie) - E(i,ik)
+               dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
+             endif
+             if(i .le. PINPT%feast_ne(2,ik)) then
+               x = e_range(ie) - E(i+neig,ik)
+               dos_dn(ie) = dos_dn(ie) + fgauss(sigma,x) * dkv
+             endif
+             if(i .gt. PINPT%feast_ne(1,ik) .and. i .gt. PINPT%feast_ne(2,ik)) exit dsum
+           endif
          else
-           x = e_range(ie) - E(i,ik)
-           dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
+           if(.not. flag_sparse) then
+             x = e_range(ie) - E(i,ik)
+             dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
+           elseif(flag_sparse) then
+             if(i .le. PINPT%feast_ne(1,ik)) then
+               x = e_range(ie) - E(i,ik)
+               dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
+             elseif(i .gt. PINPT%feast_ne(1,ik)) then
+               exit dsum
+             endif
+           endif
          endif
-       enddo dosum
+       enddo dsum
      enddo eig
    enddo kp
 
@@ -137,7 +183,9 @@ kp:do ik = 1 + myid, nkpoint, nprocs
 #endif
    if(myid .eq. 0)  call print_dos(PINPT_DOS, PINPT)
 
-   if(PINPT_DOS%dos_flag_print_eigen .and. myid .eq. 0) then
+   ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
+   !       ordering is not well defined in this case.
+   if(PINPT_DOS%dos_flag_print_eigen .and. myid .eq. 0 .and. .not. flag_sparse) then
      call get_ispin_print(PINPT%flag_collinear, ispin_print)
      allocate(E_(ispin_print,nkpoint))
      allocate(V_(neig*ispin,ispin_print,nkpoint))
@@ -160,6 +208,21 @@ kp:do ik = 1 + myid, nkpoint, nprocs
    if(allocated(V_)) deallocate( V_)
    deallocate( kpoint )
    deallocate( kpoint_reci )
+
+   if(PINPT_DOS%dos_flag_sparse) then ! set for FEAST eigen solver if DOS_SPARSE=.TRUE.
+     if(PINPT%flag_sparse) then
+       PINPT%feast_emin = feast_emin_save
+       PINPT%feast_emax = feast_emax_save
+       PINPT%feast_fpm  = feast_fpm_save 
+       PINPT%feast_nemax= feast_nemax_save
+       if(allocated(PINPT%feast_ne)) then
+         deallocate(PINPT%feast_ne)
+         allocate(PINPT%feast_ne(PINPT%nspin, PKPTS%nkpoint))
+         PINPT%feast_ne = feast_ne_save
+         deallocate(feast_ne_save)
+       endif
+     endif
+   endif
 
 #ifdef MPI
    if_main time2 = MPI_Wtime()

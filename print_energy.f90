@@ -32,10 +32,14 @@ subroutine print_energy_ensurf (kpoint, nkpoint,ie, ispin_print, E, V, PGEOM, PI
               if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
               write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma= ',sigma
               write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
-              do im=1,nbasis-1
+          mm: do im=1,nbasis
                 write(pid_energy, '(I9)',ADVANCE='NO')im
-              enddo
-              write(pid_energy,'(I9)',ADVANCE='yes')im
+                if(im .ge. 30 .and. im .lt. nbasis) then
+                  write(pid_energy, '(A)',ADVANCE='NO')' ... '
+                  exit mm
+                endif
+              enddo mm
+              write(pid_energy,'(A)',ADVANCE='yes')''
             endif
 
          kp:do ik = 1, nkpoint
@@ -133,9 +137,13 @@ spin:do is = 1, ispin_print
          if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
          write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
          write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
-         do im=1,nbasis
+     mm: do im=1,nbasis
            write(pid_energy, '(I9)',ADVANCE='NO')im
-         enddo
+           if(im .ge. 30 .and. im .lt. nbasis) then
+             write(pid_energy, '(A)',ADVANCE='NO')' ... '
+             exit mm
+           endif
+         enddo mm
          write(pid_energy,'(A)')''
        endif
     kp:do ik = 1, nkpoint
@@ -393,13 +401,17 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                 write(pid_energy, '(1A)',ADVANCE='YES') '# wavefunction coeff.:          |ci>               '
                 write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
               endif
-              do im=1,nbasis
+           mm:do im=1,nbasis
                 if(PINPT%axis_print_mag .ne. 'wf') then
                   write(pid_energy, '(I9)',ADVANCE='NO')im
                 elseif(PINPT%axis_print_mag .eq. 'wf') then
                   write(pid_energy, '(I38)',ADVANCE='NO')im
                 endif
-              enddo
+                if(im .ge. 30 .and. im .lt. nbasis) then
+                  write(pid_energy, '(A)',ADVANCE='NO')' ... '
+                  exit mm
+                endif
+              enddo mm
               write(pid_energy,'(A)')''
 
 !             if(PINPT%ispinor .eq. 2 .and. PINPT%axis_print_mag .eq. 'wf') then

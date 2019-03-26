@@ -172,7 +172,7 @@ module parameters
   endtype incar
 
   type poscar !PGEOM
-       integer*4                     neig       ! either neig_up and neig_dn
+       integer*4                     neig       ! either neig_up and neig_dn, total number of atomic orbitals (somewhat confusing with eigenvalues..)
        integer*4                     neig_total ! neig_up + neig_dn
        integer*4                     neig_target
        integer*4                     nbasis  ! normally neig = nbasis
@@ -314,6 +314,14 @@ module parameters
        integer*4,   allocatable   :: dos_ensurf(:) !integer array of band index. size=n_ensurf
        integer*4                     dos_n_ensurf
        character*1                   dos_kunit
+
+       logical                       dos_flag_sparse
+!      integer*4                     dos_feast_nemax ! maximum number of eigenvalues (=nband_guess)
+!      real*8                        dos_feast_emin, dos_feast_emax ! energy window [emin:emax] for FEAST algorithm
+!      integer*4                     dos_feast_fpm(128) ! FEAST parameters
+!      integer*4,    allocatable  :: dos_feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
+!      integer*4                     dos_feast_neguess  ! initial guess for the number of states to be found in interval
+
   endtype dos
 
   type berry ! PINPT_BERRY

@@ -21,6 +21,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   logical, intent(in) :: flag_vector, flag_stat
   character*100 stat
   real*8     t0, t1
+  character*4 timer
   logical    flag_phase, flag_init, flag_sparse
   logical    flag_sparse_SHm, flag_sparse_SHs ! if .false. sparse Hamiltonian SHm(collinear magnetic) and SHs(SOC) will not
                                               ! be added up and constructed along with the k_loop due to the total number 
@@ -33,7 +34,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   integer*4  ourjob(1) 
   call mpi_job_distribution_chain(nkp, ourjob)
 #endif
-
+  timer = 'init'
   call initialize_all (EE, neig, nband, nkp, PINPT, flag_vector, flag_sparse, flag_stat, ii, iadd, stat, t1, t0, flag_init)
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
     if(flag_sparse) then
@@ -44,23 +45,23 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
         ne_prev = 0
       endif
 #ifdef MKL_SPARSE
+      !NOTE: SHm is k-independent -> keep unchankged from first call
+      !      SHs is k-independent if flag_slater_koster
+      !             k-dependent   if .not. slater_koster 
       call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
                              PINPT%feast_ne(1:PINPT%nspin,ik),ik, &
-                             flag_sparse_SHm, flag_sparse_SHs, ne_prev)
+                             flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
       
 #else
 
       if_main write(6,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'
       if_main write(6,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'
-      stop
+      kill_job
 #endif
     elseif(.not.flag_sparse) then
       call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
-!     WRITE(6,*)"NBAND", nband
-!     write(6,*)"RRRRR", EE%E(:,1)
-!     write(6,*)"TTTTT", EE%V(:,1,1)
     endif
 
     call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
@@ -85,7 +86,7 @@ endsubroutine
 #ifdef MKL_SPARSE
 subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
                              nemax, flag_vector, flag_init, flag_phase, ne_found,ik, &
-                             flag_sparse_SHm, flag_sparse_SHs,ne_prev)
+                             flag_sparse_SHm, flag_sparse_SHs,ne_prev, timer)
   use parameters, only : incar, hopping, spmat
   use mpi_setup
   use sparse_tool
@@ -106,12 +107,21 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
   complex*16       V(neig*PINPT%ispin,nemax*PINPT%nspin)  ! will store all the spin block at once in the first dimension
   logical          flag_vector, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs
   real*8           t1, t0 
+  character*4      timer
 
   emin = PINPT%feast_emin ; emax = PINPT%feast_emax
-  
+   
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) SHm, SHs will be kept during ik-run. (SHs will be modified if flag_slater_koster=.false.)
+      call time_check(t1,t0,timer)
       call get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+      call time_check(t1,t0) 
+      if(timer .eq. 'init' .and. myid .eq. 0) then 
+        write(6,'(A,F10.4,A)')'   TIME for SPARSE MATRIX CONSTRUCTION: ',t1, ' (sec)'
+        timer = 'off'
+      else
+        timer = 'off'
+      endif
       call get_matrix_index(ie, fe, im, fm, is, nemax, neig, PINPT%ispinor)
       call cal_eig_sparse(SHk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
                           emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
@@ -120,10 +130,11 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
       deallocate(SHk%I)
       deallocate(SHk%J) ! SHk should be deallocated for each run
     enddo sp
+
   if(PINPT%flag_soc .and. .not. PINPT%flag_slater_koster) then
     if(allocated(SHs%H)) deallocate(SHs%H)
-    if(allocated(SHs%I))deallocate(SHs%I)
-    if(allocated(SHs%J))deallocate(SHs%J)
+    if(allocated(SHs%I)) deallocate(SHs%I)
+    if(allocated(SHs%J)) deallocate(SHs%J)
   endif
   deallocate(SH0%H)
   deallocate(SH0%I)
@@ -352,12 +363,14 @@ subroutine set_ham0_file(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       endif
     endif
 
-    if(i .eq. j) then
+    if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
       if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
       else
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
       endif
+    elseif(i .eq. j .and. NN_TABLE%Dij(nn) >  tol) then
+      H(i,j) = H(i,j) + Eij
     else
       H(i,j) = H(i,j) + Eij
       H(j,i) = H(j,i) + conjg(Eij)
@@ -407,6 +420,7 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       endif
     endif
 
+!   if(i .eq. j ) then !.and. NN_TABLE%Dij(nn) <= tol) then
     if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
       if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
@@ -465,12 +479,14 @@ subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
       endif
     endif
 
-    if(i .eq. j) then
+    if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
       if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
       else
         H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
       endif
+    elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+      H(i,j) = H(i,j) + Eij
     else
       H(i,j) = H(i,j) + Eij
       H(j,i) = H(j,i) + conjg(Eij)

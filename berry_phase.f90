@@ -121,14 +121,14 @@ subroutine get_phase_shift(phase_shift, dk, PGEOM, ispinor)
 
    do is = 1, ispinor
      do ibasis = 1, PGEOM%neig
-!      phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ(-dk, PGEOM%o_coord_cart(:, ibasis))
+       phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ(-dk, PGEOM%o_coord_cart(:, ibasis))
        
-       phase_shift(ibasis + (is-1)*PGEOM%neig) = cos(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
-                                                     dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &  
-                                                     dk(3) * PGEOM%o_coord_cart(3, ibasis)) - &
-                                                 sin(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
-                                                     dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &
-                                                     dk(3) * PGEOM%o_coord_cart(3, ibasis)) *-zi
+!      phase_shift(ibasis + (is-1)*PGEOM%neig) = cos(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
+!                                                    dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &  
+!                                                    dk(3) * PGEOM%o_coord_cart(3, ibasis)) - &
+!                                                sin(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
+!                                                    dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &
+!                                                    dk(3) * PGEOM%o_coord_cart(3, ibasis)) *-zi
 
      enddo
    enddo
@@ -148,7 +148,7 @@ subroutine get_overlap_matrix(M, V, phase_shift, neig, nerange)
    M = (0d0,0d0)
    do j = 1, nerange
      do i = 1, nerange
-        M(i,j) = dot_product( V(:,i,1) , V(:,j,2)*phase_shift  )
+        M(i,j) = dot_product( V(:,i,1) , V(:,j,2)              )
      enddo
    enddo
    return

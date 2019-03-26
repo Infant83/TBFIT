@@ -123,8 +123,10 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
                                               + zi*lambda_soc * hop_signatom * hop_signy * F
           H(i+neig,j+neig) = H(i+neig,j+neig) - zi*lambda_soc * hop_signatom * hop_signx * F & ! for spin-dn sigma_z
                                               - zi*lambda_soc * hop_signatom * hop_signy * F
-          H(j,i)            = conjg(H(i,j))
-          H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
+          if(i .ne. j) then
+            H(j,i)            = conjg(H(i,j))
+            H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
+          endif
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
           call get_param(PINPT,    soc_index, lambda_soc   )
 
@@ -137,12 +139,10 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
           if( ci_atom(1:1) .eq. 'b') lsign =  1.0d0
           H(i,j)            = H(i,j)           + zi * lambda_soc * lsign * hsign * F 
           H(i+neig,j+neig)  = H(i+neig,j+neig) - zi * lambda_soc * lsign * hsign * F 
-          H(j,i)            = conjg(H(i,j))
-          H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
-
-!         H(i+neig, j+neig) = H(i+neig,j+neig) - zi * lambda_soc * exp( lsign * zi * pi * 2) * F
-!         H(j,i) = conjg(H(i,j))
-!         H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
+          if(i .ne. j) then
+            H(j,i)            = conjg(H(i,j))
+            H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
+          endif
         elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered
           call get_param(PINPT, rashba_index, lambda_rashba)
 
@@ -153,9 +153,6 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
                                     + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * -zi    ! sigma_y 
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
-! write(6,*)"XXX ",nn, lambda_rashba * NN_TABLE%Rij(2,nn) / NN_TABLE%Dij(nn), lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) 
-! write(6,*)"LLL ", lambda_rashba, NN_TABLE%Rij(2,nn),  NN_TABLE%Dij(nn)
-! if (nn .eq. 1) stop
         endif
 
       enddo nn_cc 

@@ -422,6 +422,7 @@ mode: select case ( trim(plot_mode) )
       character(*), parameter :: func = 'set_dos'
       character*132 inputline
       character*40  desc_str, dummy, dummy1,dummy2,dummy3
+      character*40  desc_str_
       integer*4     i_dummy,i_dummy1,i_dummy2,i_dummy3,i_dummy4,i_dummy5
       character*40,  allocatable :: strip_dummy(:)
       integer*4     i_dummyr(max_dummy)
@@ -446,6 +447,7 @@ mode: select case ( trim(plot_mode) )
             PINPT_DOS%dos_iband = 1
             PINPT_DOS%dos_fband = 999999
             PINPT_DOS%dos_smearing = 0.025
+            PINPT_DOS%dos_flag_sparse = .false.
 
    set_dos: do while(trim(desc_str) .ne. 'END')
               read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -458,8 +460,8 @@ mode: select case ( trim(plot_mode) )
                 case('NEDOS')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_nediv
                   if_main write(6,'(A,I8)')' DOS_EDIV:', PINPT_DOS%dos_nediv
-                case('DOS_ERANGE')
-                  call strip_off (trim(inputline), dummy, 'DOS_ERANGE', ' ' , 2)   ! get dos_range
+                case('DOS_EWINDOW')
+                  call strip_off (trim(inputline), dummy, 'DOS_EWINDOW', ' ' , 2)   ! get dos_range
                   i_dummy=index(dummy,':')
                   call strip_off (trim(dummy), dummy1,' ',':',0)
                   if( i_dummy .eq. 0) then
@@ -493,8 +495,9 @@ mode: select case ( trim(plot_mode) )
                       if_main write(6,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax
                     endif
                   endif
-                case('DOS_NRANGE')
-                  call strip_off (trim(inputline), dummy, 'DOS_NRANGE', ' ' , 2)   ! get dos_range
+                case('DOS_NRANGE', 'DOS_NE_MAX')
+                  desc_str_='DOS_NRANGE'
+                  call strip_off (trim(inputline), dummy, trim(desc_str_), ' ' , 2)   ! get dos_range
                   i_dummy=index(dummy,':')
                   call strip_off (trim(dummy), dummy1,' ',':',0)
                   if( i_dummy .eq. 0) then
@@ -502,6 +505,11 @@ mode: select case ( trim(plot_mode) )
                     if(i_dummy2 .eq. 2)then
                       read(dummy,*,iostat=i_continue) PINPT_DOS%dos_iband,PINPT_DOS%dos_fband
                       if_main write(6,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband
+                      if_main write(6,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband
+                    elseif(i_dummy2 .eq. 1) then
+                      read(dummy,*,iostat=i_continue) PINPT_DOS%dos_fband
+                      PINPT_DOS%dos_iband = 1
+                      if_main write(6,'(A,I8)')' DOS_IBND: (default)',PINPT_DOS%dos_iband
                       if_main write(6,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband
                     else
                       if_main write(6,'(A)')'    !WARNING!  DOS_NRANGE is not properly set up.'
@@ -634,7 +642,11 @@ mode: select case ( trim(plot_mode) )
                 case('SMEARING') ! gaussian smearing
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_smearing
                   if_main write(6,'(A,F8.4)')'DOS_SIGMA: GAUSSIAN WIDTH = ',PINPT_DOS%dos_smearing
-
+                case('DOS_SPARSE') ! logical flag for sparse matrix setup, if true, ERANGE will be 
+                                   ! the energy window, and DOS_NRANGE will be used as NE_MAX
+                  read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_sparse
+                  if_main write(6,'(A)')'DOS_SPARSE: .TRUE.'
+                  
               end select case_dos
 
             enddo set_dos
@@ -2410,7 +2422,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       type(incar) :: PINPT
       character*132  inputline
       character*40   desc_str, dummy_, dummy
-      integer*4      i_continue
+      integer*4      i_continue, i_dummy
       integer*4      nitems
       external       nitems
 
@@ -2422,6 +2434,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       if(nitems(inputline) -1 .eq. 3) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%nn_max(1:3)
+        if_main write(6,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)
+      elseif(nitems(inputline) -1 .eq. 1) then
+        read(inputline,*,iostat=i_continue) desc_str, i_dummy
+        PINPT%nn_max(1:3) = i_dummy
         if_main write(6,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)
       else
         if_main write(6,'(A)')'    !WARN! Error in reading NN_MAX tag. Exit program...'

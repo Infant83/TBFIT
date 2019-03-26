@@ -27,6 +27,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   logical           flag_sparse_zero_SHm ! if the sparse matrix has no non-zero element (nnz = 0),
   logical           flag_sparse_zero_SHs ! this flag will be .true. and will skip related construction routine.
   real*8            t1, t0
+  integer*4         mpierr
 
   ! DEALLOCATION of array
   ! Hk: initialized every call (deallocated with cal_eig_Hk_sparse exit)
@@ -35,7 +36,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   ! Hs: initialized in the first call if slater-koster (deallocated after get_eig exit)
   !     initialized every call        if .not. slater-koster (deallocated after cal_eig_Hk_sparse exit)
 
-  ! H0 will be constructed for spin-1. For spin-2, copied from spin-1 multiplied by -1
+  ! H0 will be constructed for spin-1. For spin-2, copied from spin-1 
   if(is .eq. 1) call set_ham0_sparse   (SH0, kp, PINPT, neig, NN_TABLE, flag_phase)
 
   if(flag_init) then   ! setup k-independent Hamiltonian: Hm, Hs (if .not. slater_koster)
@@ -45,7 +46,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
       call set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero_SHm)
 
       if(PINPT%flag_soc .and. PINPT%flag_slater_koster) then
-        call set_ham_soc_sparse(SHs, 0d0, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs)
+        call set_ham_soc_sparse(SHs, 0d0, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
       endif
     endif
     flag_init = .false.
@@ -57,6 +58,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
       call sparse_create_csr_handle(Sm, SHm)
       alpha = ((-1d0)**(is+1))
 
+      ! Sk(up) = S0 + Sm , Sk(dn) = S0 - Sm
       istat = MKL_SPARSE_z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, S0 , alpha, Sm, Sk)
       call sparse_error_report('MKL_SPARSE_z_ADD: S0+Sm=Sk', istat)
 
@@ -73,15 +75,16 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
       allocate(SHk%J(SH0%nnz    )) ; SHk%J = SH0%J
       allocate(SHk%I(SH0%msize+1)) ; SHk%I = SH0%I
     endif
+
   elseif(PINPT%flag_noncollinear) then
     if(PINPT%flag_soc) then
       if(.not. PINPT%flag_slater_koster) then 
         !set up k-dependent SOC in the case of 'cc' orbitals
-!       call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase)
-        if_main write(6,'(A)')'    !WARN! Current version does not support Sparse Matrix '
-        if_main write(6,'(A)')'           for non-Slater-Koster type Hamiltonian'
-        if_main write(6,'(A)')'           Exit program...'
-        stop
+        call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
+!       if_main write(6,'(A)')'    !WARN! Current version does not support Sparse Matrix '
+!       if_main write(6,'(A)')'           for non-Slater-Koster type Hamiltonian'
+!       if_main write(6,'(A)')'           Exit program...'
+!       kill_job
       endif
       
       call kproduct_pauli_0_CSR(SH0)
@@ -132,16 +135,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
           call sparse_export_csr(S0, SHk)
         endif
       endif
-!write(6,*)"CCCCC"
-!stop
-!     istat = MKL_SPARSE_DESTROY(Sk_)
-!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sk_', istat)
-!     istat = MKL_SPARSE_DESTROY(Ss)    
-!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Ss ', istat)
-!     istat = MKL_SPARSE_DESTROY(Sm)    
-!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: Sm ', istat)
-!     istat = MKL_SPARSE_DESTROY(S0)    
-!     if(istat .gt. 1) call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
+
     else
       call kproduct_pauli_0_CSR(SH0)
       call sparse_create_csr_handle(S0, SH0)
@@ -211,12 +205,28 @@ nn_:do nn=1,NN_TABLE%n_neighbor
     jj=NN_TABLE%j_matrix(nn)
     call get_hopping_integral(Eij, NN_TABLE, nn, PINPT, tol, kpoint, F_IJ, flag_phase)
 
-    if(ii .eq. jj) then
+    if(ii .eq. jj .and. NN_TABLE%Dij(nn) <= tol) then
       if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(ii))) .ge. 1) then
         Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(ii)))
       else
         Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param((NN_TABLE%local_U_param_index(ii)))
       endif
+
+      if(abs(Tij) .ge. eta) then
+        do m = 1, mm ! check previously stored array: if exist, overwrite Tij (Tii), otherwise, save new array
+          if( ii .eq. nint(real(IJ(m))) .and. jj .eq. nint(aimag(IJ(m))) ) then
+            H(m) = H(m) + Tij
+            cycle nn_
+          endif
+        enddo
+        mm = mm + 1
+        I(mm) = ii
+        J(mm) = jj
+        H(mm) = Tij
+        IJ(mm) = real(I(mm)) + real(J(mm)) * zi
+      endif
+    elseif(ii .eq. jj .and. NN_TABLE%Dij(nn) > tol) then
+      Tij =  Eij
 
       if(abs(Tij) .ge. eta) then
         do m = 1, mm ! check previously stored array: if exist, overwrite Tij (Tii), otherwise, save new array
@@ -421,15 +431,23 @@ nn_nc:do nn = 1, neig
 
 return
 endsubroutine
-subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero)
-  use parameters, only : zi, hopping, incar, spmat, eta
+subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero, FIJ)
+  use parameters, only : zi, hopping, incar, spmat, eta, pi, pi2
   use sparse_tool
   use kronecker_prod
   use mpi_setup
+  use phase_factor
 #ifdef MKL_SPARSE
   use MKL_SPBLAS
 #endif
   implicit none
+  interface
+    function FIJ(k,R)
+      complex*16 :: FIJ
+      real*8, intent(in) :: k(3)
+      real*8, intent(in) :: R(3)
+    endfunction
+  end interface
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
   type (spmat  ) :: COO_x, COO_y, COO_z, CSR_x, CSR_y, CSR_z, SHs
@@ -437,11 +455,12 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
   integer*4         neig
   integer*4         nn, ii,jj, mm, m
   integer*4         istat
-  integer*4         soc_index 
-  real*8            lambda_soc
+  integer*4         soc_index, rashba_index
+  real*8            lambda_soc, lambda_rashba
   real*8            kp(3)
   logical           flag_phase, flag_sparse_zero
   complex*16        Tij, Tij_x, Tij_y, Tij_z
+  complex*16        F
   integer*4         I(NN_TABLE%n_neighbor*2) ! default maximum : n_neighbor*4
   integer*4         J(NN_TABLE%n_neighbor*2)
   complex*16        Hx(NN_TABLE%n_neighbor*2)
@@ -451,6 +470,11 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
   complex*16        alpha
   complex*16        L_x, L_y, L_z
   external          L_x, L_y, L_z
+  character*8       ci_orb, cj_orb
+  character*20      ci_atom, cj_atom
+  real*8            lsign, hsign
+  real*8            hop_signx, hop_signy, hop_signatom
+  complex*16        prod
 
   flag_sparse_zero = .false.
   alpha = 1d0
@@ -490,12 +514,12 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
              Hy(mm) = conjg(Tij_y)
              Hz(mm) = conjg(Tij_z)
 
-             if(mm .gt. NN_TABLE%n_neighbor*4) then
-               if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
-               if_main write(6,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'
-               stop
-             endif
-           endif
+            if(mm .gt. NN_TABLE%n_neighbor*4) then
+              if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
+              if_main write(6,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'
+              stop
+            endif
+          endif
 
         endif
 
@@ -553,12 +577,185 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
       endif
 
     elseif(.not.PINPT%flag_slater_koster) then
-   
-      if_main write(6,*)'    !WARN! Current version does not support Sparse Matrix for non-Slater-Koster type Hamiltonian'
-      if_main write(6,*)'           Exit program...'
-      stop
+      Hx = 0d0
+      Hy = 0d0
+      Hz = 0d0
 
+     !WARNING!! This setting is only valid for Bi/Si(110) case with certain atomic geometry and lattice vectors,
+     !          since the sign convention is only valid and meaningful for this particular case.
+     !          If you are dealing with other system, please construct your own hamltonian setup.
+nn_cc:do nn = 1, NN_TABLE%n_neighbor
+        soc_index    = NN_TABLE%cc_index_set(2,nn)
+        rashba_index = NN_TABLE%cc_index_set(3,nn)
+        ii = NN_TABLE%i_matrix(nn) ; jj = NN_TABLE%j_matrix(nn)
+
+        if(flag_phase) then
+          F = FIJ(kp, NN_TABLE%Rij(:,nn))
+        elseif(.not. flag_phase) then
+          F = FIJ(kp, NN_TABLE%R  (:,nn))
+        endif
+
+        if( soc_index .ge. 1 .and. rashba_index .ge. 1) then
+          call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PINPT, rashba_index, lambda_rashba)
+
+!         ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
+          Tij_x = zi * lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F  ! sigma_x
+          Tij_y = zi * lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * F  ! sigma_y
+
+          ! set SOC between i_orb and j_orb separated by |dij|, 
+          ! originated from E-field due to neighbor atom nearby the hopping path
+          ! H_SOC = sigma_<<ij>> i * lsoc * v_ij * ci' * sigma_z * cj
+          ! v_ij = di x dj / (|di x dj|) , di(dj) are vector connecting nearest neigbohor
+          ! atom from i (to j).
+          hop_signx= NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn)
+          hop_signy= NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn)
+          ci_atom = NN_TABLE%site_cindex(NN_TABLE%i_atom(nn))
+          cj_atom = NN_TABLE%site_cindex(NN_TABLE%j_atom(nn))
+          if( ci_atom(1:2) .eq. 'b1') hop_signatom = 1.0
+          if( ci_atom(1:2) .eq. 'b2') hop_signatom =-1.0
+          Tij_z = zi * lambda_soc * hop_signatom * (hop_signx + hop_signy) * F
+
+          call save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, NN_TABLE%n_neighbor)
+
+        elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
+          call get_param(PINPT,    soc_index, lambda_soc   )
+
+!         ! This model is only for Kane-mele type of SOC. Be careful..
+          prod=exp(-2d0*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
+          hsign  = sign(1d0,aimag(prod))
+          ci_atom = NN_TABLE%site_cindex(NN_TABLE%i_atom(nn))
+          cj_atom = NN_TABLE%site_cindex(NN_TABLE%j_atom(nn))
+          if( ci_atom(1:1) .eq. 'a') lsign = -1.0d0
+          if( ci_atom(1:1) .eq. 'b') lsign =  1.0d0
+
+          Tij_x             = (0d0, 0d0)
+          Tij_y             = (0d0, 0d0)
+          Tij_z             = zi * lambda_soc * lsign * hsign * F
+          call save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, NN_TABLE%n_neighbor)
+
+        elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered (for Bi/Si110 case)
+          call get_param(PINPT, rashba_index, lambda_rashba)
+
+!         ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
+          Tij_x = zi * lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F  ! sigma_x
+          Tij_y = zi * lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * F  ! sigma_y
+          Tij_z = (0d0,0d0)
+
+          call save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, NN_TABLE%n_neighbor)
+        endif
+
+      enddo nn_cc
+
+      if(mm .eq. 0) then
+        flag_sparse_zero = .true.
+      elseif(mm .ge. 1) then
+
+        allocate(COO_x%H(mm));allocate(COO_y%H(mm));allocate(COO_z%H(mm))
+        allocate(COO_x%I(mm));allocate(COO_y%I(mm));allocate(COO_z%I(mm))
+        allocate(COO_x%J(mm));allocate(COO_y%J(mm));allocate(COO_z%J(mm))
+        COO_x%nnz = mm ; COO_x%msize = neig
+        COO_y%nnz = mm ; COO_y%msize = neig
+        COO_z%nnz = mm ; COO_z%msize = neig
+        COO_x%H   = Hx(1:mm) ; COO_x%I   = I(1:mm) ; COO_x%J   = J(1:mm)
+        COO_y%H   = Hy(1:mm) ; COO_y%I   = I(1:mm) ; COO_y%J   = J(1:mm)
+        COO_z%H   = Hz(1:mm) ; COO_z%I   = I(1:mm) ; COO_z%J   = J(1:mm)
+
+
+        call sparse_convert_coo_csr(COO_x, CSR_x)
+        call sparse_convert_coo_csr(COO_y, CSR_y)
+        call sparse_convert_coo_csr(COO_z, CSR_z)
+
+        !SET UP Hamiltonian H_soc*sigma   
+        call kproduct_pauli_x_CSR(CSR_x)
+        call kproduct_pauli_y_CSR(CSR_y)
+        call kproduct_pauli_z_CSR(CSR_z)
+        call sparse_create_csr_handle(SHx, CSR_x)
+        call sparse_create_csr_handle(SHy, CSR_y)
+        call sparse_create_csr_handle(SHz, CSR_z)
+
+        istat = MKL_SPARSE_z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, SHx , alpha, SHy, SHxy)
+        call sparse_error_report('MKL_SPARSE_z_ADD: SHx+SHy=SHxy', istat)
+
+        istat = MKL_SPARSE_z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, SHxy, alpha, SHz, SHxyz)
+        call sparse_error_report('MKL_SPARSE_z_ADD: SHxy+SHz=SHxyz', istat)
+
+        call sparse_export_csr(SHxyz, SHs)
+
+        deallocate(COO_x%H);deallocate(COO_y%H);deallocate(COO_z%H)
+        deallocate(COO_x%I);deallocate(COO_y%I);deallocate(COO_z%I)
+        deallocate(COO_x%J);deallocate(COO_y%J);deallocate(COO_z%J)
+        deallocate(CSR_x%H);deallocate(CSR_y%H);deallocate(CSR_z%H)
+        deallocate(CSR_x%I);deallocate(CSR_y%I);deallocate(CSR_z%I)
+        deallocate(CSR_x%J);deallocate(CSR_y%J);deallocate(CSR_z%J)
+
+        istat = MKL_SPARSE_DESTROY(SHx)
+        call sparse_error_report('MKL_SPARSE_DESTROY: SHx', istat)
+        istat = MKL_SPARSE_DESTROY(SHy)
+        call sparse_error_report('MKL_SPARSE_DESTROY: SHy', istat)
+        istat = MKL_SPARSE_DESTROY(SHz)
+        call sparse_error_report('MKL_SPARSE_DESTROY: SHz', istat)
+        istat = MKL_SPARSE_DESTROY(SHxy)
+        call sparse_error_report('MKL_SPARSE_DESTROY: SHxy', istat)
+      endif
+       
     endif
+return
+endsubroutine
+subroutine save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, n_neighbor)
+   use parameters, only: zi, eta
+   use mpi_setup
+   implicit none
+   complex*16   Tij_x, Tij_y, Tij_z
+   complex*16   Hx(n_neighbor*2), Hy(n_neighbor*2), Hz(n_neighbor*2), IJ(n_neighbor*2)
+   integer*4    I(n_neighbor*2), J(n_neighbor*2)
+   integer*4    n_neighbor, ii, jj, m, mm
+   integer*4    mpierr
+
+   if(abs(Tij_x) + abs(Tij_y) + abs(Tij_z) .ge. eta) then
+     do m = 1, mm ! check previously stored array: if exist, overwrite Tij and Tji, otherwise, save new array
+       if( ii .eq. nint(real(IJ(m))) .and. jj .eq. nint(aimag(IJ(m))) ) then
+         Hx(m)   = Hx(m) + Tij_x
+         Hy(m)   = Hy(m) + Tij_y
+         Hz(m)   = Hz(m) + Tij_z
+         Hx(m+1) = conjg(Hx(m))
+         Hy(m+1) = conjg(Hy(m))
+         if(ii .eq. jj) then ! check if diagonal part
+           Hz(m+1) = 0d0
+         else
+           Hz(m+1) = conjg(Hz(m))
+         endif
+         return
+       endif
+     enddo
+     mm = mm + 1
+      I(mm) = ii
+      J(mm) = jj
+      Hx(mm) = Tij_x
+      Hy(mm) = Tij_y
+      Hz(mm) = Tij_z
+      IJ(mm) = real(I(mm)) + real(J(mm)) * zi
+     mm = mm + 1
+      I(mm) = jj
+      J(mm) = ii
+      Hx(mm) = conjg(Hx(mm-1))
+      Hy(mm) = conjg(Hy(mm-1))
+      if(ii .eq. jj) then  !check if diagonal part 
+        Hz(mm) = 0d0
+      else
+        Hz(mm) = conjg(Hz(mm-1))
+      endif
+      IJ(mm) = real(I(mm)) + real(J(mm)) * zi
+
+     if(mm .gt. n_neighbor*4) then
+       if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
+       if_main write(6,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'
+       kill_job
+     endif
+   else
+
+     return
+   endif
 
 return
 endsubroutine

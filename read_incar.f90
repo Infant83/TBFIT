@@ -460,8 +460,8 @@ mode: select case ( trim(plot_mode) )
                 case('NEDOS')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_nediv
                   if_main write(6,'(A,I8)')' DOS_EDIV:', PINPT_DOS%dos_nediv
-                case('DOS_EWINDOW')
-                  call strip_off (trim(inputline), dummy, 'DOS_EWINDOW', ' ' , 2)   ! get dos_range
+                case('DOS_ERANGE', 'DOS_EWINDOW')
+                  call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
                   i_dummy=index(dummy,':')
                   call strip_off (trim(dummy), dummy1,' ',':',0)
                   if( i_dummy .eq. 0) then
@@ -496,8 +496,7 @@ mode: select case ( trim(plot_mode) )
                     endif
                   endif
                 case('DOS_NRANGE', 'DOS_NE_MAX')
-                  desc_str_='DOS_NRANGE'
-                  call strip_off (trim(inputline), dummy, trim(desc_str_), ' ' , 2)   ! get dos_range
+                  call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
                   i_dummy=index(dummy,':')
                   call strip_off (trim(dummy), dummy1,' ',':',0)
                   if( i_dummy .eq. 0) then
@@ -650,7 +649,6 @@ mode: select case ( trim(plot_mode) )
               end select case_dos
 
             enddo set_dos
-
       return
    endsubroutine
 

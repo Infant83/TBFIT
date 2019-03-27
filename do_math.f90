@@ -461,10 +461,11 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
         write(6,'(A)'               )'                                      Please increase NE_GUESS.'
         write(6,'(A,I0)'            )'                                      NE_FOUND = ', ne_found
         write(6,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess
-        write(6,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.1*NE_MAX)'
-        write(6,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.1*nemax)
+        write(6,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.2*NE_MAX)'
+        write(6,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.2*nemax)
         ne_guess = ne_guess + ceiling(0.1*nemax)
         flag_success = .false.
+        iter = iter + 1
       case(2  )                    
         write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'
         write(6,'(A, I0, I0)'       )'           -> increase refinement loops from ', fpm(4), fpm(4) + 10

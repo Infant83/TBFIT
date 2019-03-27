@@ -87,6 +87,14 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      PINPT%feast_emin  = emin
      PINPT%feast_emax  = emax
      PINPT%feast_nemax = nband
+
+     if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
+       write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'
+       write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
+       write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+       PINPT%feast_nemax = PINPT%nband
+     endif
+
    endif
 
    a1=PGEOM%a_latt(1:3,1)

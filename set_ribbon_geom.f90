@@ -1,5 +1,7 @@
+#include "alias.inc"
 subroutine set_ribbon_geom(PINPT)
    use parameters 
+   use mpi_setup
    use do_math, only : inv
    implicit none
    integer*4                 i,i_continue, linecount
@@ -19,10 +21,11 @@ subroutine set_ribbon_geom(PINPT)
    logical                   flag_selective, flag_direct, flag_cartesian
    external                  enorm, nitems
    type(incar)           ::  PINPT   
+   integer*4                 mpierr
 
    filenm_unitcell = PINPT%gfilenm 
    write(filenm_ribbon,*)trim(filenm_unitcell),'-ribbon'
-   write(6,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)
+   if_main write(6,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)
    PINPT%gfilenm = filenm_ribbon
 
 !  pid_geom_ribbon = pid_geom + 1
@@ -194,10 +197,10 @@ subroutine set_ribbon_geom(PINPT)
    close(pid_geom_ribbon)
 
    if(PINPT%flag_print_only_ribbon_geom) then
-     write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'
-     write(6,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'
-     write(6,'(A,A,A)')'  !WARN! Exit program...'
-     stop
+     if_main write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'
+     if_main write(6,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'
+     if_main write(6,'(A,A,A)')'  !WARN! Exit program...'
+     kill_job
    endif
 return
 endsubroutine

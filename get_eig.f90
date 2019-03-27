@@ -247,8 +247,8 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   call time_check(t1, t0)
   if(flag_stat .and. myid .eq. 0) write(6,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1
 
-  deallocate(EE%E)
-  deallocate(EE%V)
+  if(allocated(EE%E)) deallocate(EE%E)
+  if(allocated(EE%V)) deallocate(EE%V)
 
   if(flag_sparse) then
     if(allocated(SHm%H)) deallocate(SHm%H)
@@ -773,7 +773,7 @@ subroutine adjust_ne_guess(feast_info, is, ne_found, kp, ik, neig, nemax, PINPT)
    integer*4    nemax
  
    if(ne_found .eq. 0) then
-     PINPT%feast_neguess = nint(PINPT%feast_nemax/2d0)
+     PINPT%feast_neguess = nint(PINPT%feast_nemax/2d0) + nint(PINPT%feast_nemax*0.4d0)
    elseif(ne_found .ge. 1) then
      PINPT%feast_neguess = nint(ne_found * 1.5 + 4)
      if(PINPT%feast_neguess .gt. nemax) PINPT%feast_neguess = nemax

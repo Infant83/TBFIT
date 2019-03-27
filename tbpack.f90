@@ -604,6 +604,7 @@ subroutine strip_off (string, strip, strip_a, strip_b, mode)
   logical blank
   character(*) string, strip_a, strip_b, strip
   integer*4 mode,mode_check,l0,la,lb,ls, i, j, ii, init,fini
+  strip=''
 
   l0 = len_trim(string)
   mode_check= mode
@@ -683,7 +684,6 @@ subroutine strip_off (string, strip, strip_a, strip_b, mode)
     strip=adjustl(trim(string(init:fini)))
 
   endif
-
 return
 endsubroutine
 subroutine check_comment(inputline,linecount,i,flag_skip)

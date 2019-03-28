@@ -46,20 +46,11 @@ sp:do is = 1, PINPT%nspin
        dk  = kpoint(:,ik+1)-kpoint(:,ik)
        call get_phase_shift(phase_shift, dk, PGEOM, PINPT%ispinor)
        call get_overlap_matrix(M,V(icol:fcol,erange,ik:ik+1),phase_shift,neig,nerange)
-!      write(dummyc,'("M",I0)')ik
-!      call print_matrix_c(M, 2, 2, trim(dummyc),0, 'F10.4')
        call get_svd(M,U,WT,nerange) ! perform singular valued decomposition for unitary rotation of M
 #ifdef F08
        L = matprod(nerange,L,matprod(nerange,U,WT)) 
-!      U  = conjg(transpose(U ))
-!      WT = conjg(transpose(WT))
-!      L = matprod(nerange,matprod(nerange,WT,U),L) 
-!      L = matmul(L,matmul(WT,U))
-!      L = matprod(nerange,L,matprod(nerange,'C',WT,'C',U))
 #else
        L = matmul(L,matmul(U,WT))
-!      U  = conjg(transpose(U ))
-!      L = matmul(L,matmul(WT,U))
 #endif
      enddo kp
 

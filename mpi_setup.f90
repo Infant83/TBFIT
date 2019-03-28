@@ -283,7 +283,7 @@ kill_job
 
 #endif
 
-   subroutine mpi_job_distribution_chain(njob, ourjob)
+   subroutine mpi_job_distribution_chain(njob, ourjob, ourjob_disp)
      implicit none
      integer*4    njob
      integer*4    mynjob
@@ -291,8 +291,10 @@ kill_job
      integer*4    nresidue
 #ifdef MPI
      integer*4    ourjob(nprocs)
+     integer*4    ourjob_disp(0:nprocs-1)
 #else
      integer*4    ourjob(1)
+     integer*4    ourjob_disp(0)
 #endif
 
      mynjob = floor ( real(njob)/real(nprocs) )
@@ -305,6 +307,13 @@ kill_job
           ourjob(cpuid) = mynjob
        endif
      enddo
+
+    ourjob_disp(0) = 0
+#ifdef MPI
+    do cpuid = 1, nprocs-1
+      ourjob_disp(cpuid)= ourjob_disp(cpuid - 1) + ourjob(cpuid)
+    enddo
+#endif
 
    endsubroutine
 

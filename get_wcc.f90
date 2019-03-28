@@ -51,9 +51,8 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    endif
 
    PINPT_BERRY%wcc = 0d0 
-   flag_sparse= .false.
+   flag_sparse= .false. ! current version does not support sparse matrix for wcc evaluation
    flag_phase = PINPT_BERRY%flag_wcc_phase
-!  flag_phase = .TRUE.  
    flag_get_chern      = PINPT_BERRY%flag_wcc_get_chern
    flag_get_chern_spin = PINPT_BERRY%flag_wcc_get_chern_spin
    wcc = 0d0
@@ -72,24 +71,21 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
    do ikpath = 1,  nkpath
      call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase)
-!    write(6,*)"BBBB", E(:,1), erange
-!    write(6,*)"CCCC", V(:,1,1)
-!    stop
-     call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
+     if_main call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
-     call get_berry_phase(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
+     if_main call get_berry_phase(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #else
-     call get_berry_phase_svd(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
+     if_main call get_berry_phase_svd(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
      if_main write(6,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath
-!     write(6,*)"WWWW ", wcc(:,1,ikpath)
-! stop
    enddo
 
 #ifdef MPI
-   ! MPI routine is not supported yet...
-!  call MPI_Reduce(wcc, wcc_, size(wcc), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
-!  PINPT_BERRY%wcc = wcc_
+   ! NOTE: MPI routine is not supported yet... 
+   ! However, get_eig is MPI activated, which gives fairly good performance.
+   ! Probabliy this routine need to be updated to use full cpu loads in "get_berry_phase" routines, 
+   ! but still fast enough since determining bulk topology usually calculated within primitive unitcell 
+   ! where hamiltonian size is quite small.
 
    PINPT_BERRY%wcc = wcc
 !  if_main call print_wcc(PINPT, PINPT_BERRY)

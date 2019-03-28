@@ -210,6 +210,7 @@ subroutine help()
    write(6,'(A)')"           mz    : enforce     to print magnetization mz " 
    write(6,'(A)')"   -ldos .true.  or T : enforce    to print orbital information for each atom in separate file"
    write(6,'(A)')"         .false. or F : enforce not to print orbital information"
+   write(6,'(A)')"   -test         : run test routine"
    stop
 
    return

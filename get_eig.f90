@@ -3,13 +3,15 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   use parameters, only: hopping, incar, energy, spmat
   use mpi_setup
   use time
+  use memory
+! use print_matrix
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
   type (energy ) :: EE
   type (spmat  ) :: SHm, SHs
   integer*4  mpierr, iadd, ii
-  integer*4  ik,neig
+  integer*4  ik, my_ik, neig
   integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
   integer*4  nkp, is, ie,fe, im, fm
   integer*4  ne_prev(PINPT%nspin)
@@ -29,17 +31,29 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   integer*4  feast_ne(PINPT%nspin, nkp)
 #ifdef MPI
   integer*4  ourjob(nprocs)
-  call mpi_job_distribution_chain(nkp, ourjob)
+  integer*4  ourjob_disp(0:nprocs-1)
+  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+  if(flag_stat .and. myid .eq. 0) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
+  call report_job_distribution(flag_stat, ourjob)
 #else
   integer*4  ourjob(1) 
-  call mpi_job_distribution_chain(nkp, ourjob)
+  integer*4  ourjob_disp(0)
+  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+  if(flag_stat) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
+  call report_job_distribution(flag_stat, ourjob)
 #endif
+
   timer = 'init'
-  call initialize_all (EE, neig, nband, nkp, PINPT, flag_vector, flag_sparse, flag_stat, ii, iadd, stat, t1, t0, flag_init)
+  call initialize_all (EE, neig, nband, nkp, ourjob(myid+1), PINPT, flag_vector, flag_sparse, flag_stat, &
+                       ii, iadd, stat, t1, t0, flag_init)
+  if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
+                                   flag_stat, flag_sparse, flag_use_mpi, nprocs)
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+    my_ik = ik - sum(ourjob(1:myid))
     if(flag_sparse) then
       if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then 
-        EE%V(:,:,ik) = EE%V(:,:,ik-1)
+!       EE%V(:,:,ik) = EE%V(:,:,ik-1)
+        EE%V(:,:,my_ik) = EE%V(:,:,my_ik-1)
         ne_prev = PINPT%feast_ne(1:PINPT%nspin,ik-1)
       else
         ne_prev = 0
@@ -48,7 +62,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
       !NOTE: SHm is k-independent -> keep unchankged from first call
       !      SHs is k-independent if flag_slater_koster
       !             k-dependent   if .not. slater_koster 
-      call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
+      call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,my_ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
                              PINPT%feast_ne(1:PINPT%nspin,ik),ik, &
                              flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
@@ -60,7 +74,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
       kill_job
 #endif
     elseif(.not.flag_sparse) then
-      call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,ik), PINPT, NN_TABLE, kp(:,ik), &
+      call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,my_ik), PINPT, NN_TABLE, kp(:,ik), &
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
     endif
 
@@ -69,7 +83,12 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 
 #ifdef MPI
   call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-  if(flag_vector) call MPI_ALLREDUCE(EE%V, V, size(V), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+  if(flag_vector) then
+    call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
+                     ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                     ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                     MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+  endif
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
@@ -81,8 +100,12 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 #endif
 
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
+  if(flag_stat) then
+    if_main write(6,'(A)')'END: BAND STRUCTURE EVALUATION'
+  endif
 return
 endsubroutine
+
 #ifdef MKL_SPARSE
 subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
                              nemax, flag_vector, flag_init, flag_phase, ne_found,ik, &
@@ -168,25 +191,21 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) Hm, Hs will be kept during ik-run. (Hs will be modified if flag_slater_koster=.false.)
       call get_hamk_dense(Hk, H0, Hm, Hs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase) 
-!     call print_matrix_c(Hk, 4, 4, 'Hk', 0, 'F12.8')
-!     call cal_eig_hermitian(Hk, 4, E_,.true.)
-!     call print_matrix_c(Hk, 4, 4, 'Vk', 0, 'F12.8')
-!     write(6,*)"EEEE", E_
-! stop
       call get_matrix_index(ie, fe, im, fm, is, nband, neig, PINPT%ispinor)
       call cal_eig(Hk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
     enddo sp
 
 return
 endsubroutine
-subroutine initialize_all(EE, neig, nband, nkp, PINPT, flag_vector, flag_sparse, flag_stat, ii, iadd, stat, t1, t0, flag_init)
+subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag_sparse, flag_stat, &
+                          ii, iadd, stat, t1, t0, flag_init)
   use parameters, only: incar, energy
   use mpi_setup
   use time
   implicit none
   type(incar) :: PINPT
   type(energy):: EE
-  integer*4  neig, nband, nkp
+  integer*4  neig, nband, nkp, my_nkp
   integer*4  iadd, ii
   logical    flag_vector, flag_stat, flag_init, flag_sparse
   character*100 stat
@@ -228,7 +247,8 @@ subroutine initialize_all(EE, neig, nband, nkp, PINPT, flag_vector, flag_sparse,
   endif
 
   allocate(EE%E(nband*PINPT%nspin, nkp))
-  allocate(EE%V(neig*PINPT%ispin, nband*PINPT%nspin, nkp))
+! allocate(EE%V(neig*PINPT%ispin, nband*PINPT%nspin, nkp))
+  allocate(EE%V(neig*PINPT%ispin, nband*PINPT%nspin, my_nkp))
   EE%E = 0d0 ; if(flag_vector) EE%V = (0.d0,0.d0)
 
 return
@@ -619,6 +639,24 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
     endif
 
 return
+endsubroutine
+
+subroutine report_job_distribution(flag_stat, ourjob)
+   use mpi_setup
+   implicit none
+   integer*4    mpierr
+   integer*4    ourjob(nprocs)
+   logical      flag_stat
+
+   if(flag_stat) then
+!    if_main write(6,'(A)')                   'START: BAND STRUCTURE EVALUATION'
+     if_main write(6,'(A)')                   '       JOB DISTRUBUTION :'
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+             write(6,'(A,I0,A,I0,A)')         '       ->cpuid(',myid,'): ', ourjob(myid+1),' k-points'
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+   endif
+
+   return
 endsubroutine
 
 subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)

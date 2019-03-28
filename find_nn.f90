@@ -3,6 +3,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    use parameters
    use mpi_setup
    use time
+   use memory
    implicit none
    type (poscar)  :: PGEOM
    type (incar)   :: PINPT
@@ -21,6 +22,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    integer*4   plus_U_param_index      ! plus U param index 
    integer*4   index_lambda !soc param index
    integer*4   max_x, max_y, max_z
+   integer*4   size_NN_TABLE
    real*8    max_nn_dist
    real*8    Rij_(3),pos_i(3), pos_j(3), Dij_, Dij0_
    real*8    R_(3)
@@ -418,6 +420,8 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 #endif
 
    if(myid .eq. 0) write(6,'(A,I8)')'  N_NEIGH:',NN_TABLE%n_neighbor
+   size_NN_TABLE=sizeof(NN_TABLE)
+   if(myid .eq. 0) call report_memory(size_NN_TABLE, 1, 'NN_TABLE')
 
    call time_check(t1,t0,'end')
    if(myid .eq. 0) write(6,'(A,F12.6)')"  TIME for FINDING NEIGBOR PAIRS (s)", t1

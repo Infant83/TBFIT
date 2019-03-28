@@ -33,7 +33,8 @@ program tbfit
 #endif
 ! if_main call timestamp ('Program start on',t_start)
   if_main call version_stamp(t_start)
-          call parse(PINPT, PKPTS) ; if_test call test()
+          call parse(PINPT, PKPTS)
+  if_test call test()
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA)
   if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
 
@@ -63,8 +64,13 @@ program tbfit
 
 
 ! call MPI_Barrier(mpi_comm_earth, mpierr)
-  if_main call timestamp ('Program ends on',t_end)
-  if_main write(6,'(A,F13.3)')'  Time elapsed:',t_end - t_start
+  if_main write(6,*)''
+  if_main write(6,'(A)')' -------------------------------------------------------------------------'
+  if_main call timestamp ('| Program ends on',t_end)
+  if_main write(6,'(A)')' -------------------------------------------------------------------------'
+  if_main write(6,*)''
+  if_main write(6,'(A,F13.3)')'Time elapsed (total, sec): ',t_end - t_start
+  if_main write(6,*)''
   
   if(allocated(ETBA%E))      deallocate(ETBA%E)
   if(PINPT%flag_get_orbital .and. allocated(ETBA%V) ) deallocate(ETBA%V)

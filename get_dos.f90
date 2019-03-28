@@ -94,7 +94,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
        write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
        PINPT%feast_nemax = PINPT%nband
      endif
-
+   elseif(.not. PINPT_DOS%dos_flag_sparse) then
+     flag_sparse = PINPT_DOS%dos_flag_sparse
    endif
 
    a1=PGEOM%a_latt(1:3,1)
@@ -110,7 +111,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    param   = PINPT%param
    param_const = PINPT%param_const
    allocate( E(nband*nspin,nkpoint) )
-   allocate( V(neig*ispin,nband*nspin,nkpoint) )
+   if_main allocate( V(neig*ispin,nband*nspin,nkpoint) )
    allocate( kpoint(3,nkpoint) )
    allocate( kpoint_reci(3,nkpoint) )
    allocate( PINPT_DOS%dos_kpoint(3,nkpoint) )
@@ -132,12 +133,11 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    PINPT_DOS%dos_erange = e_range
    call get_kgrid(kpoint,kpoint_reci,nk1,nk2,nk3,kshift, PGEOM, PINPT_DOS%dos_flag_gamma)
    if(PINPT_DOS%dos_flag_print_kpoint) then 
-     if(myid .eq. 0) call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
+     if_main call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
    endif
 
    call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, &
                 PINPT%flag_get_orbital, flag_sparse, .true., .true.)
-
    sigma = g_smear
 
 #ifdef MPI
@@ -189,7 +189,7 @@ kp:do ik = 1 + myid, nkpoint, nprocs
    PINPT_DOS%dos_up = dos_up
    if(PINPT%flag_collinear) PINPT_DOS%dos_dn = dos_dn
 #endif
-   if(myid .eq. 0)  call print_dos(PINPT_DOS, PINPT)
+   if_main call print_dos(PINPT_DOS, PINPT)
 
    ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
    !       ordering is not well defined in this case.
@@ -211,7 +211,7 @@ kp:do ik = 1 + myid, nkpoint, nprocs
    deallocate( param )
    deallocate( param_const)
    deallocate( E )
-   deallocate( V )
+   if(allocated(V )) deallocate( V )
    if(allocated(E_)) deallocate( E_)
    if(allocated(V_)) deallocate( V_)
    deallocate( kpoint )

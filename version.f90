@@ -9,7 +9,7 @@ contains
     character*132  ver_tag
     real*8         t_start
 
-    ver_tag='# TBFIT 2019. Mar. 21. (build ' // __DATE__// ' ' //__TIME__// ') '
+    ver_tag='# TBFIT 2019. Mar. 29. (build ' // __DATE__// ' ' //__TIME__// ') '
 
     write(6,*) ver_tag
     write(6,*)" "
@@ -19,7 +19,9 @@ contains
     write(6,*)"#!           (angpangmokjang@hanmail.net)            !"
     write(6,*)"#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     write(6,*)" "
-    call timestamp('Program start on', t_start)
+    write(6,'(A)')' -------------------------------------------------------------------------'
+    call timestamp('| Program start on', t_start)
+    write(6,'(A)')' -------------------------------------------------------------------------'
 
     return
   endsubroutine

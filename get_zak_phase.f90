@@ -41,6 +41,8 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    zak_phase_= 0d0
 #endif
 
+!  NOTE: MPI parallelism need to be improved, and the memory handling as well.
+
    nkdiv  = PINPT_BERRY%zak_nkdiv
    nkpath = PINPT_BERRY%zak_nkpath
    G1     = PINPT_BERRY%zak_kpoint(:,nkdiv,1) - PINPT_BERRY%zak_kpoint(:,1,1)

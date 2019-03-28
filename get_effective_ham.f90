@@ -38,11 +38,17 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    character*80  fname_header
 #ifdef MPI
    integer*4     ourjob(nprocs)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob) 
+   integer*4     ourjob_disp(0:nprocs-1)
+   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp) 
 #else
    integer*4     ourjob(1)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob)
+   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
 #endif
+
+!  NOTE: This subroutine has not been MPI parallized in the current version, 
+!        since constructing effective hamiltonian 
+!        does not take too much resources. However, in the future release, we will
+!        address this subroutine and make it viable along with MPI.
 
    flag_vector = .true.
    flag_sparse = .false.
@@ -126,6 +132,12 @@ subroutine get_effective_ham(Hef, Ha, Hb, Hab, PINPT, PGEOM)
    ! NOTE: In the current version only the energy dependent downfolded Hamiltonian will be constructed.
    !       In this case, we will restrict the energy e will be set by center of EFF_EWINDOW for the 
    !       convenience. In the near future, energy-independent version will be implemented. HJK.
+   !       The detailed descriptiob and procedures can be found this the following paper:
+   !       E. Zurek, O. Jepsen, and O. K. Anderson, "Muffin-Tin Orbital Wannier-Like Functions for 
+   !       Insulators and Metals", Chem. Phys. Chem. 6, 1934-1942 (2005)
+   !       or
+   !       R. Norman-Elvenich, "Effective Low-Energy Hamiltonians for Correlated Transition Metal
+   !       Compounds", Diploma Thesis, Technische Universitat Graz, (2010)
 
    ! Hef = Ha + Hab * (e - Hb)^-1 * Hab'
    Hef = Ha + matmul(matmul(Hab, invc((e - Hb))), conjg(transpose(Hab)))

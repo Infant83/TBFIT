@@ -8,15 +8,21 @@ subroutine test()
    external           blacs_pnum  ! external blacs function
    external           blacs_get, blacs_gridinit, blacs_gridinfo   ! external blacs subroutine
    integer*4          blacs_pnum
+   integer*4          ourjob(0)
 !  integer*4          myid_blacs
 !  integer*4          nprow, npcol, myrow, mycol, icntxt
 
 #ifdef MPI
    call MPI_BARRIER(mpi_comm_earth, mpierr)
    call MPI_BARRIER(mpi_comm_earth, mpierr)
-
 #ifdef SCALAPACK
-   
+
+!  ourjob(0) = 999 
+!  write(6,*)"VVVV "
+
+!  write(6,*)"VVVV ", ourjob(0)
+  
+!  stop
 !  call blacs_initialize()
 
 !  pid = 66
@@ -32,10 +38,10 @@ subroutine test()
 !  myid_blacs= blacs_pnum(mpi_comm_blacs, myrow, mycol)
 !  call blacs_pcoord(icntxt, myid, myrow, mycol)
    write(6,*)"XXX ", myid, myid_blacs,  myrow, mycol
-
-
-
 #endif
+
+   ourjob(0)=987
+   write(6,*)"BBBB ", ourjob(0)
 
 99 call MPI_BARRIER(mpi_comm_earth, mpierr)
    call MPI_BARRIER(mpi_comm_earth, mpierr)

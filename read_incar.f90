@@ -644,7 +644,11 @@ mode: select case ( trim(plot_mode) )
                 case('DOS_SPARSE') ! logical flag for sparse matrix setup, if true, ERANGE will be 
                                    ! the energy window, and DOS_NRANGE will be used as NE_MAX
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_sparse
-                  if_main write(6,'(A)')'DOS_SPARSE: .TRUE.'
+                  if(PINPT_DOS%dos_flag_sparse) then
+                    if_main write(6,'(A)')'DOS_SPARSE: .TRUE.'
+                  elseif(.not. PINPT_DOS%dos_flag_sparse) then
+                    if_main write(6,'(A)')'DOS_SPARSE: .FALSE.'
+                  endif
                   
               end select case_dos
 

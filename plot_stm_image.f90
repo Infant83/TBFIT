@@ -3,6 +3,8 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    use parameters, only : incar, poscar, kpoints, energy
    use orbital_wavefunction, only : psi_rho
    use mpi_setup
+   use time
+   use memory
    implicit none
    type (incar)   :: PINPT
    type (poscar)  :: PGEOM
@@ -23,33 +25,58 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    complex*16    phi_r(PGEOM%neig)
    complex*16    psi_r_up_total(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
    complex*16    psi_r_dn_total(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
-   complex*16    psi_r_up_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
-   complex*16    psi_r_dn_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
-   complex*16    psi_r_up(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
-   complex*16    psi_r_dn(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3),PKPTS%nkpoint)
+   complex*16    psi_r_up_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
+   complex*16    psi_r_dn_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
+   complex*16    psi_r_up(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3) )
+   complex*16    psi_r_dn(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3) )
+   complex*16    V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin)
    character*8   corb(PGEOM%neig)
    integer*4     stm_erange(PINPT%nband,PINPT%nspin), stm_neig(PINPT%nspin)
    character*2   spin_index_c(2)
+   real*8        t0, t1
+   character*4   timer
 
+   timer = 'init'
    spin_index_c(1) = 'up'
    spin_index_c(2) = 'dn'
+
+   if_main write(6,*)' '
+   if_main write(6,'(A)')' *- START PLOTTING: INTEGRATED CHARGE DENSITY (STM MODE)'
+   call time_check(t1,t0,timer)
+   
    call set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, &
                               pid_stm_up, pid_stm_dn, vol, ng1, ng2, ng3, &
                               a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
-
+#ifdef MPI
+   call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
+   if_main call report_memory(ng1*ng2*ng3*nprocs*PINPT%ispin*3, 16, 'Charge density') ! psi_r_up/dn, psi_r_up_/dn_, _up/dn_total
+   if_main call report_memory(PGEOM%neig*PINPT%ispin*PINPT%nband*PINPT%nspin*nprocs+&
+                              PGEOM%neig*PINPT%ispin*PINPT%nband*PINPT%nspin*PKPTS%nkpoint, 16, 'Eigen vectors ') ! V*nprocs + ETBA%V(root)
  stm: do istm = 1, PINPT%n_stm
+       psi_r_up_total = 0d0
+       psi_r_dn_total = 0d0
+
        if_main call print_CHGCAR_stm_head(PINPT, PGEOM, pid_stm_up, pid_stm_dn, istm)
 #ifdef MPI
        call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
-       call initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid,PINPT%ispin,PKPTS%nkpoint)
 
    kp: do ikk = 1, PKPTS%nkpoint
+         call initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid,PINPT%ispin)
          stm_neig = 0; stm_erange = 0 ! initialize
          call get_stm_erange(PINPT, PKPTS, ETBA%E(:,ikk), neig, stm_neig, stm_erange, istm, ikk)
    spin: do is = 1, PINPT%nspin ! 2 for collinear,  1 for nonmag and non-collinear
            if_main call print_kpoint_index_info_header(stm_neig, PINPT%nspin, is, ikk, PKPTS%kpoint_reci(:,ikk))
            if_main call print_band_index_info_header(stm_neig, stm_erange, PINPT%nspin, is, PINPT%nband)
+
+           if(stm_neig(is) .gt. 0) then
+#ifdef MPI
+             if_main V=ETBA%V(:,:,ikk)
+             call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+#else
+             V=ETBA%V(:,:,ikk)
+#endif
 
 #ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
@@ -67,7 +94,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                 igrid = i1+1+i2*ng1+i3*ng1*ng2
                 call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
                 call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, .false.)
-                call get_psi_r_stm(psi_r_up(igrid,ikk),psi_r_dn(igrid,ikk),neig,phi_r,iee,ikk,ETBA,is,PINPT%ispinor)
+                call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor)
               enddo grid_x
               enddo grid_y
               enddo grid_z
@@ -76,22 +103,41 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
             enddo cell_z
 
            enddo band
+           endif
 
 #ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
-           call MPI_Allreduce(psi_r_up(:,ikk), psi_r_up_(:,ikk), size(psi_r_up_(:,ikk)), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-           psi_r_up(:,ikk) = psi_r_up_(:,ikk)
+!          call MPI_Allreduce(psi_r_up(:,ikk), psi_r_up_(:,ikk), size(psi_r_up_(:,ikk)), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
            call MPI_Barrier(mpi_comm_earth,mpierr)
+           if(is .eq. 1) then
+             call MPI_Allreduce(psi_r_up, psi_r_up_, size(psi_r_up_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+             psi_r_up_total = psi_r_up_total + psi_r_up_
+             if(PINPT%ispinor .eq. 2) then
+               call MPI_Allreduce(psi_r_dn, psi_r_dn_, size(psi_r_dn_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+               psi_r_dn_total = psi_r_dn_total + psi_r_dn_
+             endif
+           elseif(is .eq. 2) then
+             call MPI_Allreduce(psi_r_dn, psi_r_dn_, size(psi_r_dn_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+             psi_r_dn_total = psi_r_dn_total + psi_r_dn_
+           endif
+           call MPI_Barrier(mpi_comm_earth,mpierr)
+#else
+           if(is .eq. 1) then
+             psi_r_up_total = psi_r_up_total + psi_r_up
+             if(PINPT%ispinor .eq. 2) then
+               psi_r_dn_total = psi_r_dn_total + psi_r_dn
+             endif
+           elseif(is .eq. 2) then
+             psi_r_dn_total = psi_r_dn_total + psi_r_dn
+           endif
 #endif
          enddo spin
        enddo kp
 
-       psi_r_up_total = 0d0
-       psi_r_dn_total = 0d0
-       do ikk = 1, PKPTS%nkpoint
-         psi_r_up_total(:) = psi_r_up_total(:) + psi_r_up(:,ikk)
-         psi_r_dn_total(:) = psi_r_dn_total(:) + psi_r_dn(:,ikk)
-       enddo
+!      do ikk = 1, PKPTS%nkpoint
+!        psi_r_up_total(:) = psi_r_up_total(:) + psi_r_up(:,ikk)
+!        psi_r_dn_total(:) = psi_r_dn_total(:) + psi_r_dn(:,ikk)
+!      enddo
 
        ! we write spin-dependent STM data if collinear. 
        ! if someone want to plot total STM (psi_r_up -> psi_r_up + psi_r_dn),
@@ -99,8 +145,10 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                                    PINPT%ispin, PINPT%nspin, PINPT%ispinor, .false.)
      enddo stm
 
+   call time_check(t1,t0)
    if_main write(6,*)' '
-   if_main write(6,'(A)')'*- END WRITING: STM PLOT'
+   if_main write(6,'(A,F10.4,A)')'   TIME for STM PLOT : ',t1, ' (sec)'
+   if_main write(6,'(A)')'*- END PLOTTING: STM PLOT'
 
    return
 endsubroutine
@@ -132,33 +180,33 @@ subroutine write_rho_main_stm(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nres
    return
 endsubroutine
 
-subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,phi_r,iee,ikk,ETBA,is,ispinor)
+subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,is,ispinor)
    use parameters, only : energy
    use orbital_wavefunction, only: psi_rho
    implicit none
    type(energy) :: ETBA
-   integer*4    igrid, nbasis
+   integer*4    igrid, nbasis, ispin
    integer*4    iee, ikk, is, ispinor
    complex*16   psi_r_up, psi_r_dn
    complex*16   phi_r(nbasis)
+   complex*16   V(nbasis*ispin)
 
    if    (is .eq. 1 .and. ispinor .eq. 1) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, iee, ikk, ETBA, .false., 'up')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V, .false., 'up')
    elseif(is .eq. 1 .and. ispinor .eq. 2) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, iee, ikk, ETBA, .false., 'up')
-     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, iee, ikk, ETBA, .false., 'dn')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V, .false., 'up')
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V, .false., 'dn')
    elseif(is .eq. 2 .and. ispinor .eq. 1) then
-     if(is .eq. 2) psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, iee, ikk, ETBA, .false., 'dn')
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V, .false., 'dn')
    endif
-
 
    return
 endsubroutine
 
-subroutine initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid, ispin,nkpoint)
+subroutine initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid, ispin)
    implicit none
    integer*4    ispin, ngrid, nkpoint
-   complex*16   psi_r_up(ngrid,nkpoint), psi_r_dn(ngrid,nkpoint)
+   complex*16   psi_r_up(ngrid), psi_r_dn(ngrid)
    logical      flag_plot_wavefunction
 
    psi_r_up = (0d0,0d0)
@@ -319,9 +367,6 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    real*8           grid_d1, grid_a1(0:PINPT%stm_ngrid(1)-1)
    real*8           grid_d2, grid_a2(0:PINPT%stm_ngrid(2)-1)
    real*8           grid_d3, grid_a3(0:PINPT%stm_ngrid(3)-1)
-
-   write(6,*)' '
-   write(6,'(A)')' *- START WRITING: INTEGRATED CHARGE DENSITY (STM MODE)'
 
    neig   = PGEOM%neig
    ngrid  = PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3)

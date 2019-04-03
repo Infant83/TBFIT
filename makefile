@@ -26,7 +26,7 @@
 #                               developing stage now.
 #############################################################################
 #OPTIONS= -fpp -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
-OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
+OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DSCALAPACK
 F90    = mpif90 $(OPTIONS)
 FFLAG  = -O2 -heap-arrays -nogen-interfaces
 
@@ -65,7 +65,7 @@ SCALAPACK_USE=$(findstring -DSCALAPACK,$(OPTIONS))
 
 MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o 
 TEST   = test.o
-MODULE = $(MPI_MOD) time.o version.o $(SP_MOD) \
+MODULE = $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
 		 parameters.o read_incar.o orbital_wavefunction.o \
 		 kronecker_prod.o phase_factor.o do_math.o \
          sorting.o berry_phase.o sparse_tool.o pikaia_module.o geodesiclm.o

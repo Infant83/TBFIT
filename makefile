@@ -26,14 +26,14 @@
 #                               developing stage now.
 #############################################################################
 #OPTIONS= -fpp -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
-OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DSCALAPACK
+OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
 F90    = mpif90 $(OPTIONS)
 FFLAG  = -O2 -heap-arrays -nogen-interfaces
 
 #OPTIONS= -cpp -DMPI -DF08 -DSPGLIB #-DMKL_SPARSE -DSCALAPACK
 #F90    = mpif90-openmpi-mp $(OPTIONS)
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
-BIN    = ~/code/bin
+BIN    = ~/bin
 #---------------------------------------------------------------------------|
 
 #-----------------------------------

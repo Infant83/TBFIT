@@ -26,8 +26,7 @@
 #                               developing stage now.
 #############################################################################
 #OPTIONS= -fpp -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
-#OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE # options to activate spglib and sparse eigen solver routines
-OPTIONS= -fpp -DMPI -DF08 
+OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
 F90    = mpif90 $(OPTIONS)
 FFLAG  = -O2 -heap-arrays -nogen-interfaces
 

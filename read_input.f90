@@ -432,6 +432,13 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%r_origin(1:3) = 0d0
   endif
 
+  ! setup atom index for ldos if not allocated
+  if(PINPT%flag_get_dos .and. PINPT_DOS%dos_flag_print_ldos .and. .not. allocated(PINPT_DOS%dos_ldos_atom)) then 
+    allocate(PINPT_DOS%dos_ldos_atom(PGEOM%n_atom))
+    PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
+    if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+  endif
+
   ! read info: kpoint 
   if(flag_kfile_exist) then
     call read_kpoint(PINPT%kfilenm,PKPTS,PGEOM,PINPT)
@@ -548,9 +555,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
         PINPT%fina_erange = PGEOM%neig*PINPT%ispinor
       elseif(PINPT%feast_nemax .ge. 1) then
         if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
-          write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'
-          write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
-          write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+          if_main write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'
+          if_main write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
+          if_main write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
           PINPT%nband = PGEOM%neig * PINPT%ispinor
           PINPT%feast_nemax = PINPT%nband
         else

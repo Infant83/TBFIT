@@ -26,7 +26,7 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    complex*16   phi_r(PGEOM%neig)
    complex*16   psi_r_up(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
    complex*16   psi_r_dn(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
-   complex*16   V(PGEOM%neig*PINPT%ispin)
+   complex*16   V(PGEOM%neig*PINPT%ispin,PINPT%nspin)
    real*8       time1, time2
    logical      flag_exist_up, flag_exist_dn
    real*8        t0, t1
@@ -47,10 +47,18 @@ en:do ie = 1, PINPT%n_eig_print
        ikk = PINPT%i_kpt_print(ik)    
 
 #ifdef MPI
-       if_main V=ETBA%V(:,iee,ikk)
+       if(PINPT%nspin .eq. 1) then
+         if_main V(:,1)=ETBA%V(:,iee,ikk)
+       elseif(PINPT%nspin .eq. 2) then
+         if_main V(:,:)=ETBA%V(:,(/iee,iee+PINPT%nband/),ikk)
+       endif
        call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
 #else
-       V=ETBA%V(:,iee,ikk)
+       if(PINPT%nspin .eq. 1) then
+         V=ETBA%V(:,iee,ikk)
+       elseif(PINPT%nspin .eq. 2) then
+         V=ETBA%V(:,(/iee,iee+nband/),ikk)
+       endif
 #endif
 
        call print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn, flag_exist_up, flag_exist_dn)
@@ -80,7 +88,7 @@ cell_x:do ix = -1,1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
            call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
            call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction)
-           call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%flag_plot_wavefunction, &
+           call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
                           flag_exist_up, flag_exist_dn)
          enddo grid_x
          enddo grid_y
@@ -122,7 +130,7 @@ subroutine initialize_psi_r(psi_r_up,psi_r_dn, ngrid, ispin, flag_exist_up, flag
 
    return
 endsubroutine
-subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,ispin,flag_plot_wavefunction, &
+subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,ispin,nspin,flag_plot_wavefunction, &
                      flag_exist_up, flag_exist_dn)
    use parameters, only : incar, energy
    use orbital_wavefunction, only: psi_rho
@@ -133,17 +141,21 @@ subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,ispin,flag_plo
    complex*16   phi_r(nbasis)
    complex*16   psi_r_up(ngrid)
    complex*16   psi_r_dn(ngrid)
-   complex*16   V(nbasis*ispin)
+   complex*16   V(nbasis*ispin,nspin)
    logical      flag_plot_wavefunction
    logical      flag_exist_up, flag_exist_dn
 
    if(flag_exist_up) then
-     psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, ispin, V, flag_plot_wavefunction, 'up') 
+     psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1), flag_plot_wavefunction, 'up') 
    endif
 
    if(flag_exist_dn) then
      if(ispin .eq. 2) then ! we calculate dn(or beta)-spin part if coll. or noncol. case
-       psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V, flag_plot_wavefunction, 'dn') 
+       if(nspin .eq. 1) then
+         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1), flag_plot_wavefunction, 'dn') 
+       elseif(nspin .eq. 2) then
+         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,2), flag_plot_wavefunction, 'dn') 
+       endif
      endif
    endif
 

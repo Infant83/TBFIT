@@ -78,7 +78,8 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
     endif
 
-    call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
+!   call print_eig_status(ik*ourjob(myid+1), ii, iadd, stat, nkp, flag_stat)
+    call print_eig_status(ik-sum(ourjob(1:myid)), ii, iadd, stat, ourjob(myid+1), flag_stat)
   enddo k_loop
 
 #ifdef MPI
@@ -149,9 +150,9 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
       call cal_eig_sparse(SHk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
                           emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
       call adjust_ne_guess(feast_info, is, ne_found(is), kp, ik, neig, nemax, PINPT)
-      deallocate(SHk%H)
-      deallocate(SHk%I)
-      deallocate(SHk%J) ! SHk should be deallocated for each run
+      if(allocated(SHk%H)) deallocate(SHk%H)
+      if(allocated(SHk%I)) deallocate(SHk%I)
+      if(allocated(SHk%J)) deallocate(SHk%J) ! SHk should be deallocated for each run
     enddo sp
 
   if(PINPT%flag_soc .and. .not. PINPT%flag_slater_koster) then
@@ -686,13 +687,15 @@ subroutine initialize_eig_status(ii, iadd, stat, nkpoint)
    stat = '****************************************************************************************************'
    if(myid .eq. 0) write(6,'(A)')stat
    if(nkpoint .le. 25) then
-     iadd=floor(real(1)/real(nkpoint)*100d0)
+!    iadd=floor(real(1)/real(nkpoint)*100d0)
+     iadd=10
      ii = 1
    else
-     iadd=4
+     iadd=5
      ii = 1
    endif
-
+!#write(6,*)"XX ", iadd
+!stop
 return
 endsubroutine
 
@@ -708,7 +711,7 @@ subroutine print_eig_status(ik, ii, iadd, stat, nkpoint, flag_stat)
    if(myid .ne. 0) return
 
    percent =  ik / real(nkpoint) * 100d0
-   if( floor(percent) .ge. iadd*ii ) then
+   if( floor(percent) .ge. real(iadd*ii) ) then
      if_main write(6,'(A,I3)')stat(1:iadd*ii),floor(percent)
      ii = ii + 1
    endif
@@ -741,13 +744,14 @@ subroutine get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint, is, neig, flag_phase)
    return
 endsubroutine
 
-subroutine stop_get_eig(neig, nband)
+subroutine stop_get_eig(msize, nband)
    use mpi_setup
    implicit none
-   integer*4    neig, nband
+   integer*4    msize, nband
 
-   if_main write(6,'(A)')        '    !WARN! Check NERANGE! NBAND should be less equal NEIG (NBAND <= NEIG)' 
-   if_main write(6,'(A,I0,A,I0)')'           NEIG = ',neig, ' , NBAND = FINA_E - INIT_E + 1 = ',nband
+   if_main write(6,'(A)')        '    !WARN! Check NERANGE! NBAND should be less equal to matrix size MSIZE (NBAND <= MSIZE = N_ORBIT*ISPINOR),' 
+   if_main write(6,'(A)')        '           where ISPINOR = 2/1 if LSORB = .TRUE./.FALSE. and N_ORBIT = total number of orbitals.' 
+   if_main write(6,'(A,I0,A,I0)')'           MSIZE = ',msize, ' , NBAND = FINA_E - INIT_E + 1 = ',nband
    if_main write(6,'(A)')        '           Exit program...'
    stop
 
@@ -775,7 +779,7 @@ subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
    elseif(msize .ne. nband .and. nband .lt. msize) then
      call cal_eig_hermitianx(Hk, msize, iband, nband, E, V, flag_vector)
    else
-     call stop_get_eig(neig,nband)
+     call stop_get_eig(msize,nband)
    endif
 
 return

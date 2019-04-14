@@ -33,20 +33,22 @@ FFLAG  = -O2 -heap-arrays -nogen-interfaces
 #OPTIONS= -cpp -DMPI -DF08 -DSPGLIB #-DMKL_SPARSE -DSCALAPACK
 #F90    = mpif90-openmpi-mp $(OPTIONS)
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
-BIN    = ~/bin
+BIN    = ~/code/bin
 #---------------------------------------------------------------------------|
 
 #-----------------------------------
 # Dependencies: LAPACK, SPGLIB     |
 #---------------------------------------------------------------------------|
-SPGLIB    = -L/Users/Infant/code/lib/ -lsymspg
+#SPGLIB    = -L/Users/Infant/code/lib/ -lsymspg
+SPGLIB    = -L/Users/Infant/tbfit_fortran/LIB/spglib-master -lsymspg
 MKLPATH   = $(MKLROOT)
 LAPACK    = -L$(MKLPATH)/lib/ \
             -lmkl_intel_lp64 -lmkl_sequential \
             -lmkl_core -liomp5
 BLAS      = 
 INCLUDE   = -I$(MKLPATH)/include
-SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
+#SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
+SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scala_home/libscalapack.a
 #---------------------------------------------------------------------------|
 
 

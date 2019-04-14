@@ -30,23 +30,6 @@ module mpi_setup
         integer, public            :: nprocs = 1
    endtype
 
-!  integer*4, public, parameter :: myid   = 0
-!  integer*4, public, parameter :: nprocs = 1
-!  integer*4, public, parameter :: npar   = 1
-!  integer*4, public, parameter :: kpar   = 1
-!  integer*4, public, parameter :: nproc_per_band = 1
-
-!  integer*4, public, parameter :: myid_blacs = 0
-!  integer*4, public, parameter :: nprow = 1
-!  integer*4, public, parameter :: npcol = 1
-!  integer*4, public, parameter :: myrow = 0
-!  integer*4, public, parameter :: mycol = 0
-
-!  type mpicomm
-!       integer, public, parameter :: myid = 0
-!       integer, public, parameter :: nprocs = 1
-!  endtype
-
    type(mpicomm), target:: COMM_EARTH
    type(mpicomm), target:: COMM_ASIA
    type(mpicomm), target:: COMM_KOREA
@@ -55,10 +38,15 @@ module mpi_setup
 
    contains
 
+!!!!!!! start if_def MPI
 #ifdef MPI
    subroutine mpi_initialize()
+     implicit none
      integer*4  mpierr
-
+#ifdef SCALAPACK
+     integer*4  CONTEXT
+#endif
+    
      call MPI_INIT(mpierr)
 
      flag_use_mpi = .false.
@@ -88,6 +76,7 @@ module mpi_setup
 
 #ifdef SCALAPACK
      call mpi_division()
+     call proc_map() !need to be updated...
 #else
      ! NOTE: in the current version, we did not consider eigenvalue parallization
      !       if -DSCALAPACK is not activated, i.e., only k-point parallization will
@@ -99,6 +88,7 @@ module mpi_setup
      return
    endsubroutine
 
+#ifdef SCALAPACK
    subroutine mpi_division()
      integer*4      mpierr
 
@@ -115,16 +105,13 @@ module mpi_setup
      COMM_EARTH%mpi_comm = mpi_comm_earth
      COMM_EARTH%nprocs   = nprocs
      COMM_EARTH%myid     = myid
-     npar_               = npar
-     kpar_               = kpar
+     COMM_EARTH%npar     = npar
+     COMM_EARTH%kpar     = kpar
 
-     call mpi_divide(COMM_EARTH, COMM_ASIA, COMM_KOREA, npar_, kpar_)
+     call mpi_divide(COMM_EARTH, COMM_ASIA)
 
      if_main write(6,'(A,2(I0,A))')' Each k-point on ', COMM_ASIA%nprocs, &
-                                   ' cores, ',npar,' groups.'
-
-kill_job
-
+                                   ' cores, ',COMM_EARTh%npar,' groups.'
      return
    endsubroutine
 
@@ -153,16 +140,71 @@ kill_job
      return
    endsubroutine
 
-! NOTE: this subroutine is copied and modified from "M_divide" subroutine of VASP code
-   subroutine mpi_divide(COMM_EARTH, COMM_ASIA, COMM_KOREA, npar_, kpar_)
-     integer*4   mpierr
-     integer*4   npar_, kpar_
-     integer*4   dims(2), dims_adam(2), dims_eve(2)
-     logical     flag_period(2), flag_dims_adam(2), flag_dims_eve(2), reorder
-     logical     grp_row, grp_col
-     type(mpicomm) :: COMM_EARTH, COMM_MARS, COMM_ASIA, COMM_KOREA
+   subroutine proc_map()
+     implicit none
+     integer*4, allocatable :: imap(:,:)
+     integer*4  NP_COL, MY_ROW, MY_COL
+     integer*4  CONTEXT
+     integer*4  CONTEXT_, NPROW_, NPCOL_, MYROW_, MYCOL_
+     integer*4  i, j, k, mpierr
+     integer*4  BLACS_PNUM
+     external   BLACS_PNUM
 
-     if(npar_ > COMM_EARTH%nprocs) then 
+     nprow = COMM_EARTH%dims(1)
+     npcol = COMM_EARTH%dims(2)
+
+     allocate(imap(nprow,npcol))
+     allocate(id_blacs(COMM_EARTH%nprocs))
+    
+     CONTEXT_ = COMM_EARTH%mpi_comm
+
+     call BLACS_GRIDINIT( CONTEXT_, 'Row', 1, COMM_EARTH%nprocs)
+     call BLACS_GRIDINFO( CONTEXT_, NPROW_, NPCOL_, MYROW_, MYCOL_)
+     myid_blacs = BLACS_PNUM(CONTEXT_, MYROW_, MYCOL_)
+     call MPI_ALLGATHER(myid_blacs, 1, MPI_INTEGER4, id_blacs(1), 1, &
+                        MPI_INTEGER4, COMM_EARTH%mpi_comm, mpierr)
+
+     if(mpierr .ne. 0) then
+       if_main write(6,'(A,I0,A)')' ERROR ALLGATHER in "proc_map" (error code= ', &
+                                  mpierr,' )'
+     endif
+
+     k = 1
+     do j = 1, npcol
+       do i = 1, nprow
+         imap(i,j) = id_blacs(k)
+         k = k + 1
+       enddo
+     enddo
+
+!    do j = 1, npcol
+!      k
+!      do i = 1, nprow
+!        imap(i,j) = id_blacs(k)
+!      enddo
+!    enddo
+
+     call MPI_BARRIER(COMM_EARTH%mpi_comm, mpierr)
+     call BLACS_GRIDEXIT(CONTEXT_)
+
+!    call BLACS_GET(0,0,CONTEXT)
+     CONTEXT = COMM_EARTH%mpi_comm
+     call BLACS_GRIDMAP( CONTEXT, imap, nprow, nprow, npcol)
+     call BLACS_GRIDINFO( CONTEXT, nprow, npcol, myrow, mycol)
+!write(6,*)"XXX ",myid, CONTEXT, myrow, mycol
+!kill_job
+     return
+   endsubroutine
+
+! NOTE: this subroutine is copied and modified from "M_divide" subroutine of VASP code
+   subroutine mpi_divide(COMM_EARTH, COMM_ASIA)
+     integer*4   mpierr
+     integer*4   ndims, dims(2) ! two dimensional cartesian topology
+     logical     flag_period(2), reorder ! topology without periodic boundary condition
+     logical     grp_row, grp_col
+     type(mpicomm) :: COMM_EARTH, COMM_MARS, COMM_ASIA
+
+     if(COMM_EARTH%npar > COMM_EARTH%nprocs) then 
        if_main write(6,'(A)')' Error in mpi_divide: NPAR >= NPROCS'
        kill_job
      endif
@@ -170,29 +212,37 @@ kill_job
      ! create new communicator for parents with cartesian topology [dim1, dim2]
      flag_period = .false.
      reorder     = .false.
-     dims(1) = npar_
-     dims(2) = COMM_EARTH%nprocs / npar_
+     ndims   = 2 ! 2 dimensional topology
+     COMM_EARTH%dims(1) = COMM_EARTH%npar
+     COMM_EARTH%dims(2) = COMM_EARTH%nprocs / COMM_EARTH%npar
 
-     if(dims(1) * dims(2) .ne. COMM_EARTH%nprocs) then
-       write(6,'(A,I0,A,I0)') &
-                 " mpi_divide: can't subdivide ",COMM_EARTH%nprocs,' cpus by ', npar_
-       write(6,'(A,I0,I0)')' Please check your NPAR or KPAR setting. Exit...', dims(1), dims(2)
+     if(COMM_EARTH%dims(1) * COMM_EARTH%dims(2) .ne. COMM_EARTH%nprocs) then
+       if_main write(6,'(A,I0,A,I0)') &
+                 " mpi_divide: can't subdivide ",COMM_EARTH%nprocs,' cpus by ', COMM_EARTH%npar
+       if_main write(6,'(A,A,I0,A,I0,A)')' Please check your NPAR setting. Exit...', &
+                                   ' DIM(1:2)= (',COMM_EARTH%dims(1),',', COMM_EARTH%dims(2),')'
        kill_job
      endif
-     call MPI_CART_CREATE(COMM_EARTH%mpi_comm, 2,(/2, 2/),(/.false.,.false./),.false., &
-                          COMM_MARS%mpi_comm, mpierr)
-     call mpi_init_comm(COMM_MARS); COMM_EARTH = COMM_MARS
+     call MPI_CART_CREATE(COMM_EARTH%mpi_comm, ndims,(/COMM_EARTH%dims(1), COMM_EARTH%dims(2)/), &
+                          flag_period,reorder, COMM_MARS%mpi_comm, mpierr)
+     call mpi_init_comm(COMM_MARS)
+     COMM_EARTH%mpi_comm = COMM_MARS%mpi_comm
+     COMM_EARTH%nprocs   = COMM_MARS%nprocs  
+     COMM_EARTH%myid     = COMM_MARS%myid    
 
-     ! create new communicator for "ASIA"
+     ! Create cartesian coordinate for processors
+     call MPI_CART_COORDS(COMM_EARTH%mpi_comm,COMM_EARTH%myid, ndims, COMM_EARTH%mycoord, mpierr)
+
+     ! Create new communicator for "ASIA" subdividing "EARTH" with "column" major.
      grp_row = .false.  
      grp_col = .true.   
      call MPI_CART_SUB(COMM_EARTH%mpi_comm, (/grp_row, grp_col/), &
                        COMM_ASIA%mpi_comm, mpierr)
-     call mpi_init_comm(COMM_ASIA)
-
-     checkAAA , COMM_ASIA%mpi_comm, COMM_ASIA%nprocs, COMM_ASIA%myid, myid
-kill_job
-
+     call mpi_init_comm(COMM_ASIA) ! generate ASIA%myid, ASIA%nprocs
+     COMM_ASIA%dims = COMM_EARTH%dims
+     COMM_ASIA%mycoord = COMM_EARTH%mycoord
+!    write(6,*)"XXX ", COMM_ASIA%myid
+!    kill_job
      return
    endsubroutine
 
@@ -244,6 +294,7 @@ kill_job
 
      return
    endsubroutine
+#endif
 
    subroutine get_my_task()
      integer*4  mpierr
@@ -281,7 +332,8 @@ kill_job
      stop
    endsubroutine 
 
-#endif
+#endif  
+!!!!!!! end if_def MPI
 
    subroutine mpi_job_distribution_chain(njob, ourjob, ourjob_disp)
      implicit none

@@ -9,7 +9,7 @@ contains
     character*132  ver_tag
     real*8         t_start
 
-    ver_tag='# TBFIT 2019. Mar. 29. (build ' // __DATE__// ' ' //__TIME__// ') '
+    ver_tag='# TBFIT 2019. Apr. 14. (build ' // __DATE__// ' ' //__TIME__// ') '
 
     write(6,*) ver_tag
     write(6,*)" "

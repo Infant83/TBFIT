@@ -245,6 +245,9 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
     complex*16, allocatable :: work(:)
     character(*), parameter :: func = 'cal_eig_hermitianx'
     character*1 JOBZ
+    real*8      DLAMCH
+    external    DLAMCH
+
 !   ZOBZ   'N':  Compute eigenvalues only
 !          'V':  Compute eigenvalues and eigenvectors
 !   RANGE  'A': all eigenvalues will be found
@@ -299,10 +302,9 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
 !  INFO    = 0:  successful exit
 !          < 0:  if INFO = -i, the i-th argument had an illegal value
 !          > 0:  if INFO = i, then i eigenvectors failed to converge. Their indices are stored in array IFAIL.
-!  call ZHEEVX(JOBZ,RANGE,UPLO,N,A,LDA,VL,VU,IL,IU,ABSTOL,M,W,Z,LDZ,WORK,LWORK,RWORK,IWORK,IFAIL,INFO)
-!  call get_e_range(init,fina, PGEOM%neig, .false., PINPT)
 !  abstol=1.d-10
-   abstol=2.0d0*tiny(abstol)
+!  abstol=2.0d0*tiny(abstol)
+   abstol = DLAMCH('U')
    fband = iband + nband - 1
    nband_= nband
    JOBZ  = 'N'
@@ -327,6 +329,74 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
 
 return
 endsubroutine
+#ifdef SCALAPACK
+! subroutine pcal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
+!   use mpi_setup
+!   implicit none
+!   integer*4  msize, iflag
+!   integer*4  lwork, lrwork, liwork
+!   integer*4  iband,fband,nband,nband_, nband_found, nv
+!   integer    ifail(msize)
+!   real*8     E(nband)
+!   real*8     vl,vu
+!   real*8     abstol, orfac
+!   logical    flag_get_orbital
+!   complex*16 H(msize,msize)
+!   complex*16 V(msize,nband)
+!   complex*16 myV(msize,nband)
+!   complex*16, allocatable :: work(:)
+!   real*8,     allocatable :: rwork(:), gap(:)
+!   integer*4,  allocatable :: iwork(:), iclustr(:)
+!   character(*), parameter :: func = 'pcal_eig_hermitianx'
+!   character*1 JOBZ
+!   real*8      PDLAMCH
+!   external    PDLAMCH
+
+!   fband = iband + nband - 1
+!   nband_= nband
+!   JOBZ  = 'N'
+!   if(msize .eq. 1) then
+!     E = H(1,1)
+!     return
+!   endif
+
+!   !this setting yields the most orthogonal eigenvectors
+!   abstol = PDLAMCH(CONTEXT, 'U')
+!   orfac = 0.001d0 ! default
+
+!   !allocate arrays used in PZHEEVX
+!   allocate(iclustr(2*NPROW*NPCOL), gap(NPROW*NPCOL))
+
+!   ! first carry out a workspace query
+!   lwork = -1
+!   lrwork = -1
+!   liwork = -1
+!   ALLOCATE(work(1))
+!   ALLOCATE(rwork(1))
+!   ALLOCATE(iwork(1))
+!   CALL PZHEEVX(JOBZ,'I','U', N, myH, 1, 1, DESC_myH, vl, vu, &
+!                iband, fband, abstol, nband_found, nv, &
+!                E, orfac, myV, 1, 1, DESC_myV, &
+!                work, lwork, rwork, lrwork, iwork, liwork, &
+!                ifail, iclustr, gap, iflag)
+!   lwork = INT(ABS(work(1))) ; lrwork = INT(ABS(rwork(1))) ; liwork =INT (ABS(iwork(1)))
+!   DEALLOCATE(work)          ; DEALLOCATE(rwork)           ; DEALLOCATE(iwork)
+!   ALLOCATE(work(lwork))     ; ALLOCATE(rwork(lrwork))     ; ALLOCATE(iwork(liwork))
+
+!   ! actual calculation
+!   if(flag_get_orbital) JOBZ='V'
+!   call PZHEEVX(JOBZ,'I','U', N, myH, 1, 1, DESC_myH, vl, vu, &
+!                iband, fband, abstol, nband_found, nv, &
+!                E, orfac, myV, 1, 1, DESC_myV, &
+!                work, lwork, rwork, lrwork, iwork, liwork, &
+!                ifail, iclustr, gap, iflag)
+!   if(nband_found .ne. nband) then
+!     write(6,'(A)') ' got an error from function: (nband .ne. nband_found)', func
+!     stop
+!   endif
+
+! endsubroutine
+#endif
 #ifdef MKL_SPARSE
 subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag, ne_prev)
     use parameters, only: spmat

@@ -11,10 +11,10 @@ contains
 
     if(present(arg_name)) then
       write(6,'(3A,F10.3,A)')'  MEMORY USAGE (',arg_name,'): ', &
-                        real(sizeof_)*length / 1024d0 / 1024d0 / 1024d0,' GB'
+                        real(sizeof_)*real(length) / 1024d0 / 1024d0 / 1024d0,' GB'
     else
       write(6,'( A,F10.3,A)')'  MEMORY USAGE : ',&
-                        real(sizeof_)*length / 1024d0 / 1024d0 / 1024d0,' GB'
+                        real(sizeof_)*real(length) / 1024d0 / 1024d0 / 1024d0,' GB'
     endif
 
     return

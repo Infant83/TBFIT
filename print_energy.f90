@@ -250,6 +250,9 @@ spin:do is = 1, ispin_print
        if(PINPT%flag_sparse) then
          write(pid_energy, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[', &
                                              PINPT%feast_emin,':', PINPT%feast_emax,']'
+         do ik = 1, nkpoint
+           write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+         enddo
        endif
    eig:do ie = 1, PINPT%nband ! init_e, fina_e
          write(pid_energy,'(2A,I8,A,I8,3A)',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen | ',ia, &
@@ -385,6 +388,9 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
         open(pid_energy, file=trim(fname), status = 'unknown')
           if(PINPT%flag_sparse) then
             write(pid_energy, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[',PINPT%feast_emin,':',PINPT%feast_emax,']'
+            do ik = 1, nkpoint
+              write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+            enddo
           endif
       eig:do ie =1, PINPT%nband !init_e, fina_e
             write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'     

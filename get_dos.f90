@@ -2,40 +2,53 @@
 subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    use parameters  
    use mpi_setup
-   ! some part of this routine is adopted from dos.f90 file of WannierTools originally written by QuanSheng Wu 
-   !  (Ref. https://doi.org/10.1016/j.cpc.2017.09.)
+   use time
+   use memory
    implicit none
-   type(hopping) :: NN_TABLE
-   type(dos    ) :: PINPT_DOS
-   type(incar  ) :: PINPT
-   type(poscar ) :: PGEOM
-   type(kpoints) :: PKPTS
-   integer*4        i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin
-   integer*4        ik,nk1,nk2,nk3
-   integer*4        iband, fband, nband, nband_found
-   integer*4        is, ispin_print
-   integer*4        mpierr
-   real*8           kshift(3)
-   real*8           e_range(PINPT_DOS%dos_nediv)
-   real*8           emax, emin
-   real*8           sigma, x, g_smear
+   type(hopping)           :: NN_TABLE
+   type(dos    )           :: PINPT_DOS
+   type(incar  )           :: PINPT
+   type(poscar )           :: PGEOM
+   type(kpoints)           :: PKPTS
+   integer*4                  i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin, ispinor
+   integer*4                  my_ie
+   integer*4                  ik,nk1,nk2,nk3
+   integer*4                  iband, fband, nband, nband_found
+   integer*4                  is, ispin_print
+   integer*4                  im, imatrix, iatom, ia, ii, mm
+   integer*4                  mpierr
+   real*8                     kshift(3)
+   real*8                     e_range(PINPT_DOS%dos_nediv)
+   real*8                     emax, emin
+   real*8                     sigma, x
+   integer*4,  allocatable :: ne_found(:,:) 
    real*8,     allocatable :: kpoint(:,:), kpoint_reci(:,:)
    real*8,     allocatable :: param(:), param_const(:,:)
-   real*8,     allocatable :: dos_up(:), dos_dn(:)
+   real*8,     allocatable :: dos_tot(:,:), dos_ ! nspin,nediv
+   real*8,     allocatable :: ldos_tot(:,:,:,:)                  ! norb+tot, dos_natom_ldos, nediv,spin
    real*8,     allocatable :: E(:,:), E_(:,:)
    complex*16, allocatable :: V(:,:,:), V_(:,:,:)
-   real*8           a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
-   real*8           b2xb3(3),bzvol,dkv
-   real*8           fgauss
-   external         fgauss  
-   character*40     fname_header
-   real*8           time1, time2
-   logical          flag_sparse
-   integer*4        feast_nemax_save
-   integer*4        feast_fpm_save(128)
-   integer*4, allocatable :: feast_ne_save(:,:)
-   real*8           feast_emin_save, feast_emax_save
-  
+   complex*16, allocatable :: myV(:,:) !norb,nband
+   real*8                     rho
+   real*8                     a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
+   real*8                     b2xb3(3),bzvol,dkv
+   real*8                     fgauss
+   external                   fgauss  
+   character*40               fname_header
+   real*8                     time1, time2, time3, time4
+   logical                    flag_sparse, flag_exit_dsum
+   integer*4                  feast_nemax_save
+   integer*4                  feast_fpm_save(128)
+   integer*4, allocatable  :: feast_ne_save(:,:)
+   real*8                     feast_emin_save, feast_emax_save
+#ifdef MPI                  
+  integer*4                   ourjob(nprocs)
+  integer*4                   ourjob_disp(0:nprocs-1)
+#else                        
+  integer*4                   ourjob(1)
+  integer*4                   ourjob_disp(0)
+#endif
+
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
@@ -48,6 +61,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    neig    = PGEOM%neig
    ispin   = PINPT%ispin
    nspin   = PINPT%nspin
+   ispinor = PINPT%ispinor
    nk1     = PINPT_DOS%dos_kgrid(1)  
    nk2     = PINPT_DOS%dos_kgrid(2)  
    nk3     = PINPT_DOS%dos_kgrid(3)  
@@ -58,7 +72,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    emax    = PINPT_DOS%dos_emax
    emin    = PINPT_DOS%dos_emin
    e_range = emin + (/(k, k=0,nediv-1)/) * (emax - emin)/dble(nediv - 1)
-   g_smear = PINPT_DOS%dos_smearing
+   sigma   = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 
 
@@ -88,10 +102,10 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      PINPT%feast_emax  = emax
      PINPT%feast_nemax = nband
 
-     if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
-       write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'
-       write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
-       write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+     if(PINPT%feast_nemax .gt. neig * ispinor) then
+       if_main write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'
+       if_main write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
+       if_main write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
        PINPT%feast_nemax = PINPT%nband
      endif
    elseif(.not. PINPT_DOS%dos_flag_sparse) then
@@ -112,22 +126,21 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    param_const = PINPT%param_const
    allocate( E(nband*nspin,nkpoint) )
    if_main allocate( V(neig*ispin,nband*nspin,nkpoint) )
+   allocate( myV(neig*ispin,nband*nspin) )
    allocate( kpoint(3,nkpoint) )
    allocate( kpoint_reci(3,nkpoint) )
    allocate( PINPT_DOS%dos_kpoint(3,nkpoint) )
    allocate( PINPT_DOS%dos_erange(nediv) )
-   if(PINPT%flag_collinear) then
-     allocate( PINPT_DOS%dos_up(nediv), dos_up(nediv) )
-     allocate( PINPT_DOS%dos_dn(nediv), dos_dn(nediv) )
-     
-     PINPT_DOS%dos_up = 0d0
-     PINPT_DOS%dos_dn = 0d0
-               dos_up = 0d0
-               dos_dn = 0d0
-   else
-     allocate( PINPT_DOS%dos_up(nediv), dos_up(nediv) )
-     PINPT_DOS%dos_up = 0d0
-               dos_up = 0d0
+
+   allocate( PINPT_DOS%dos_tot(nspin,nediv), dos_tot(nspin,nediv) )
+   PINPT_DOS%dos_tot = 0d0
+             dos_tot = 0d0
+   
+   if(PINPT_DOS%dos_flag_print_ldos) then
+     allocate(PINPT_DOS%ldos_tot(PGEOM%max_orb,PINPT_DOS%dos_ldos_natom,nspin,nediv) )
+     allocate(          ldos_tot(PGEOM%max_orb,PINPT_DOS%dos_ldos_natom,nspin,nediv) )
+     PINPT_DOS%ldos_tot= 0d0
+               ldos_tot= 0d0
    endif
 
    PINPT_DOS%dos_erange = e_range
@@ -138,58 +151,74 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
 
    call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, &
                 PINPT%flag_get_orbital, flag_sparse, .true., .true.)
-   sigma = g_smear
+
+   if(flag_sparse) then
+     allocate(ne_found(PINPT%nspin, nkpoint))
+     ne_found = PINPT%feast_ne
+   else
+     allocate(ne_found(PINPT%nspin, nkpoint))
+     ne_found = PINPT%nband
+   endif
 
 #ifdef MPI
    call MPI_Barrier(mpi_comm_earth, mpierr)
 #endif
 
-kp:do ik = 1 + myid, nkpoint, nprocs
- eig:do ie = 1, nediv
-  dsum:do i = 1, nband
-         if(PINPT%flag_collinear) then
-           if(.not.flag_sparse) then
-             x = e_range(ie) - E(i,ik)
-             dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
-             x = e_range(ie) - E(i+neig,ik)
-             dos_dn(ie) = dos_dn(ie) + fgauss(sigma,x) * dkv
-           elseif(flag_sparse) then
-             if(i .le. PINPT%feast_ne(1,ik)) then
-               x = e_range(ie) - E(i,ik)
-               dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
-             endif
-             if(i .le. PINPT%feast_ne(2,ik)) then
-               x = e_range(ie) - E(i+neig,ik)
-               dos_dn(ie) = dos_dn(ie) + fgauss(sigma,x) * dkv
-             endif
-             if(i .gt. PINPT%feast_ne(1,ik) .and. i .gt. PINPT%feast_ne(2,ik)) exit dsum
+   ! main routine for DOS evaluation
+!kp:do ik = 1 + myid, nkpoint, nprocs
+ if_main write(6,'(A)')' ... calculating DOS ...'
+ if_main call time_check(time4,time3,'init')
+
+kp:do ik = 1,  nkpoint
+     if(PINPT_DOS%dos_flag_print_ldos) then
+#ifdef MPI
+       if_main myV = V(:,:,ik)
+       call MPI_BCAST(myV, size(myV), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+#else
+       myV = V(:,:,ik)
+#endif
+     endif
+ eig:do ie = 1 + myid, nediv, nprocs
+    sp:do is = 1, nspin
+    dsum:do i = 1, ne_found(is,ik) ! init_e, fina_e
+           dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) * dkv
+           dos_tot(is,ie) = dos_tot(is,ie) + dos_
+
+           if(PINPT_DOS%dos_flag_print_ldos) then
+             ii = i+nband*(is-1) ! get band index according to the spin index
+             do ia = 1, PINPT_DOS%dos_ldos_natom
+               iatom = PINPT_DOS%dos_ldos_atom(ia) ! which atom will be resolved?
+               imatrix = sum(PGEOM%n_orbital(1:iatom)) - PGEOM%n_orbital(iatom) + 1 ! which matrix index is the starting point for "iatom"
+               do im = 1, PGEOM%n_orbital(iatom)
+                 mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho = real(conjg(myV(mm,ii))*myV(mm,ii))
+                 if(ispinor .eq. 2)  rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
+                 ldos_tot(im,ia,is,ie) = ldos_tot(im,ia,is,ie) + rho * dos_
+               enddo
+             enddo
            endif
-         else
-           if(.not. flag_sparse) then
-             x = e_range(ie) - E(i,ik)
-             dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
-           elseif(flag_sparse) then
-             if(i .le. PINPT%feast_ne(1,ik)) then
-               x = e_range(ie) - E(i,ik)
-               dos_up(ie) = dos_up(ie) + fgauss(sigma,x) * dkv
-             elseif(i .gt. PINPT%feast_ne(1,ik)) then
-               exit dsum
-             endif
-           endif
-         endif
-       enddo dsum
+
+         enddo dsum
+       enddo sp
      enddo eig
    enddo kp
-
 #ifdef MPI
-   if(flag_use_mpi)  call MPI_REDUCE(dos_up, PINPT_DOS%dos_up, nediv, MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
-   if(flag_use_mpi .and. PINPT%flag_collinear) call MPI_REDUCE(dos_dn, PINPT_DOS%dos_dn, nediv, MPI_REAL8, MPI_SUM, 0, &
-                                                               mpi_comm_earth, mpierr)
-#else
-   PINPT_DOS%dos_up = dos_up
-   if(PINPT%flag_collinear) PINPT_DOS%dos_dn = dos_dn
-#endif
+   call MPI_REDUCE(dos_tot, PINPT_DOS%dos_tot, nediv*nspin, MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
    if_main call print_dos(PINPT_DOS, PINPT)
+   if(PINPT_DOS%dos_flag_print_ldos) then
+     call MPI_REDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
+     if_main call print_ldos(PINPT_DOS, PINPT, PGEOM)
+   endif
+#else
+   PINPT_DOS%dos_tot = dos_tot
+   call print_dos(PINPT_DOS, PINPT)
+   if(PINPT_DOS%dos_flag_print_ldos) then
+     PINPT_DOS%ldos_tot = ldos_tot
+     call print_ldos(PINPT_DOS, PINPT, PGEOM)
+   endif
+#endif
+   if_main call time_check(time4,time3)
+   if_main write(6,'(A,F10.4,A)')' ... calculating DOS ... DONE  : ',time4, ' (sec)'
+
 
    ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
    !       ordering is not well defined in this case.
@@ -214,8 +243,12 @@ kp:do ik = 1 + myid, nkpoint, nprocs
    if(allocated(V )) deallocate( V )
    if(allocated(E_)) deallocate( E_)
    if(allocated(V_)) deallocate( V_)
+   if(allocated(myV))deallocate(myV)
    deallocate( kpoint )
    deallocate( kpoint_reci )
+   deallocate( ne_found )
+   deallocate( dos_tot )
+   if(allocated(ldos_tot)) deallocate(ldos_tot)
 
    if(PINPT_DOS%dos_flag_sparse) then ! set for FEAST eigen solver if DOS_SPARSE=.TRUE.
      if(PINPT%flag_sparse) then
@@ -241,6 +274,7 @@ kp:do ik = 1 + myid, nkpoint, nprocs
 
 return
 endsubroutine
+
 function fgauss(sigma, x)
    use parameters, only : pi, pi2
    implicit none
@@ -297,16 +331,8 @@ subroutine print_dos(PINPT_DOS, PINPT)
   character*40    filenm
   logical         flag_collinear
 
-
   filenm = PINPT_DOS%dos_filenm
   e_range = PINPT_DOS%dos_erange
-
-  if(.not.PINPT%flag_collinear) then
-     dos_data(1:PINPT_DOS%dos_nediv, 1) = PINPT_DOS%dos_up(1:PINPT_DOS%dos_nediv)
-  elseif(PINPT%flag_collinear) then
-     dos_data(1:PINPT_DOS%dos_nediv, 1) = PINPT_DOS%dos_up(1:PINPT_DOS%dos_nediv)
-     dos_data(1:PINPT_DOS%dos_nediv, 2) = PINPT_DOS%dos_dn(1:PINPT_DOS%dos_nediv)
-  endif
 
   open(pid_dos, file=trim(filenm), status = 'unknown')
 
@@ -318,9 +344,9 @@ subroutine print_dos(PINPT_DOS, PINPT)
   endif
   do ie = 1, PINPT_DOS%dos_nediv
     if(.not.PINPT%flag_collinear) then
-      write(pid_dos,'(F16.8,1x,F16.8)')e_range(ie), dos_data(ie,1)
+      write(pid_dos,'(F16.8,1x,F16.8)')e_range(ie), PINPT_DOS%dos_tot(1,ie)
     elseif(PINPT%flag_collinear) then
-      write(pid_dos,'(F16.8,1x,2F16.8)')e_range(ie), dos_data(ie,1:2)
+      write(pid_dos,'(F16.8,1x,F16.8)')e_range(ie), PINPT_DOS%dos_tot(1:2,ie)
     endif
   enddo
 
@@ -329,3 +355,58 @@ subroutine print_dos(PINPT_DOS, PINPT)
 return
 endsubroutine
 
+subroutine print_ldos(PINPT_DOS, PINPT, PGEOM)
+   use parameters, only: dos, pid_ldos, incar, poscar
+   implicit none
+   type(dos)    :: PINPT_DOS
+   type(incar)  :: PINPT
+   type(poscar) :: PGEOM
+   integer*4       im, ia, ie, iatom
+   real*8          e_range(PINPT_DOS%dos_nediv)
+   character*40    filenm
+
+   e_range = PINPT_DOS%dos_erange
+
+   do ia = 1, PINPT_DOS%dos_ldos_natom
+     iatom = PINPT_DOS%dos_ldos_atom(ia)
+     write(filenm,'(A,A,I0,A)') trim(PINPT_DOS%ldos_filenm),'_atom.',iatom,'.dat'
+     open(pid_ldos, file=trim(filenm), status = 'unknown')
+
+     write(pid_ldos,'(A,I0,A,A,A )')'# ATOM = ',iatom,' (spec = ',trim(PGEOM%c_spec(PGEOM%spec(iatom))),' )'
+     write(pid_ldos,'(A,I8,A,F16.8)')'# NDIV = ',PINPT_DOS%dos_nediv,' dE=',e_range(2)-e_range(1)
+   
+     if(.not. PINPT%flag_collinear) then
+       write(pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)        dos_total'
+       do im=1, PGEOM%n_orbital(ia)-1
+         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')'      orb-',im
+       enddo
+       write(pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  '      orb-',im
+     elseif(PINPT%flag_collinear) then
+       write(pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)     dos_total-up     dos_total-dn'
+       do im=1, PGEOM%n_orbital(ia)
+         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' up-orb-',im
+       enddo
+       do im=1, PGEOM%n_orbital(ia)-1
+         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' dn-orb-',im
+       enddo
+       write(pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  ' dn-orb-',im
+     endif  
+
+     do ie = 1, PINPT_DOS%dos_nediv
+       if(.not.PINPT%flag_collinear) then
+         write(pid_ldos,'(F16.8,1x,  F16.8    , *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), & 
+                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)
+       elseif(PINPT%flag_collinear) then                                                                                          
+         write(pid_ldos,'(F16.8,1x,2(F16.8,1x), *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), &
+                                                                           sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)), &
+                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie) , &
+                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)   
+       endif
+     enddo
+     
+     close(pid_ldos)
+   
+   enddo
+
+   return
+endsubroutine

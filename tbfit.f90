@@ -40,6 +40,7 @@ program tbfit
 
   if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature) then
     call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
+write(6,*)"VBBB", PINPT%init_erange, PINPT%nband
     call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
                  PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
     if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 

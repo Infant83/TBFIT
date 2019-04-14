@@ -48,6 +48,7 @@ module parameters
   integer*4,  public, parameter   :: pid_chg         = 82 
   integer*4,  public, parameter   :: pid_ibzkpt      = 83 
   integer*4,  public, parameter   :: pid_dos         = 84 
+  integer*4,  public, parameter   :: pid_ldos        = 85 
   integer*4,  public, parameter   :: pid_param       = 88 
   integer*4,  public, parameter   :: pid_matrix      = 99
   integer*4,  public, parameter   :: pid_berrycurv   = 100
@@ -298,7 +299,8 @@ module parameters
   endtype hopping
 
   type dos ! PINPT_DOS
-       character*40                  dos_kfilenm,dos_filenm
+       character*40                  dos_kfilenm
+       character*40                  dos_filenm, ldos_filenm
        integer*4                     dos_kgrid(3)
        integer*4                     dos_nediv 
        integer*4                     dos_iband, dos_fband
@@ -306,13 +308,18 @@ module parameters
        real*8                        dos_smearing
        real*8                        dos_kshift(1:3)
        real*8,      allocatable   :: dos_kpoint(:,:)       
-       real*8,      allocatable   :: dos(:), dos_erange(:)   ! size=nediv
-       real*8,      allocatable   :: dos_up(:), dos_dn(:)    ! size=nediv
+       real*8,      allocatable   :: dos_erange(:)   ! size=nediv
+       real*8,      allocatable   :: dos_tot(:,:)    ! size=nspin,nediv
        logical                       dos_flag_gamma, dos_flag_print_kpoint
-   
+       logical                       dos_flag_print_ldos
        logical                       dos_flag_print_eigen
+
        integer*4,   allocatable   :: dos_ensurf(:) !integer array of band index. size=n_ensurf
        integer*4                     dos_n_ensurf
+       integer*4,   allocatable   :: dos_ldos_atom(:) ! integer array of atom index. maxsize=n_atom
+       integer*4                     dos_ldos_natom ! how many atoms to be plotted for ldos
+       real*8,      allocatable   :: ldos_tot(:,:,:,:) !LDOS for each (ORB, ATOM, ENERGY, SPIN)
+
        character*1                   dos_kunit
 
        logical                       dos_flag_sparse

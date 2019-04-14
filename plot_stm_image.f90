@@ -80,6 +80,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 
 #ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
+           ! It is due to the V(:,iee) is only for "up" part. For "dn" part, V(:,iee + nband)
            call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
      band: do ie = 1+myid, stm_neig(is),nprocs
@@ -94,7 +95,11 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                 igrid = i1+1+i2*ng1+i3*ng1*ng2
                 call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
                 call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, .false.)
-                call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor)
+                if(PINPT%nspin .eq. 1) then
+                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor,PINPT%nspin)
+                elseif(PINPT%nspin .eq. 2) then
+                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,(/iee,iee+PINPT%nband/)),is,PINPT%ispinor,PINPT%nspin)
+                endif
               enddo grid_x
               enddo grid_y
               enddo grid_z
@@ -107,6 +112,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 
 #ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
+           ! Above warning should be removed.. but not has not been checked.. : 2018 Apr. 2 KHJ
 !          call MPI_Allreduce(psi_r_up(:,ikk), psi_r_up_(:,ikk), size(psi_r_up_(:,ikk)), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
            call MPI_Barrier(mpi_comm_earth,mpierr)
            if(is .eq. 1) then
@@ -180,24 +186,24 @@ subroutine write_rho_main_stm(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nres
    return
 endsubroutine
 
-subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,is,ispinor)
+subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,is,ispinor,nspin)
    use parameters, only : energy
    use orbital_wavefunction, only: psi_rho
    implicit none
    type(energy) :: ETBA
-   integer*4    igrid, nbasis, ispin
+   integer*4    igrid, nbasis, ispin, nspin
    integer*4    iee, ikk, is, ispinor
    complex*16   psi_r_up, psi_r_dn
    complex*16   phi_r(nbasis)
-   complex*16   V(nbasis*ispin)
+   complex*16   V(nbasis*ispin,nspin)
 
    if    (is .eq. 1 .and. ispinor .eq. 1) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V, .false., 'up')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'up')
    elseif(is .eq. 1 .and. ispinor .eq. 2) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V, .false., 'up')
-     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V, .false., 'dn')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'up')
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'dn')
    elseif(is .eq. 2 .and. ispinor .eq. 1) then
-     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V, .false., 'dn')
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,2), .false., 'dn')
    endif
 
    return

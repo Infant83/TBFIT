@@ -442,12 +442,14 @@ mode: select case ( trim(plot_mode) )
             PINPT_DOS%dos_flag_print_kpoint = .false.
             PINPT_DOS%dos_kfilenm    = 'IBZKPT-DOS_TB'
             PINPT_DOS%dos_filenm     = 'DOS_TB_projected.dat'
+            PINPT_DOS%ldos_filenm    = 'LDOS_TB_projected'   ! default. atom index will be appended after.
             PINPT_DOS%dos_flag_print_eigen = .false.
             PINPT_DOS%dos_kunit = 'R'
             PINPT_DOS%dos_iband = 1
             PINPT_DOS%dos_fband = 999999
             PINPT_DOS%dos_smearing = 0.025
             PINPT_DOS%dos_flag_sparse = .false.
+            PINPT_DOS%dos_flag_print_ldos = .false.
 
    set_dos: do while(trim(desc_str) .ne. 'END')
               read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -638,6 +640,10 @@ mode: select case ( trim(plot_mode) )
                   read(inputline,*,iostat=i_continue) desc_str,desc_str
                   PINPT_DOS%dos_filenm = trim(desc_str)
                   if_main write(6,'(A,A)')' DOS_FNAM: ',trim(PINPT_DOS%dos_filenm)
+                case('LDOS_FNAME') ! LDOS output file name
+                  read(inputline,*,iostat=i_continue) desc_str, desc_str
+                  PINPT_DOS%ldos_filenm = trim(desc_str)
+                  if_main write(6,'(A,A)')'LDOS_FNAM: ',trim(PINPT_DOS%dos_filenm)
                 case('SMEARING') ! gaussian smearing
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_smearing
                   if_main write(6,'(A,F8.4)')'DOS_SIGMA: GAUSSIAN WIDTH = ',PINPT_DOS%dos_smearing
@@ -649,7 +655,56 @@ mode: select case ( trim(plot_mode) )
                   elseif(.not. PINPT_DOS%dos_flag_sparse) then
                     if_main write(6,'(A)')'DOS_SPARSE: .FALSE.'
                   endif
-                  
+
+                case('PRINT_LDOS')
+                  i_dummy = nitems(inputline) - 1
+                  if(i_dummy .eq. 1) then
+                    read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_ldos
+                    if(PINPT_DOS%dos_flag_print_ldos) then
+                      if_main write(6,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'
+                      if_main write(6,'(A)')'  !WARNING!          -> LDOS for all atoms of the system will be evaluated by default.'
+                    endif
+                  elseif(i_dummy .gt. 1) then
+                    read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_ldos
+                    read(inputline,*,iostat=i_continue) desc_str,dummy
+                    if(PINPT_DOS%dos_flag_print_ldos) then
+                      call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
+                      i_dummy1=index(dummy1,':')
+                      if(i_dummy1 .eq. 0) then
+                        PINPT_DOS%dos_ldos_natom = nitems(dummy1)
+                        allocate( PINPT_DOS%dos_ldos_atom(PINPT_DOS%dos_ldos_natom) )
+                        read(dummy1,*,iostat=i_continue) PINPT_DOS%dos_ldos_atom(1:PINPT_DOS%dos_ldos_natom)
+                        if_main write(6,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                      elseif(i_dummy1 .ge. 1)then
+                        i_dummy2 = nitems(dummy1)
+                        allocate( strip_dummy(i_dummy2) )
+                        read(dummy1,*,iostat=i_continue) (strip_dummy(i),i=1,i_dummy2)
+                        ii = 0
+                        do i = 1, i_dummy2
+                          i_dummy3 = index(strip_dummy(i),':')
+                          if(i_dummy3 .eq. 0) then
+                            ii = ii + 1
+                            call str2int(strip_dummy(i),i_dummy4)
+                            i_dummyr(ii) = i_dummy4
+                          elseif(i_dummy3 .gt. 1) then
+                            ii = ii + 1
+                            call strip_off(trim(strip_dummy(i)), dummy3, ' ', ':', 0)
+                            call str2int(dummy3,i_dummy4)
+                            call strip_off(trim(strip_dummy(i)), dummy3, ':', ' ', 2)
+                            call str2int(dummy3,i_dummy5)
+                            i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/ (k, k=i_dummy4, i_dummy5) /)
+                            ii = ii + i_dummy5 - i_dummy4
+                          endif
+                        enddo
+                        PINPT_DOS%dos_ldos_natom = ii
+                        allocate( PINPT_DOS%dos_ldos_atom(PINPT_DOS%dos_ldos_natom) )
+                        deallocate( strip_dummy )
+                        PINPT_DOS%dos_ldos_atom(1:ii) = i_dummyr(1:ii)
+                        if_main write(6,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                      endif
+                    endif
+                  endif
+
               end select case_dos
 
             enddo set_dos

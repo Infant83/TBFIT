@@ -190,8 +190,8 @@ kp:do ik = 1,  nkpoint
                iatom = PINPT_DOS%dos_ldos_atom(ia) ! which atom will be resolved?
                imatrix = sum(PGEOM%n_orbital(1:iatom)) - PGEOM%n_orbital(iatom) + 1 ! which matrix index is the starting point for "iatom"
                do im = 1, PGEOM%n_orbital(iatom)
-                 mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho = real(conjg(myV(mm,ii))*myV(mm,ii))
-                 if(ispinor .eq. 2)  rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
+                 mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho =       real(conjg(myV(mm     ,ii))*myV(mm     ,ii))
+                 if(ispinor .eq. 2)                      rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
                  ldos_tot(im,ia,is,ie) = ldos_tot(im,ia,is,ie) + rho * dos_
                enddo
              enddo
@@ -205,8 +205,9 @@ kp:do ik = 1,  nkpoint
    call MPI_REDUCE(dos_tot, PINPT_DOS%dos_tot, nediv*nspin, MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
    if_main call print_dos(PINPT_DOS, PINPT)
    if(PINPT_DOS%dos_flag_print_ldos) then
-     call MPI_REDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
-     if_main call print_ldos(PINPT_DOS, PINPT, PGEOM)
+!    call MPI_REDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
+     call MPI_ALLREDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM,  mpi_comm_earth, mpierr)
+     call print_ldos(PINPT_DOS, PINPT, PGEOM)
    endif
 #else
    PINPT_DOS%dos_tot = dos_tot
@@ -357,54 +358,66 @@ endsubroutine
 
 subroutine print_ldos(PINPT_DOS, PINPT, PGEOM)
    use parameters, only: dos, pid_ldos, incar, poscar
+   use mpi_setup
    implicit none
    type(dos)    :: PINPT_DOS
    type(incar)  :: PINPT
    type(poscar) :: PGEOM
-   integer*4       im, ia, ie, iatom
+   integer*4       im, ia, iaa, ie, iatom
+   integer*4       my_pid_ldos
    real*8          e_range(PINPT_DOS%dos_nediv)
    character*40    filenm
+#ifdef MPI
+   integer*4       ourjob(nprocs)
+   integer*4       ourjob_disp(0:nprocs-1)
+   call mpi_job_distribution_chain(PINPT_DOS%dos_ldos_natom, ourjob, ourjob_disp)   
+#else
+   integer*4  ourjob(1)
+   integer*4  ourjob_disp(0)
+   call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+#endif
 
    e_range = PINPT_DOS%dos_erange
 
-   do ia = 1, PINPT_DOS%dos_ldos_natom
+   do ia = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
      iatom = PINPT_DOS%dos_ldos_atom(ia)
+     my_pid_ldos = pid_ldos + myid
      write(filenm,'(A,A,I0,A)') trim(PINPT_DOS%ldos_filenm),'_atom.',iatom,'.dat'
-     open(pid_ldos, file=trim(filenm), status = 'unknown')
+     open(my_pid_ldos, file=trim(filenm), status = 'unknown')
 
-     write(pid_ldos,'(A,I0,A,A,A )')'# ATOM = ',iatom,' (spec = ',trim(PGEOM%c_spec(PGEOM%spec(iatom))),' )'
-     write(pid_ldos,'(A,I8,A,F16.8)')'# NDIV = ',PINPT_DOS%dos_nediv,' dE=',e_range(2)-e_range(1)
+     write(my_pid_ldos,'(A,I0,A,A,A )')'# ATOM = ',iatom,' (spec = ',trim(PGEOM%c_spec(PGEOM%spec(iatom))),' )'
+     write(my_pid_ldos,'(A,I8,A,F16.8)')'# NDIV = ',PINPT_DOS%dos_nediv,' dE=',e_range(2)-e_range(1)
    
      if(.not. PINPT%flag_collinear) then
-       write(pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)        dos_total'
+       write(my_pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)        dos_total'
        do im=1, PGEOM%n_orbital(ia)-1
-         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')'      orb-',im
+         write(my_pid_ldos,'(A15,I1,1x)',ADVANCE='NO')'      orb-',im
        enddo
-       write(pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  '      orb-',im
+       write(my_pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  '      orb-',im
      elseif(PINPT%flag_collinear) then
-       write(pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)     dos_total-up     dos_total-dn'
+       write(my_pid_ldos,'(A)',ADVANCE='NO')          '#    energy (ev)     dos_total-up     dos_total-dn'
        do im=1, PGEOM%n_orbital(ia)
-         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' up-orb-',im
+         write(my_pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' up-orb-',im
        enddo
        do im=1, PGEOM%n_orbital(ia)-1
-         write(pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' dn-orb-',im
+         write(my_pid_ldos,'(A15,I1,1x)',ADVANCE='NO')' dn-orb-',im
        enddo
-       write(pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  ' dn-orb-',im
+       write(my_pid_ldos,'(A15,I1,1x)',ADVANCE='YES')  ' dn-orb-',im
      endif  
 
      do ie = 1, PINPT_DOS%dos_nediv
        if(.not.PINPT%flag_collinear) then
-         write(pid_ldos,'(F16.8,1x,  F16.8    , *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), & 
-                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)
+         write(my_pid_ldos,'(F16.8,1x,  F16.8    , *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), & 
+                                                                                  PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)
        elseif(PINPT%flag_collinear) then                                                                                          
-         write(pid_ldos,'(F16.8,1x,2(F16.8,1x), *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), &
-                                                                           sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)), &
-                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie) , &
-                                                                               PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)   
+         write(my_pid_ldos,'(F16.8,1x,2(F16.8,1x), *(F16.8,1x))')e_range(ie), sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie)), &
+                                                                              sum(PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)), &
+                                                                                  PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,1,ie) , &
+                                                                                  PINPT_DOS%ldos_tot(1:PGEOM%n_orbital(iatom),ia,2,ie)   
        endif
      enddo
      
-     close(pid_ldos)
+     close(my_pid_ldos)
    
    enddo
 

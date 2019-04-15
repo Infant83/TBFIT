@@ -369,4 +369,27 @@ module mpi_setup
 
    endsubroutine
 
+subroutine report_job_distribution(flag_stat, ourjob, jobname)
+   implicit none
+   integer*4    mpierr
+   integer*4    ourjob(nprocs)
+   logical      flag_stat
+   character(*), optional, intent(in) :: jobname
+
+
+   if(flag_stat) then
+     if(present(jobname)) then
+       if_main write(6,'(A,A)')               '       JOB DISTRUBUTION for ',trim(jobname),' :'
+     else
+       if_main write(6,'(A)')                 '       JOB DISTRUBUTION :'
+     endif
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+             write(6,'(A,I0,A,I0,A)')         '       ->cpuid(',myid,'): ', ourjob(myid+1),' k-points'
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+   endif
+
+   return
+endsubroutine
+
+
 endmodule

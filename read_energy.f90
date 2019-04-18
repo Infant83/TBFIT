@@ -273,6 +273,7 @@ subroutine load_band_structure(E, V, nband, norb, nk, kmode, pid, flag_vector)
    integer*4              pid
    integer*4              ie, ik
    integer*4              nband, norb, nk
+   integer*4              nskip
    integer*4              idummy
    integer*4              nitems
    external               nitems
@@ -285,9 +286,12 @@ subroutine load_band_structure(E, V, nband, norb, nk, kmode, pid, flag_vector)
 
    if(trim(kmode) .eq. 'grid') then   
      allocate(kpoint(3))
+     nskip = 3
    elseif(trim(kmode) .eq. 'line') then
      allocate(kpoint(1))
+     nskip = 1
    endif
+
    do ie = 1, nband
      flag_go = .false.
      do while (.not.flag_go)
@@ -303,7 +307,7 @@ subroutine load_band_structure(E, V, nband, norb, nk, kmode, pid, flag_vector)
 
      do ik = 1, nk
        read(pid,'(A)')inputline
-       idummy = nitems(inputline) - 1
+       idummy = nitems(inputline) - nskip
        if(idummy .gt. 1) then
          backspace(pid)
          if(flag_vector) then

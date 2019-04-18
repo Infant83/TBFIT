@@ -1,6 +1,7 @@
 subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
    use parameters, only : poscar
-   real*8      r0, dij, onsite_tol
+   real*8      r0  ! reference distance
+   real*8      dij, onsite_tol
    integer*4   n, iatom, jatom, li, lj
    integer*4   ii, nn, max_nn, nn_class, i_dummy
    character*8 c_atom_i, c_atom_j

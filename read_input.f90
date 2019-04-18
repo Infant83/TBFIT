@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PKAIA)
+subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PKAIA, PRPLT)
   use parameters
   use read_incar
   use berry_phase
@@ -34,6 +34,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   type(weight)  :: PWGHT 
   type(hopping) :: NN_TABLE
   type(gainp)   :: PKAIA
+  type(replot)  :: PRPLT
 
   if(.not. PINPT%flag_inputcard_fname_parse) then 
     fname   = 'INCAR-TB'
@@ -141,6 +142,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PKAIA%convwin = 20.0d0
   PKAIA%iguessf = 0.1d0
   PKAIA%iseed   = 999
+
+  PRPLT%flag_replot_dos   = .false.
+  PRPLT%flag_replot_ldos  = .false.
+  PRPLT%flag_replot_sldos = .false.
 
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
@@ -326,6 +331,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             elseif(trim(desc_str) .eq. 'EFFECTIVE') then
               call set_effective(PINPT, desc_str)
 
+            elseif(trim(desc_str) .eq. 'REPLOT') then
+              call set_replot(PRPLT,desc_str)
+
             endif !SET
          
         end select
@@ -433,8 +441,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
 
   ! setup atom index for ldos if not allocated
-  if(PINPT%flag_get_dos .and. PINPT_DOS%dos_flag_print_ldos .and. .not. allocated(PINPT_DOS%dos_ldos_atom)) then 
+  if(PINPT_DOS%dos_flag_print_ldos .and. PINPT_DOS%dos_ldos_natom .eq. 0) then 
     allocate(PINPT_DOS%dos_ldos_atom(PGEOM%n_atom))
+    do i = 1, PGEOM%n_atom
+      PINPT_DOS%dos_ldos_atom(i) = i
+    enddo
     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
     if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
   endif
@@ -577,6 +588,25 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
   endif
 
+
+  if(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos) then
+    if(PINPT%flag_collinear) then 
+      PRPLT%fname_band_up = 'band_structure_TBA.up.dat'
+      PRPLT%fname_band_dn = 'band_structure_TBA.dn.dat'
+    elseif(.not. PINPT%flag_collinear) then
+      PRPLT%fname_band_up = 'band_structure_TBA.dat'
+    endif
+   
+    ! setup ldos atom if not allocated
+    if(PRPLT%flag_replot_ldos .and. PRPLT%replot_ldos_natom .eq. 0) then
+      allocate(PRPLT%replot_ldos_atom(PGEOM%n_atom))
+      do i = 1, PGEOM%n_atom
+        PRPLT%replot_ldos_atom(i) = i
+      enddo
+      PRPLT%replot_ldos_natom = PGEOM%n_atom
+      if_main write(6,'(A,I0)')' REPLOT_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+    endif
+  endif
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '

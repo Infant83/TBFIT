@@ -284,7 +284,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
 #ifdef MPI
    nn_mpi(myid+1) = nn
-   call MPI_ALLGATHER(nn,1, MPI_INTEGER4, nn_mpi,1,MPI_INTEGER, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHER(nn,1, MPI_INTEGER4, nn_mpi,1,MPI_INTEGER4, mpi_comm_earth, mpierr)
    nn_mpi_disp(0) = 0
    do ii = 1, nprocs-1
      nn_mpi_disp(ii)= nn_mpi_disp(ii - 1) + nn_mpi(ii)

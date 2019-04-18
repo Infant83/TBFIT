@@ -26,7 +26,7 @@ program tbfit
   type (weight)  :: PWGHT       ! weight factor for the fitting to target energy
   type (hopping) :: NN_TABLE    ! table for hopping index
   type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
-
+  type (replot)  :: PRPLT
 #ifdef MPI
   call mpi_initialize()
 ! call test()
@@ -35,33 +35,38 @@ program tbfit
   if_main call version_stamp(t_start)
           call parse(PINPT, PKPTS)
   if_test call test()
-          call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA)
-  if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
+          call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA,PRPLT)
 
-  if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature) then
-    call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
-    call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
-                 PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
-    if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
-    if(PINPT%flag_print_ldos .and. myid .eq. 0) call print_energy_ldos(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
-    if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
-    if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
-    if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
-    if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PKPTS,PGEOM,NN_TABLE) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
-
-  endif
-
+  if( (.not. PRPLT%flag_replot_dos) .and. (.not. PRPLT%flag_replot_ldos) .and. (.not. PRPLT%flag_replot_sldos)) then
+    if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
+    if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature ) then
+      call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
+      call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
+                   PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
+      if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+      if(PINPT%flag_print_ldos .and. myid .eq. 0) call print_energy_ldos(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+      if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
+      if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
+      if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
+      if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PKPTS,PGEOM,NN_TABLE) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
+    endif
 #ifdef MPI
-  call MPI_Barrier(mpi_comm_earth,mpierr)
+    call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
 
-  ! In these routin, they call "get_eig" to get eigenvalues & eigenvectors 
-  if(PINPT%flag_get_dos)             call get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
-  if(PINPT%flag_get_zak_phase)       call get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-  if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-  if(PINPT%flag_get_z2)              call get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-  if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+    ! In these routin, they call "get_eig" to get eigenvalues & eigenvectors 
+    if(PINPT%flag_get_dos)             call get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
+    if(PINPT%flag_get_zak_phase)       call get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+    if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+    if(PINPT%flag_get_z2)              call get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+    if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
+
+  elseif(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos) then  ! program run in replot mode
+
+    call replot_dos(PINPT, PGEOM, PKPTS, PRPLT)
+
+  endif
 
 ! call MPI_Barrier(mpi_comm_earth, mpierr)
   if_main write(6,*)''

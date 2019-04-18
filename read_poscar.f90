@@ -105,6 +105,7 @@ line: do
 
            if(myid .eq. 0) write(6,'(A,i8)')'   N_ATOM:',PGEOM%n_atom
            allocate( PGEOM%a_coord(3,PGEOM%n_atom), &
+                     PGEOM%a_coord_cart(3,PGEOM%n_atom), &
                      PGEOM%n_orbital(PGEOM%n_atom), &
                      local_charge_(PGEOM%n_atom*max_orb_temp), &
                      local_moment_(3,PGEOM%n_atom*max_orb_temp), &
@@ -401,7 +402,7 @@ line: do
       enddo line
   
 ! call check_sanity(PINOT,PGEOM) !!!!! for future work
-  if(PGEOM%flag_cartesian) then
+  if(PGEOM%flag_cartesian) then ! cartesian
     t_latt_inv = inv(PGEOM%a_latt)
     ii = 0
     allocate(PGEOM%o_coord(3,PGEOM%neig))
@@ -412,6 +413,9 @@ line: do
       PGEOM%a_coord(2,i) = dot_product(t_latt_inv(2,:), t_coord(:))
       PGEOM%a_coord(3,i) = dot_product(t_latt_inv(3,:), t_coord(:))
       PGEOM%a_coord(:,i) = PGEOM%a_coord(:,i) - int(PGEOM%a_coord(:,i))
+      PGEOM%a_coord_cart(:,i) = PGEOM%a_coord(1,i) * PGEOM%a_latt(:,1) + &
+                                PGEOM%a_coord(2,i) * PGEOM%a_latt(:,2) + &
+                                PGEOM%a_coord(3,i) * PGEOM%a_latt(:,3)
       do iorb=1,PGEOM%n_orbital(i)
         ii = ii + 1
         PGEOM%o_coord(:,ii) = PGEOM%a_coord(:,i)
@@ -420,11 +424,14 @@ line: do
                                    PGEOM%o_coord(3,ii) * PGEOM%a_latt(:,3)
       enddo
     enddo
-  else
+  else ! direct
     allocate(PGEOM%o_coord(3,PGEOM%neig))
     allocate(PGEOM%o_coord_cart(3,PGEOM%neig))
     ii = 0
     do i = 1, PGEOM%n_atom
+      PGEOM%a_coord_cart(:,i) = PGEOM%a_coord(1,i) * PGEOM%a_latt(:,1) + &
+                                PGEOM%a_coord(2,i) * PGEOM%a_latt(:,2) + &
+                                PGEOM%a_coord(3,i) * PGEOM%a_latt(:,3)
       do iorb=1,PGEOM%n_orbital(i)
         ii = ii + 1
         PGEOM%o_coord(:,ii) = PGEOM%a_coord(:,i)

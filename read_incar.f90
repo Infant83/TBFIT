@@ -412,17 +412,189 @@ mode: select case ( trim(plot_mode) )
       return
    endsubroutine
 
+   subroutine set_replot(PRPLT, desc_str)
+      type(replot )  :: PRPLT
+      integer*4     i, ii, k, i_continue
+      integer*4     nitems
+      external      nitems
+      character(*), parameter :: func = 'set_replot'
+      character*132 inputline
+      logical       flag_number
+      external      flag_number
+      character*40  desc_str, dummy, dummy1,dummy2,dummy3
+      integer*4     i_dummy,i_dummy1,i_dummy2,i_dummy3,i_dummy4,i_dummy5
+      character*40,  allocatable :: strip_dummy(:)
+      integer*4     i_dummyr(max_dummy)
+      integer*4     mpierr
+
+      ! setup default values
+      PRPLT%replot_ldos_natom    =  0 
+      PRPLT%replot_dos_smearing  =  0.025d0 
+      PRPLT%replot_dos_emin      = -10d0
+      PRPLT%replot_dos_emax      =  10d0
+      PRPLT%replot_dos_nediv     =  1000
+      PRPLT%replot_sldos_cell    = (/1,1,1/)
+      PRPLT%r_origin             = 0d0
+      PRPLT%bond_cut             = 3d0 
+
+ set_rpl:do while(trim(desc_str) .ne. 'END')
+           read(pid_incar,'(A)',iostat=i_continue) inputline
+           read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+           if(i_continue .ne. 0) cycle      ! skip empty line
+           if(desc_str(1:1).eq.'#') cycle   ! skip comment
+           if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+  case_rpl:select case ( trim(desc_str) )
+             case('REPLOT_DOS')
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos 
+               if(PRPLT%flag_replot_dos) then
+                 if_main write(6,'(A)')'  REPLT_DOS: .TRUE.'
+               elseif(.not. PRPLT%flag_replot_dos) then
+                 if_main write(6,'(A)')'  REPLT_DOS: .FALSE.'
+               endif
+
+             case('REPLOT_SLDOS')
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
+               if(PRPLT%flag_replot_dos) then
+                 if_main write(6,'(A)')'REPLT_SLDOS: .TRUE.'
+               elseif(.not. PRPLT%flag_replot_dos) then
+                 if_main write(6,'(A)')'REPLT_SLDOS: .FALSE.'
+               endif
+
+             case('REPLOT_LDOS')
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_ldos
+                 if(PRPLT%flag_replot_ldos) then
+                   if_main write(6,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'
+                   if_main write(6,'(A)')'  !WARNING!          -> LDOS for all atoms of the system will be evaluated by default.'
+                 endif
+               elseif(i_dummy .gt. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_ldos
+                 read(inputline,*,iostat=i_continue) desc_str,dummy
+                 if(PRPLT%flag_replot_ldos) then
+                   call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
+                   i_dummy1=index(dummy1,':')
+                   if(i_dummy1 .eq. 0) then
+                     PRPLT%replot_ldos_natom = nitems(dummy1)
+                     allocate( PRPLT%replot_ldos_atom(PRPLT%replot_ldos_natom) )
+                     read(dummy1,*,iostat=i_continue) PRPLT%replot_ldos_atom(1:PRPLT%replot_ldos_natom)
+                     if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                   elseif(i_dummy1 .ge. 1)then
+                     i_dummy2 = nitems(dummy1)
+                     allocate( strip_dummy(i_dummy2) )
+                     read(dummy1,*,iostat=i_continue) (strip_dummy(i),i=1,i_dummy2)
+                     ii = 0
+                     do i = 1, i_dummy2
+                       i_dummy3 = index(strip_dummy(i),':')
+                       if(i_dummy3 .eq. 0) then
+                         ii = ii + 1
+                         call str2int(strip_dummy(i),i_dummy4)
+                         i_dummyr(ii) = i_dummy4
+                       elseif(i_dummy3 .gt. 1) then
+                         ii = ii + 1
+                         call strip_off(trim(strip_dummy(i)), dummy3, ' ', ':', 0)
+                         call str2int(dummy3,i_dummy4)
+                         call strip_off(trim(strip_dummy(i)), dummy3, ':', ' ', 2)
+                         call str2int(dummy3,i_dummy5)
+                         i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/ (k, k=i_dummy4, i_dummy5) /)
+                         ii = ii + i_dummy5 - i_dummy4
+                       endif
+                     enddo
+                     PRPLT%replot_ldos_natom = ii
+                     allocate( PRPLT%replot_ldos_atom(PRPLT%replot_ldos_natom) )
+                     deallocate( strip_dummy )
+                     PRPLT%replot_ldos_atom(1:ii) = i_dummyr(1:ii)
+                     if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                   endif
+                 endif
+               endif
+             case('NEDOS','REPLOT_NEDOS')
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_nediv
+               if_main write(6,'(A,I8)')' REPLT_NDIV:', PRPLT%replot_dos_nediv
+
+             case('DOS_ERANGE', 'DOS_EWINDOW', 'REPLOT_ERANGE', 'REPLOT_EWINDOW')
+               call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
+               i_dummy=index(dummy,':')
+               call strip_off (trim(dummy), dummy1,' ',':',0)
+               if( i_dummy .eq. 0) then
+                 i_dummy2 = nitems(dummy)
+                 if(i_dummy2 .eq. 2)then
+                   read(dummy,*,iostat=i_continue) PRPLT%replot_dos_emin,PRPLT%replot_dos_emax
+                   if_main write(6,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin
+                   if_main write(6,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax
+                 else
+                   if_main write(6,'(A)')'    !WARNING!  REPLOT_EWINDOW is not properly set up.'
+                   if_main write(6,'(A)')'    !WARNING!  Proper usage is as follows:'
+                   if_main write(6,'(A)')'    !WARNING!    REPLOT_WINDOW  EMIN:EMAX , :EMAX, EMIN: or :'
+                   if_main write(6,'(A)')'    !WARNING! or REPLOT_EWINDOW  EMIN EMAX'
+                   if_main write(6,'(A)')'    !WARNING!  Exit program...'
+                   kill_job
+                 endif
+               elseif(i_dummy .ge. 1) then
+                 if(len_trim(dummy1) .eq. 0) then
+                   PRPLT%replot_dos_emin = -10.0d0 ! default dos_emin
+                   if_main write(6,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin
+                 else
+                   call str2real(dummy1,PRPLT%replot_dos_emin)
+                   if_main write(6,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin
+                 endif
+                 call strip_off (trim(dummy), dummy2,':',' ',2)
+                 if(len_trim(dummy2) .eq. 0) then
+                   PRPLT%replot_dos_emax =  10.0d0 ! default dos_emax
+                   if_main write(6,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax
+                 else
+                   call str2real(dummy2,PRPLT%replot_dos_emax)
+                   if_main write(6,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax
+                 endif
+               endif
+
+             case('SMEARING', 'REPLOT_SMEARING') ! gaussian smearing
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_smearing
+               if_main write(6,'(A,F8.4)')'REPLT_SIGMA: GAUSSIAN WIDTH = ',PRPLT%replot_dos_smearing
+
+             case('REPEAT_CELL')
+               i_dummy = nitems(inputline) -1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str, i_dummy2 
+                 PRPLT%replot_sldos_cell = i_dummy2
+               elseif(i_dummy .eq. 2) then
+                 read(inputline,*,iostat=i_continue) desc_str, PRPLT%replot_sldos_cell(1:2)
+               elseif(i_dummy .eq. 3) then
+                 read(inputline,*,iostat=i_continue) desc_str, PRPLT%replot_sldos_cell(1:3) 
+               endif
+               if_main write(6,'(A,3(I6))')' REPLT_CELL:',PRPLT%replot_sldos_cell(1:3)
+
+             case('RORIGIN')
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 3) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%r_origin(1:3)
+                 if_main  write(6,'(A,3(F15.8))')'REPLT_ORIG:  ',PRPLT%r_origin(1:3)
+               else
+                 if_main write(6,'(A)')'    !WARN! RORIGIN tag of "SET REPLOT" should be three consequent real values.'
+                 if_main write(6,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func
+                 kill_job
+               endif
+
+             case('BOND_CUT')
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%bond_cut
+               if_main  write(6,'(A,3(F15.8))')'REPLT_RCUT:  ',PRPLT%bond_cut
+
+           endselect case_rpl
+
+         enddo set_rpl
+
+      return
+   endsubroutine
    subroutine set_density_of_states(PINPT, PINPT_DOS, desc_str)
       type(incar )  ::  PINPT
       type(dos)     :: PINPT_DOS
-!     integer*4, parameter :: max_dummy = 9999999
       integer*4     i, ii, k, i_continue
       integer*4     nitems
       external      nitems
       character(*), parameter :: func = 'set_dos'
       character*132 inputline
       character*40  desc_str, dummy, dummy1,dummy2,dummy3
-      character*40  desc_str_
       integer*4     i_dummy,i_dummy1,i_dummy2,i_dummy3,i_dummy4,i_dummy5
       character*40,  allocatable :: strip_dummy(:)
       integer*4     i_dummyr(max_dummy)
@@ -450,6 +622,7 @@ mode: select case ( trim(plot_mode) )
             PINPT_DOS%dos_smearing = 0.025
             PINPT_DOS%dos_flag_sparse = .false.
             PINPT_DOS%dos_flag_print_ldos = .false.
+            PINPT_DOS%dos_ldos_natom = 0
 
    set_dos: do while(trim(desc_str) .ne. 'END')
               read(pid_incar,'(A)',iostat=i_continue) inputline

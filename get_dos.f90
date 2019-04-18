@@ -12,6 +12,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    type(kpoints)           :: PKPTS
    integer*4                  i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin, ispinor
    integer*4                  my_ie
+   integer*4                  iadd, iaddk, inc, inck
    integer*4                  ik,nk1,nk2,nk3
    integer*4                  iband, fband, nband, nband_found
    integer*4                  is, ispin_print
@@ -75,6 +76,10 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    sigma   = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 
+
+   iadd       = 10 ; iaddk = 8  ; inck = 1
+
+   call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
 
    if(PINPT%flag_noncollinear) then ! set default fband if fband has not been pre-defined
      if(fband .eq. 999999) fband = neig * 2
@@ -168,6 +173,9 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
 !kp:do ik = 1 + myid, nkpoint, nprocs
  if_main write(6,'(A)')' ... calculating DOS ...'
  if_main call time_check(time4,time3,'init')
+ if(PINPT_DOS%dos_flag_print_ldos) then
+   if_main call report_memory(size(ldos_tot) * nprocs * 2, 8, 'LDOS(total)   ')
+ endif
 
 kp:do ik = 1,  nkpoint
      if(PINPT_DOS%dos_flag_print_ldos) then
@@ -178,18 +186,39 @@ kp:do ik = 1,  nkpoint
        myV = V(:,:,ik)
 #endif
      endif
- eig:do ie = 1 + myid, nediv, nprocs
+     if(nkpoint .lt. 10) then
+       if_main write(6,'(A,I0,A,I0)')  '         STAT KP: ', ik,'/',nkpoint
+     else
+       if( ik/real(nkpoint)*100d0 .ge. real(iaddk*inck) ) then
+         if_main write(6,'(A,F10.3,A)')'         STAT KP: ', ik/real(nkpoint)*100d0, ' %'
+         inck = inck + 1
+       endif
+     endif
+!eig:do ie = 1 + myid, nediv, nprocs
+     inc = 1
+ eig:do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
+       if(nkpoint .lt. 10) then
+         if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
+           if_main write(6,'(A,F10.3,A)')'            STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'
+           inc = inc + 1
+         endif
+       endif
+
+!    if_main write(6,'(A,F10.4)')"    STAT EN", ie / real(nediv) * 100
     sp:do is = 1, nspin
     dsum:do i = 1, ne_found(is,ik) ! init_e, fina_e
-           dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) * dkv
+!          dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) * dkv
+           dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) / nkpoint
            dos_tot(is,ie) = dos_tot(is,ie) + dos_
 
            if(PINPT_DOS%dos_flag_print_ldos) then
              ii = i+nband*(is-1) ! get band index according to the spin index
              do ia = 1, PINPT_DOS%dos_ldos_natom
-               iatom = PINPT_DOS%dos_ldos_atom(ia) ! which atom will be resolved?
-               imatrix = sum(PGEOM%n_orbital(1:iatom)) - PGEOM%n_orbital(iatom) + 1 ! which matrix index is the starting point for "iatom"
-               do im = 1, PGEOM%n_orbital(iatom)
+!              iatom = PINPT_DOS%dos_ldos_atom(ia) ! which atom will be resolved?
+               ! which matrix index is the starting point for "iatom"
+               imatrix = sum(PGEOM%n_orbital(1:PINPT_DOS%dos_ldos_atom(ia))) - &
+                             PGEOM%n_orbital(PINPT_DOS%dos_ldos_atom(ia)) + 1 
+               do im = 1, PGEOM%n_orbital(PINPT_DOS%dos_ldos_atom(ia))
                  mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho =       real(conjg(myV(mm     ,ii))*myV(mm     ,ii))
                  if(ispinor .eq. 2)                      rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
                  ldos_tot(im,ia,is,ie) = ldos_tot(im,ia,is,ie) + rho * dos_
@@ -205,7 +234,6 @@ kp:do ik = 1,  nkpoint
    call MPI_REDUCE(dos_tot, PINPT_DOS%dos_tot, nediv*nspin, MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
    if_main call print_dos(PINPT_DOS, PINPT)
    if(PINPT_DOS%dos_flag_print_ldos) then
-!    call MPI_REDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
      call MPI_ALLREDUCE(ldos_tot, PINPT_DOS%ldos_tot, size(ldos_tot), MPI_REAL8, MPI_SUM,  mpi_comm_earth, mpierr)
      call print_ldos(PINPT_DOS, PINPT, PGEOM)
    endif
@@ -374,7 +402,7 @@ subroutine print_ldos(PINPT_DOS, PINPT, PGEOM)
 #else
    integer*4  ourjob(1)
    integer*4  ourjob_disp(0)
-   call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PINPT_DOS%dos_ldos_natom, ourjob, ourjob_disp)
 #endif
 
    e_range = PINPT_DOS%dos_erange

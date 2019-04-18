@@ -184,6 +184,7 @@ module parameters
        character*8, allocatable   :: c_spec(:) ! character of species for each species (1:n_spec)
        integer*4,   allocatable   :: spec(:)   ! species information for each atom (1:n_atom)
        real*8,      allocatable   :: a_coord(:,:) ! atomic  coordinate (1:3, 1:n_atom) (direct, fractional)
+       real*8,      allocatable   :: a_coord_cart(:,:) ! atomic  coordinate (1:3, 1:n_atom) (cartesian)
        real*8,      allocatable   :: o_coord(:,:) ! orbital coordinate (1:3, 1:neig) (direct, fractional)
        real*8,      allocatable   :: o_coord_cart(:,:) ! orbital coordinate (1:3, 1:neig) (cartesian)
        integer*4,   allocatable   :: i_eff_orb(:) ! matrix index (diagonal) for effective hamiltonian setup (1:neig_eff * nspin)
@@ -409,10 +410,10 @@ module parameters
   type spmat ! sparse matrix with Compressed Sparse Row format
        integer*4                     nnz     ! number of non-zero elements
        integer*4                     msize   ! matrix size
-       complex*16  ,allocatable   :: H(:)    ! sparse array of square matrix H_square(msize,msize), (n_neighbor)
-       integer*4   ,allocatable   :: I(:)    ! Row    array : if CSR format : I(msize + 1), I(msize+1)-1 = nnz
+       complex*16,  allocatable   :: H(:)    ! sparse array of square matrix H_square(msize,msize), (n_neighbor)
+       integer*4,   allocatable   :: I(:)    ! Row    array : if CSR format : I(msize + 1), I(msize+1)-1 = nnz
                                              !                if COO format : I(nnz)
-       integer*4   ,allocatable   :: J(:)    ! Column array : J(nnz), same size with H
+       integer*4,   allocatable   :: J(:)    ! Column array : J(nnz), same size with H
   endtype spmat
 
   type gainp ! input/control parameters for genetic algorithm
@@ -448,4 +449,22 @@ module parameters
        real*8                        lower_bound, upper_bound
   endtype gainp
 
+  type replot ! PRPLT, required parameters for replot dos/ldos with given bandstructure file
+       logical                       flag_replot_dos   ! flag for density of states
+       logical                       flag_replot_ldos  ! flag for local density of states
+       logical                       flag_replot_sldos ! flag for spatial local density of states
+       character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
+       integer*4                     replot_ldos_natom ! number of atoms to be resolved
+       integer*4,   allocatable   :: replot_ldos_atom(:) ! atom index
+       real*8                        replot_dos_smearing ! gaussian smearing
+       real*8,      allocatable   :: replot_dos_erange(:)   ! size=nediv, division of energy 
+       integer*4                     replot_dos_nediv     ! number of division
+       real*8                        replot_dos_emin, replot_dos_emax  ! from emin to emax
+       real*8,      allocatable   :: replot_dos_tot(:,:)     ! density of states, (nspin, nediv)
+       real*8,      allocatable   :: replot_ldos_tot(:,:,:,:)   ! local density of states (norb(iatom), natom, nspin, nediv)
+       real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
+       integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
+       real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
+       real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+  endtype replot
 endmodule 

@@ -642,23 +642,6 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
 return
 endsubroutine
 
-!subroutine report_job_distribution(flag_stat, ourjob)
-!   use mpi_setup
-!   implicit none
-!   integer*4    mpierr
-!   integer*4    ourjob(nprocs)
-!   logical      flag_stat
-
-!   if(flag_stat) then
-!     if_main write(6,'(A)')                   '       JOB DISTRUBUTION :'
-!     call MPI_BARRIER(mpi_comm_earth, mpierr)
-!             write(6,'(A,I0,A,I0,A)')         '       ->cpuid(',myid,'): ', ourjob(myid+1),' k-points'
-!     call MPI_BARRIER(mpi_comm_earth, mpierr)
-!   endif
-
-!   return
-!endsubroutine
-
 subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    use parameters
    implicit none

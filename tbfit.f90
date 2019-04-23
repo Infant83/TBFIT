@@ -62,10 +62,17 @@ program tbfit
     if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
 
-  elseif(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos) then  ! program run in replot mode
+  elseif( (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then  ! program run in replot mode
 
     call replot_dos(PINPT, PGEOM, PKPTS, PRPLT)
 
+! elseif( (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos) .and. .not. PRPLT%flag_replot_only) then
+!   if(PINPT%flag_get_band) then 
+!     call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
+!                  PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
+!     if_main call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT)
+!   endif
+!   call replot_dos(PINPT, PGEOM, PKPTS, PRPLT)
   endif
 
 ! call MPI_Barrier(mpi_comm_earth, mpierr)

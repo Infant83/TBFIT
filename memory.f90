@@ -5,16 +5,13 @@ module memory
 contains
 
   subroutine report_memory(sizeof_, length, arg_name)
-    integer*4    kind
-    integer*4    sizeof_, length
+    integer*8    sizeof_, length
     character(len=*), optional :: arg_name
 
     if(present(arg_name)) then
-      write(6,'(3A,F10.3,A)')'  MEMORY USAGE (',arg_name,'): ', &
-                        real(sizeof_)*real(length) / 1024d0 / 1024d0 / 1024d0,' GB'
+      write(6,'(3A,F10.3,A)')'  MEMORY USAGE (',arg_name,'): ', real(sizeof_)*real(length)/1024d0/1024d0/1024d0,' GB'
     else
-      write(6,'( A,F10.3,A)')'  MEMORY USAGE : ',&
-                        real(sizeof_)*real(length) / 1024d0 / 1024d0 / 1024d0,' GB'
+      write(6,'( A,F10.3,A)')'  MEMORY USAGE : ',               real(sizeof_)*real(length)/1024d0 /1024d0 /1024d0,' GB'
     endif
 
     return
@@ -23,7 +20,7 @@ contains
   subroutine report_memory_total(ispinor, ispin, nspin, neig, nband, nkp, &
                                  flag_stat, flag_sparse, flag_use_mpi, ncpus)
     integer*4   ispinor, ispin, nspin, neig, nband, nkp
-    integer*4   size_E, size_V, size_Hk, size_Hm, size_Hs
+    integer*8   size_E, size_V, size_Hk, size_Hm, size_Hs
     integer*4   ncpus, impi
     logical     flag_stat, flag_sparse, flag_use_mpi
 
@@ -32,18 +29,18 @@ contains
     if(flag_use_mpi) impi = 2 ! due to MPI_REDUCE requires additional memory
 
 !   size_V = neig*ispin  *nband*nspin  * nkp * impi
-    size_E =              nband*nspin  * nkp * ncpus
-    size_V = neig*ispin  *nband*nspin  * nkp + &  ! EE%V 
-             neig*ispin  *nband*nspin  * nkp      !    V in root node
-    size_Hk= neig*ispinor*neig *ispinor* ncpus  
-    size_Hm= neig*ispinor*neig *ispinor* ncpus
-    size_Hs= neig*ispinor*neig *ispinor* ncpus
+    size_E =              int8(nband)*int8(nspin)  * int8(nkp) * int8(ncpus)
+    size_V =int8(neig)*int8(ispin  )*int8(nband)*int8(nspin  )* int8(nkp  ) + &  ! EE%V 
+            int8(neig)*int8(ispin  )*int8(nband)*int8(nspin  )* int8(nkp  )    !    V in root node
+    size_Hk=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)  
+    size_Hm=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)
+    size_Hs=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)
 
     if(flag_stat) then
       call report_memory(size_E ,8 , 'Eigen values')
       call report_memory(size_V ,16, 'Eigen vector')
-      call report_memory(size_Hk,16, 'H(total)    ')
       if(.not. flag_sparse) then
+        call report_memory(size_Hk,16, 'H(total)    ')
         call report_memory(size_Hm,16, 'H(magnetic) ')
         call report_memory(size_Hs,16, 'H(spin-orb) ')
       endif

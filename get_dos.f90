@@ -174,7 +174,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
  if_main write(6,'(A)')' ... calculating DOS ...'
  if_main call time_check(time4,time3,'init')
  if(PINPT_DOS%dos_flag_print_ldos) then
-   if_main call report_memory(size(ldos_tot) * nprocs * 2, 8, 'LDOS(total)   ')
+   if_main call report_memory(int8(size(ldos_tot)) * nprocs * 2, 8, 'LDOS(total)   ')
  endif
 
 kp:do ik = 1,  nkpoint

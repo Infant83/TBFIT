@@ -203,17 +203,20 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
    type(poscar) :: PGEOM
    type(kpoints):: PKPTS
    integer*4       ie,is,ik,im,ia
-   integer*4       ispin_print, nbasis, natom
+   integer*4       ispin_print, nbasis
+   integer*4       ldos_natom, ldos_atom(PINPT%ldos_natom)
    integer*4       init_e, fina_e
    integer*4       ne_found(PINPT%nspin, PKPTS%nkpoint)
    integer*4       imatrix
    real*8          kline(PKPTS%nkpoint),kpoint(3,PKPTS%nkpoint)
    logical         flag_klinemode, flag_kgridmode, flag_print_orbital
+   logical         flag_ldos_sum
    real*8          E(PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      c_up, c_dn, c_tot
-   character*80    fname_header
-   character*80    fname
+   complex*16      c_sum(PINPT%nband,PKPTS%nkpoint)
+   character*80    fname_header, fname_header_sum
+   character*80    fname, fname_sum
    character*6     kunit_
    character*28    kmode
    character*8     sigma
@@ -221,13 +224,14 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
    flag_klinemode = PKPTS%flag_klinemode
    flag_kgridmode = PKPTS%flag_kgridmode
    flag_print_orbital = PINPT%flag_get_orbital
+   flag_ldos_sum = PINPT%flag_print_ldos_sum
    kpoint = PKPTS%kpoint
    nkpoint= PKPTS%nkpoint
    nbasis = PGEOM%neig
    sigma='sigma_0 '
-   natom= PGEOM%n_atom
+   ldos_natom = PINPT%ldos_natom
+   ldos_atom  = PINPT%ldos_atom
    
- 
    if(PINPT%flag_sparse) then
      ne_found = PINPT%feast_ne
    else
@@ -241,7 +245,23 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
    if(flag_klinemode) call get_kline_dist(kpoint, nkpoint, kline)
  
 spin:do is = 1, ispin_print
-   atom:do ia = 1, natom
+       if(flag_ldos_sum) then
+         c_sum = 0d0
+         write(fname_header_sum,'(A,I0)')'band_structure_TBA_atom.sum'
+         call get_fname(fname_header_sum, fname_sum, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+         open(pid_energy+100, file = trim(fname_sum), status = 'unknown')
+         if(PINPT%flag_sparse) then
+           write(pid_energy+100, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[', &
+                                               PINPT%feast_emin,':', PINPT%feast_emax,']'
+           do ik = 1, nkpoint
+             write(pid_energy+100, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+           enddo
+           write(pid_energy+100, '(A, *(I0,1x))'),'#  ATOM_INDEX to be sum up: ', ldos_atom(1:ldos_natom)
+         endif
+         
+       endif
+   atom:do iatom = 1, ldos_natom
+       ia = ldos_atom(iatom)
        imatrix = sum( PGEOM%n_orbital(1:ia) ) - PGEOM%n_orbital(ia) + 1
        write(fname_header,'(A,I0)')'band_structure_TBA_atom.',ia 
        call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
@@ -267,7 +287,20 @@ spin:do is = 1, ispin_print
            write(pid_energy, '(I9)',ADVANCE='NO')im
          enddo
          write(pid_energy,'(A9)',ADVANCE='YES') ' tot'
-!        write(pid_energy,'(A)')''     
+
+         if(iatom .eq. ldos_natom .and. flag_ldos_sum) then
+           write(pid_energy+100,'(2A,I8,A      )',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen '
+           if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
+           if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
+           if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
+
+           write(pid_energy+100, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+           write(pid_energy+100, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)     E(ev), '
+!          do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
+!            write(pid_energy+100, '(I9)',ADVANCE='NO')im
+!          enddo
+           write(pid_energy+100,'(A)',ADVANCE='YES') '  tot(atom_sum)'
+         endif
 
       kp:do ik = 1, nkpoint
            if(flag_klinemode) then
@@ -283,6 +316,23 @@ spin:do is = 1, ispin_print
                write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik)
              endif
            endif
+
+           if(flag_ldos_sum .and. iatom .eq. ldos_natom) then
+             if(flag_klinemode) then
+               if( ie .le. ne_found(is, ik) ) then
+                 write(pid_energy+100,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+PINPT%nband*(is-1),ik)
+               elseif( ie .gt. ne_found(is, ik)) then
+                 write(pid_energy+100,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik)
+               endif
+             elseif(flag_kgridmode) then
+               if( ie .le. ne_found(is, ik) ) then
+                 write(pid_energy+100,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik), E(ie+PINPT%nband*(is-1),ik)
+               elseif(ie .gt. ne_found(is, ik)) then
+                 write(pid_energy+100,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik)
+               endif
+             endif
+           endif
+
            if( ie .le. ne_found(is, ik) ) then
              if(flag_print_orbital) then
                c_tot = 0d0 !initialize
@@ -306,10 +356,15 @@ spin:do is = 1, ispin_print
                    c_up = V(im+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
                    write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(conjg(c_up)*c_up)
                    c_tot = c_tot + real(conjg(c_up)*c_up)
+
                  endif
                enddo basis
                write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(c_tot)
 
+               if(flag_ldos_sum) c_sum(ie,ik) = c_sum(ie,ik) + c_tot
+               if(flag_ldos_sum .and. iatom .eq. ldos_natom) then
+                 write(pid_energy+100,'(*(F9.4))',ADVANCE='YES') real(c_sum(ie, ik))
+               endif
 !              if(PINPT%ispinor .eq. 2) then
 !                c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
 !                if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
@@ -327,16 +382,22 @@ spin:do is = 1, ispin_print
 !              endif
              endif
              if(.not.flag_print_orbital) write(pid_energy,*)''
+             if(.not.flag_print_orbital .and. flag_ldos_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
            elseif(ie .gt. ne_found(is, ik)) then
              write(pid_energy,*)''
+             if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
            endif
          enddo kp
 
          write(pid_energy,*)''
          write(pid_energy,*)''
+         if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
+         if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
+
        enddo eig
 
        close(pid_energy)
+       if(iatom .eq. ldos_natom .and. flag_ldos_sum) close(pid_energy+100)
      enddo atom
    enddo spin
 

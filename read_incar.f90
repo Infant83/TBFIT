@@ -455,11 +455,20 @@ mode: select case ( trim(plot_mode) )
 
              case('REPLOT_SLDOS')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
-               if(PRPLT%flag_replot_dos) then
+               if(PRPLT%flag_replot_sldos) then
                  if_main write(6,'(A)')'REPLT_SLDOS: .TRUE.'
-               elseif(.not. PRPLT%flag_replot_dos) then
+               elseif(.not. PRPLT%flag_replot_sldos) then
                  if_main write(6,'(A)')'REPLT_SLDOS: .FALSE.'
                endif
+
+             case('REPLOT_ONLY')
+               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_only
+               if(PRPLT%flag_replot_only) then
+                 if_main write(6,'(A)')' REPLT_ONLY: .TRUE.'
+               elseif(.not. PRPLT%flag_replot_only) then
+                 if_main write(6,'(A)')' REPLT_ONLY: .FALSE.'
+               endif
+
 
              case('REPLOT_LDOS')
                i_dummy = nitems(inputline) - 1
@@ -2116,16 +2125,26 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       type(incar)  ::  PINPT
       integer*4        i_continue
       integer*4        nitems
-      integer*4        i_dummy
+      integer*4        i, k, ii
       character*132    inputline, dummy_
-      character*40     desc_str, dummy
       character*2      str2lowcase
+      character*40     desc_str, dummy, dummy1,dummy3
+      integer*4        i_dummy,i_dummy1,i_dummy2,i_dummy3,i_dummy4,i_dummy5
+      character*40, allocatable :: strip_dummy(:)
+      integer*4        i_dummyr(max_dummy)
       character(*), parameter :: func = 'set_ldos_project_print'
-      external      nitems, str2lowcase
+      external         nitems, str2lowcase
+
+      PINPT%ldos_natom = 0
+      PINPT%flag_print_ldos_sum = .false.
 
       call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
       if(index(dummy_, 'LDOS') .ge. 1) then
         inputline = dummy_
+      endif
+
+      if(index(inputline, 'LDOS_SUM') .ge. 1) then
+        PINPT%flag_print_ldos_sum = .true.
       endif
 
       i_dummy = nitems(inputline) - 1
@@ -2139,8 +2158,47 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           PINPT%flag_get_orbital = .false.
         endif
 
-      endif
+      elseif(i_dummy .gt. 1) then
+        read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_print_ldos
+        read(inputline,*,iostat=i_continue) desc_str,dummy
+        if(PINPT%flag_print_ldos) then
+          call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
+          i_dummy1=index(dummy1,':')
+          if(i_dummy1 .eq. 0) then
+            PINPT%ldos_natom = nitems(dummy1)
+            allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
+            read(dummy1,*,iostat=i_continue) PINPT%ldos_atom(1:PINPT%ldos_natom)
+            if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+          elseif(i_dummy1 .ge. 1)then
+            i_dummy2 = nitems(dummy1)
+            allocate( strip_dummy(i_dummy2) )
+            read(dummy1,*,iostat=i_continue) (strip_dummy(i),i=1,i_dummy2)
+            ii = 0   
+            do i = 1, i_dummy2 
+              i_dummy3 = index(strip_dummy(i),':')
+              if(i_dummy3 .eq. 0) then
+                ii = ii + 1 
+                call str2int(strip_dummy(i),i_dummy4)
+                i_dummyr(ii) = i_dummy4 
+              elseif(i_dummy3 .gt. 1) then
+                ii = ii + 1 
+                call strip_off(trim(strip_dummy(i)), dummy3, ' ', ':', 0)
+                call str2int(dummy3,i_dummy4)
+                call strip_off(trim(strip_dummy(i)), dummy3, ':', ' ', 2)
+                call str2int(dummy3,i_dummy5)
+                i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/ (k, k=i_dummy4, i_dummy5) /)
+                ii = ii + i_dummy5 - i_dummy4 
+              endif    
+            enddo    
+            PINPT%ldos_natom = ii
+            allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
+            deallocate( strip_dummy )
+            PINPT%ldos_atom(1:ii) = i_dummyr(1:ii)
+            if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+          endif    
+        endif
 
+      endif
 
       return
    endsubroutine

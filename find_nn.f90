@@ -421,7 +421,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
    if(myid .eq. 0) write(6,'(A,I8)')'  N_NEIGH:',NN_TABLE%n_neighbor
    size_NN_TABLE=sizeof(NN_TABLE)
-   if(myid .eq. 0) call report_memory(size_NN_TABLE, 1, 'NN_TABLE')
+   if(myid .eq. 0) call report_memory(int8(size_NN_TABLE), 1, 'NN_TABLE')
 
    call time_check(t1,t0,'end')
    if(myid .eq. 0) write(6,'(A,F12.6)')"  TIME for FINDING NEIGBOR PAIRS (s)", t1

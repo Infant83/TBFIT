@@ -146,7 +146,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%flag_replot_dos   = .false.
   PRPLT%flag_replot_ldos  = .false.
   PRPLT%flag_replot_sldos = .false.
-
+! PRPLT%flag_replot_only  = .true.
+  
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
   open (pid_incar, FILE=fname,iostat=i_continue)
@@ -254,7 +255,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             endif
 
           !set orbital decomposed output onto each atomic site
-          case('LDOS')
+          case('LDOS', 'LDOS_SUM')
             if(.not. PINPT%flag_ldos_parse) then
               call set_ldos_project_print(PINPT,inputline)
             endif
@@ -343,6 +344,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
   endif
 
+  if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+    PINPT%flag_tbfit = .false.
+  endif
+
   if( PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
      if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
      do i=1,PINPT%nparam
@@ -398,14 +403,16 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_set_param_const) call set_param_const(PINPT,PGEOM)
 
     !get neighbor hopping index
-    call find_nn(PINPT,PGEOM, NN_TABLE)
-    call print_nn_table(NN_TABLE,PINPT)
-    if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
-     call load_nn_table(NN_TABLE, PINPT)
-    elseif(PINPT%flag_load_nntable .and. PINPT%flag_tbfit) then
-     if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure. '
-     if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
-     kill_job
+    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+      call find_nn(PINPT,PGEOM, NN_TABLE)
+      call print_nn_table(NN_TABLE,PINPT)
+      if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
+       call load_nn_table(NN_TABLE, PINPT)
+      elseif(PINPT%flag_load_nntable .and. PINPT%flag_tbfit) then
+       if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure. '
+       if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
+       kill_job
+      endif
     endif
 
   elseif(.not. flag_gfile_exist) then
@@ -448,6 +455,14 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     enddo
     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
     if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+  endif
+  if(PINPT%flag_print_ldos .and. PINPT%ldos_natom .eq. 0) then
+    allocate(PINPT%ldos_atom(PGEOM%n_atom))
+    do i = 1, PGEOM%n_atom
+      PINPT%ldos_atom(i) = i
+    enddo
+    PINPT%ldos_natom = PGEOM%n_atom
+    if_main write(6,'(A,I0)')'     LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
   endif
 
   ! read info: kpoint 
@@ -580,12 +595,15 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     endif
   endif
 
+
   if(PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
     if_main write(6,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'
     if_main write(6,'(A)')'           Exit program...'
     kill_job
   elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
-    call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
+    if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+      call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
+    endif
   endif
 
 

@@ -1,22 +1,27 @@
 #include "alias.inc"
 subroutine test()
   implicit none
-  integer*4    A(10), B(5)
-  integer*4    i
-  integer*4, allocatable :: C(:)
-  A = 0
-  do i = 1,5
-    A(i) = i
-  enddo
-  B=(/1,3,5,7,9/)
+  integer*4    A
+  integer*8    B
+  integer*8    C 
 
-  allocate(C(0))
-  write(6,*)"XXX ", A( (/1,3,5,7,9/) )
-  write(6,*)"BBB ", A * A
- 
-  
-  
+  A=200000000
+  B=300000000
+
+  write(6,*)"XX ", A, B, A * B
+
+  C = int8(A) * int8(A)
+
+  call ww(A*B, A )
  
   stop
+
+endsubroutine
+
+subroutine ww(AA, BB)
+  integer*4 AA
+  integer*8 BB
+
+  write(6,*)"XXXX ", AA, BB * BB
 
 endsubroutine

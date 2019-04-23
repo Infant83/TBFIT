@@ -54,11 +54,15 @@ subroutine replot_dos(PINPT, PGEOM, PKPTS, PRPLT)
    if_main write(6,*)''
    if_main write(6,*)''
    if_main write(6,'(A)')' ** Program run in REPLOT mode '
+   if_main write(6,*)''
    cjob = ' '
    if(flag_replot_dos)   write(cjob,'(A,A)') trim(cjob), ' DOS'
    if(flag_replot_ldos)  write(cjob,'(A,A)') trim(cjob), ' + LDOS'
    if(flag_replot_sldos) write(cjob,'(A,A)') trim(cjob), ' + SLDOS'
+
+
    if_main write(6,'(A,A,A)')'    START REPLOT: ',trim(cjob),' EVALUATION'
+   if_main write(6,*)''
 
    if_main call read_energy_tbfit(E, V, nspin, norb, nband, nkp, kmode, flag_vector)
  
@@ -72,7 +76,9 @@ subroutine replot_dos(PINPT, PGEOM, PKPTS, PRPLT)
    endif   
 
    if_main call time_check(time2,time1)
+   if_main write(6,*)''
    if_main write(6,'(3A,F10.4,A)')'    END REPLOT: ',trim(cjob),' EVALUATION : ',time2, ' (sec)'
+   if_main write(6,*)''
 
    return
 endsubroutine
@@ -81,6 +87,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V, nspin, norb, nband, nkp, e_ra
                         flag_replot_dos, flag_replot_ldos, flag_replot_sldos)
    use parameters, only : incar, poscar, replot
    use mpi_setup
+   use memory
    implicit none
    type(incar  )            :: PINPT
    type(poscar )            :: PGEOM
@@ -131,19 +138,31 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V, nspin, norb, nband, nkp, e_ra
    allocate(PRPLT%replot_dos_tot(nspin, nediv))
    PRPLT%replot_dos_tot  = 0d0
          replot_dos_tot  = 0d0
+   if_main write(6,*)''
+   if_main call report_memory(int8(size(replot_dos_tot))*2*nprocs, 8, 'DOS(total)    ')
+
    if(flag_replot_ldos) then
      allocate(PRPLT%replot_ldos_tot(PGEOM%max_orb, PRPLT%replot_ldos_natom, nspin, nediv))
      allocate(      replot_ldos_tot(PGEOM%max_orb, PRPLT%replot_ldos_natom, nspin, nediv))
      PRPLT%replot_ldos_tot = 0d0
            replot_ldos_tot = 0d0
+     if_main call report_memory(int8(size(replot_ldos_tot))*2*nprocs, 8, 'LDOS(total)   ')
    endif
+
    if(flag_replot_sldos) then
      allocate(PRPLT%replot_sldos_sum(PGEOM%n_atom, nspin, nediv))
      allocate(      replot_sldos_sum(PGEOM%n_atom, nspin, nediv))
      PRPLT%replot_sldos_sum = 0d0
            replot_sldos_sum = 0d0
+     if_main call report_memory(int8(size(replot_sldos_sum))*2*nprocs, 8, 'SLDOS(total)  ')
    endif
+
+   if(flag_replot_ldos .or. flag_replot_sldos) then
+     if_main call report_memory(int8(size(myV))*nprocs + size(V), 8, 'Eigen vector  ')
+   endif
+
    call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+   if_main write(6,*)''
    do ik = 1, nkp
      if(nkp .lt. 10) then
        if_main write(6,'(A,I0,A,I0)')  '         STAT KP: ', ik,'/',nkp
@@ -153,12 +172,16 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V, nspin, norb, nband, nkp, e_ra
          inck = inck + 1
        endif
      endif
+
+     if(flag_replot_ldos .or. flag_replot_sldos) then
 #ifdef MPI
-     myV = V(:,:,ik)
-     call MPI_BCAST(myV, size(myV), MPI_REAL8, 0, mpi_comm_earth, mpierr)
+       myV = V(:,:,ik)
+       call MPI_BCAST(myV, size(myV), MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #else
-     myV = V(:,:,ik)
+       myV = V(:,:,ik)
 #endif
+     endif
+
      inc = 1
      do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
        if(nkp .lt. 10) then
@@ -383,9 +406,9 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
    write(pid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
    
    if(PINPT%flag_collinear) then
-     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)            SLDOS(UP)        SLDOS(DN)'
+     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)            SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES'
    else
-     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)              SLDOS'
+     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)              SLDOS        ATOM_SPECIES'
    endif
 
    do iatom = 1, PGEOM%n_atom
@@ -395,8 +418,11 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
            coord = coord_cart(:,iatom) + (/T(1,1)*(ix-1) + T(1,2)*(iy-1) + T(1,3)*(iz-1), &
                                            T(2,1)*(ix-1) + T(2,2)*(iy-1) + T(2,3)*(iz-1), &
                                            T(3,1)*(iz-1) + T(3,2)*(iz-1) + T(3,3)*(iz-1)/)
-           write(pid_ldos,'(3(F16.8,1x),*(F16.8,1x))') coord, sldos(iatom, :)
-
+           if(PINPT%nspin .eq. 2) then
+             write(pid_ldos,'(3(F16.8,1x),2(F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
+           else
+             write(pid_ldos,'(3(F16.8,1x), (F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
+           endif
          enddo
        enddo
      enddo

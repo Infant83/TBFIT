@@ -170,6 +170,11 @@ module parameters
        logical                       flag_get_effective_ham
        character*132                 eff_orb_dummyc
        real*8                        eff_emin, eff_emax
+
+       ! projected ldos
+       integer*4,   allocatable   :: ldos_atom(:) ! integer array of atom index. maxsize=n_atom
+       integer*4                     ldos_natom ! how many atoms to be plotted for ldos
+       logical                       flag_print_ldos_sum
   endtype incar
 
   type poscar !PGEOM
@@ -453,6 +458,7 @@ module parameters
        logical                       flag_replot_dos   ! flag for density of states
        logical                       flag_replot_ldos  ! flag for local density of states
        logical                       flag_replot_sldos ! flag for spatial local density of states
+       logical                       flag_replot_only  ! flag for calculate band structure not just reading it (if .false., default:.true.)
        character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
        integer*4                     replot_ldos_natom ! number of atoms to be resolved
        integer*4,   allocatable   :: replot_ldos_atom(:) ! atom index

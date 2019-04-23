@@ -105,7 +105,7 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    neig   = PGEOM%neig     ; ispinor = PINPT%ispinor ; ispin = PINPT%ispin
    msize  = neig * ispinor ; omega   = 0d0
    flag_phase = PINPT_BERRY%flag_bc_phase
-   if_main call report_memory(neig*ispin*neig*ispin*nkpoint*2, 16, 'Eigen vectors') ! V + ETBA%V
+   if_main call report_memory((int8(neig)*int8(ispin))**2 * int8(nkpoint)*2, 16, 'Eigen vectors') ! V + ETBA%V
 
 #ifdef MPI
    if(.not. allocated(V)) allocate(V(neig*ispin,neig*ispin,ourjob(myid+1)))

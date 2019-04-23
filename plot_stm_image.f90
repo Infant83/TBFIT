@@ -50,9 +50,9 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 #ifdef MPI
    call MPI_BARRIER(mpi_comm_earth, mpierr)
 #endif
-   if_main call report_memory(ng1*ng2*ng3*nprocs*PINPT%ispin*3, 16, 'Charge density') ! psi_r_up/dn, psi_r_up_/dn_, _up/dn_total
-   if_main call report_memory(PGEOM%neig*PINPT%ispin*PINPT%nband*PINPT%nspin*nprocs+&
-                              PGEOM%neig*PINPT%ispin*PINPT%nband*PINPT%nspin*PKPTS%nkpoint, 16, 'Eigen vectors ') ! V*nprocs + ETBA%V(root)
+   if_main call report_memory(int8(ng1)*int8(ng2)*int8(ng3)*nprocs*PINPT%ispin*3, 16, 'Charge density') ! psi_r_up/dn, psi_r_up_/dn_, _up/dn_total
+   if_main call report_memory(int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PINPT%nband)*int8(PINPT%nspin)*int8(nprocs)+&
+                              int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PINPT%nband)*int8(PINPT%nspin)*int8(PKPTS%nkpoint), 16, 'Eigen vectors ') ! V*nprocs + ETBA%V(root)
  stm: do istm = 1, PINPT%n_stm
        psi_r_up_total = 0d0
        psi_r_dn_total = 0d0

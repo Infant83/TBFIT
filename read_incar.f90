@@ -2123,7 +2123,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
    subroutine set_ldos_project_print(PINPT, inputline)
       type(incar)  ::  PINPT
-      integer*4        i_continue
+      integer*4        i_continue, mpierr
       integer*4        nitems
       integer*4        i, k, ii
       character*132    inputline, dummy_
@@ -2135,13 +2135,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_ldos_project_print'
       external         nitems, str2lowcase
 
-      PINPT%ldos_natom = 0
+!     PINPT%ldos_natom = 0
       PINPT%flag_print_ldos_sum = .false.
 
       call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
-      if(index(dummy_, 'LDOS') .ge. 1) then
-        inputline = dummy_
-      endif
+!     if(index(dummy_, 'LDOS') .ge. 1) then
+!       inputline = dummy_
+!     endif
 
       if(index(inputline, 'LDOS_SUM') .ge. 1) then
         PINPT%flag_print_ldos_sum = .true.
@@ -2149,6 +2149,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
+        if(PINPT%flag_print_ldos_sum) then
+          if_main write(6,'(A)')'  !!!!WARN: LDOS_SUM tag is activated but atom indext to be summed up '
+          if_main write(6,'(A)')'            did not specified.'
+          if_main write(6,'(A)')'            Correct usage is, for example, if you want to resolve'
+          if_main write(6,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'
+          if_main write(6,'(A)')'            LDOS_SUM .TRUE.  1:10 15'
+          if_main write(6,'(A)')'  Stop program...'
+          kill_job
+        endif
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_ldos
         if(PINPT%flag_print_ldos) then
           if_main write(6,'(A)')'   L_LDOS: .TRUE. | print out projected orbital weight for each atom'
@@ -2162,13 +2171,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_print_ldos
         read(inputline,*,iostat=i_continue) desc_str,dummy
         if(PINPT%flag_print_ldos) then
+          PINPT%nldos_sum = PINPT%nldos_sum + 1
           call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
           i_dummy1=index(dummy1,':')
           if(i_dummy1 .eq. 0) then
-            PINPT%ldos_natom = nitems(dummy1)
-            allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
-            read(dummy1,*,iostat=i_continue) PINPT%ldos_atom(1:PINPT%ldos_natom)
-            if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_natom(max_dummy2) )
+            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_atom(max_dummy2*10,max_dummy2) )
+            PINPT%ldos_natom(PINPT%nldos_sum) = nitems(dummy1)
+            read(dummy1,*,iostat=i_continue) PINPT%ldos_atom(1:PINPT%ldos_natom(PINPT%nldos_sum), PINPT%nldos_sum)
+            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nldos_sum,' = ',trim(dummy1)
           elseif(i_dummy1 .ge. 1)then
             i_dummy2 = nitems(dummy1)
             allocate( strip_dummy(i_dummy2) )
@@ -2190,11 +2201,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
                 ii = ii + i_dummy5 - i_dummy4 
               endif    
             enddo    
-            PINPT%ldos_natom = ii
-            allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
+            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_natom(max_dummy2) )
+            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_atom(max_dummy2*10,max_dummy2) )
+            PINPT%ldos_natom(PINPT%nldos_sum) = ii
+!           allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
             deallocate( strip_dummy )
-            PINPT%ldos_atom(1:ii) = i_dummyr(1:ii)
-            if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+            PINPT%ldos_atom(1:ii,PINPT%nldos_sum) = i_dummyr(1:ii)
+            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nldos_sum,' = ',trim(dummy1)
           endif    
         endif
 

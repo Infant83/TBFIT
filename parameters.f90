@@ -39,6 +39,7 @@ module parameters
   integer*4,  public, parameter   :: max_set_weight  = 100000  !! maximum number of "SET WEIGHT" tag
   integer*4,  public, parameter   :: max_pair_type   = 1000    !! maximum number of NN_CLASS pair type
   integer*4,  public, parameter   :: max_dummy       = 9999999 !! maximun number of dummy index for arbitral purpose   
+  integer*4,  public, parameter   :: max_dummy2      = 1000    !! maximun number of dummy index for arbitral purpose   
   integer*4,  public, parameter   :: max_nsym        = 1000000 !! maximun number of symmetry operation for SPGLIB
   integer*4,  public, parameter   :: pid_energy      = 30 
   integer*4,  public, parameter   :: pid_nntable     = 33
@@ -172,8 +173,9 @@ module parameters
        real*8                        eff_emin, eff_emax
 
        ! projected ldos
-       integer*4,   allocatable   :: ldos_atom(:) ! integer array of atom index. maxsize=n_atom
-       integer*4                     ldos_natom ! how many atoms to be plotted for ldos
+       integer*4                     nldos_sum
+       integer*4,   allocatable   :: ldos_atom(:,:) ! integer array of atom index. maxsize=n_atom
+       integer*4,   allocatable   :: ldos_natom(:) ! how many atoms to be plotted for ldos
        logical                       flag_print_ldos_sum
   endtype incar
 

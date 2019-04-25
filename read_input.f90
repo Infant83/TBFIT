@@ -11,6 +11,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   integer*4     i, i_orb, linecount
   integer*4     i_dummy
   integer*4, allocatable :: zak_erange_(:)
+  integer*4, allocatable :: ldos_atom_dummy(:,:), ldos_natom_dummy(:)
   integer*4                 size_zak_erange
   character*132 inputline !, inputline_dummy
   character*40  desc_str,dummy
@@ -59,6 +60,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   if(.not. PINPT%flag_ldos_parse)   PINPT%flag_print_ldos=.false.
+  PINPT%nldos_sum = 0
   PINPT%flag_pfile_index=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
@@ -456,14 +458,36 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
     if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
   endif
-  if(PINPT%flag_print_ldos .and. PINPT%ldos_natom .eq. 0) then
-    allocate(PINPT%ldos_atom(PGEOM%n_atom))
-    do i = 1, PGEOM%n_atom
-      PINPT%ldos_atom(i) = i
+  if(PINPT%flag_print_ldos_sum) then
+    allocate(ldos_natom_dummy(PINPT%nldos_sum))
+    ldos_natom_dummy = 0
+    ldos_natom_dummy(1:PINPT%nldos_sum) = PINPT%ldos_natom(1:PINPT%nldos_sum)
+    deallocate(PINPT%ldos_natom); allocate(PINPT%ldos_natom(PINPT%nldos_sum))
+    PINPT%ldos_natom = ldos_natom_dummy
+    
+    allocate(ldos_atom_dummy(maxval(PINPT%ldos_natom(1:PINPT%nldos_sum)),PINPT%nldos_sum))
+    ldos_atom_dummy = 0
+    do i = 1, PINPT%nldos_sum
+      ldos_atom_dummy(1:PINPT%ldos_natom(i),i) = PINPT%ldos_atom(1:PINPT%ldos_natom(i),i)
     enddo
-    PINPT%ldos_natom = PGEOM%n_atom
-    if_main write(6,'(A,I0)')'     LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+    deallocate(PINPT%ldos_atom); 
+    allocate(PINPT%ldos_atom(maxval(PINPT%ldos_natom(1:PINPT%nldos_sum)),PINPT%nldos_sum))
+    do i = 1, PINPT%nldos_sum
+      PINPT%ldos_atom(1:PINPT%ldos_natom(i),i) = ldos_atom_dummy(1:PINPT%ldos_natom(i),i)
+    enddo
+    
+
+    deallocate(ldos_natom_dummy)
+    deallocate(ldos_atom_dummy)
   endif
+! if(PINPT%flag_print_ldos_sum .and. PINPT%ldos_natom .eq. 0) then
+!   allocate(PINPT%ldos_atom(PGEOM%n_atom))
+!   do i = 1, PGEOM%n_atom
+!     PINPT%ldos_atom(i) = i
+!   enddo
+!   PINPT%ldos_natom = PGEOM%n_atom
+!   if_main write(6,'(A,I0)')'     LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+! endif
 
   ! read info: kpoint 
   if(flag_kfile_exist) then

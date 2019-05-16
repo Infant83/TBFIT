@@ -600,6 +600,7 @@ subroutine strip_off (string, strip, strip_a, strip_b, mode)
 !mode 2: strip-off where   strip_a <  strip 
 !mode 3: strip-off where   strip_a <  strip   < strip_b of string only if strip_a = strip_b 
 !mode 4: strip-off where   strip_a <  strip_b < strip   of string only if strip_a = strip_b 
+!mode 5: same sa mode 2 but ignore '#' tag.
   implicit none
   logical blank
   character(*) string, strip_a, strip_b, strip
@@ -682,6 +683,17 @@ subroutine strip_off (string, strip, strip_a, strip_b, mode)
       fini = l0
     enddo
     strip=adjustl(trim(string(init:fini)))
+  elseif(mode_check .eq. 5) then
+    do i = 1, l0
+      fini = l0
+    enddo
+    do i = 1, l0
+      if(string(i:i+la-1) .eq. trim(strip_a)) then
+        init=i+la
+        strip=adjustl(trim(string(init:fini)))
+        exit
+      endif
+    enddo
 
   endif
 return

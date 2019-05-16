@@ -3,25 +3,35 @@ subroutine test()
   implicit none
   integer*4    A
   integer*8    B
-  integer*8    C 
+  integer*8    C
+  integer*4    i, irecl, irecl_temp
+  real*8       CC(3), DD(3)
 
-  A=200000000
-  B=300000000
+  irecl = 3 + 1
+  CC = (/1d0,2d0,3d0/)
 
-  write(6,*)"XX ", A, B, A * B
 
-  C = int8(A) * int8(A)
+  open(10,file='test.dat',form='unformatted',access='direct', status='unknown', recl=irecl)
 
-  call ww(A*B, A )
- 
+  write(6,*)"xxx ", CC
+
+  write(10, rec=1) irecl
+  do i = 2, 4
+    write(10, rec=i) CC(i)
+  enddo
+
+  close(10)
+
+  open(100,file='test.dat',form='unformatted',access='direct',status='unknown',recl=1)
+  read(100,rec=1) irecl_temp
+  write(6,*)"XXX ", irecl_temp
+  close(100)
+
+  open(100,file='test.dat',form='unformatted',access='direct',status='unknown',recl=irecl_temp)
+  
+  read(100,rec=2) irecl_temp
+  
+
   stop
-
-endsubroutine
-
-subroutine ww(AA, BB)
-  integer*4 AA
-  integer*8 BB
-
-  write(6,*)"XXXX ", AA, BB * BB
 
 endsubroutine

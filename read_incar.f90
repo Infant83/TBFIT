@@ -469,6 +469,69 @@ mode: select case ( trim(plot_mode) )
                  if_main write(6,'(A)')' REPLT_ONLY: .FALSE.'
                endif
 
+             case('REPLOT_PROJ_BAND', 'REPLOT_PROJ_SUM')
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str, PRPLT%flag_replot_proj_band
+                 if(PRPLT%flag_replot_proj_band) then
+                   if_main write(6,'(A)')'  !!!!WARN: REPLOT_PROJ_SUM tag is activated but atom indext to be summed up '
+                   if_main write(6,'(A)')'            did not specified.'
+                   if_main write(6,'(A)')'            Correct usage is, for example, if you want to resolve'
+                   if_main write(6,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'
+                   if_main write(6,'(A)')'            REPLOT_PROJ_SUM .TRUE.  1:10 15'
+                   if_main write(6,'(A)')'  Stop program...'
+                   kill_job
+                 endif
+
+                 if( .not. PRPLT%flag_replot_proj_band) then
+                   if_main write(6,'(A)')' REPLT_PROJ: .FALSE.'
+                 endif
+
+               elseif(i_dummy .gt. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_proj_band
+                 read(inputline,*,iostat=i_continue) desc_str,dummy
+                 if(PRPLT%flag_replot_proj_band) then
+                   PRPLT%replot_nproj_sum = PRPLT%replot_nproj_sum + 1
+                   call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
+                   i_dummy1=index(dummy1,':')
+                   if(i_dummy1 .eq. 0) then
+                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_natom(max_dummy2) )
+                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                     PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = nitems(dummy1)
+                     read(dummy1,*,iostat=i_continue) PRPLT%replot_proj_atom(1:PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum), PRPLT%replot_nproj_sum)
+                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
+                   elseif(i_dummy1 .ge. 1)then
+                     i_dummy2 = nitems(dummy1)
+                     allocate( strip_dummy(i_dummy2) )
+                     read(dummy1,*,iostat=i_continue) (strip_dummy(i),i=1,i_dummy2)
+                     ii = 0
+                     do i = 1, i_dummy2
+                       i_dummy3 = index(strip_dummy(i),':')
+                       if(i_dummy3 .eq. 0) then
+                         ii = ii + 1
+                         call str2int(strip_dummy(i),i_dummy4)
+                         i_dummyr(ii) = i_dummy4
+                       elseif(i_dummy3 .gt. 1) then
+                         ii = ii + 1
+                         call strip_off(trim(strip_dummy(i)), dummy3, ' ', ':', 0)
+                         call str2int(dummy3,i_dummy4)
+                         call strip_off(trim(strip_dummy(i)), dummy3, ':', ' ', 2)
+                         call str2int(dummy3,i_dummy5)
+                         i_dummyr(ii:ii+i_dummy5 - i_dummy4) = (/ (k, k=i_dummy4, i_dummy5) /)
+                         ii = ii + i_dummy5 - i_dummy4
+                       endif
+                     enddo
+                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_natom(max_dummy2) )
+                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                     PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = ii
+                     deallocate( strip_dummy )
+                     PRPLT%replot_proj_atom(1:ii,PRPLT%replot_nproj_sum) = i_dummyr(1:ii)
+                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
+                   endif
+                 endif
+
+               endif
+
 
              case('REPLOT_LDOS')
                i_dummy = nitems(inputline) - 1
@@ -578,7 +641,7 @@ mode: select case ( trim(plot_mode) )
                i_dummy = nitems(inputline) - 1
                if(i_dummy .eq. 3) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%r_origin(1:3)
-                 if_main  write(6,'(A,3(F15.8))')'REPLT_ORIG:  ',PRPLT%r_origin(1:3)
+                 if_main  write(6,'(A,3(F15.8))')' REPLT_ORIG:  ',PRPLT%r_origin(1:3)
                else
                  if_main write(6,'(A)')'    !WARN! RORIGIN tag of "SET REPLOT" should be three consequent real values.'
                  if_main write(6,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func
@@ -587,7 +650,7 @@ mode: select case ( trim(plot_mode) )
 
              case('BOND_CUT')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%bond_cut
-               if_main  write(6,'(A,3(F15.8))')'REPLT_RCUT:  ',PRPLT%bond_cut
+               if_main  write(6,'(A,3(F15.8))')' REPLT_RCUT:  ',PRPLT%bond_cut
 
            endselect case_rpl
 
@@ -2135,51 +2198,47 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_ldos_project_print'
       external         nitems, str2lowcase
 
-!     PINPT%ldos_natom = 0
-      PINPT%flag_print_ldos_sum = .false.
+      PINPT%flag_print_proj_sum = .false.
 
       call strip_off (inputline, dummy_, ' ', '#', 0) ! cut off unnecessary comments
-!     if(index(dummy_, 'LDOS') .ge. 1) then
-!       inputline = dummy_
-!     endif
 
-      if(index(inputline, 'LDOS_SUM') .ge. 1) then
-        PINPT%flag_print_ldos_sum = .true.
+      if(index(inputline, 'LDOS_SUM') .ge. 1 .or. index(inputline, 'PROJ_SUM') .ge. 1 .or. index(inputline, 'PROJ') .ge. 1) then
+        PINPT%flag_print_proj_sum = .true.
       endif
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
-        if(PINPT%flag_print_ldos_sum) then
-          if_main write(6,'(A)')'  !!!!WARN: LDOS_SUM tag is activated but atom indext to be summed up '
+        if(PINPT%flag_print_proj_sum) then
+          if_main write(6,'(A)')'  !!!!WARN: PROJ_SUM tag is activated but atom indext to be summed up '
           if_main write(6,'(A)')'            did not specified.'
           if_main write(6,'(A)')'            Correct usage is, for example, if you want to resolve'
           if_main write(6,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'
-          if_main write(6,'(A)')'            LDOS_SUM .TRUE.  1:10 15'
+          if_main write(6,'(A)')'            PROJ_SUM .TRUE.  1:10 15'
           if_main write(6,'(A)')'  Stop program...'
           kill_job
         endif
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_ldos
-        if(PINPT%flag_print_ldos) then
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_proj
+        if(PINPT%flag_print_proj) then
           if_main write(6,'(A)')'   L_LDOS: .TRUE. | print out projected orbital weight for each atom'
           PINPT%flag_get_orbital = .true.
-        elseif( .not. PINPT%flag_print_ldos) then
+        elseif( .not. PINPT%flag_print_proj) then
           if_main write(6,'(A)')'   L_LDOS: .FALSE.'
           PINPT%flag_get_orbital = .false.
         endif
 
       elseif(i_dummy .gt. 1) then
-        read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_print_ldos
+        read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_print_proj
         read(inputline,*,iostat=i_continue) desc_str,dummy
-        if(PINPT%flag_print_ldos) then
-          PINPT%nldos_sum = PINPT%nldos_sum + 1
+        if(PINPT%flag_print_proj) then
+          PINPT%nproj_sum = PINPT%nproj_sum + 1
           call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
           i_dummy1=index(dummy1,':')
           if(i_dummy1 .eq. 0) then
-            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_natom(max_dummy2) )
-            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_atom(max_dummy2*10,max_dummy2) )
-            PINPT%ldos_natom(PINPT%nldos_sum) = nitems(dummy1)
-            read(dummy1,*,iostat=i_continue) PINPT%ldos_atom(1:PINPT%ldos_natom(PINPT%nldos_sum), PINPT%nldos_sum)
-            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nldos_sum,' = ',trim(dummy1)
+            if(PINPT%nproj_sum .eq. 1) allocate( PINPT%proj_natom(max_dummy2) )
+            if(PINPT%nproj_sum .eq. 1) allocate( PINPT%proj_atom(max_dummy2*10,max_dummy2) )
+            PINPT%proj_natom(PINPT%nproj_sum) = nitems(dummy1)
+            read(dummy1,*,iostat=i_continue) PINPT%proj_atom(1:PINPT%proj_natom(PINPT%nproj_sum), PINPT%nproj_sum)
+            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)
           elseif(i_dummy1 .ge. 1)then
             i_dummy2 = nitems(dummy1)
             allocate( strip_dummy(i_dummy2) )
@@ -2201,13 +2260,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
                 ii = ii + i_dummy5 - i_dummy4 
               endif    
             enddo    
-            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_natom(max_dummy2) )
-            if(PINPT%nldos_sum .eq. 1) allocate( PINPT%ldos_atom(max_dummy2*10,max_dummy2) )
-            PINPT%ldos_natom(PINPT%nldos_sum) = ii
-!           allocate( PINPT%ldos_atom(PINPT%ldos_natom) )
+            if(PINPT%nproj_sum .eq. 1) allocate( PINPT%proj_natom(max_dummy2) )
+            if(PINPT%nproj_sum .eq. 1) allocate( PINPT%proj_atom(max_dummy2*10,max_dummy2) )
+            PINPT%proj_natom(PINPT%nproj_sum) = ii
             deallocate( strip_dummy )
-            PINPT%ldos_atom(1:ii,PINPT%nldos_sum) = i_dummyr(1:ii)
-            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nldos_sum,' = ',trim(dummy1)
+            PINPT%proj_atom(1:ii,PINPT%nproj_sum) = i_dummyr(1:ii)
+            if_main write(6,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)
           endif    
         endif
 
@@ -2224,21 +2282,24 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character*132 inputline
       character*2   dummy
       character*40  desc_str
-      character*2   str2lowcase
-      character(*), parameter :: func = 'set_local_orbital_plot'
-      external      nitems, str2lowcase
+      character*2   str2lowcase, str2upcase
+      character*6   c_dummy
+      character(*), parameter :: func = 'set_local_orbital_print'
+      external      nitems, str2lowcase, str2upcase
 
-!     PINPT%flag_print_mag = .true. 
+      PINPT%axis_print_mag = 'rh' ! write rho by default
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital
         if(PINPT%flag_print_orbital) then
-          if_main write(6,'(A)')'  L_ORBIT: .TRUE. | print out projected orbital weight'
           PINPT%flag_get_orbital = .true.
+          PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
+          if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag
         elseif( .not. PINPT%flag_print_orbital) then
           if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
           PINPT%flag_get_orbital = .false.
+          PINPT%axis_print_mag = 'no' 
         endif
     
       elseif(i_dummy .eq. 2) then
@@ -2246,20 +2307,66 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag
         PINPT%axis_print_mag=str2lowcase(PINPT%axis_print_mag)
         if(PINPT%flag_print_orbital) then
-          if(PINPT%axis_print_mag .ne. 're' .or. PINPT%axis_print_mag .ne. 'im') then
-            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
-            PINPT%flag_get_orbital = .true.
-          elseif(PINPT%axis_print_mag .eq. 're') then
+          if(PINPT%axis_print_mag .eq. 're') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'im') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag .eq. 'wf') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
+            PINPT%flag_write_unformatted_wf = .true.
+            PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ', PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          elseif(PINPT%axis_print_mag .eq. 'rh') then 
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
           endif
         elseif( .not. PINPT%flag_print_orbital) then
           if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
           PINPT%flag_get_orbital = .false.
+          PINPT%axis_print_mag = 'no'
         endif
    
+      elseif(i_dummy .eq. 3) then
+        PINPT%flag_print_mag = .TRUE.
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag, c_dummy
+        PINPT%axis_print_mag=str2lowcase(PINPT%axis_print_mag)
+        c_dummy=str2lowcase(trim(c_dummy)) 
+        if(PINPT%flag_print_orbital) then
+          if(PINPT%axis_print_mag .eq. 're') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          elseif(PINPT%axis_print_mag .eq. 'im') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag .eq. 'wf') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
+            PINPT%flag_write_unformatted_wf = .true.
+            PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ',PINPT%axis_print_mag
+          elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          elseif(PINPT%axis_print_mag .eq. 'rh') then 
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+          endif
+
+          if(c_dummy(1:2) .eq. 'bi') then
+            PINPT%flag_write_unformatted_wf = .true.
+            if_main write(6,'(1A)')'                    with binary format (unformtted)'
+          endif
+
+        elseif( .not. PINPT%flag_print_orbital) then
+          if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
+          PINPT%flag_get_orbital = .false.
+          PINPT%axis_print_mag = 'no'
+        endif
+
       endif
 
       return

@@ -18,7 +18,7 @@ subroutine parse(PINPT,PKPTS)
    PINPT%flag_miter_parse = .false.
    PINPT%flag_mxfit_parse = .false.
    PINPT%flag_lorbit_parse= .false.
-   PINPT%flag_ldos_parse  = .false.
+   PINPT%flag_proj_parse  = .false.
    PINPT%flag_inputcard_fname_parse = .false.
    PINPT%flag_ndiv_line_parse = .false.
    PINPT%flag_ndiv_grid_parse = .false.
@@ -143,29 +143,29 @@ subroutine parse(PINPT,PKPTS)
              if_main write(6,'( A)')'  L_ORBIT: .TRUE. | print out projected orbital weight'
            endif
 
-         elseif(trim(option) .eq. '-ldos') then
+         elseif(trim(option) .eq. '-ldos' .or. trim(option) .eq. '-proj') then
            PINPT%flag_parse = .true.
            PINPT%flag_lorbit_parse = .true.
            PINPT%flag_get_orbital = .true.
            PINPT%flag_print_mag = .false.
-           PINPT%flag_ldos_parse = .true.
+           PINPT%flag_proj_parse = .true.
 
            if(iarg + 1 .le. narg) then 
              call getarg(iarg+1, value)
              read(value,*)dummy
              call str2logical(dummy,flag_logical, flag)
              if(flag_logical) then 
-               PINPT%flag_print_ldos = flag
+               PINPT%flag_print_proj = flag
              else
-               PINPT%flag_print_ldos = .true.
+               PINPT%flag_print_proj = .true.
              endif
            elseif(iarg + 1 .gt. narg) then
-              PINPT%flag_print_ldos = .true.
+              PINPT%flag_print_proj = .true.
            endif
     
-           if(PINPT%flag_print_ldos) then
+           if(PINPT%flag_print_proj) then
              if_main write(6,'(A)')'  L_LDOS: .TRUE. | print out atom projected orbital weight'
-           elseif(.not. PINPT%flag_print_ldos) then
+           elseif(.not. PINPT%flag_print_proj) then
              if_main write(6,'(A)')'  L_LDOS: .FALSE.'
            endif
 

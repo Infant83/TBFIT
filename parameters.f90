@@ -66,11 +66,12 @@ module parameters
        logical                       flag_ndiv_line_parse, flag_ndiv_grid_parse
        logical                       flag_pfile_index
        logical                       flag_miter_parse, flag_mxfit_parse
-       logical                       flag_lorbit_parse, flag_ldos_parse
+       logical                       flag_lorbit_parse, flag_proj_parse
        logical                       flag_parse
        logical                       flag_tbfit_test
        logical                       flag_inputcard_fname_parse
        logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
+       logical                       flag_write_unformatted_wf ! default = .false.
 
        real*8                        ptol
        real*8                        ftol
@@ -80,12 +81,12 @@ module parameters
        logical                       flag_tbfit, flag_pfile, flag_pincar
        logical                       flag_print_only_target, flag_print_param
        logical                       flag_print_orbital, flag_get_orbital
-       logical                       flag_print_ldos
+       logical                       flag_print_proj
        logical                       flag_set_param_const
        logical                       flag_slater_koster ! default .true.
        logical                       flag_print_mag
        logical                       flag_load_nntable ! default .false.
-       character*2                   axis_print_mag
+       character*2                   axis_print_mag ! mx, my, mz, re, im, wf, bi
        real*8,       allocatable  :: param(:)
        character*40, allocatable  :: param_name(:)
        character*40, allocatable  :: c_const(:,:)
@@ -137,6 +138,9 @@ module parameters
        logical                       flag_berry
        logical                       flag_get_parity
 
+       !                             nonmag: ispin = 1, nspin = 1, ispinor = 1
+       !                             noncol: ispin = 2, nspin = 1, ispinor = 2
+       !                             collin: ispin = 2, nspin = 2, ispinor = 1
        integer*4                     ispin   ! nonmag: 1, collinear: 2, non-collinear: 2
        integer*4                     ispinor ! nonmag: 1, collinear: 1, non-collinear: 2
        integer*4                     nspin   ! nonmag: 1, collinear: 2, non-collinear: 1
@@ -172,11 +176,11 @@ module parameters
        character*132                 eff_orb_dummyc
        real*8                        eff_emin, eff_emax
 
-       ! projected ldos
-       integer*4                     nldos_sum
-       integer*4,   allocatable   :: ldos_atom(:,:) ! integer array of atom index. maxsize=n_atom
-       integer*4,   allocatable   :: ldos_natom(:) ! how many atoms to be plotted for ldos
-       logical                       flag_print_ldos_sum
+       ! projected band
+       integer*4                     nproj_sum
+       integer*4,   allocatable   :: proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
+       integer*4,   allocatable   :: proj_natom(:) ! how many atoms to be plotted for projected band
+       logical                       flag_print_proj_sum
   endtype incar
 
   type poscar !PGEOM
@@ -460,6 +464,7 @@ module parameters
        logical                       flag_replot_dos   ! flag for density of states
        logical                       flag_replot_ldos  ! flag for local density of states
        logical                       flag_replot_sldos ! flag for spatial local density of states
+       logical                       flag_replot_band  ! flag for replot band structure with atom resolved
        logical                       flag_replot_only  ! flag for calculate band structure not just reading it (if .false., default:.true.)
        character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
        integer*4                     replot_ldos_natom ! number of atoms to be resolved
@@ -469,10 +474,18 @@ module parameters
        integer*4                     replot_dos_nediv     ! number of division
        real*8                        replot_dos_emin, replot_dos_emax  ! from emin to emax
        real*8,      allocatable   :: replot_dos_tot(:,:)     ! density of states, (nspin, nediv)
+       real*8,      allocatable   :: replot_dos_ntot(:,:) ! integrated DOS from initial to the energy level (nspin,0:nediv)
        real*8,      allocatable   :: replot_ldos_tot(:,:,:,:)   ! local density of states (norb(iatom), natom, nspin, nediv)
        real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
        real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+
+       ! projected band
+       integer*4                     replot_nproj_sum
+       integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
+       integer*4,   allocatable   :: replot_proj_natom(:) ! how many atoms to be plotted for projected band
+       logical                       flag_replot_proj_band, flag_replot_proj_band_sum
+
   endtype replot
 endmodule 

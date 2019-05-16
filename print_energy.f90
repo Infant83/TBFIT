@@ -197,20 +197,23 @@ spin:do is = 1, ispin_print
 
 return
 endsubroutine
-subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
+subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
    use parameters, only: pid_energy, incar, poscar, kpoints, zi
+   implicit none
    type(incar)  :: PINPT
    type(poscar) :: PGEOM
    type(kpoints):: PKPTS
    integer*4       ie,is,ik,im,ia
+   integer*4       isum, iatom
    integer*4       ispin_print, nbasis
-   integer*4       ldos_natom, ldos_atom(maxval(PINPT%ldos_natom(1:PINPT%nldos_sum)))
+   integer*4       nkpoint
+   integer*4       proj_natom, proj_atom(maxval(PINPT%proj_natom(1:PINPT%nproj_sum)))
    integer*4       init_e, fina_e
    integer*4       ne_found(PINPT%nspin, PKPTS%nkpoint)
    integer*4       imatrix
    real*8          kline(PKPTS%nkpoint),kpoint(3,PKPTS%nkpoint)
    logical         flag_klinemode, flag_kgridmode, flag_print_orbital
-   logical         flag_ldos_sum
+   logical         flag_proj_sum
    real*8          E(PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      c_up, c_dn, c_tot
@@ -224,15 +227,15 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
    flag_klinemode = PKPTS%flag_klinemode
    flag_kgridmode = PKPTS%flag_kgridmode
    flag_print_orbital = PINPT%flag_get_orbital
-   flag_ldos_sum = PINPT%flag_print_ldos_sum
+   flag_proj_sum = PINPT%flag_print_proj_sum
    kpoint = PKPTS%kpoint
    nkpoint= PKPTS%nkpoint
    nbasis = PGEOM%neig
    sigma='sigma_0 '
 
-   do isum = 1, PINPT%nldos_sum
-     ldos_natom = PINPT%ldos_natom(isum)
-     ldos_atom  = PINPT%ldos_atom(1:ldos_natom,isum)
+   do isum = 1, PINPT%nproj_sum
+     proj_natom = PINPT%proj_natom(isum)
+     proj_atom  = PINPT%proj_atom(1:proj_natom,isum)
      
      if(PINPT%flag_sparse) then
        ne_found = PINPT%feast_ne
@@ -242,40 +245,44 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
 
      call get_kunit(PKPTS%kunit, kunit_)
      call get_plotmode(flag_klinemode, flag_kgridmode, kunit_, kmode)
-     call get_e_range(init_e, fina_e, PGEOM%neig, .false., PINPT)
+     call get_e_range(init_e, fina_e, PGEOM%neig, .false., PINPT%ispinor, PINPT%flag_erange, PINPT%init_erange, PINPT%fina_erange)
      call get_ispin_print(PINPT%flag_collinear, ispin_print)
      if(flag_klinemode) call get_kline_dist(kpoint, nkpoint, kline)
    
   spin:do is = 1, ispin_print
 
-         if(flag_ldos_sum) then
+         if(flag_proj_sum) then
            c_sum = 0d0
            write(fname_header_sum,'(A,I0)')'band_structure_TBA_atom.sum',isum
            call get_fname(fname_header_sum, fname_sum, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
            open(pid_energy+100, file = trim(fname_sum), status = 'unknown')
            if(PINPT%flag_sparse) then
-             write(pid_energy+100, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[', &
-                                                 PINPT%feast_emin,':', PINPT%feast_emax,']'
+             write(pid_energy+100, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ', &
+                                                 PINPT%feast_emin,' : ', PINPT%feast_emax,' ], NE_MAX= ',PINPT%feast_nemax
              do ik = 1, nkpoint
                write(pid_energy+100, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
              enddo
+           elseif(PINPT%flag_erange) then
+             write(pid_energy+100, '(A,I0,A,I0,A)')'#   ERANGE=[ ',PINPT%init_erange,' : ',PINPT%fina_erange,' ]'
            endif
-           write(pid_energy+100, '(A, *(I0,1x))'),'#  ATOM_INDEX to be sum up: ', ldos_atom(1:ldos_natom)
+           write(pid_energy+100, '(A, *(I0,1x))'),'#  ATOM_INDEX to be sum up: ', proj_atom(1:proj_natom)
          endif
 
-     atom:do iatom = 1, ldos_natom
-         ia = ldos_atom(iatom)
+     atom:do iatom = 1, proj_natom
+         ia = proj_atom(iatom)
          imatrix = sum( PGEOM%n_orbital(1:ia) ) - PGEOM%n_orbital(ia) + 1
          write(fname_header,'(A,I0)')'band_structure_TBA_atom.',ia 
          call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
          open(pid_energy, file = trim(fname), status = 'unknown')
          
          if(PINPT%flag_sparse) then
-           write(pid_energy, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[', &
-                                               PINPT%feast_emin,':', PINPT%feast_emax,']'
+           write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ', &
+                                               PINPT%feast_emin,' : ', PINPT%feast_emax,'], NE_MAX= ',PINPT%feast_nemax
            do ik = 1, nkpoint
              write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
            enddo
+         elseif(PINPT%flag_erange) then
+           write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',PINPT%init_erange,' : ',PINPT%fina_erange,' ]'
          endif
      eig:do ie = 1, PINPT%nband ! init_e, fina_e
            write(pid_energy,'(2A,I8,A,I8,3A)',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen | ',ia, &
@@ -291,7 +298,7 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
            enddo
            write(pid_energy,'(A9)',ADVANCE='YES') ' tot'
 
-           if(iatom .eq. ldos_natom .and. flag_ldos_sum) then
+           if(iatom .eq. proj_natom .and. flag_proj_sum) then
              write(pid_energy+100,'(2A,I8,A      )',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen '
              if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
              if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
@@ -320,7 +327,7 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
                endif
              endif
 
-             if(flag_ldos_sum .and. iatom .eq. ldos_natom) then
+             if(flag_proj_sum .and. iatom .eq. proj_natom) then
                if(flag_klinemode) then
                  if( ie .le. ne_found(is, ik) ) then
                    write(pid_energy+100,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+PINPT%nband*(is-1),ik)
@@ -364,8 +371,8 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
                  enddo basis
                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(c_tot)
 
-                 if(flag_ldos_sum) c_sum(ie,ik) = c_sum(ie,ik) + c_tot
-                 if(flag_ldos_sum .and. iatom .eq. ldos_natom) then
+                 if(flag_proj_sum) c_sum(ie,ik) = c_sum(ie,ik) + c_tot
+                 if(flag_proj_sum .and. iatom .eq. proj_natom) then
                    write(pid_energy+100,'(*(F9.4))',ADVANCE='YES') real(c_sum(ie, ik))
                  endif
   !              if(PINPT%ispinor .eq. 2) then
@@ -385,23 +392,23 @@ subroutine print_energy_ldos(PKPTS,E,V,PGEOM,PINPT)
   !              endif
                endif
                if(.not.flag_print_orbital) write(pid_energy,*)''
-               if(.not.flag_print_orbital .and. flag_ldos_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
+               if(.not.flag_print_orbital .and. flag_proj_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
              elseif(ie .gt. ne_found(is, ik)) then
                write(pid_energy,*)''
-               if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
+               if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
              endif
            enddo kp
 
            write(pid_energy,*)''
            write(pid_energy,*)''
-           if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
-           if(iatom .eq. ldos_natom .and. flag_ldos_sum) write(pid_energy+100,*)'' 
+           if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
+           if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
 
          enddo eig
 
          close(pid_energy)
-         if(iatom .eq. ldos_natom .and. flag_ldos_sum) close(pid_energy+100)
        enddo atom
+       if(iatom-1 .eq. proj_natom .and. flag_proj_sum) close(pid_energy+100)
      enddo spin
 
    enddo
@@ -444,18 +451,28 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
 
    call get_kunit(PKPTS%kunit, kunit_)
    call get_plotmode(flag_klinemode, flag_kgridmode, kunit_, kmode)
-   call get_e_range(init_e, fina_e, PGEOM%neig, .false., PINPT)
+   call get_e_range(init_e, fina_e, PGEOM%neig, .false., PINPT%ispinor, PINPT%flag_erange, PINPT%init_erange, PINPT%fina_erange)
    call get_ispin_print(PINPT%flag_collinear, ispin_print)
    if(flag_klinemode) call get_kline_dist(kpoint, nkpoint, kline)
 
+   if(.not. PINPT%flag_write_unformatted_wf) then
  spin:do is = 1, ispin_print
         call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear) 
         open(pid_energy, file=trim(fname), status = 'unknown')
+          if(trim(PINPT%axis_print_mag) .eq. 'rh') then
+            write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ] -> rho_nk = <psi_nk|psi_nk>'
+          elseif(trim(PINPT%axis_print_mag) .eq. 'wf') then
+            write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ] -> wavefunction coefficients '
+          elseif(trim(PINPT%axis_print_mag) .eq. 'no') then
+            write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ]'
+          endif
           if(PINPT%flag_sparse) then
-            write(pid_energy, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[',PINPT%feast_emin,':',PINPT%feast_emax,']'
+            write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ',PINPT%feast_emin,' : ',PINPT%feast_emax,' ], NE_MAX= ',PINPT%feast_nemax
             do ik = 1, nkpoint
               write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
             enddo
+          elseif(PINPT%flag_erange) then
+             write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',PINPT%init_erange,' : ',PINPT%fina_erange,' ]'
           endif
       eig:do ie =1, PINPT%nband !init_e, fina_e
             write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'     
@@ -476,7 +493,11 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                 if(PINPT%axis_print_mag .ne. 'wf') then
                   write(pid_energy, '(I9)',ADVANCE='NO')im
                 elseif(PINPT%axis_print_mag .eq. 'wf') then
-                  write(pid_energy, '(I38)',ADVANCE='NO')im
+                  if(PINPT%ispinor .eq. 2) then
+                    write(pid_energy, '(I38)',ADVANCE='NO')im
+                  elseif(PINPT%ispinor .eq. 1) then
+                    write(pid_energy, '(I19)',ADVANCE='NO')im
+                  endif
                 endif
                 if(im .ge. 30 .and. im .lt. nbasis) then
                   write(pid_energy, '(A)',ADVANCE='NO')' ... '
@@ -484,13 +505,6 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                 endif
               enddo mm
               write(pid_energy,'(A)')''
-
-!             if(PINPT%ispinor .eq. 2 .and. PINPT%axis_print_mag .eq. 'wf') then
-!               do im=1,nbasis
-!                 write(pid_energy, '(51x, 2A19)',ADVANCE='NO')'up','dn'
-!               enddo
-!               write(pid_energy,'(A)')''
-!             endif
             endif
 
          kp:do ik = 1, nkpoint
@@ -520,13 +534,17 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                       elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
                       elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
-                        write(pid_energy,'(2(F9.4,F9.4,"i"))',ADVANCE='NO') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
+                        write(pid_energy,'(2(F9.4,F9.4," "))',ADVANCE='NO') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
                       else
                         write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
                       endif
                     elseif(PINPT%ispinor .eq. 1) then
                       c_up = V(im+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
-                      write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(conjg(c_up)*c_up)
+                      if(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+                        write(pid_energy,'(1(F9.4,F9.4," "))',ADVANCE='NO') c_up
+                      else
+                        write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(conjg(c_up)*c_up)
+                      endif
                     endif
                   enddo basis
                   if(PINPT%ispinor .eq. 2) then
@@ -538,13 +556,17 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
                       write(pid_energy,'(*(F9.4))',ADVANCE='YES') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
-                      write(pid_energy,'(2(F9.4,F9.4,"i"))',ADVANCE='YES') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
+                      write(pid_energy,'(2(F9.4,F9.4," "))',ADVANCE='YES') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
                     else
                       write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
                     endif
                   elseif(PINPT%ispinor .eq. 1) then
                     c_up = V(nbasis+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
-                    write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(conjg(c_up)*c_up)
+                    if(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+                      write(pid_energy,'(1(F9.4,F9.4," "))',ADVANCE='YES') c_up
+                    else
+                      write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(conjg(c_up)*c_up)
+                    endif
                   endif
                 endif
                 if(.not.flag_print_orbital) write(pid_energy,*)''
@@ -559,6 +581,138 @@ subroutine print_energy( PKPTS, E, V, PGEOM, PINPT)
         close(pid_energy)
 
       enddo spin
+
+    elseif(PINPT%flag_write_unformatted_wf) then
+spinb:do is = 1, ispin_print
+        call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+!       open(pid_energy, file=trim(fname), status = 'unknown')
+        irecl=nkpoint+3 
+        open(pid_energy, file=trim(fname), form='unformatted', access='direct', status='unknown', recl=irecl)
+!         if(trim(PINPT%axis_print_mag) .eq. 'rh') then
+!           write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ] -> rho_nk = <psi_nk|psi_nk>'
+!         elseif(trim(PINPT%axis_print_mag) .eq. 'wf') then
+!           write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ] -> wavefunction coefficients '
+!         elseif(trim(PINPT%axis_print_mag) .eq. 'no') then
+!           write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(PINPT%axis_print_mag), ' ]'
+!         endif
+!         if(PINPT%flag_sparse) then
+!           write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ',PINPT%feast_emin,' : ', &
+!                                                                                                    PINPT%feast_emax, &
+!                                                                                     ' ], NE_MAX= ',PINPT%feast_nemax
+!           do ik = 1, nkpoint
+!             write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+!           enddo
+!         elseif(PINPT%flag_erange) then
+!            write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',PINPT%init_erange,' : ',PINPT%fina_erange,' ]'
+!         endif
+!     eig:do ie =1, PINPT%nband !init_e, fina_e
+!           write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'
+!           if(.not. flag_print_orbital) then
+!             write(pid_energy,'(A)',ADVANCE='NO')''
+!           elseif(  flag_print_orbital) then
+!             if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
+!             if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
+!             if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
+!             if(PINPT%axis_print_mag .ne. 'wf') then
+!               write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+!               write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
+!             elseif(PINPT%axis_print_mag .eq. 'wf') then
+!               write(pid_energy, '(1A)',ADVANCE='YES') '# wavefunction coeff.:          |ci>               '
+!               write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
+!             endif
+!          mm:do im=1,nbasis
+!               if(PINPT%axis_print_mag .ne. 'wf') then
+!                 write(pid_energy, '(I9)',ADVANCE='NO')im
+!               elseif(PINPT%axis_print_mag .eq. 'wf') then
+!                 if(PINPT%ispinor .eq. 2) then
+!                   write(pid_energy, '(I38)',ADVANCE='NO')im
+!                 elseif(PINPT%ispinor .eq. 1) then
+!                   write(pid_energy, '(I19)',ADVANCE='NO')im
+!                 endif
+!               endif
+!               if(im .ge. 30 .and. im .lt. nbasis) then
+!                 write(pid_energy, '(A)',ADVANCE='NO')' ... '
+!                 exit mm
+!               endif
+!             enddo mm
+!             write(pid_energy,'(A)')''
+!           endif
+
+!        kp:do ik = 1, nkpoint
+!             if(flag_klinemode) then
+!               if( ie .le. ne_found(is, ik) ) then
+!                 write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+PINPT%nband*(is-1),ik)
+!               elseif( ie .gt. ne_found(is, ik)) then
+!                 write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik)
+!               endif
+!             elseif(flag_kgridmode) then
+!               if( ie .le. ne_found(is, ik) ) then
+!                 write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik), E(ie+PINPT%nband*(is-1),ik)
+!               elseif(ie .gt. ne_found(is, ik)) then
+!                 write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik)
+!               endif
+!             endif
+!             if( ie .le. ne_found(is, ik) ) then
+!               if(flag_print_orbital) then
+!           basis:do im=1,nbasis-1
+!                   if(PINPT%ispinor .eq. 2) then
+!                     c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
+
+!                     if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
+!                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! up - dn : mz
+!                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mx') then
+!                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
+!                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
+!                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
+!                     elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+!                       write(pid_energy,'(2(F9.4,F9.4," "))',ADVANCE='NO') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
+!                     else
+!                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
+!                     endif
+!                   elseif(PINPT%ispinor .eq. 1) then
+!                     c_up = V(im+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
+!                     if(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+!                       write(pid_energy,'(1(F9.4,F9.4," "))',ADVANCE='NO') c_up
+!                     else
+!                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(conjg(c_up)*c_up)
+!                     endif
+!                   endif
+!                 enddo basis
+!                 if(PINPT%ispinor .eq. 2) then
+!                   c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
+!                   if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
+!                     write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! up - dn : mz
+!                   elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mx') then
+!                     write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
+!                   elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
+!                     write(pid_energy,'(*(F9.4))',ADVANCE='YES') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
+!                   elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+!                     write(pid_energy,'(2(F9.4,F9.4," "))',ADVANCE='YES') c_up, c_dn ! c_up and c_dn (real,imag) wavefunction coefficient
+!                   else
+!                     write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
+!                   endif
+!                 elseif(PINPT%ispinor .eq. 1) then
+!                   c_up = V(nbasis+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
+!                   if(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'wf') then
+!                     write(pid_energy,'(1(F9.4,F9.4," "))',ADVANCE='YES') c_up
+!                   else
+!                     write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(conjg(c_up)*c_up)
+!                   endif
+!                 endif
+!               endif
+!               if(.not.flag_print_orbital) write(pid_energy,*)''
+!             elseif(ie .gt. ne_found(is, ik)) then
+!               write(pid_energy,*)''
+!             endif
+!           enddo kp
+!           write(pid_energy,*)''
+!           write(pid_energy,*)''
+!         enddo eig
+
+        close(pid_energy)
+      enddo spinb
+
+    endif
 
 return
 endsubroutine
@@ -608,20 +762,19 @@ subroutine get_fname(fname_header, fname, is, flag_collinear, flag_noncollinear)
 return
 endsubroutine
 
-subroutine get_e_range(init_e, fina_e, neig, flag_ensurf, PINPT)
-   use parameters, only : incar, poscar
+subroutine get_e_range(init_e, fina_e, neig, flag_ensurf, ispinor, flag_erange, init_erange, fina_erange)
    implicit none
-   type(incar) :: PINPT
-   integer*4      init_e, fina_e, neig
-   logical        flag_ensurf 
+   integer*4      init_e, fina_e, neig, ispinor
+   integer*4      init_erange, fina_erange
+   logical        flag_ensurf, flag_erange
 
    if(.not. flag_ensurf) then
-     if(PINPT%flag_erange) then
-       init_e = PINPT%init_erange
-       fina_e = PINPT%fina_erange
-     elseif(.not. PINPT%flag_erange) then
+     if(flag_erange) then
+       init_e = init_erange
+       fina_e = fina_erange
+     elseif(.not. flag_erange) then
        init_e = 1
-       fina_e = neig * PINPT%ispinor
+       fina_e = neig * ispinor
      endif
 
    elseif(flag_ensurf) then

@@ -11,7 +11,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   integer*4     i, i_orb, linecount
   integer*4     i_dummy
   integer*4, allocatable :: zak_erange_(:)
-  integer*4, allocatable :: ldos_atom_dummy(:,:), ldos_natom_dummy(:)
+  integer*4, allocatable :: proj_atom_dummy(:,:), proj_natom_dummy(:)
   integer*4                 size_zak_erange
   character*132 inputline !, inputline_dummy
   character*40  desc_str,dummy
@@ -59,8 +59,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_print_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
-  if(.not. PINPT%flag_ldos_parse)   PINPT%flag_print_ldos=.false.
-  PINPT%nldos_sum = 0
+  if(.not. PINPT%flag_proj_parse)   PINPT%flag_print_proj=.false.
+  PINPT%nproj_sum = 0
   PINPT%flag_pfile_index=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
@@ -86,6 +86,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_load_nntable= .false.
   PINPT%flag_sparse = .false.
   PINPT%flag_get_effective_ham=.false.
+  PINPT%flag_write_unformatted_wf=.false.
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -148,6 +149,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%flag_replot_dos   = .false.
   PRPLT%flag_replot_ldos  = .false.
   PRPLT%flag_replot_sldos = .false.
+  PRPLT%flag_replot_proj_band  = .false.
 ! PRPLT%flag_replot_only  = .true.
   
   if(myid .eq. 0) write(6,*)' '
@@ -214,7 +216,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
 #ifdef SPGLIB
           !if(myid .eq. 0) write fitted TB-parameter to POFILE
-          case('SPGLIB')
+          case('SPGLIB', 'SPG_LIB')
            call set_spglib_write(PINPT, inputline,desc_str)
 #endif
 
@@ -257,8 +259,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             endif
 
           !set orbital decomposed output onto each atomic site
-          case('LDOS', 'LDOS_SUM')
-            if(.not. PINPT%flag_ldos_parse) then
+          case('LDOS', 'LDOS_SUM', 'PROJ', 'PROJ_SUM', 'PROJ_BAND')
+            if(.not. PINPT%flag_proj_parse) then
               call set_ldos_project_print(PINPT,inputline)
             endif
 
@@ -346,7 +348,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
   endif
 
-  if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+  if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band)) then
     PINPT%flag_tbfit = .false.
   endif
 
@@ -405,7 +407,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_set_param_const) call set_param_const(PINPT,PGEOM)
 
     !get neighbor hopping index
-    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band)) then
       call find_nn(PINPT,PGEOM, NN_TABLE)
       call print_nn_table(NN_TABLE,PINPT)
       if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
@@ -458,36 +460,29 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
     if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
   endif
-  if(PINPT%flag_print_ldos_sum) then
-    allocate(ldos_natom_dummy(PINPT%nldos_sum))
-    ldos_natom_dummy = 0
-    ldos_natom_dummy(1:PINPT%nldos_sum) = PINPT%ldos_natom(1:PINPT%nldos_sum)
-    deallocate(PINPT%ldos_natom); allocate(PINPT%ldos_natom(PINPT%nldos_sum))
-    PINPT%ldos_natom = ldos_natom_dummy
+  ! setup atom index for projected band if not allocated
+  if(PINPT%flag_print_proj_sum) then
+    allocate(proj_natom_dummy(PINPT%nproj_sum))
+    proj_natom_dummy = 0
+    proj_natom_dummy(1:PINPT%nproj_sum) = PINPT%proj_natom(1:PINPT%nproj_sum)
+    deallocate(PINPT%proj_natom); allocate(PINPT%proj_natom(PINPT%nproj_sum))
+    PINPT%proj_natom = proj_natom_dummy
     
-    allocate(ldos_atom_dummy(maxval(PINPT%ldos_natom(1:PINPT%nldos_sum)),PINPT%nldos_sum))
-    ldos_atom_dummy = 0
-    do i = 1, PINPT%nldos_sum
-      ldos_atom_dummy(1:PINPT%ldos_natom(i),i) = PINPT%ldos_atom(1:PINPT%ldos_natom(i),i)
+    allocate(proj_atom_dummy(maxval(PINPT%proj_natom(1:PINPT%nproj_sum)),PINPT%nproj_sum))
+    proj_atom_dummy = 0
+    do i = 1, PINPT%nproj_sum
+      proj_atom_dummy(1:PINPT%proj_natom(i),i) = PINPT%proj_atom(1:PINPT%proj_natom(i),i)
     enddo
-    deallocate(PINPT%ldos_atom); 
-    allocate(PINPT%ldos_atom(maxval(PINPT%ldos_natom(1:PINPT%nldos_sum)),PINPT%nldos_sum))
-    do i = 1, PINPT%nldos_sum
-      PINPT%ldos_atom(1:PINPT%ldos_natom(i),i) = ldos_atom_dummy(1:PINPT%ldos_natom(i),i)
+    deallocate(PINPT%proj_atom); 
+    allocate(PINPT%proj_atom(maxval(PINPT%proj_natom(1:PINPT%nproj_sum)),PINPT%nproj_sum))
+    do i = 1, PINPT%nproj_sum
+      PINPT%proj_atom(1:PINPT%proj_natom(i),i) = proj_atom_dummy(1:PINPT%proj_natom(i),i)
     enddo
     
 
-    deallocate(ldos_natom_dummy)
-    deallocate(ldos_atom_dummy)
+    deallocate(proj_natom_dummy)
+    deallocate(proj_atom_dummy)
   endif
-! if(PINPT%flag_print_ldos_sum .and. PINPT%ldos_natom .eq. 0) then
-!   allocate(PINPT%ldos_atom(PGEOM%n_atom))
-!   do i = 1, PGEOM%n_atom
-!     PINPT%ldos_atom(i) = i
-!   enddo
-!   PINPT%ldos_natom = PGEOM%n_atom
-!   if_main write(6,'(A,I0)')'     LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
-! endif
 
   ! read info: kpoint 
   if(flag_kfile_exist) then

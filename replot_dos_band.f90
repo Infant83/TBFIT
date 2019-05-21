@@ -290,7 +290,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, norb, nband, nkp, e_r
      if_main write(6,'(A)')'      write DOS ... Done!'
    endif
    if(flag_replot_ldos) then
-     call MPI_ALLREDUCE(replot_ldos_tot, PRPLT%replot_ldos_tot, size(replot_ldos_tot), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
+     call MPI_ALLREDUCE(replot_ldos_tot, PRPLT%replot_ldos_tot, size(replot_ldos_tot), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
      call print_replot_ldos(PRPLT, PINPT, PGEOM)
      if_main write(6,'(A)')'      write LDOS ... Done!'
    endif

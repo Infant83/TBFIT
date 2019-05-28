@@ -71,7 +71,7 @@ module parameters
        logical                       flag_tbfit_test
        logical                       flag_inputcard_fname_parse
        logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
-       logical                       flag_write_unformatted_wf ! default = .false.
+       logical                       flag_write_unformatted ! default = .false.
 
        real*8                        ptol
        real*8                        ftol
@@ -80,13 +80,17 @@ module parameters
        integer*4                     read_energy_column_index, read_energy_column_index_dn
        logical                       flag_tbfit, flag_pfile, flag_pincar
        logical                       flag_print_only_target, flag_print_param
-       logical                       flag_print_orbital, flag_get_orbital
+       logical                       flag_print_orbital  ! activated with LORBIT .TRUE. tag
+       logical                       flag_get_orbital    ! whether request wavevector in diagonalize routine
        logical                       flag_print_proj
        logical                       flag_set_param_const
        logical                       flag_slater_koster ! default .true.
        logical                       flag_print_mag
+       logical                       flag_print_single ! default .false. (write single precision for wavefunction)
        logical                       flag_load_nntable ! default .false.
-       character*2                   axis_print_mag ! mx, my, mz, re, im, wf, bi
+       character*2                   axis_print_mag ! mx, my, mz (pauli matrices), 
+                                                    ! re, im (real or imag part), 
+                                                    ! wf (full wf), bi (enforce to write wf with binary format)
        real*8,       allocatable  :: param(:)
        character*40, allocatable  :: param_name(:)
        character*40, allocatable  :: c_const(:,:)
@@ -464,8 +468,10 @@ module parameters
        logical                       flag_replot_dos   ! flag for density of states
        logical                       flag_replot_ldos  ! flag for local density of states
        logical                       flag_replot_sldos ! flag for spatial local density of states
-       logical                       flag_replot_band  ! flag for replot band structure with atom resolved
+       logical                       flag_replot_band  ! flag for replot band structure
        logical                       flag_replot_only  ! flag for calculate band structure not just reading it (if .false., default:.true.)
+       logical                       flag_replot_formatted ! flag whether band_structure_TBA file is formatted (.dat) or unformatted (.bin)
+
        character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
        integer*4                     replot_ldos_natom ! number of atoms to be resolved
        integer*4,   allocatable   :: replot_ldos_atom(:) ! atom index
@@ -475,12 +481,12 @@ module parameters
        real*8                        replot_dos_emin, replot_dos_emax  ! from emin to emax
        real*8,      allocatable   :: replot_dos_tot(:,:)     ! density of states, (nspin, nediv)
        real*8,      allocatable   :: replot_dos_ntot(:,:) ! integrated DOS from initial to the energy level (nspin,0:nediv)
-       real*8,      allocatable   :: replot_ldos_tot(:,:,:,:)   ! local density of states (norb(iatom), natom, nspin, nediv)
+       real*8,      allocatable   :: replot_ldos_tot(:,:,:,:)   ! local density of states (n_orbital(iatom), natom, nspin, nediv)
        real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
        real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
-
+       character*2                   replot_axis_print_mag
        ! projected band
        integer*4                     replot_nproj_sum
        integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom

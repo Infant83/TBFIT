@@ -15,7 +15,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    integer*4                  iadd, iaddk, inc, inck
    integer*4                  ik,nk1,nk2,nk3
    integer*4                  iband, fband, nband, nband_found
-   integer*4                  is, ispin_print
+   integer*4                  is
    integer*4                  im, imatrix, iatom, ia, ii, mm
    integer*4                  mpierr
    real*8                     kshift(3)
@@ -26,10 +26,10 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    real*8,     allocatable :: kpoint(:,:), kpoint_reci(:,:)
    real*8,     allocatable :: param(:), param_const(:,:)
    real*8,     allocatable :: dos_tot(:,:), dos_ ! nspin,nediv
-   real*8,     allocatable :: ldos_tot(:,:,:,:)                  ! norb+tot, dos_natom_ldos, nediv,spin
+   real*8,     allocatable :: ldos_tot(:,:,:,:)                  ! nbasis+tot, dos_natom_ldos, nediv,spin
    real*8,     allocatable :: E(:,:), E_(:,:)
    complex*16, allocatable :: V(:,:,:), V_(:,:,:)
-   complex*16, allocatable :: myV(:,:) !norb,nband
+   complex*16, allocatable :: myV(:,:) !nbasis,nband
    real*8                     rho
    real*8                     a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
    real*8                     b2xb3(3),bzvol,dkv
@@ -252,17 +252,16 @@ kp:do ik = 1,  nkpoint
    ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
    !       ordering is not well defined in this case.
    if(PINPT_DOS%dos_flag_print_eigen .and. myid .eq. 0 .and. .not. flag_sparse) then
-     call get_ispin_print(PINPT%flag_collinear, ispin_print)
-     allocate(E_(ispin_print,nkpoint))
-     allocate(V_(neig*ispin,ispin_print,nkpoint))
+     allocate(E_(nspin,nkpoint))
+     allocate(V_(neig*ispin,nspin,nkpoint))
 
      do i = 1, PINPT_DOS%dos_n_ensurf
        call get_ensurf_fname_header(PINPT_DOS%dos_ensurf(i), fname_header)
-       do is = 1, ispin_print
+       do is = 1, nspin
          E_(is,:)   = E(  PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
          V_(:,is,:) = V(:,PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
        enddo
-      call print_energy_ensurf(kpoint, nkpoint,PINPT_DOS%dos_ensurf(i), ispin_print, E_, V_, PGEOM, PINPT, fname_header, PINPT_DOS%dos_kunit)
+      call print_energy_ensurf(kpoint, nkpoint,PINPT_DOS%dos_ensurf(i), nspin, E_, V_, PGEOM, PINPT, fname_header, PINPT_DOS%dos_kunit)
      enddo
    endif
 

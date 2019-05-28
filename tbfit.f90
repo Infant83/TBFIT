@@ -37,7 +37,7 @@ program tbfit
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA,PRPLT)
 
   if( (.not. PRPLT%flag_replot_dos) .and. (.not. PRPLT%flag_replot_ldos) .and. (.not. PRPLT%flag_replot_sldos) .and. &
-      (.not. PRPLT%flag_replot_proj_band) ) then
+      (.not. PRPLT%flag_replot_proj_band) .and. (.not. PRPLT%flag_replot_band) ) then
     if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
     if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature ) then
       call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
@@ -62,7 +62,8 @@ program tbfit
     if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
 
-  elseif( (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band) ) then  ! program run in replot mode
+  elseif( (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos &
+      .or. PRPLT%flag_replot_proj_band .or.PRPLT%flag_replot_band ) ) then  ! program run in replot mode
 
     call replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 

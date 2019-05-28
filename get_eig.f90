@@ -104,6 +104,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   if(flag_stat) then
     if_main write(6,'(A)')'END: BAND STRUCTURE EVALUATION'
   endif
+
 return
 endsubroutine
 

@@ -1,0 +1,12 @@
+PRINT_INDEX .FALSE.
+               e_cp1_A        0.21937163 0
+               e_cp1_B        0.21937163 0
+              ccn_1_AB        2.51430378  
+              ccm_1_AA        0.11       0
+              ccm_1_BB        0.11       0
+           local_U_c_A        0.61010000 0
+           local_U_c_B       -0.61010000 0
+           lsoc_c_1_AA        0.41000000 0
+           lsoc_c_1_BB        0.41000000 0
+           stoner_I_c_A       1.1 0
+           stoner_I_c_B       1.1 0

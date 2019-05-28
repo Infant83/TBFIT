@@ -436,6 +436,8 @@ mode: select case ( trim(plot_mode) )
       PRPLT%replot_sldos_cell    = (/1,1,1/)
       PRPLT%r_origin             = 0d0
       PRPLT%bond_cut             = 3d0 
+      PRPLT%flag_replot_formatted= .true.  ! default: read formatted band_structure_TBA file
+      PRPLT%replot_axis_print_mag= 'rh'
 
  set_rpl:do while(trim(desc_str) .ne. 'END')
            read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -467,6 +469,46 @@ mode: select case ( trim(plot_mode) )
                  if_main write(6,'(A)')' REPLT_ONLY: .TRUE.'
                elseif(.not. PRPLT%flag_replot_only) then
                  if_main write(6,'(A)')' REPLT_ONLY: .FALSE.'
+               endif
+
+             case('FILE_FORMAT')
+               read(inputline,*,iostat=i_continue) desc_str, desc_str
+               if(desc_str(1:3) .eq. 'bin') then
+                 if_main write(6,'(A)')' REPLT_FILE_FORM: read unformatted (binary) .bin file'
+                 PRPLT%flag_replot_formatted = .false.
+               elseif(desc_str(1:3) .eq. 'asc' .or. desc_str(1:3) .eq. 'dat') then
+                 if_main write(6,'(A)')' REPLT_FILE_FORM: read formatted (ascii) .dat file'
+                 PRPLT%flag_replot_formatted = .true.
+               endif
+
+             case('REPLOT_BAND') ! convert band~.bin file with 'wf' format into band~replot.dat with 'wf' format.
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band
+                 if(PRPLT%flag_replot_band) then
+                   if_main write(6,'(A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'
+                 elseif(.not. PRPLT%flag_replot_band) then
+                   if_main write(6,'(A)')' REPLT_BAND: .FALSE.'
+                 endif
+               elseif(i_dummy .ge. 2) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, PRPLT%replot_axis_print_mag
+                 if(PRPLT%flag_replot_band) then
+                   if    (PRPLT%replot_axis_print_mag .eq. 'mx') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'
+                   elseif(PRPLT%replot_axis_print_mag .eq. 'my') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'
+                   elseif(PRPLT%replot_axis_print_mag .eq. 'mz') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'
+                   elseif(PRPLT%replot_axis_print_mag .eq. 'wf') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'
+                   elseif(PRPLT%replot_axis_print_mag .eq. 'rh') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'
+                   elseif(PRPLT%replot_axis_print_mag .eq. 'no') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'
+                   endif
+                 elseif(.not. PRPLT%flag_replot_band) then
+                   if_main write(6,'(A)')' REPLT_BAND: .FALSE.'
+                 endif
                endif
 
              case('REPLOT_PROJ_BAND', 'REPLOT_PROJ_SUM')
@@ -655,6 +697,16 @@ mode: select case ( trim(plot_mode) )
            endselect case_rpl
 
          enddo set_rpl
+
+      if(PRPLT%flag_replot_formatted .and. PRPLT%flag_replot_band) then
+        if_main write(6,'(A)') '    !WARN! FILE_FORMAT for band_structure_TBA has been set to '
+        if_main write(6,'(A)') '           ascii(formatted) and also requested REPLOT_BAND to .TRUE.'
+        if_main write(6,'(A)') '           which is not accepted offer.'
+        if_main write(6,'(A)') '           Note that REPLOT_BAND is to convert band_structure_TBA.bin to'
+        if_main write(6,'(A)') '           band_structure_TBA.dat which is ascii (formatted) format.'
+        if_main write(6,'(A)') '           Exit program...'
+        kill_job
+      endif
 
       return
    endsubroutine
@@ -2278,23 +2330,24 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       type(incar)  ::  PINPT
       integer*4     i_continue
       integer*4     nitems
-      integer*4     i_dummy
+      integer*4     i_dummy, mpierr
       character*132 inputline
       character*2   dummy
       character*40  desc_str
-      character*2   str2lowcase, str2upcase
+      character*4   str2lowcase
       character*6   c_dummy
       character(*), parameter :: func = 'set_local_orbital_print'
-      external      nitems, str2lowcase, str2upcase
+      external      nitems, str2lowcase
 
-      PINPT%axis_print_mag = 'rh' ! write rho by default
+      PINPT%axis_print_mag = 'rh' ! write <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j by default
+      PINPT%flag_print_single = .false.
 
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital
         if(PINPT%flag_print_orbital) then
           PINPT%flag_get_orbital = .true.
-          PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
+          PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
           if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag
         elseif( .not. PINPT%flag_print_orbital) then
           if_main write(6,'(A)')'  L_ORBIT: .FALSE.'
@@ -2304,20 +2357,32 @@ set_rib: do while(trim(desc_str) .ne. 'END')
     
       elseif(i_dummy .eq. 2) then
         PINPT%flag_print_mag = .TRUE.
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag
-        PINPT%axis_print_mag=str2lowcase(PINPT%axis_print_mag)
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, desc_str !PINPT%axis_print_mag
+        desc_str = str2lowcase(trim(desc_str))
+        if(desc_str(1:4) .eq. 'bin4') then
+          PINPT%axis_print_mag = 'bi'
+          PINPT%flag_print_single = .true.
+        else
+          PINPT%flag_print_single = .false.
+          PINPT%axis_print_mag = desc_str(1:2)
+        endif
+
         if(PINPT%flag_print_orbital) then
           if(PINPT%axis_print_mag .eq. 're') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'im') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'wf') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
-            PINPT%flag_write_unformatted_wf = .true.
-            PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
-            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
+            PINPT%flag_write_unformatted = .true.
+            PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
+            if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ', &
+                                   PINPT%axis_print_mag
           elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
             PINPT%flag_get_orbital = .true.
@@ -2333,21 +2398,36 @@ set_rib: do while(trim(desc_str) .ne. 'END')
    
       elseif(i_dummy .eq. 3) then
         PINPT%flag_print_mag = .TRUE.
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag, c_dummy
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_orbital, PINPT%axis_print_mag, desc_str !c_dummy
         PINPT%axis_print_mag=str2lowcase(PINPT%axis_print_mag)
-        c_dummy=str2lowcase(trim(c_dummy)) 
+        desc_str=str2lowcase(trim(desc_str)) 
+
+        if(desc_str(1:4) .eq. 'bin4') then
+          c_dummy = 'bi'
+          PINPT%flag_print_single = .true.
+        else
+          PINPT%flag_print_single = .false.
+          c_dummy = desc_str(1:2)
+        endif
+
         if(PINPT%flag_print_orbital) then
           if(PINPT%axis_print_mag .eq. 're') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'im') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'wf') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag
+            PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
-            PINPT%flag_write_unformatted_wf = .true.
-            PINPT%axis_print_mag = 'rh' ! <psi_nk|psi_nk>
+            PINPT%flag_get_orbital = .true.
+            PINPT%flag_write_unformatted = .true.
+            PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ',PINPT%axis_print_mag
+            if(PINPT%flag_print_single) then
+              if_main write(6,'( A)')'                  | with "single" precision as requiested by "bin4" tag'
+            endif
           elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
             if_main write(6,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag
             PINPT%flag_get_orbital = .true.
@@ -2357,8 +2437,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           endif
 
           if(c_dummy(1:2) .eq. 'bi') then
-            PINPT%flag_write_unformatted_wf = .true.
-            if_main write(6,'(1A)')'                    with binary format (unformtted)'
+            PINPT%flag_get_orbital = .true.
+            PINPT%flag_write_unformatted = .true.
+            if_main write(6,'(1A)')'                  | with binary format (unformatted)'
+!           if_main write(6,'( A)')'                    with "single" precision as requiested by "bin4" tag'
           endif
 
         elseif( .not. PINPT%flag_print_orbital) then

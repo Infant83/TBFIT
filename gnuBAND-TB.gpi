@@ -1,0 +1,82 @@
+set term post portrait  enhanced color "Helvetica,18"
+fout='BAND.eps'; set output fout
+#set title "Energy band MoTe2" font "Curier Bold,18,"
+#generated from BAND-VASP.sh 
+
+
+    KINIT=       0.000000 ; KNAME_INIT="{/Symbol \G}"
+       K2=       1.480653 ; KNAME_2   ="M"
+       K3=       2.335508 ; KNAME_3   ="K"
+       K4=       4.045218 ; KNAME_4   ="{/Symbol \G}"
+     KEND=       4.254657 ; KNAME_END ="A"
+ set xtics (KNAME_INIT KINIT, KNAME_2 K2, KNAME_3 K3, KNAME_4 K4, KNAME_END KEND) nomirror
+
+de=.0
+ set size nosquare 1,0.55 ;
+ set xrange[KINIT:KEND]
+ set yrange[-10:10]
+set ytics -10,2,10 nomirror
+set ylabel "Energy (eV)" font "Helvetica,24" offset 1,0
+ set arrow from 0,0 to KEND,0 nohead lt 3 lw .1 lc rgb 'black'
+set key at KEND,-0.05 samplen .5 spacing .9 width -3 font "Helvetica, 15"
+#set palette defined (-1 'red',0 'white', 1 'blue' )
+#set palette defined (-1 'red', 1 'green' )
+set palette rgb 34,35,36 # AFM hot
+set palette rgb 33,13,10 # rainbow
+#s p d s py pz px dxy dyz dz2 dxz dx2 tot 
+#3 4 5 6 7  8  9  10  11  12  13  14  15  
+ef=-2.1785
+
+dft='DOS_atom_projected.dat'
+trg='band_structure_DFT.dat'
+tbf='band_structure_TBA.replot.dat'
+rpl='band_structure_TBA_atom.sum1.dat'
+tbfu='band_structure_TBA.up.dat'
+tbfd='band_structure_TBA.dn.dat'
+brc='BERRYCURV_TBA.total.dat'
+wcc='Z2.WCC.0.0-B3.dat'
+gap='Z2.GAP.0.0-B3.dat'
+s=2
+set multiplot
+#plot dft u 1:($2)        w l  lt 1 lw   3              lc rgb 'gray'  ti "DFT",\
+#     trg u 1:($2):($3)*s w p  lt 1 lw  .1 pt 6 ps vari lc rgb 'black' ti "TRG",\
+
+#plot tbfu u 1:($2)        w p  lt 1 lw   2              lc rgb 'red'     ti "TBA",\
+#     tbfd u 1:($2)        w p  lt 1 lw   2              lc rgb 'blue'    ti "TBA",\
+#     brc  u 1:($2):($3)   w l  lt 1 lw   2              lc palette     ti "TBA"
+
+ plot tbf  u 1:($2)        w p  lt 1 lw   1 ps .5   pt 7   lc rgb 'black'   ti "TBA",\
+      rpl  u 1:($2):($3)   w p  lt 1 lw   1 ps vari pt 6   lc rgb 'red'     ti "SUM",\
+
+#     brc  u 1:($2):($3)   w l  lt 1 lw   1              lc palette     ti "TBA"
+
+
+set origin 1.0,0
+ set xrange[KINIT:KEND]
+ set yrange[0:1]
+ set xrange[0:1]
+ set ytics 0,0.5,1
+ unset xtics 
+ unset arrow
+ set key at 1,.8 samplen .5 spacing .9 width -3 font "Helvetica, 15"
+  plot wcc          u 1:($2)+.0  w  p  pt 6 lw  .1  ps 1     lc rgb 'black' ti "WCC",\
+       gap          u 1:($2>0.5?$2: 1/0) w  p pt 7 lw .1 ps 1 lc rgb 'red'   ti "largest gap",\
+
+#    tbf u 1:($2)        w lp lt 1 lw  .2 pt 7         lc rgb 'red'   ti "TBA"
+
+set origin 2.0,0
+ set size nosquare 0.5,0.55
+ set xrange[0:10]
+ set yrange[-10:10]
+ set xtics 0,5,10
+ set ytics -10,5,10
+ unset xrange
+ dos_orig='DOS_TB_projected.dat'
+ dos_replot='DOS.replot.dat'
+ unset key
+ 
+ plot dos_replot  u 2:1 w l ti 'DOS-repl',\
+      dos_orig    u 2:1 w l ti 'DOS-orig'
+
+ system(sprintf("eps2eps %s a.eps; mv a.eps %s; cp %s ~/Desktop",fout, fout, fout))
+

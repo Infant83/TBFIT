@@ -1,0 +1,24 @@
+set term post portrait  enhanced color "Helvetica,18"
+fout='DOS.eps'; set output fout
+
+set size nosquare 1,0.40 ;
+set xrange[-0.3:0.3]
+set yrange[0:.6]
+set ytics 0,.2,1 nomirror
+set xtics -0.3,0.1,0.3 nomirror
+set xlabel "Energy (eV)" font "Helvetica,24" offset 1,0
+set ylabel "DOS (a.u.)"
+set key at -0.10,0.5 samplen .5 spacing .9 width -3 font "Helvetica, 15"
+set palette defined (-1 'red',0 'white', 1 'blue' )
+set palette rgb 34,35,36 # AFM hot
+set cbrange [0:1.5]
+
+#dos='DOS_TB_projected.dat'
+dos='DOS.replot.dat'
+ldos_1='LDOS.replot.1495.dat'
+
+plot dos    u ($1):($2) w l lt 1 lw 2 lc rgb 'black' ti 'Total DOS' ,\
+    ldos_1  u ($1):($2) w l lt 1 lw 2 lc rgb 'red'   ti 'atom 1495' 
+
+system(sprintf("eps2eps %s a.eps; mv a.eps %s; cp %s ~/Desktop",fout, fout, fout))
+

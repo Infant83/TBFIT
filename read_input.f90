@@ -57,6 +57,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_default_stm_ngrid = .true.
   PINPT%flag_default_rorigin= .true.
   PINPT%flag_print_orbital=.false.
+  PINPT%flag_print_single=.false. 
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   if(.not. PINPT%flag_proj_parse)   PINPT%flag_print_proj=.false.
@@ -86,7 +87,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_load_nntable= .false.
   PINPT%flag_sparse = .false.
   PINPT%flag_get_effective_ham=.false.
-  PINPT%flag_write_unformatted_wf=.false.
+  PINPT%flag_write_unformatted=.false.
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -257,7 +258,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             if(.not. PINPT%flag_lorbit_parse) then
               call set_local_orbital_print(PINPT, inputline)
             endif
-
           !set orbital decomposed output onto each atomic site
           case('LDOS', 'LDOS_SUM', 'PROJ', 'PROJ_SUM', 'PROJ_BAND')
             if(.not. PINPT%flag_proj_parse) then
@@ -407,7 +407,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_set_param_const) call set_param_const(PINPT,PGEOM)
 
     !get neighbor hopping index
-    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band)) then
+    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. &
+             PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band .or. &
+             PRPLT%flag_replot_band )) then
       call find_nn(PINPT,PGEOM, NN_TABLE)
       call print_nn_table(NN_TABLE,PINPT)
       if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
@@ -627,12 +629,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
 
   if(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos) then
-    if(PINPT%flag_collinear) then 
-      PRPLT%fname_band_up = 'band_structure_TBA.up.dat'
-      PRPLT%fname_band_dn = 'band_structure_TBA.dn.dat'
-    elseif(.not. PINPT%flag_collinear) then
-      PRPLT%fname_band_up = 'band_structure_TBA.dat'
-    endif
    
     ! setup ldos atom if not allocated
     if(PRPLT%flag_replot_ldos .and. PRPLT%replot_ldos_natom .eq. 0) then

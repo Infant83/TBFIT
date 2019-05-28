@@ -1,0 +1,30 @@
+set term post portrait  enhanced color "Helvetica,18"
+fout='LDOS.eps'; set output fout
+
+pi2= 4*atan(1) * 2
+
+ set size nosquare 1.9,1.   ;
+set xtics -.25,.05,.25 nomirror
+ unset xlabel
+ unset ylabel
+ unset ytics
+ unset xtics
+set key right top samplen 1  spacing 1.5  font "Helvetica, 15"
+set palette defined (-1 'red',0 'white', 1 'blue' )
+set palette rgb 34,35,36 # AFM hot
+set cbrange [0:1]
+set style fill solid 1.0 noborder
+stats 'SLDOS.replot.dat' nooutput
+ pady = (STATS_max_y - STATS_min_y) * 0.05
+ padx = (STATS_max_x - STATS_min_x) * 0.05
+ set yrange[STATS_min_y:STATS_max_y]
+ set xrange[STATS_min_x:STATS_max_x]
+ set style function filledcurves y1=STATS_min_y
+
+ plot STATS_max_y    fs solid 1.0 lc rgb 'black' noti,\
+      "SLDOS.replot.dat"    u 1:2:($4)*2               w p pt 7 ps 1.4 lw .1 lc palette noti,\
+      "BOND.replot.dat"     u 1:( ($3<0.5) ? $2: 1/0)  w l lw .1 dt 3 lc rgb 'red' noti,\
+      "BOND.replot.dat"     u 1:( ($3>0.5) ? $2: 1/0)  w l lw .1 lc rgb 'blue' noti
+
+system(sprintf("eps2eps %s a.eps; mv a.eps %s; cp %s ~/Desktop",fout, fout, fout))
+

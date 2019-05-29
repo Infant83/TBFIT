@@ -490,7 +490,10 @@ module parameters
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
        real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
 
-       character*2                   replot_axis_print_mag
+       integer*4                     replot_nband ! number of REPLOT_BAND request
+       character*2, allocatable   :: replot_axis_print_mag(:) ! (nband)
+!      character*2                   replot_axis_print_mag
+
        ! projected band
        logical                       flag_replot_proj_band
        integer*4                     replot_nproj_sum

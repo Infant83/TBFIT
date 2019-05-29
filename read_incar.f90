@@ -426,6 +426,7 @@ mode: select case ( trim(plot_mode) )
       character*40,  allocatable :: strip_dummy(:)
       integer*4     i_dummyr(max_dummy)
       integer*4     mpierr
+      character*2   axis_dummy, axis_print_mag(max_dummy)
 
       ! setup default values
 !     PRPLT%replot_ldos_natom    =  0 
@@ -437,7 +438,7 @@ mode: select case ( trim(plot_mode) )
       PRPLT%r_origin             = 0d0
       PRPLT%bond_cut             = 3d0 
       PRPLT%flag_replot_formatted= .true.  ! default: read formatted band_structure_TBA file
-      PRPLT%replot_axis_print_mag= 'rh'
+!     PRPLT%replot_axis_print_mag= 'rh'
 
  set_rpl:do while(trim(desc_str) .ne. 'END')
            read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -481,33 +482,41 @@ mode: select case ( trim(plot_mode) )
                  PRPLT%flag_replot_formatted = .true.
                endif
 
-             case('REPLOT_BAND') ! convert band~.bin file with 'wf' format into band~replot.dat with 'wf' format.
+             case('REPLOT_BAND') ! convert band~.bin file with 'wf' format into band~replot.dat with 'axis_print_mag' format.
                i_dummy = nitems(inputline) - 1
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band
                  if(PRPLT%flag_replot_band) then
                    if_main write(6,'(A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'
+
+                   PRPLT%replot_nband = PRPLT%replot_nband + 1
+                   axis_print_mag(PRPLT%replot_nband) = 'rh'
+
                  elseif(.not. PRPLT%flag_replot_band) then
-                   if_main write(6,'(A)')' REPLT_BAND: .FALSE.'
+                   if_main write(6,'(A)')' REPLT_BAND: .FALSE.  rh'
                  endif
                elseif(i_dummy .ge. 2) then
-                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, PRPLT%replot_axis_print_mag
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, axis_dummy
                  if(PRPLT%flag_replot_band) then
-                   if    (PRPLT%replot_axis_print_mag .eq. 'mx') then
+                   if    (axis_dummy .eq. 'mx') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'
-                   elseif(PRPLT%replot_axis_print_mag .eq. 'my') then
+                   elseif(axis_dummy .eq. 'my') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'
-                   elseif(PRPLT%replot_axis_print_mag .eq. 'mz') then
+                   elseif(axis_dummy .eq. 'mz') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'
-                   elseif(PRPLT%replot_axis_print_mag .eq. 'wf') then
+                   elseif(axis_dummy .eq. 'wf') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'
-                   elseif(PRPLT%replot_axis_print_mag .eq. 'rh') then
+                   elseif(axis_dummy .eq. 'rh') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'
-                   elseif(PRPLT%replot_axis_print_mag .eq. 'no') then
+                   elseif(axis_dummy .eq. 'no') then
                      if_main write(6,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'
                    endif
+                   
+                   PRPLT%replot_nband = PRPLT%replot_nband + 1
+                   axis_print_mag(PRPLT%replot_nband) = axis_dummy
+
                  elseif(.not. PRPLT%flag_replot_band) then
-                   if_main write(6,'(A)')' REPLT_BAND: .FALSE.'
+                   if_main write(6,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)
                  endif
                endif
 
@@ -739,6 +748,14 @@ mode: select case ( trim(plot_mode) )
 
       if(PRPLT%replot_nproj_sum .ge. 1) PRPLT%flag_replot_proj_band = .true.
       if(PRPLT%replot_nldos_sum .ge. 1) PRPLT%flag_replot_ldos = .true.
+
+      if(PRPLT%replot_nband     .ge. 1) then 
+        PRPLT%flag_replot_band = .true.
+        allocate(PRPLT%replot_axis_print_mag(PRPLT%replot_nband))
+        do i=1, PRPLT%replot_nband
+          PRPLT%replot_axis_print_mag(i) = axis_print_mag(i)
+        enddo
+      endif
 
       return
    endsubroutine

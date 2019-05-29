@@ -20,10 +20,12 @@
 
     SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
          FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
-         REPLOT_BAND        .TRUE.  wf   # convert band_structure_TBA.bin to band_structure_TBA.dat
+         REPLOT_BAND        .TRUE.  wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+         REPLOT_BAND        .FALSE. rh   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+         REPLOT_BAND        .TRUE.  no   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
          REPLOT_PROJ_BAND   .TRUE.  1    # replot projected band structure for given atoms and their sum
          REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
-      #  REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
+         REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
 
          REPLOT_DOS         .TRUE.  
          REPLOT_LDOS        .TRUE.  1:32  # following number indicates atom index to be resolved

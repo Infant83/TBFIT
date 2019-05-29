@@ -152,7 +152,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%flag_replot_sldos = .false.
   PRPLT%flag_replot_proj_band  = .false.
 ! PRPLT%flag_replot_only  = .true.
-  
+  PRPLT%replot_nproj_sum  = 0
+  PRPLT%replot_nldos_sum  = 0
+
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
   open (pid_incar, FILE=fname,iostat=i_continue)
@@ -480,7 +482,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     do i = 1, PINPT%nproj_sum
       PINPT%proj_atom(1:PINPT%proj_natom(i),i) = proj_atom_dummy(1:PINPT%proj_natom(i),i)
     enddo
-    
 
     deallocate(proj_natom_dummy)
     deallocate(proj_atom_dummy)
@@ -628,18 +629,18 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
 
 
-  if(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos) then
-   
-    ! setup ldos atom if not allocated
-    if(PRPLT%flag_replot_ldos .and. PRPLT%replot_ldos_natom .eq. 0) then
-      allocate(PRPLT%replot_ldos_atom(PGEOM%n_atom))
-      do i = 1, PGEOM%n_atom
-        PRPLT%replot_ldos_atom(i) = i
-      enddo
-      PRPLT%replot_ldos_natom = PGEOM%n_atom
-      if_main write(6,'(A,I0)')' REPLOT_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
-    endif
-  endif
+! if(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos) then
+!  
+!   ! setup ldos atom if not allocated
+!   if(PRPLT%flag_replot_ldos .and. PRPLT%replot_ldos_natom .eq. 0) then
+!     allocate(PRPLT%replot_ldos_atom(PGEOM%n_atom))
+!     do i = 1, PGEOM%n_atom
+!       PRPLT%replot_ldos_atom(i) = i
+!     enddo
+!     PRPLT%replot_ldos_natom = PGEOM%n_atom
+!     if_main write(6,'(A,I0)')' REPLOT_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+!   endif
+! endif
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '

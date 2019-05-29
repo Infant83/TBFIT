@@ -18,17 +18,18 @@
 #ERANGE 2:3      
  GET_BAND .TRUE. 
 
-  UNSET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+    SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
          FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
          REPLOT_BAND        .TRUE.  wf   # convert band_structure_TBA.bin to band_structure_TBA.dat
-      #  REPLOT_PROJ_BAND   .TRUE.  1    # replot projected band structure for given atoms and their sum
-      #  REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
+         REPLOT_PROJ_BAND   .TRUE.  1    # replot projected band structure for given atoms and their sum
+         REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
       #  REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
 
          REPLOT_DOS         .TRUE.  
-         REPLOT_LDOS        .FALSE. 1:2  # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1:32  # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1:2   # following number indicates atom index to be resolved
          DOS_EWINDOW   -12.00:12.00   # energy window
-         NEDOS         6000
+         NEDOS         2000
          SMEARING      0.1            # gaussian smearing. Default = 0.025
 
          REPLOT_SLDOS  .TRUE.       # spatial LDOS within EWINDOW

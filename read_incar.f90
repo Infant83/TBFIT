@@ -428,7 +428,7 @@ mode: select case ( trim(plot_mode) )
       integer*4     mpierr
 
       ! setup default values
-      PRPLT%replot_ldos_natom    =  0 
+!     PRPLT%replot_ldos_natom    =  0 
       PRPLT%replot_dos_smearing  =  0.025d0 
       PRPLT%replot_dos_emin      = -10d0
       PRPLT%replot_dos_emax      =  10d0
@@ -516,17 +516,17 @@ mode: select case ( trim(plot_mode) )
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str, PRPLT%flag_replot_proj_band
                  if(PRPLT%flag_replot_proj_band) then
-                   if_main write(6,'(A)')'  !!!!WARN: REPLOT_PROJ_SUM tag is activated but atom indext to be summed up '
+                   if_main write(6,'(A)')'  !!!!WARN: REPLOT_PROJ_BAND tag is activated but atom indext to be summed up '
                    if_main write(6,'(A)')'            did not specified.'
                    if_main write(6,'(A)')'            Correct usage is, for example, if you want to resolve'
                    if_main write(6,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'
-                   if_main write(6,'(A)')'            REPLOT_PROJ_SUM .TRUE.  1:10 15'
+                   if_main write(6,'(A)')'            REPLOT_PROJ_BAND .TRUE.  1:10 15'
                    if_main write(6,'(A)')'  Stop program...'
                    kill_job
                  endif
 
                  if( .not. PRPLT%flag_replot_proj_band) then
-                   if_main write(6,'(A)')' REPLT_PROJ: .FALSE.'
+                   if_main write(6,'(A)')' REPLT_PROJ_BAND: .FALSE.'
                  endif
 
                elseif(i_dummy .gt. 1) then
@@ -537,11 +537,15 @@ mode: select case ( trim(plot_mode) )
                    call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
                    i_dummy1=index(dummy1,':')
                    if(i_dummy1 .eq. 0) then
-                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_natom(max_dummy2) )
-                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                     if(PRPLT%replot_nproj_sum .eq. 1) then 
+                       allocate( PRPLT%replot_proj_natom(max_dummy2) )
+                       allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                       PRPLT%replot_ldos_natom = 0
+                       PRPLT%replot_ldos_atom  = 0
+                     endif
                      PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = nitems(dummy1)
                      read(dummy1,*,iostat=i_continue) PRPLT%replot_proj_atom(1:PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum), PRPLT%replot_nproj_sum)
-                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
+                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
                    elseif(i_dummy1 .ge. 1)then
                      i_dummy2 = nitems(dummy1)
                      allocate( strip_dummy(i_dummy2) )
@@ -563,12 +567,16 @@ mode: select case ( trim(plot_mode) )
                          ii = ii + i_dummy5 - i_dummy4
                        endif
                      enddo
-                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_natom(max_dummy2) )
-                     if(PRPLT%replot_nproj_sum .eq. 1) allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                     if(PRPLT%replot_nproj_sum .eq. 1) then
+                       allocate( PRPLT%replot_proj_natom(max_dummy2) )
+                       allocate( PRPLT%replot_proj_atom(max_dummy2*10,max_dummy2) )
+                       PRPLT%replot_ldos_natom = 0
+                       PRPLT%replot_ldos_atom  = 0
+                     endif
                      PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = ii
                      deallocate( strip_dummy )
                      PRPLT%replot_proj_atom(1:ii,PRPLT%replot_nproj_sum) = i_dummyr(1:ii)
-                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
+                     if_main write(6,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)
                    endif
                  endif
 
@@ -581,19 +589,34 @@ mode: select case ( trim(plot_mode) )
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_ldos
                  if(PRPLT%flag_replot_ldos) then
                    if_main write(6,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'
-                   if_main write(6,'(A)')'  !WARNING!          -> LDOS for all atoms of the system will be evaluated by default.'
+                   if_main write(6,'(A)')'            Correct usage is, for example, if you want to resolve'
+                   if_main write(6,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'
+                   if_main write(6,'(A)')'            REPLOT_LDOS .TRUE.  1:10 15'
+                   if_main write(6,'(A)')'            If you want to resolve all atoms, then you can specify'
+                   if_main write(6,'(A)')'            REPLOT_LDOS .TRUE.  1:NATOM '
+                   if_main write(6,'(A)')'            where "NATOM" must be replaced implicitly according to the provided geometry file'
+                   if_main write(6,'(A)')'  Stop program...'
+                   kill_job
                  endif
+
                elseif(i_dummy .gt. 1) then
+
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_ldos
                  read(inputline,*,iostat=i_continue) desc_str,dummy
                  if(PRPLT%flag_replot_ldos) then
+                   PRPLT%replot_nldos_sum = PRPLT%replot_nldos_sum + 1
                    call strip_off (trim(inputline), dummy1, trim(dummy), ' ' , 2)   ! get dos_ensurf
                    i_dummy1=index(dummy1,':')
                    if(i_dummy1 .eq. 0) then
-                     PRPLT%replot_ldos_natom = nitems(dummy1)
-                     allocate( PRPLT%replot_ldos_atom(PRPLT%replot_ldos_natom) )
-                     read(dummy1,*,iostat=i_continue) PRPLT%replot_ldos_atom(1:PRPLT%replot_ldos_natom)
-                     if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                     if(PRPLT%replot_nldos_sum .eq. 1) then 
+                       allocate( PRPLT%replot_ldos_natom(max_dummy2) )
+                       allocate( PRPLT%replot_ldos_atom(max_dummy2*10,max_dummy2) )
+                       PRPLT%replot_ldos_natom = 0
+                       PRPLT%replot_ldos_atom  = 0
+                     endif
+                     PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum) = nitems(dummy1)
+                     read(dummy1,*,iostat=i_continue) PRPLT%replot_ldos_atom(1:PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum), PRPLT%replot_nldos_sum)
+                     if_main write(6,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ',trim(dummy1)
                    elseif(i_dummy1 .ge. 1)then
                      i_dummy2 = nitems(dummy1)
                      allocate( strip_dummy(i_dummy2) )
@@ -615,14 +638,20 @@ mode: select case ( trim(plot_mode) )
                          ii = ii + i_dummy5 - i_dummy4
                        endif
                      enddo
-                     PRPLT%replot_ldos_natom = ii
-                     allocate( PRPLT%replot_ldos_atom(PRPLT%replot_ldos_natom) )
+                     if(PRPLT%replot_nldos_sum .eq. 1) then 
+                       allocate( PRPLT%replot_ldos_natom(max_dummy2) )
+                       allocate( PRPLT%replot_ldos_atom(max_dummy2*10,max_dummy2) )
+                       PRPLT%replot_ldos_natom = 0
+                       PRPLT%replot_ldos_atom  = 0
+                     endif
+                     PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum) = ii
                      deallocate( strip_dummy )
-                     PRPLT%replot_ldos_atom(1:ii) = i_dummyr(1:ii)
-                     if_main write(6,'(A,A)')' REPLT_LDOS: .TRUE. , Atom_index = ',trim(dummy1)
+                     PRPLT%replot_ldos_atom(1:ii,PRPLT%replot_nldos_sum) = i_dummyr(1:ii)
+                     if_main write(6,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ', trim(dummy1)
                    endif
                  endif
                endif
+
              case('NEDOS','REPLOT_NEDOS')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_nediv
                if_main write(6,'(A,I8)')' REPLT_NDIV:', PRPLT%replot_dos_nediv
@@ -707,6 +736,9 @@ mode: select case ( trim(plot_mode) )
         if_main write(6,'(A)') '           Exit program...'
         kill_job
       endif
+
+      if(PRPLT%replot_nproj_sum .ge. 1) PRPLT%flag_replot_proj_band = .true.
+      if(PRPLT%replot_nldos_sum .ge. 1) PRPLT%flag_replot_ldos = .true.
 
       return
    endsubroutine

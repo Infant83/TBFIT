@@ -473,25 +473,29 @@ module parameters
        logical                       flag_replot_formatted ! flag whether band_structure_TBA file is formatted (.dat) or unformatted (.bin)
 
        character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
-       integer*4                     replot_ldos_natom ! number of atoms to be resolved
-       integer*4,   allocatable   :: replot_ldos_atom(:) ! atom index
        real*8                        replot_dos_smearing ! gaussian smearing
        real*8,      allocatable   :: replot_dos_erange(:)   ! size=nediv, division of energy 
        integer*4                     replot_dos_nediv     ! number of division
        real*8                        replot_dos_emin, replot_dos_emax  ! from emin to emax
        real*8,      allocatable   :: replot_dos_tot(:,:)     ! density of states, (nspin, nediv)
        real*8,      allocatable   :: replot_dos_ntot(:,:) ! integrated DOS from initial to the energy level (nspin,0:nediv)
-       real*8,      allocatable   :: replot_ldos_tot(:,:,:,:)   ! local density of states (n_orbital(iatom), natom, nspin, nediv)
+
+       integer*4                     replot_nldos_sum  ! number of ldos plot with set of atoms (how many REPLOT_LDOS tag given?)
+       integer*4,   allocatable   :: replot_ldos_natom(:) ! number of atoms to be resolved for each REPLOT_LDOS request (nldos_sum)
+       integer*4,   allocatable   :: replot_ldos_atom(:,:) ! atom index
+       real*8,      allocatable   :: replot_ldos_tot(:,:,:,:,:)   ! local DOS (n_orbital(iatom), maxval(ldos_natom), nspin, nediv,nldos_sum)
+
        real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
        real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+
        character*2                   replot_axis_print_mag
        ! projected band
+       logical                       flag_replot_proj_band
        integer*4                     replot_nproj_sum
-       integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
        integer*4,   allocatable   :: replot_proj_natom(:) ! how many atoms to be plotted for projected band
-       logical                       flag_replot_proj_band, flag_replot_proj_band_sum
+       integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
 
   endtype replot
 endmodule 

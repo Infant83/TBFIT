@@ -303,7 +303,7 @@ subroutine read_energy_tbfit_V(E, V, ne_found, ispin, nspin, nbasis, nband, nk, 
 
    return
 endsubroutine
-subroutine read_energy_tbfit_V2(E, V2, ne_found, ispin, nspin, nbasis, nband, nk, kmode, flag_vector, flag_wf)
+subroutine read_energy_tbfit_V2(E, V2, ne_found, ispin, nspin, nbasis, nband, nk, kmode, flag_vector, flag_wf, flag_formatted, flag_exit)
 !read band_structure_TBA.dat with c_mode = 'rh'
    use parameters, only : pid_energy
    implicit none
@@ -324,7 +324,12 @@ subroutine read_energy_tbfit_V2(E, V2, ne_found, ispin, nspin, nbasis, nband, nk
    integer*4              nitems, idummy
    logical                flag_go, flag_vector
    logical                flag_wf
+   logical                flag_formatted
+   logical                flag_exit
    character*80           fnameu, fnamed
+   character*11           form_
+
+   flag_exit = .false.
 
    pid = pid_energy
    linecount = 0
@@ -337,37 +342,60 @@ subroutine read_energy_tbfit_V2(E, V2, ne_found, ispin, nspin, nbasis, nband, nk
    endif
 
    if(nspin .eq. 2) then ! collinear
-     fnameu = 'band_structure_TBA.up.dat'
-     fnamed = 'band_structure_TBA.dn.dat'
+     if(flag_formatted) then
+       fnameu = 'band_structure_TBA.up.dat'
+       fnamed = 'band_structure_TBA.dn.dat'
+     elseif(.not. flag_formatted) then
+       fnameu = 'band_structure_TBA.up.bin'
+       fnamed = 'band_structure_TBA.dn.bin'
+     endif
    elseif(nspin .eq. 1) then ! nm or non-collinear
-     fnameu = 'band_structure_TBA.dat'
+     if(flag_formatted) then
+       fnameu = 'band_structure_TBA.dat'
+     elseif(.not. flag_formatted) then
+       fnameu = 'band_structure_TBA.bin'
+     endif
    endif
-
 
    do is = 1, nspin
      if(is .eq. 1) then
-       open(pid,file = trim(fnameu), iostat=i_continue)
+       if(flag_formatted)       open(pid,file = trim(fnameu),                    status='old', iostat=i_continue)
+       if(.not. flag_formatted) open(pid,file = trim(fnameu), form='unformatted',status='old', iostat=i_continue)
+
        if(i_continue .ne. 0) then
-         write(6,'(2A)')'  !!! ERROR IN READING ', trim(fnameu)
+         write(6,'(A)')'  !!! ERROR IN READING (up) ', trim(fnameu)
          write(6,'(A)')'      EXIT PROGRAM : read_energy_tbfit '
-         stop
+         flag_exit = .true.
        endif
      elseif(is .eq. 2) then
-       open(pid,file = trim(fnamed), iostat=i_continue)
+       if(flag_formatted)       open(pid,file = trim(fnamed),                    status='old', iostat=i_continue)
+       if(.not. flag_formatted) open(pid,file = trim(fnamed), form='unformatted',status='old', iostat=i_continue)
+
        if(i_continue .ne. 0) then
-         write(6,'(2A)')'  !!! ERROR IN READING ', trim(fnamed)
+         write(6,'(A)')'  !!! ERROR IN READING (dn) ', trim(fnamed)
          write(6,'(A)')'      EXIT PROGRAM : read_energy_tbfit '
-         stop
+         flag_exit = .true.
        endif
      endif
 
-     ii = 1+nband*(is-1) ; fi = nband+nband*(is-1)
-     im = 1              ; fm = nbasis
-     call load_band_structure_V2(E(ii:fi,:), V2(im:fm,ii:fi,:), ne_found(is,:), ispin, nspin, nband, nbasis, nk, kmode, pid, &
-                              flag_vector)
 
-     close(pid)
+     if(.not. flag_exit) then
+       ii = 1+nband*(is-1) ; fi = nband+nband*(is-1)
+       im = 1              ; fm = nbasis
+
+       if(flag_formatted) then
+         call load_band_structure_V2(E(ii:fi,:), V2(im:fm,ii:fi,:), ne_found(is,:), ispin, nspin, nband, nbasis, nk, kmode, pid, &
+                                  flag_vector)
+       elseif(.not. flag_formatted) then
+         call load_band_structure_V2_bin(E(ii:fi,:), V2(im:fm,ii:fi,:), ne_found(is,:), &
+                                      ispin, nspin, nband, nbasis, nk, kmode, pid, flag_vector, flag_exit)
+
+       endif
+       close(pid)
+     endif
+
    enddo
+
    return
 endsubroutine
 subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband, nbasis, nk, kmode, pid, flag_vector, flag_exit)
@@ -382,13 +410,15 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
    external               nitems
    character*132          inputline
    real*8                 E(nband, nk)
+   real*4                 E4(nband, nk)  ! kind=4
    complex*16             V(nbasis*ispinor,nband,nk)
-   complex*8,allocatable::V_(:,:,:)
+   complex*8,allocatable::V4(:,:,:) ! kind=4
    logical                flag_go, flag_vector
    character*4            kmode
    character*12           c_emin,c_emax
    real*8                 emin, emax
    real*8, allocatable :: kpoint_(:,:)
+   real*4, allocatable :: kpoint4_(:,:) !kind=4
    integer*4              ikmode, nbasis_, nk_, nband_, ispin_, nspin_, ispinor_
    integer*4              init_erange_, fina_erange_
    integer*4              nemax_
@@ -411,8 +441,9 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
    allocate(kpoint_(ikmode,nk))
 
    if(flag_vector .and. flag_single_) then
-     allocate(V_(nbasis*ispinor,nband,nk))
-     V_       = 0
+     allocate(V4(nbasis*ispinor,nband,nk))
+     V4       = 0
+     allocate(kpoint4_(ikmode,nk))
    endif
   
    ! set E as -999d0 for all (ie,ik) if flag_sparse_ by default. 
@@ -423,7 +454,7 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
      E = -999d0
    endif
 
-   if(.not. (c_mode_ .eq. 'wf' .or. c_mode_ .eq. 'no') ) then 
+   if(.not. (c_mode_ .eq. 'wf' .or. c_mode_ .eq. 'no' .or. c_mode_ .eq. 'rh') ) then 
      write(6,'(A)') '    !WARN current version does not support to read C_MODE =/ "wf" or "no" '
      write(6,'(A)') '     Exit program...'
      flag_exit = .true.
@@ -450,9 +481,11 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
              read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
                                          (((V(im,ie,ik),V(im+nbasis,ie,ik)),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
            elseif(flag_single_) then
-             read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
-                                         (((V_(im,ie,ik),V_(im+nbasis,ie,ik)),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
-             V = V_
+             read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                         (((V4(im,ie,ik),V4(im+nbasis,ie,ik)),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
+             kpoint_ = kpoint4_
+             E = E4
+             V = V4
            endif
          elseif(c_mode_ .eq. 'rh') then ! current version does not support reading 'rh' format but 
                                         ! trying to keep thi line for the future.
@@ -463,9 +496,11 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
              read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
                                        (( V(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
            elseif(flag_single_) then
-             read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
-                                       ((V_(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
-             V = V_
+             read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                       ((V4(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
+             kpoint_ = kpoint4_
+             E = E4
+             V = V4
            endif
          endif
        elseif(ispinor .eq. 1) then
@@ -474,9 +509,11 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
              read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
                                          ((V(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
            elseif(flag_single_) then
-             read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
-                                         ((V_(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
-             V = V_
+             read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                         ((V4(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
+             kpoint_ = kpoint4_
+             E = E4
+             V = V4
            endif
          elseif(c_mode_ .eq. 'rh') then ! current version does not support reading 'rh' format but 
                                         ! trying to keep thi line for the future.
@@ -487,20 +524,23 @@ subroutine load_band_structure_bin(E, V, ne_found, ispinor, ispin, nspin, nband,
              read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
                                          (( V(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
            elseif(flag_single_) then
-             read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
-                                         ((V_(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
-             V = V_
+             read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                         ((V4(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
+             kpoint_ = kpoint4_
+             E = E4
+             V = V4
            endif
          endif
        endif
-     elseif(ispinor .eq. 'no') then
+     elseif(.not. flag_vector) then
        read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik))),ik=1,nk)
      endif
 
    endif ! flag_exit
 
    deallocate(kpoint_)
-   if(allocated(V_)) deallocate(V_)
+   if(allocated(kpoint4_)) deallocate(kpoint_)
+   if(allocated(V4))      deallocate(V4)
 
    return
 endsubroutine
@@ -647,6 +687,123 @@ subroutine load_band_structure_V2(E, V2, ne_found, ispin, nspin, nband, nbasis, 
    enddo
 
    deallocate(kpoint)
+
+   return
+endsubroutine
+
+subroutine load_band_structure_V2_bin(E, V2, ne_found, ispin, nspin, nband, nbasis, nk, kmode, pid, flag_vector, flag_exit)
+   implicit none
+   integer*4              pid
+   integer*4              ie, ik, im
+   integer*4              ispin,nband, nbasis, nk, nspin
+   integer*4              nskip
+   integer*4              idummy
+   integer*4              nitems
+   integer*4              ne_found(nk)
+   external               nitems
+   character*132          inputline
+   real*8                 E(nband, nk)
+   real*4                 E4(nband, nk)  ! kind4
+   real*8                 V2(nbasis,nband,nk)
+   real*4, allocatable :: V4(:,:,:) ! kind4
+   logical                flag_go, flag_vector
+   character*4            kmode
+   character*12           c_emin,c_emax
+   real*8                 emin, emax
+   real*8, allocatable :: kpoint_(:,:)
+   real*4, allocatable :: kpoint4_(:,:) !kind4
+   integer*4              ikmode, nbasis_, nk_, nband_, ispin_, nspin_, ispinor_
+   integer*4              init_erange_, fina_erange_
+   integer*4              nemax_
+   real*8                 emin_, emax_
+   logical                flag_vector_, flag_erange_, flag_sparse_
+   logical                flag_single_
+   logical                flag_exit
+   character*2            c_mode_
+   flag_exit = .false.
+
+   ne_found = 0
+   if(flag_vector) then
+     V2       = 0d0
+   endif
+
+   ! read header
+   read(pid) ikmode, flag_vector_, flag_single_, flag_erange_, flag_sparse_, nbasis_, nk_, nband_, &
+                     ispin_, nspin_, ispinor_, c_mode_
+
+   ! allocate temporal kpoint_ array which would not be used but (should be) same as PKPTS%kpoint
+   allocate(kpoint_(ikmode,nk))
+
+   if(flag_vector .and. flag_single_) then
+     allocate(V4(nbasis,nband,nk))
+     V4       = 0
+     allocate(kpoint4_(ikmode,nk))
+   endif
+  
+   ! set E as -999d0 for all (ie,ik) if flag_sparse_ by default. 
+   ! if ne_found(ik) is not zero, E(1:ne_found(ik),ik) will be filled in the following step
+   ! otherwise, remain as -999d0
+   ! this setting is necessary to avoid unexpected DOS which is originated from E(.not. 1:ne_found(ik),ik)
+   if(flag_sparse_) then
+     E = -999d0
+   endif
+
+   if(.not. (c_mode_ .eq. 'wf' .or. c_mode_ .eq. 'no' .or. c_mode_ .eq. 'rh') ) then 
+     write(6,'(A)') '    !WARN current version does not support to read C_MODE =/ "wf" or "no" '
+     write(6,'(A)') '     Exit program...'
+     flag_exit = .true.
+   endif
+ 
+   if(.not. flag_exit) then
+
+     if(flag_erange_) then
+       read(pid) flag_erange_, init_erange_, fina_erange_
+     else
+       read(pid) flag_erange_
+     endif
+     if(flag_sparse_) then
+       read(pid) flag_sparse_, emin_, emax_, nemax_
+     else
+       read(pid) flag_sparse_
+     endif
+
+   ! read main wavefunction information
+     if(flag_vector) then
+       if(c_mode_ .eq. 'wf') then ! current routine does not support reading 'wf' format but 
+                                  ! trying to keep thi line for the future.
+                                  ! Since array V2 is for real numbers, reading 'wf' data which is 'complex' is nonsense.
+         if(.not. flag_single_) then
+           read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
+                                       ((V2(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
+         elseif(flag_single_) then
+           read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                       ((V4(im,ie,ik),im=1,nbasis),ie=1,ne_found(ik))),ik=1,nk)
+           kpoint_ = kpoint4_
+           E  = E4
+           V2 = V4
+         endif
+       elseif(c_mode_ .eq. 'rh') then
+         if(.not. flag_single_) then
+           read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
+                                       (( V2(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
+         elseif(flag_single_) then
+
+           read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
+                                       ((V4(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
+           kpoint_ = kpoint4_
+           E  = E4
+           V2 = V4
+         endif
+       endif
+     elseif(.not. flag_vector) then
+       read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik))),ik=1,nk)
+     endif
+
+   endif ! flag_exit
+
+   deallocate(kpoint_)
+   if(allocated(kpoint4_)) deallocate(kpoint4_)
+   if(allocated(V4)) deallocate(V4)
 
    return
 endsubroutine

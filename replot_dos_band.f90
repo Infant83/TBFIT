@@ -35,7 +35,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 !  real*8                      V2(PGEOM%neig,PINPT%nband*PINPT%nspin,PKPTS%nkpoint) ! V2(m,n,k) = <phi_m|, psi_nk>, m = orbital, n = band, k = kpoint index
    real*8                      time2, time1
    character*132               cjob
-   character*2                 c_mode
+   character*2                 c_mode, c_mode_
    character*2                 c_mode_print(PRPLT%replot_nband)
    logical                     flag_sparse
 
@@ -126,16 +126,31 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
      endif
 
    elseif(.not. flag_wf) then
-     if(.not. flag_formatted) then
-       if_main write(6,'(A)')'    ! WARN: reading with C_MODE:"rh" is not supported in the current version.'
-       if_main write(6,'(A)')'      Exit program... '
-       kill_job
+     if(.not. flag_formatted .and. PRPLT%flag_replot_band) then
+       do i = 1, PRPLT%replot_nband
+         c_mode_ = c_mode_print(i)
+         if(c_mode_(1:1) .eq. 'm' .or. c_mode_(1:1) .eq. 'w') then
+           if_main write(6,'(A)') '    ! WARN: reading with C_MODE:"rh" is not available since you have '
+           if_main write(6,'(3A)')'            requested to replot ', c_mode_print(i), ' in your REPLOT_BAND tag' 
+           if_main write(6,'(A)') '            which requires to read band_structure_TBA file with wavefunction "wf" information.'
+           if_main write(6,'(A)') '      Exit program... '
+           kill_job
+         endif
+       enddo
      endif
      if(flag_vector) then
        if_main call report_memory(int8(size(V2)), 8, 'Wave vector   ') 
      endif
      if_main call read_energy_tbfit_V2(E, V2, ne_found, ispin, nspin, nbasis, nband, nkp, kmode, &
-                                       flag_vector, flag_wf)
+                                       flag_vector, flag_wf, flag_formatted, flag_exit)
+
+#ifdef MPI
+     call MPI_BCAST(flag_exit, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
+#endif
+     if(flag_exit) then
+       kill_job
+     endif
+
    endif
 
    ! convert wave vector into its squared form 
@@ -166,10 +181,17 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 
    ! replot band
    if(flag_replot_band) then
-     if_main call print_replot_energy(PKPTS, E, V, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
-                                           ispinor, nband, nspin, ispin, nbasis, &
-                                           flag_erange, flag_vector, flag_sparse, &
-                                           init_erange, fina_erange, c_mode_print)
+     if(flag_wf) then
+       if_main call print_replot_energy(PKPTS, E, V, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
+                                             ispinor, nband, nspin, ispin, nbasis, &
+                                             flag_erange, flag_vector, flag_sparse, &
+                                             init_erange, fina_erange, c_mode_print)
+     elseif(.not. flag_wf) then
+       if_main call print_replot_energy_V2(PKPTS, E, V2, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
+                                             ispinor, nband, nspin, ispin, nbasis, &
+                                             flag_erange, flag_vector, flag_sparse, &
+                                             init_erange, fina_erange, c_mode_print)
+     endif
    endif
 
 
@@ -483,6 +505,7 @@ spin:do is = 1, nspin
        else
          flag_print_orbital = flag_vector
        endif
+
        write(fname_header,'(2A)')'band_structure_TBA.replot_',trim(c_mode)
        call get_fname(fname_header, fname, is, flag_collinear, flag_noncollinear)
        open(pid_energy, file=trim(fname), status = 'unknown')
@@ -623,7 +646,7 @@ spin:do is = 1, nspin
 return
 endsubroutine
 
-subroutine print_replot_energy_proj(PKPTS,E,V,PGEOM,PRPLT, ne_found, emin, emax, ispinor, nband, nspin, ispin, nbasis, &
+subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax, ispinor, nband, nspin, ispin, nbasis, &
                                     flag_erange, flag_vector, flag_sparse, init_erange, fina_erange, c_mode)
    use parameters, only: pid_energy, incar, poscar, kpoints, replot, zi
    use mpi_setup
@@ -649,7 +672,7 @@ subroutine print_replot_energy_proj(PKPTS,E,V,PGEOM,PRPLT, ne_found, emin, emax,
    logical         flag_sparse
    logical         flag_collinear, flag_noncollinear
    real*8          E(nband*nspin,PKPTS%nkpoint)
-   real*8          V(nbasis,nband*nspin,PKPTS%nkpoint) ! rho_nk = <psi_nk|psi_nk> is stored, not complex wavefunction
+   real*8          V2(nbasis,nband*nspin,PKPTS%nkpoint) ! rho_nk = <psi_nk|psi_nk> is stored, not complex wavefunction
    real*8          c_up, c_dn, c_tot
    real*8          c_sum(nband,PKPTS%nkpoint)
    real*8          emin, emax
@@ -780,11 +803,12 @@ subroutine print_replot_energy_proj(PKPTS,E,V,PGEOM,PRPLT, ne_found, emin, emax,
                  c_tot = 0d0 !initialize
            basis:do im=imatrix, imatrix+PGEOM%n_orbital(ia) - 1
                    if(ispinor .eq. 2) then
-                     c_up = V(im,ie,ik)
+                     c_up = V2(im,ie,ik)
                      write(pid_energy,'(*(F9.4))',ADVANCE='NO') c_up
                      c_tot = c_tot + c_up
                    elseif(ispinor .eq. 1) then
-                     c_up = V(im+PGEOM%neig*(is-1),ie+nband*(is-1),ik)
+!                    c_up = V(im+PGEOM%neig*(is-1),ie+nband*(is-1),ik)
+                     c_up = V2(im,ie+nband*(is-1),ik)
                      write(pid_energy,'(*(F9.4))',ADVANCE='NO') c_up
                      c_tot = c_tot + c_up
                    endif
@@ -1357,4 +1381,169 @@ subroutine V_to_V2(V, V2, ispin, nspin, nbasis, nband, nkp)
    enddo
 
    return
+endsubroutine
+subroutine print_replot_energy_V2(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax, ispinor, nband, nspin, ispin, nbasis, &
+                                    flag_erange, flag_vector, flag_sparse, init_erange, fina_erange, c_mode)
+   use parameters, only: pid_energy, incar, poscar, kpoints, replot, zi
+   use mpi_setup
+   implicit none
+   type(replot) :: PRPLT
+   type(incar)  :: PINPT
+   type(poscar) :: PGEOM
+   type(kpoints):: PKPTS
+   integer*4       ie, is, ik, im, ib
+   integer*4       nbasis, ispinor, ispin
+   integer*4       nband, nspin
+   integer*4       nkpoint
+   integer*4       init_erange, fina_erange
+   integer*4       init_e, fina_e
+   integer*4       ne_found(nspin, PKPTS%nkpoint)
+   real*8          kline(PKPTS%nkpoint),kpoint(3,PKPTS%nkpoint)
+   logical         flag_klinemode, flag_kgridmode, flag_print_orbital
+   logical         flag_erange, flag_vector
+   logical         flag_sparse
+   logical         flag_collinear, flag_noncollinear
+   real*8          E(nband*nspin,PKPTS%nkpoint)
+   real*8          V2(nbasis,nband*nspin,PKPTS%nkpoint) ! complex wavefunction (total)
+   real*8          emin, emax
+   character*80    fname_header
+   character*80    fname
+   character*6     kunit_
+   character*28    kmode
+   character*8     sigma
+   character*2     c_mode, c_mode_(PRPLT%replot_nband)
+
+   flag_klinemode = PKPTS%flag_klinemode
+   flag_kgridmode = PKPTS%flag_kgridmode
+   kpoint = PKPTS%kpoint
+   nkpoint= PKPTS%nkpoint
+   nbasis = PGEOM%neig
+   sigma='sigma_0 '
+
+   flag_collinear = .false.
+   flag_noncollinear = .false.
+   if(ispin .eq. 2 .and. nspin .eq. 2) then
+     flag_collinear = .true.
+   elseif(ispin .eq. 2 .and. nspin .eq. 1) then
+     flag_noncollinear = .true.
+   endif
+
+   c_mode_ = PRPLT%replot_axis_print_mag
+
+   call get_kunit(PKPTS%kunit, kunit_)
+   call get_plotmode(flag_klinemode, flag_kgridmode, kunit_, kmode)
+   call get_e_range(init_e, fina_e, nbasis, .false., ispinor, flag_erange, init_erange, fina_erange)
+   if(flag_klinemode) call get_kline_dist(kpoint, nkpoint, kline)
+
+nb:do ib = 1, PRPLT%replot_nband
+spin:do is = 1, nspin
+
+       c_mode = c_mode_(ib)
+       if(flag_vector .and. c_mode .eq. 'no') then
+         flag_print_orbital = .false.
+       else
+         flag_print_orbital = flag_vector
+       endif
+
+       write(fname_header,'(2A)')'band_structure_TBA.replot_',trim(c_mode)
+       call get_fname(fname_header, fname, is, flag_collinear, flag_noncollinear)
+       open(pid_energy, file=trim(fname), status = 'unknown')
+       write(6,'(A)')' '
+       write(6,'(5A)',ADVANCE='no')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... '
+
+       if(trim(c_mode) .eq. 'rh') then
+         write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), &
+               ' ] -> <phi_ij|psi_nk> ; i,j => orbital j in atom i;  n,k => band index (n) and kpoint index (k)'
+       elseif(trim(c_mode) .eq. 'wf') then
+         write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), ' ] -> wavefunction coefficients '
+       elseif(trim(c_mode) .eq. 'no') then
+         write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), ' ]'
+       elseif(trim(c_mode) .eq. 'mx' .or. &
+              trim(c_mode) .eq. 'my' .or. &
+              trim(c_mode) .eq. 'mz') then
+         write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), ' ] -> magnetization <sigma_i>'
+       endif
+       if(flag_sparse) then
+         write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ',emin, &
+                           ' : ',emax,' ], NE_MAX= ',nband
+         do ik = 1, nkpoint
+           write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+         enddo
+       elseif(flag_erange) then
+          write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',init_erange,' : ',fina_erange,' ]'
+       endif
+
+   eig:do ie =1, nband !init_e, fina_e
+         write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'
+         if(.not. flag_print_orbital) then
+           write(pid_energy,'(A)',ADVANCE='NO')''
+         elseif(  flag_print_orbital) then
+           if(c_mode .eq. 'rh') then
+             write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+             write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
+           endif
+        mm:do im=1,nbasis
+             if(c_mode .eq. 'rh') then
+               write(pid_energy, '(I9)',ADVANCE='NO')im
+             endif
+             if(im .ge. 30 .and. im .lt. nbasis) then
+               write(pid_energy, '(A)',ADVANCE='NO')' ... '
+               exit mm
+             endif
+           enddo mm
+           write(pid_energy,'(A)')''
+         endif
+
+      kp:do ik = 1, nkpoint
+           if(flag_klinemode) then
+             if( ie .le. ne_found(is, ik) ) then
+               write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+nband*(is-1),ik)
+             elseif( ie .gt. ne_found(is, ik)) then
+               write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik)
+             endif
+           elseif(flag_kgridmode) then
+             if( ie .le. ne_found(is, ik) ) then
+               write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik), E(ie+nband*(is-1),ik)
+             elseif(ie .gt. ne_found(is, ik)) then
+               write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik)
+             endif
+           endif
+
+           if( ie .le. ne_found(is, ik) ) then
+             if(flag_print_orbital) then
+         basis:do im=1,nbasis-1
+                 if(ispinor .eq. 2) then
+                   if    (c_mode .eq. 'rh') then
+                     write(pid_energy,'(*(F9.4))',ADVANCE='NO') V2(im,ie,ik) ! up + dn : total
+                   endif
+                 elseif(ispinor .eq. 1) then
+                   if(c_mode .eq. 'rh') then
+                     write(pid_energy,'(*(F9.4))',ADVANCE='NO') V2(im,ie+PINPT%nband*(is-1),ik)
+                   endif
+                 endif
+               enddo basis
+               if(ispinor .eq. 2) then
+                 if(c_mode .eq. 'rh') then
+                   write(pid_energy,'(*(F9.4))',ADVANCE='YES') V2(im,ie,ik) ! up + dn : total
+                 endif
+               elseif(ispinor .eq. 1) then
+                 if(c_mode .eq. 'rh') then
+                   write(pid_energy,'(*(F9.4))',ADVANCE='YES') V2(im,ie+PINPT%nband*(is-1),ik)
+                 endif
+               endif
+             endif
+             if(.not.flag_print_orbital) write(pid_energy,*)''
+           elseif(ie .gt. ne_found(is, ik)) then
+             write(pid_energy,*)''
+           endif
+         enddo kp
+         write(pid_energy,*)''
+         write(pid_energy,*)''
+       enddo eig
+       close(pid_energy)
+       write(6,'(A)',ADVANCE='YES')' DONE!'
+     enddo spin
+   enddo nb
+
+return
 endsubroutine

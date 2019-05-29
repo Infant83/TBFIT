@@ -643,8 +643,8 @@ spinb:do is = 1, nspin
                                                                       ie=1,ne_found(is,ik))), &
                                                                       ik=1,nkpoint)
                 elseif(PINPT%flag_print_single) then
-                  write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), &
-                                     (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
+                  write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), &
+                                     ( real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
                             ((cmplx((/V(im,ie,ik),V(im+nbasis,ie,ik)/),kind=4),im=1,nbasis), &
                                                                                ie=1,ne_found(is,ik))), &
                                                                                ik=1,nkpoint)
@@ -658,8 +658,8 @@ spinb:do is = 1, nspin
                                                                               ie=1,ne_found(is,ik))), &
                                                                               ik=1,nkpoint)
                 elseif(PINPT%flag_print_single) then
-                  write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), &
-                                     (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
+                  write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), &
+                                     (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
                          ((real(conjg(V(im,ie,ik))*V(im,ie,ik)+ &
                                 conjg(V(im+nbasis,ie,ik))*V(im+nbasis,ie,ik),kind=4),im=1,nbasis), &
                                                                                      ie=1,ne_found(is,ik))), &
@@ -674,7 +674,7 @@ spinb:do is = 1, nspin
                                                   ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
                                                   ik=1,nkpoint)
                 elseif(PINPT%flag_print_single) then
-                  write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
+                  write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
                                     ((cmplx(V(im,ie,ik),kind=4),im=1+nbasis*(is-1),nbasis*is), &
                                                                 ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
                                                                 ik=1,nkpoint)
@@ -686,7 +686,7 @@ spinb:do is = 1, nspin
                                                             ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
                                                             ik=1,nkpoint)
                 elseif(PINPT%flag_print_single) then
-                  write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
+                  write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
                                               ((real(conjg(V(im,ie,ik))*V(im,ie,ik),kind=4),im=1+nbasis*(is-1),nbasis*is), &
                                                             ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
                                                             ik=1,nkpoint)

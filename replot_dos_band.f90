@@ -303,7 +303,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
 
      if(flag_replot_ldos .or. flag_replot_sldos) then
 #ifdef MPI
-       myV = V2(:,:,ik)
+       if_main myV = V2(:,:,ik)
        call MPI_BCAST(myV, size(myV), MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #else
        myV = V2(:,:,ik)

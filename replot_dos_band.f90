@@ -247,6 +247,10 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
    integer*4                   ourjob(1)
    integer*4                   ourjob_disp(0)
 #endif
+   logical                     flag_para_band
+   integer*4                   ie_init, ie_fina, i_init, i_fina
+
+   flag_para_band = .false. ! default
 
    a1=PGEOM%a_latt(1:3,1)
    a2=PGEOM%a_latt(1:3,2)
@@ -289,7 +293,14 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
      if_main call report_memory(int8(size(myV))*nprocs + size(V2), 8, 'Wave vector2  ')
    endif
 
-   call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+   if(nband .le. nediv) then
+     flag_para_band = .false.
+     call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+   elseif(nband .gt. nediv) then
+     flag_para_band = .true.
+     call mpi_job_distribution_chain(nband, ourjob, ourjob_disp)
+   endif
+
    if_main write(6,*)''
    do ik = 1, nkp
      if(nkp .lt. 10) then
@@ -311,7 +322,17 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
      endif
 
      inc = 1
-     do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
+
+     if(.not.flag_para_band) then
+       ie_init = sum(ourjob(1:myid)) + 1 ; ie_fina = sum(ourjob(1:myid+1))
+       i_init  = 1                       ; i_fina  = nband
+     elseif(flag_para_band) then
+       ie_init = 1                       ; ie_fina = nediv
+       i_init  = sum(ourjob(1:myid)) + 1 ; i_fina  = sum(ourjob(1:myid+1))
+     endif
+!eig:do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
+ eig:do ie = ie_init, ie_fina
+
        if(nkp .lt. 10) then
          if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
            if_main write(6,'(A,F10.3,A)')'    STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'
@@ -320,9 +341,10 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
        endif
 
        do is = 1, nspin
-         do i = 1, nband
+!        do i = 1, nband
+         do i = i_init, i_fina
 
-           dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik)) / nkp
+           dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik)) / real(nkp)
            replot_dos_tot(is, ie) = replot_dos_tot(is, ie) + dos_
 
            if(flag_replot_ldos) then
@@ -351,7 +373,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
 
          enddo
        enddo
-     enddo
+     enddo eig
    enddo
 
 #ifdef MPI

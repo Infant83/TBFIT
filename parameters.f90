@@ -72,6 +72,7 @@ module parameters
        logical                       flag_inputcard_fname_parse
        logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
        logical                       flag_write_unformatted ! default = .false.
+       logical                       flag_report_geom
 
        real*8                        ptol
        real*8                        ftol
@@ -492,13 +493,14 @@ module parameters
 
        integer*4                     replot_nband ! number of REPLOT_BAND request
        character*2, allocatable   :: replot_axis_print_mag(:) ! (nband)
-!      character*2                   replot_axis_print_mag
+       logical,     allocatable   :: flag_replot_print_single(:) ! (nband)
+       logical,     allocatable   :: flag_replot_write_unformatted(:) ! (nband)
 
        ! projected band
        logical                       flag_replot_proj_band
        integer*4                     replot_nproj_sum
        integer*4,   allocatable   :: replot_proj_natom(:) ! how many atoms to be plotted for projected band
        integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
-
+     
   endtype replot
 endmodule 

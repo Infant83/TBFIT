@@ -351,43 +351,43 @@ line: do
              PGEOM%c_orbital(1:PGEOM%max_orb,1:PGEOM%n_atom) = temp_orbital(1:PGEOM%max_orb,1:PGEOM%n_atom)
              do i=1,PGEOM%n_atom
                if(PGEOM%n_orbital(i) .eq. 0) then
-                 if(myid .eq. 0) write(6,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), &
+                 if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), &
                                                               PGEOM%c_orbital(1,i)
                elseif(PGEOM%n_orbital(i) .gt. 0) then
-                 if(myid .eq. 0) write(6,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), &
+                 if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), &
                                                               PGEOM%c_orbital(1:PGEOM%n_orbital(i),i)
-                 if(myid .eq. 0) write(6,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i)
+                 if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i)
 
                  if(PINPT%flag_local_charge) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
-                   if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')'   CHARGE:   '
+                   if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A)',ADVANCE='NO')'   CHARGE:   '
                    do i_dummy2 = i_dummy, i_dummy1
-                     if(myid .eq. 0) write(6,'(F7.3)',ADVANCE='NO')local_charge_(i_dummy2)
+                     if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(F7.3)',ADVANCE='NO')local_charge_(i_dummy2)
                    enddo
-                   if(myid .eq. 0) write(6,*)''
+                   if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,*)''
                  endif
 
                  if(PINPT%flag_collinear) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
-                   if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')'   MAGMOM:   '
+                   if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A)',ADVANCE='NO')'   MAGMOM:   '
                    do i_dummy2 = i_dummy, i_dummy1
-                     if(myid .eq. 0) write(6,'(F7.3)',ADVANCE='NO')local_moment_(1,i_dummy2)
+                     if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(F7.3)',ADVANCE='NO')local_moment_(1,i_dummy2)
                    enddo
-                   if(myid .eq. 0) write(6,*)'' ! # note (m_i) for each orbital, m_i = magnetization of atom i'
+                   if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,*)'' ! # note (m_i) for each orbital, m_i = magnetization of atom i'
                  elseif(PINPT%flag_noncollinear) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(flag_moment_cart)then
-                     if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')'   MAGMOM: (Mx,My,Mz) '
+                     if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A)',ADVANCE='NO')'   MAGMOM: (Mx,My,Mz) '
                    else
-                     if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')'   MAGMOM: (M,theta,phi) '
+                     if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A)',ADVANCE='NO')'   MAGMOM: (M,theta,phi) '
                    endif
                    do i_dummy2 = i_dummy, i_dummy1
-                     if(myid .eq. 0) write(6,'(3F7.3,2x)',ADVANCE='NO') local_moment_(1:3,i_dummy2)
+                     if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(3F7.3,2x)',ADVANCE='NO') local_moment_(1:3,i_dummy2)
                    enddo
-                   if(myid .eq. 0) write(6,*)'' ! # note (m_i,theta,phi) for each orbital, m_i = magnetization of atom i'
+                   if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,*)'' ! # note (m_i,theta,phi) for each orbital, m_i = magnetization of atom i'
                  endif
 
                endif

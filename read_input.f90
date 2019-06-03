@@ -126,6 +126,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%nweight = 0
   PKPTS%kunit = 'A' !default 'A' : angstrom or 'R' : reciprocal unit is available
 
+  PINPT%flag_report_geom = .true.
 
   NN_TABLE%onsite_tolerance = onsite_tolerance ! default defined in parameters.f90
 
@@ -200,7 +201,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           !read GEOMETRY info file from GFILE
           case('GFILE')
-            call set_geom_file(PINPT, inputline)
+            call set_geom_file(PINPT, inputline, 1)
+
+          !report GEOMETRY info read from GFILE
+          case('PRINT_GEOM')
+            call set_geom_file(PINPT, inputline, 2)
 
           !read TB-parameter file from PFILE
           case('PFILE')

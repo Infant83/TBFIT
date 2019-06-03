@@ -3,7 +3,8 @@
   K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
    PFILE  PARAM_FIT.dat # initial sk-parameter will be read from this file
    IS_SK  .FALSE.  # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
-   GFILE  POSCAR-TB       # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+   GFILE  POSCAR-TB # PRINT_GEOM F  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+   PRINT_GEOM F
    KFILE  KPOINTS_GRID     # default: KPOINTS_BAND
 #  KFILE  KPOINTS_BAND     # default: KPOINTS_BAND
   SPGLIB  .FALSE. # do not popup space group information 
@@ -11,7 +12,7 @@
   LOCCHG  .TRUE. 
   TYPMAG  noncoll   # set type of magnetic moment: nonmagnetic, collinear, noncollinear
    LSORB  .TRUE.       # set spin orbit interaction with 1st-order perturbation theory
-  LORBIT  .TRUE.  rh bin4      # wf binary (bin: complex*16 bin4:complex*8) # set orbital decomposed band structure
+  LORBIT  .TRUE.  rh #bin4      # wf binary (bin: complex*16 bin4:complex*8) # set orbital decomposed band structure
 #PROJ_BAND    .TRUE.   2
 
  EWINDOW -3:5 NE_MAX 64
@@ -21,7 +22,7 @@
     SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
          FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
          REPLOT_BAND        .FALSE. wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
-         REPLOT_BAND        .TRUE.  rh   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+         REPLOT_BAND        .TRUE.  rh bin4  # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
          REPLOT_BAND        .TRUE.  no   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
          REPLOT_PROJ_BAND   .TRUE.  1    # replot projected band structure for given atoms and their sum
          REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
@@ -34,7 +35,7 @@
          NEDOS         2000
          SMEARING      0.1            # gaussian smearing. Default = 0.025
 
-         REPLOT_SLDOS  .FALSE.      # spatial LDOS within EWINDOW
+         REPLOT_SLDOS  .TRUE.       # spatial LDOS within EWINDOW
          REPEAT_CELL   2 2  1  # if REPLOT_SLDOS = .TRUE., cell periodicity for visualization
          RORIGIN       0 0 0   # shift of origin of atomic coordinates (fractional)
          BOND_CUT      1.8     # bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)

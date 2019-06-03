@@ -175,7 +175,7 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    neig   = PGEOM%neig     ; ispinor = PINPT%ispinor
    msize  = neig * ispinor 
 
-   write(6,*)"XXXX", PINPT_BERRY%bc_nkdiv
+!  write(6,*)"XXXX", PINPT_BERRY%bc_nkdiv
 !  call set_kpath_plane(PINPT_BERRY%bc_kpoint(:,:,:,ip,ix), PINPT_BERRY%z2_kpoint_reci(:,:,:,ip,ix), kpath, nkdiv, nkpath, z2_axis(ix), shift(ip), PGEOM)
 
 !  if(PKPTS%flag_klinemode) then
@@ -192,8 +192,10 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 
 !  call set_berry_loop(kp_init, loop_mode, loop_axis)
 
-   write(6,*)"AAAVV "
-stop
+   if_main write(6,*)"    ! WARNING : Current version does not support Berry curvature calculation"
+   if_main write(6,*)"              : based on Fukui's method. We are planning it for the next release. "
+   if_main write(6,*)"              : If you are interested in develop this routine please contact H.-J. Kim (Infant@kias.re.kr)"
+   kill_job
 
    return
 endsubroutine

@@ -427,6 +427,9 @@ mode: select case ( trim(plot_mode) )
       integer*4     i_dummyr(max_dummy)
       integer*4     mpierr
       character*2   axis_dummy, axis_print_mag(max_dummy)
+      character*4   form_dummy 
+      logical       flag_replot_print_single(max_dummy)
+      logical       flag_replot_write_unformatted(max_dummy)
 
       ! setup default values
 !     PRPLT%replot_ldos_natom    =  0 
@@ -439,6 +442,8 @@ mode: select case ( trim(plot_mode) )
       PRPLT%bond_cut             = 3d0 
       PRPLT%flag_replot_formatted= .true.  ! default: read formatted band_structure_TBA file
 !     PRPLT%replot_axis_print_mag= 'rh'
+
+
 
  set_rpl:do while(trim(desc_str) .ne. 'END')
            read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -491,11 +496,13 @@ mode: select case ( trim(plot_mode) )
 
                    PRPLT%replot_nband = PRPLT%replot_nband + 1
                    axis_print_mag(PRPLT%replot_nband) = 'rh'
-
+                   flag_replot_print_single(PRPLT%replot_nband)= .FALSE.
+                   flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE.
+                   
                  elseif(.not. PRPLT%flag_replot_band) then
                    if_main write(6,'(A)')' REPLT_BAND: .FALSE.  rh'
                  endif
-               elseif(i_dummy .ge. 2) then
+               elseif(i_dummy .eq. 2) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, axis_dummy
                  if(PRPLT%flag_replot_band) then
                    if    (axis_dummy .eq. 'mx') then
@@ -514,10 +521,51 @@ mode: select case ( trim(plot_mode) )
                    
                    PRPLT%replot_nband = PRPLT%replot_nband + 1
                    axis_print_mag(PRPLT%replot_nband) = axis_dummy
+                   flag_replot_print_single(PRPLT%replot_nband)= .FALSE.
+                   flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE.
 
                  elseif(.not. PRPLT%flag_replot_band) then
                    if_main write(6,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)
                  endif
+               elseif(i_dummy .eq. 3) then
+
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, axis_dummy, form_dummy
+                 if(PRPLT%flag_replot_band) then
+                   if    (axis_dummy .eq. 'mx') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'
+                   elseif(axis_dummy .eq. 'my') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'
+                   elseif(axis_dummy .eq. 'mz') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'
+                   elseif(axis_dummy .eq. 'wf') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'
+                   elseif(axis_dummy .eq. 'rh') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'
+                   elseif(axis_dummy .eq. 'no') then
+                     if_main write(6,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'
+                   endif
+
+                   PRPLT%replot_nband = PRPLT%replot_nband + 1
+                   axis_print_mag(PRPLT%replot_nband) = axis_dummy
+
+                   if(form_dummy(1:3) .eq. 'bin') then
+                     flag_replot_write_unformatted(PRPLT%replot_nband) = .TRUE. 
+                     if(form_dummy(1:4) .eq. 'bin4') then
+                       flag_replot_print_single(PRPLT%replot_nband)= .TRUE.
+                       if_main write(6,'(2A)')'           : with binary format (single).'
+                     else
+                       flag_replot_print_single(PRPLT%replot_nband)= .FALSE.
+                       if_main write(6,'(2A)')'           : with binary format.'
+                     endif
+                   else
+                     flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE. 
+                     flag_replot_print_single(PRPLT%replot_nband)= .FALSE.
+                   endif
+
+                 elseif(.not. PRPLT%flag_replot_band) then
+                   if_main write(6,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)
+                 endif
+
                endif
 
              case('REPLOT_PROJ_BAND', 'REPLOT_PROJ_SUM')
@@ -736,15 +784,15 @@ mode: select case ( trim(plot_mode) )
 
          enddo set_rpl
 
-      if(PRPLT%flag_replot_formatted .and. PRPLT%flag_replot_band) then
-        if_main write(6,'(A)') '    !WARN! FILE_FORMAT for band_structure_TBA has been set to '
-        if_main write(6,'(A)') '           ascii(formatted) and also requested REPLOT_BAND to .TRUE.'
-        if_main write(6,'(A)') '           which is not accepted offer.'
-        if_main write(6,'(A)') '           Note that REPLOT_BAND is to convert band_structure_TBA.bin to'
-        if_main write(6,'(A)') '           band_structure_TBA.dat which is ascii (formatted) format.'
-        if_main write(6,'(A)') '           Exit program...'
-        kill_job
-      endif
+!     if(PRPLT%flag_replot_formatted .and. PRPLT%flag_replot_band) then
+!       if_main write(6,'(A)') '    !WARN! FILE_FORMAT for band_structure_TBA has been set to '
+!       if_main write(6,'(A)') '           ascii(formatted) and also requested REPLOT_BAND to .TRUE.'
+!       if_main write(6,'(A)') '           which is not accepted offer.'
+!       if_main write(6,'(A)') '           Note that REPLOT_BAND is to convert band_structure_TBA.bin to'
+!       if_main write(6,'(A)') '           band_structure_TBA.dat which is ascii (formatted) format.'
+!       if_main write(6,'(A)') '           Exit program...'
+!       kill_job
+!     endif
 
       if(PRPLT%replot_nproj_sum .ge. 1) PRPLT%flag_replot_proj_band = .true.
       if(PRPLT%replot_nldos_sum .ge. 1) PRPLT%flag_replot_ldos = .true.
@@ -752,8 +800,12 @@ mode: select case ( trim(plot_mode) )
       if(PRPLT%replot_nband     .ge. 1) then 
         PRPLT%flag_replot_band = .true.
         allocate(PRPLT%replot_axis_print_mag(PRPLT%replot_nband))
+        allocate(PRPLT%flag_replot_print_single(PRPLT%replot_nband))
+        allocate(PRPLT%flag_replot_write_unformatted(PRPLT%replot_nband))
         do i=1, PRPLT%replot_nband
           PRPLT%replot_axis_print_mag(i) = axis_print_mag(i)
+          PRPLT%flag_replot_print_single(i) = flag_replot_print_single(i)
+          PRPLT%flag_replot_write_unformatted(i) = flag_replot_write_unformatted(i)
         enddo
       endif
 
@@ -2087,15 +2139,57 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_geom_file(PINPT, inputline)
+   subroutine set_geom_file(PINPT, inputline, imode)
       type(incar)  ::  PINPT
       integer*4     i_continue
+      integer*4     nitems
+      integer*4     imode
       character*132 inputline
       character*40  desc_str
+      external      nitems
+      integer*4     i_dummy
+      logical       flag, flag_logical
       character(*), parameter :: func = 'set_geom_file'
 
-      read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm
-      if_main write(6,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)
+      if(imode .eq. 1) then
+        i_dummy = nitems(inputline) -1
+        if(i_dummy .eq. 1) then
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm
+          if_main write(6,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)
+
+        elseif(i_dummy .ge. 2) then
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str
+          call str2logical(trim(desc_str),flag_logical,flag)
+          if(flag_logical) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, PINPT%flag_report_geom
+            if_main write(6,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)
+            if_main write(6,'(A  )')'         :  PRINT_GEOM = .TRUE.'
+
+          elseif(.not. flag_logical) then
+            if(trim(desc_str) .eq. 'PRINT_GEOM') then
+              read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str, desc_str
+              call str2logical(trim(desc_str),flag_logical,flag)
+              if(flag_logical) then 
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str, PINPT%flag_report_geom
+                if_main write(6,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)
+                if_main write(6,'(A  )')'         :  PRINT_GEOM = .TRUE.'
+              endif
+            endif
+          endif
+        endif
+
+      elseif(imode .eq. 2) then
+        read(inputline, *,iostat=i_continue) desc_str, desc_str
+        call str2logical(trim(desc_str),flag_logical,flag)
+        if(flag_logical) then
+          read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_report_geom
+          if(PINPT%flag_report_geom) then
+            if_main write(6,'(A  )')'         :  PRINT_GEOM = .TRUE.'
+          elseif(.not.PINPT%flag_report_geom) then
+            if_main write(6,'(A  )')'         :  PRINT_GEOM = .FALSE.'
+          endif
+        endif
+      endif
 
       return
    endsubroutine

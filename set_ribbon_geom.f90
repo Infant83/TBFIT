@@ -27,6 +27,7 @@ subroutine set_ribbon_geom(PINPT)
    write(filenm_ribbon,*)trim(filenm_unitcell),'-ribbon'
    if_main write(6,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)
    PINPT%gfilenm = filenm_ribbon
+   linecount = 0
 
 !  pid_geom_ribbon = pid_geom + 1
    

@@ -352,6 +352,8 @@ module mpi_setup
      mynjob = floor ( real(njob)/real(nprocs) )
      nresidue = nint (real(njob) - real(mynjob) * real(nprocs))
 
+     ourjob = 0
+
      do cpuid = 1, nprocs
        if( cpuid .le. nresidue ) then
           ourjob(cpuid) = mynjob + 1

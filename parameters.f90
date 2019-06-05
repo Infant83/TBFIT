@@ -486,6 +486,7 @@ module parameters
        integer*4,   allocatable   :: replot_ldos_atom(:,:) ! atom index
        real*8,      allocatable   :: replot_ldos_tot(:,:,:,:,:)   ! local DOS (n_orbital(iatom), maxval(ldos_natom), nspin, nediv,nldos_sum)
 
+       character*40                  replot_sldos_fname
        real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS

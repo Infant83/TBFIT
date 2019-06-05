@@ -156,6 +156,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%replot_nproj_sum  = 0
   PRPLT%replot_nldos_sum  = 0
   PRPLT%replot_nband      = 0
+  PRPLT%replot_sldos_fname= 'SLDOS.replot.dat'
 
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)

@@ -462,11 +462,21 @@ mode: select case ( trim(plot_mode) )
                endif
 
              case('REPLOT_SLDOS')
-               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
-               if(PRPLT%flag_replot_sldos) then
-                 if_main write(6,'(A)')'REPLT_SLDOS: .TRUE.'
-               elseif(.not. PRPLT%flag_replot_sldos) then
-                 if_main write(6,'(A)')'REPLT_SLDOS: .FALSE.'
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
+                 if(PRPLT%flag_replot_sldos) then
+                   if_main write(6,'(A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)
+                 elseif(.not. PRPLT%flag_replot_sldos) then
+                   if_main write(6,'(A)')'REPLT_SLDOS: .FALSE.'
+                 endif
+               elseif(i_dummy .eq. 2) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos,PRPLT%replot_sldos_fname
+                 if(PRPLT%flag_replot_sldos) then
+                   if_main write(6,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)
+                 elseif(.not. PRPLT%flag_replot_sldos) then
+                   if_main write(6,'(A)')'REPLT_SLDOS: .FALSE.'
+                 endif
                endif
 
              case('REPLOT_ONLY')

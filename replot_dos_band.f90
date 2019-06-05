@@ -116,6 +116,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
                                       flag_vector, flag_wf, flag_formatted, flag_exit)
 #ifdef MPI
      call MPI_BCAST(flag_exit, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
+     call MPI_BCAST(ne_found,size(ne_found), MPI_INTEGER, 0, mpi_comm_earth, mpierr)
 #endif
      if(flag_exit) then
        kill_job
@@ -138,6 +139,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
                                        flag_vector, flag_wf, flag_formatted, flag_exit)
 #ifdef MPI
      call MPI_BCAST(flag_exit, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
+     call MPI_BCAST(ne_found,size(ne_found), MPI_INTEGER, 0, mpi_comm_earth, mpierr)
 #endif
      if(flag_exit) then
        kill_job
@@ -169,7 +171,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 
    ! replot dos & ldos
    if(flag_replot_dos .or. flag_replot_ldos .or. flag_replot_sldos) then
-     call get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
+     call get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
                        flag_replot_dos, flag_replot_ldos, flag_replot_sldos)
    endif   
 
@@ -209,7 +211,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    return
 endsubroutine
 
-subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
+subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
                         flag_replot_dos, flag_replot_ldos, flag_replot_sldos)
    use parameters, only : incar, poscar, replot
    use mpi_setup
@@ -225,6 +227,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
    integer*4                   nbasis, nband, nspin, nkp
    integer*4                   nediv
    integer*4                   mpierr
+   integer*4                   ne_found(nspin, nkp)
    real*8                      e_range(nediv), de, sigma
    real*8                      E(nband*nspin,nkp)
    real*8                      V2(nbasis,nband*nspin,nkp) ! not wavevector, 
@@ -297,10 +300,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
 
    if(nband .le. nediv) then
      flag_para_band = .false.
-     call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
    elseif(nband .gt. nediv) then
      flag_para_band = .true.
-     call mpi_job_distribution_chain(nband, ourjob, ourjob_disp)
    endif
 
    if_main write(6,*)''
@@ -325,16 +326,16 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
 
      inc = 1
 
-     if(.not.flag_para_band) then
-       ie_init = sum(ourjob(1:myid)) + 1 ; ie_fina = sum(ourjob(1:myid+1))
-       i_init  = 1                       ; i_fina  = nband
+     if(.not. flag_para_band) then
+       call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+       ie_init = sum(ourjob(1:myid)) + 1 ; ie_fina  = sum(ourjob(1:myid+1))
      elseif(flag_para_band) then
-       ie_init = 1                       ; ie_fina = nediv
-       i_init  = sum(ourjob(1:myid)) + 1 ; i_fina  = sum(ourjob(1:myid+1))
+       ie_init = 1                       ; ie_fina  = nediv
      endif
-!eig:do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
+
  eig:do ie = ie_init, ie_fina
 
+       ! This routine should be checked later on, from here to
        if(nkp .lt. 10) then
          if(.not. flag_para_band) then
            if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
@@ -347,15 +348,20 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
              inc = inc + 1
            endif
          endif
-
-!        if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
-!          if_main write(6,'(A,F10.3,A)')'    STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'
-!          inc = inc + 1
-!        endif
        endif
+      ! here! I'm not quite sure that "STAT EN:" in the case of "flag_para_band" reports correct status.
+      ! Please check again.. but the main result does not altered whether above "if ~~~ endif" routine is correct or not. KHJ
+    
 
        do is = 1, nspin
-!        do i = 1, nband
+
+         if(.not. flag_para_band) then
+           i_init  = 1                       ; i_fina   = ne_found(is,ik)
+         elseif(flag_para_band) then
+           call mpi_job_distribution_chain(ne_found(is,ik), ourjob, ourjob_disp)
+           i_init  = sum(ourjob(1:myid)) + 1 ; i_fina   = sum(ourjob(1:myid+1))
+         endif
+
          do i = i_init, i_fina
 
            dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik)) / real(nkp)
@@ -404,7 +410,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
    if(flag_replot_ldos) then
      call MPI_ALLREDUCE(replot_ldos_tot, PRPLT%replot_ldos_tot, size(replot_ldos_tot), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
      call print_replot_ldos(PRPLT, PINPT, PGEOM)
-!    if_main write(6,'(A)')' Done!'
+     ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
+!    if_main write(6,'(A)')' Done!' 
    endif
    if(flag_replot_sldos) then
      call MPI_REDUCE(replot_sldos_sum, PRPLT%replot_sldos_sum, size(replot_sldos_sum), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
@@ -428,7 +435,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, E, V2, nspin, nbasis, nband, nkp, e
    if(flag_replot_ldos) then
      PRPLT%replot_ldos_tot = replot_ldos_tot
      call print_replot_ldos(PRPLT, PINPT, PGEOM)
-     write(6,'(A)')'    write LDOS ... Done!'
+     ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
+!    write(6,'(A)')'    write LDOS ... Done!'
    endif
    if(flag_replot_sldos) then
      PRPLT%replot_sldos_sum = replot_sldos_sum
@@ -1010,7 +1018,8 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
    real*8          sldos(PGEOM%n_atom,PINPT%nspin) ! integrated spatial LDOS
    real*8          coord(3), coord_cart(3,PGEOM%n_atom), T(3,3), de
 
-   filenm = 'SLDOS.replot.dat' 
+!  filenm = 'SLDOS.replot.dat' 
+   filenm = trim(PRPLT%replot_sldos_fname)
 
    nx = PRPLT%replot_sldos_cell(1)
    ny = PRPLT%replot_sldos_cell(2)

@@ -29,7 +29,7 @@ ef=-2.1785
 
 dft='DOS_atom_projected.dat'
 trg='band_structure_DFT.dat'
-tbf='band_structure_TBA.replot.dat'
+tbf='band_structure_TBA.replot_no.dat'
 rpl='band_structure_TBA_atom.sum1.dat'
 tbfu='band_structure_TBA.up.dat'
 tbfd='band_structure_TBA.dn.dat'

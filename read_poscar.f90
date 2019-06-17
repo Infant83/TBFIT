@@ -493,6 +493,8 @@ line: do
   allocate(NN_TABLE%flag_site_cindex(PGEOM%n_atom)) ! flag for site_index for each atomic site
   NN_TABLE%site_cindex = site_c_index_
   NN_TABLE%flag_site_cindex =flag_site_c_index_
+  allocate(PGEOM%site_cindex(PGEOM%n_atom))
+  PGEOM%site_cindex = site_c_index_
 
   if (linecount == 0) then
     if(myid .eq. 0) write(6,*)'Attention - empty input file: ',trim(fname),' , ',func

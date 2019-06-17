@@ -421,7 +421,9 @@ mode: select case ( trim(plot_mode) )
       character*132 inputline
       logical       flag_number
       external      flag_number
-      character*40  desc_str, dummy, dummy1,dummy2,dummy3
+!     character*40  desc_str, dummy, dummy1,dummy2,dummy3
+      character*40  desc_str, dummy, dummy2,dummy3
+      character*132 dummy1
       integer*4     i_dummy,i_dummy1,i_dummy2,i_dummy3,i_dummy4,i_dummy5
       character*40,  allocatable :: strip_dummy(:)
       integer*4     i_dummyr(max_dummy)
@@ -719,9 +721,33 @@ mode: select case ( trim(plot_mode) )
                  endif
                endif
 
+             case('REPLOT_DIDV', 'REPLOT_STS') 
+               i_dummy = nitems(inputline) - 1
+               if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv
+                 if(PRPLT%flag_replot_didv) then
+                   if_main write(6,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)
+                 elseif(.not. PRPLT%flag_replot_didv) then
+                   if_main write(6,'(A)')' REPLT_DIDV: .FALSE.'
+                 endif
+               elseif(i_dummy .eq. 2) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv,PRPLT%replot_didv_fname
+                 if(PRPLT%flag_replot_didv) then
+                   if_main write(6,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)
+                 elseif(.not. PRPLT%flag_replot_didv) then
+                   if_main write(6,'(A)')' REPLT_DIDV: .FALSE.'
+                 endif
+               endif
+
              case('NEDOS','REPLOT_NEDOS')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_nediv
                if_main write(6,'(A,I8)')' REPLT_NDIV:', PRPLT%replot_dos_nediv
+               if(PRPLT%replot_dos_nediv .le. 0) then
+                 if_main write(6,'(3A,I0)')'    !WARNING! ',trim(desc_str),' should be larger than or equal to 1. current value: ',&
+                                                            PRPLT%replot_dos_nediv
+                 if_main write(6,'(A)')'               Exit program...'
+                 kill_job
+               endif
 
              case('DOS_ERANGE', 'DOS_EWINDOW', 'REPLOT_ERANGE', 'REPLOT_EWINDOW')
                call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
@@ -818,7 +844,13 @@ mode: select case ( trim(plot_mode) )
           PRPLT%flag_replot_write_unformatted(i) = flag_replot_write_unformatted(i)
         enddo
       endif
-
+    
+      if(PRPLT%replot_dos_emin .eq. PRPLT%replot_dos_emax .and. PRPLT%replot_dos_nediv .ne. 1) then
+         PRPLT%replot_dos_nediv = 1
+         if_main write(6,'(A)') '    !WARN! EMIN and EMAX value of "DOS_EWINDOW" tag of "SET REPLOT" has been set to be equal: EMIN=EMAX'
+         if_main write(6,'(A)') '           and REPLOT_NEDOS or (NEDOS) is larger than 2 which is nonsense, hence, REPLOT_NEDOS is '
+         if_main write(6,'(A)') '           enfornced to be 1. Proceed calculations..'
+      endif
       return
    endsubroutine
    subroutine set_density_of_states(PINPT, PINPT_DOS, desc_str)

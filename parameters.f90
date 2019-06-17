@@ -198,6 +198,7 @@ module parameters
        integer*4                     n_spec, n_atom
        integer*4,   allocatable   :: i_spec(:) ! number of atoms per each species (1:n_spec)
        character*8, allocatable   :: c_spec(:) ! character of species for each species (1:n_spec)
+       character*20,allocatable   :: site_cindex(:)  ! site indicator. NOTE: same as site_cindex of NN_TABLE 
        integer*4,   allocatable   :: spec(:)   ! species information for each atom (1:n_atom)
        real*8,      allocatable   :: a_coord(:,:) ! atomic  coordinate (1:3, 1:n_atom) (direct, fractional)
        real*8,      allocatable   :: a_coord_cart(:,:) ! atomic  coordinate (1:3, 1:n_atom) (cartesian)
@@ -470,6 +471,7 @@ module parameters
        logical                       flag_replot_ldos  ! flag for local density of states
        logical                       flag_replot_sldos ! flag for spatial local density of states
        logical                       flag_replot_band  ! flag for replot band structure
+       logical                       flag_replot_didv  ! flag for replot spatial density of states (LDOS) for given energy window
        logical                       flag_replot_only  ! flag for calculate band structure not just reading it (if .false., default:.true.)
        logical                       flag_replot_formatted ! flag whether band_structure_TBA file is formatted (.dat) or unformatted (.bin)
 
@@ -487,10 +489,12 @@ module parameters
        real*8,      allocatable   :: replot_ldos_tot(:,:,:,:,:)   ! local DOS (n_orbital(iatom), maxval(ldos_natom), nspin, nediv,nldos_sum)
 
        character*40                  replot_sldos_fname
-       real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states ( natom, nspin, nediv )
+       character*40                  replot_didv_fname
+       real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states sum over( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
        real*8                        r_origin(3) ! direct coordinate for shift of the origin of atomic coordinate of SLDOS
        real*8                        bond_cut    ! bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+
 
        integer*4                     replot_nband ! number of REPLOT_BAND request
        character*2, allocatable   :: replot_axis_print_mag(:) ! (nband)

@@ -151,12 +151,14 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%flag_replot_dos   = .false.
   PRPLT%flag_replot_ldos  = .false.
   PRPLT%flag_replot_sldos = .false.
+  PRPLT%flag_replot_didv  = .false.
   PRPLT%flag_replot_proj_band  = .false.
 ! PRPLT%flag_replot_only  = .true.
   PRPLT%replot_nproj_sum  = 0
   PRPLT%replot_nldos_sum  = 0
   PRPLT%replot_nband      = 0
   PRPLT%replot_sldos_fname= 'SLDOS.replot.dat'
+  PRPLT%replot_didv_fname = 'DIDV.replot.dat'
 
   if(myid .eq. 0) write(6,*)' '
   if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
@@ -357,7 +359,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
   endif
 
-  if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band)) then
+  if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_didv &
+                            .or. PRPLT%flag_replot_proj_band)) then
     PINPT%flag_tbfit = .false.
   endif
 
@@ -416,9 +419,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_set_param_const) call set_param_const(PINPT,PGEOM)
 
     !get neighbor hopping index
-    if(.not.(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. &
+    if(.not.(PRPLT%flag_replot_dos   .or. PRPLT%flag_replot_ldos .or. &
              PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band .or. &
-             PRPLT%flag_replot_band )) then
+             PRPLT%flag_replot_didv  .or. PRPLT%flag_replot_band )) then
       call find_nn(PINPT,PGEOM, NN_TABLE)
       call print_nn_table(NN_TABLE,PINPT)
       if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
@@ -630,7 +633,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if_main write(6,'(A)')'           Exit program...'
     kill_job
   elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
-    if((PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos)) then
+    if(.not. (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_didv)) then
       call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
     endif
   endif

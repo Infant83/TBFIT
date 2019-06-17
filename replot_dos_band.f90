@@ -21,7 +21,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    integer*4                   mpierr
    character*4                 kmode
    logical                     flag_vector
-   logical                     flag_replot_dos, flag_replot_ldos, flag_replot_sldos
+   logical                     flag_replot_dos, flag_replot_ldos, flag_replot_sldos, flag_replot_didv
    logical                     flag_replot_proj_band, flag_replot_band
    logical                     flag_erange
    logical                     flag_wf
@@ -46,6 +46,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    flag_replot_dos       = PRPLT%flag_replot_dos
    flag_replot_ldos      = PRPLT%flag_replot_ldos
    flag_replot_sldos     = PRPLT%flag_replot_sldos
+   flag_replot_didv      = PRPLT%flag_replot_didv
    flag_replot_proj_band = PRPLT%flag_replot_proj_band
    flag_replot_band      = PRPLT%flag_replot_band
    flag_formatted        = PRPLT%flag_replot_formatted
@@ -62,6 +63,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    if(flag_replot_dos)      write(cjob,'(A,A)') trim(cjob), ' + DOS'
    if(flag_replot_ldos)     write(cjob,'(A,A)') trim(cjob), ' + LDOS'
    if(flag_replot_sldos)    write(cjob,'(A,A)') trim(cjob), ' + SLDOS'
+   if(flag_replot_didv)     write(cjob,'(A,A)') trim(cjob), ' + dI/dV' 
    if(flag_replot_proj_band)write(cjob,'(A,A)') trim(cjob), ' + PROJ_BAND'
    if(flag_replot_band) then
      do i=1, PRPLT%replot_nband
@@ -92,7 +94,11 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    nediv                 = PRPLT%replot_dos_nediv
    emax                  = PRPLT%replot_dos_emax
    emin                  = PRPLT%replot_dos_emin
-   e_range               = emin + (/(k, k=0,nediv-1)/) * (emax - emin)/dble(nediv - 1)
+   if(nediv .gt. 1) then
+     e_range               = emin + (/(k, k=0,nediv-1)/) * (emax - emin)/dble(nediv - 1)
+   elseif(nediv .eq. 1) then
+     e_range               = (/emin,emax/)
+   endif
    sigma                 = PRPLT%replot_dos_smearing
    
    allocate(E(nband*nspin,nkp))
@@ -170,9 +176,9 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 #endif
 
    ! replot dos & ldos
-   if(flag_replot_dos .or. flag_replot_ldos .or. flag_replot_sldos) then
+   if(flag_replot_dos .or. flag_replot_ldos .or. flag_replot_sldos .or. flag_replot_didv) then
      call get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
-                       flag_replot_dos, flag_replot_ldos, flag_replot_sldos)
+                       flag_replot_dos, flag_replot_ldos, flag_replot_sldos, flag_replot_didv)
    endif   
 
    ! replot pband
@@ -212,7 +218,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 endsubroutine
 
 subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nband, nkp, e_range, nediv, sigma, &
-                        flag_replot_dos, flag_replot_ldos, flag_replot_sldos)
+                        flag_replot_dos, flag_replot_ldos, flag_replot_sldos, flag_replot_didv)
    use parameters, only : incar, poscar, replot
    use mpi_setup
    use memory
@@ -236,7 +242,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    real*8                      replot_dos_ntot(nspin,0:nediv)
    real*8, allocatable      :: replot_ldos_tot(:,:,:,:,:) ! (n_orbital(iatom), maxval(ldos_natom), nspin, nediv,nldos_sum)
    real*8, allocatable      :: replot_sldos_sum(:,:,:)
-   logical                     flag_replot_dos, flag_replot_ldos, flag_replot_sldos
+   logical                     flag_replot_dos, flag_replot_ldos, flag_replot_sldos, flag_replot_didv
+   logical                     flag_sum
    real*8                      dos_
    real*8                      fgauss
    external                    fgauss
@@ -264,7 +271,11 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    call vcross(b2xb3,b2,b3)
    bzvol=dot_product(b1,b2xb3)
    dkv  = bzvol / dble(nkp)
-   de   = e_range(2)-e_range(1)
+   if(nediv .ne. 1) then
+     de   = e_range(2)-e_range(1)
+   elseif(nediv .eq. 1) then
+     de   = 1d0
+   endif
 
    n_orbital  = PGEOM%n_orbital
    iadd       = 10 ; iaddk = 8  ; inck = 1
@@ -286,7 +297,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      if_main call report_memory(int8(size(replot_ldos_tot))*2*nprocs, 8, 'LDOS(total)   ')
    endif
 
-   if(flag_replot_sldos) then
+   if(flag_replot_sldos .or. flag_replot_didv) then
      allocate(PRPLT%replot_sldos_sum(PGEOM%n_atom, nspin, nediv))
      allocate(      replot_sldos_sum(PGEOM%n_atom, nspin, nediv))
      PRPLT%replot_sldos_sum = 0d0
@@ -294,7 +305,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      if_main call report_memory(int8(size(replot_sldos_sum))*2*nprocs, 8, 'SLDOS(total)  ')
    endif
 
-   if(flag_replot_ldos .or. flag_replot_sldos) then
+   if(flag_replot_ldos .or. flag_replot_sldos .or. flag_replot_didv) then
      if_main call report_memory(int8(size(myV))*nprocs + size(V2), 8, 'Wave vector2  ')
    endif
 
@@ -315,7 +326,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
        endif
      endif
 
-     if(flag_replot_ldos .or. flag_replot_sldos) then
+     if(flag_replot_ldos .or. flag_replot_sldos .or. flag_replot_didv) then
 #ifdef MPI
        if_main myV = V2(:,:,ik)
        call MPI_BCAST(myV, size(myV), MPI_REAL8, 0, mpi_comm_earth, mpierr)
@@ -365,6 +376,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
          do i = i_init, i_fina
 
            dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik)) / real(nkp)
+
            replot_dos_tot(is, ie) = replot_dos_tot(is, ie) + dos_
 
            if(flag_replot_ldos) then
@@ -382,7 +394,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
              enddo
            endif
 
-           if(flag_replot_sldos) then
+           if(flag_replot_sldos .or. flag_replot_didv) then
              do iatom = 1, PGEOM%n_atom
                ii = sum(n_orbital(1:iatom)) - n_orbital(iatom) + 1
                fi = ii + n_orbital(iatom)-1
@@ -413,12 +425,20 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
 !    if_main write(6,'(A)')' Done!' 
    endif
-   if(flag_replot_sldos) then
+   if(flag_replot_sldos .or. flag_replot_didv) then
      call MPI_REDUCE(replot_sldos_sum, PRPLT%replot_sldos_sum, size(replot_sldos_sum), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
-     if_main call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
+     if(flag_replot_sldos) then
+       flag_sum = .true.
+       if_main call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
+     endif
+     if(flag_replot_didv) then
+       flag_sum = .false.
+       call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
+     endif
      call MPI_BCAST(coord_cart, size(coord_cart), MPI_REAL8, 0, mpi_comm_earth, mpierr)
      call print_bond(PRPLT, PINPT, PGEOM, coord_cart)
-     if_main write(6,'(A)')' Done!'
+!    if_main write(6,'(A)')' Done!'
+
    endif
 
 #else
@@ -438,10 +458,18 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
 !    write(6,'(A)')'    write LDOS ... Done!'
    endif
-   if(flag_replot_sldos) then
+   if(flag_replot_sldos .or. flag_replot_didv) then
      PRPLT%replot_sldos_sum = replot_sldos_sum
-     call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
-     write(6,'(A)')'    write SLDOS ... Done!'
+     if(flag_replot_sldos) then
+       flag_sum = .true.
+       call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
+     endif
+     if(flag_replot_didv) then
+       flag_sum = .false.
+       call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
+     endif
+     call print_bond(PRPLT, PINPT, PGEOM, coord_cart)
+!    write(6,'(A)')'    write SLDOS ... Done!'
    endif
 
 #endif
@@ -903,10 +931,11 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
    integer*4       my_pid_ldos
    integer*4       ldos_natom
    integer*4       ldos_atom(maxval(PRPLT%replot_ldos_natom(1:PRPLT%replot_nldos_sum)))
-   real*8          e_range(PRPLT%replot_dos_nediv)
+   real*8          e_range(PRPLT%replot_dos_nediv), de
    character*40    filenm
    character*40    filenm_sum
    real*8          ldos_sum(PINPT%nspin,PRPLT%replot_dos_nediv,PRPLT%replot_nldos_sum)
+   real*8          ldos_sum_ntot(PINPT%nspin)
 #ifdef MPI
    real*8          ldos_sum_(PINPT%nspin,PRPLT%replot_dos_nediv,PRPLT%replot_nldos_sum)
    integer*4       ourjob(nprocs)
@@ -919,6 +948,11 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
 #endif
 
    e_range = PRPLT%replot_dos_erange
+   if(PRPLT%replot_dos_nediv .gt. 1) then
+     de      = e_range(2) - e_range(1)
+   elseif(PRPLT%replot_dos_nediv .eq. 1) then
+     de      = 1d0
+   endif
    ldos_sum= 0d0
 
  sum1:do isum = 1, PRPLT%replot_nldos_sum
@@ -931,9 +965,9 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
         if_main write(pid_ldos,'(A, *(I0,1x))'),'# ATOM_INDEX to be sum up: ', ldos_atom(1:ldos_natom)
         if_main write(pid_ldos,'(A,I8,A,F16.8)')'# NDIV = ',PRPLT%replot_dos_nediv,' dE=',e_range(2)-e_range(1)
         if(.not. PINPT%flag_collinear) then ! orbital information would not be stored since each atom would have different orbital sets in general
-          if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)        dos_total'
+          if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)        dos_total           nelect'
         elseif(PINPT%flag_collinear) then
-          if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)     dos_total-up     dos_total-dn'
+          if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)     dos_total-up     dos_total-dn           nelect-up        nelect-dn'
         endif
 
         if_main write(6,'(A)')' '
@@ -988,12 +1022,14 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
           call MPI_REDUCE(ldos_sum, ldos_sum_, size(ldos_sum), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
           if_main ldos_sum = ldos_sum_
 #endif          
-
+        ldos_sum_ntot = 0d0
         do ie = 1, PRPLT%replot_dos_nediv
           if(.not.PINPT%flag_collinear) then
-            if_main write(pid_ldos,'(F16.8,1x,  F16.8    )')e_range(ie), ldos_sum(1, ie, isum)
+            ldos_sum_ntot=ldos_sum_ntot + ldos_sum(1, ie, isum) * de
+            if_main write(pid_ldos,'(F16.8,1x, 2F16.8    )')e_range(ie), ldos_sum(1, ie, isum), ldos_sum_ntot
           elseif(PINPT%flag_collinear) then
-            if_main write(pid_ldos,'(F16.8,1x,2(F16.8,1x))')e_range(ie), ldos_sum(1, ie, isum), ldos_sum(2, ie, isum)
+            ldos_sum_ntot(:)=ldos_sum_ntot(:) + ldos_sum(:, ie, isum)
+            if_main write(pid_ldos,'(F16.8,1x,4(F16.8,1x))')e_range(ie), ldos_sum(1, ie, isum), ldos_sum(2, ie, isum), ldos_sum_ntot(:)
           endif
         enddo
 
@@ -1004,22 +1040,31 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
    return
 endsubroutine
 
-subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
+subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
    use parameters, only: replot, pid_ldos, incar, poscar
+   use mpi_setup
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
    type(poscar) :: PGEOM
    integer*4       iatom, is, i
+   integer*4       ie
    character*40    filenm
    integer*4       nx, ny, nz
    integer*4       ix, iy, iz
    integer*4       nkp
    real*8          sldos(PGEOM%n_atom,PINPT%nspin) ! integrated spatial LDOS
+   real*8          e_range(PRPLT%replot_dos_nediv)
    real*8          coord(3), coord_cart(3,PGEOM%n_atom), T(3,3), de
+   logical         flag_sum
+   integer*4       mypid_ldos, mpierr
+#ifdef MPI
+   integer*4       ourjob(nprocs)
+   integer*4       ourjob_disp(0:nprocs-1)
+#else
 
-!  filenm = 'SLDOS.replot.dat' 
-   filenm = trim(PRPLT%replot_sldos_fname)
+#endif
+   e_range = PRPLT%replot_dos_erange
 
    nx = PRPLT%replot_sldos_cell(1)
    ny = PRPLT%replot_sldos_cell(2)
@@ -1027,7 +1072,11 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
    T(:,1) = PGEOM%a_latt(:,1)
    T(:,2) = PGEOM%a_latt(:,2)
    T(:,3) = PGEOM%a_latt(:,3)
-   de     = PRPLT%replot_dos_erange(2) - PRPLT%replot_dos_erange(1)
+   if(PRPLT%replot_dos_nediv .ne. 1) then
+     de     = PRPLT%replot_dos_erange(2) - PRPLT%replot_dos_erange(1)
+   elseif(PRPLT%replot_dos_nediv .eq. 1) then
+     de     = 1d0
+   endif
 
   ! coord info
    do iatom=1,PGEOM%n_atom
@@ -1036,43 +1085,111 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart)
      coord_cart(:,iatom) = coord(1)*PGEOM%a_latt(:,1)+coord(2)*PGEOM%a_latt(:,2)+coord(3)*PGEOM%a_latt(:,3)
    end do
 
-   do is = 1, PINPT%nspin
-     do iatom = 1, PGEOM%n_atom
-       sldos(iatom,is) = sum(PRPLT%replot_sldos_sum(iatom, is, :)) * de
+   if(flag_sum) then
+     do is = 1, PINPT%nspin
+       do iatom = 1, PGEOM%n_atom
+         sldos(iatom,is) = sum(PRPLT%replot_sldos_sum(iatom, is, :)) * de
+       enddo
      enddo
-   enddo
+   elseif(.not. flag_sum) then
+#ifdef MPI
+     call MPI_BCAST(PRPLT%replot_sldos_sum, size(PRPLT%replot_sldos_sum), MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif
 
-   open(pid_ldos, file=trim(filenm), status = 'unknown')
-   write(6,'(A)')' '
-   write(6,'(3A)',ADVANCE='no')'   WRITING.... spatial local density of states (SLDOS) with energy window integrated: ',trim(filenm),' ... '
-
-   write(pid_ldos,'(A,2(F16.8,A))')'# Integrated spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
-   write(pid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
-   
-   if(PINPT%flag_collinear) then
-     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)            SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES'
-   else
-     write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)              SLDOS        ATOM_SPECIES'
+!    do is = 1, PINPT%nspin
+!      do iatom = 1, PGEOM%n_atom
+!        
+!      enddo
+!    enddo
    endif
 
-   do iatom = 1, PGEOM%n_atom
-     do ix = 1, nx
-       do iy = 1, ny
-         do iz = 1, nz
-           coord = coord_cart(:,iatom) + (/T(1,1)*(ix-1) + T(1,2)*(iy-1) + T(1,3)*(iz-1), &
-                                           T(2,1)*(ix-1) + T(2,2)*(iy-1) + T(2,3)*(iz-1), &
-                                           T(3,1)*(iz-1) + T(3,2)*(iz-1) + T(3,3)*(iz-1)/)
-           if(PINPT%nspin .eq. 2) then
-             write(pid_ldos,'(3(F16.8,1x),2(F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
-           else
-             write(pid_ldos,'(3(F16.8,1x), (F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
-           endif
+   if(flag_sum) then
+     filenm = trim(PRPLT%replot_sldos_fname)
+     if_main open(pid_ldos, file=trim(filenm), status = 'unknown')
+     if_main write(6,'(A)')' '
+     if_main write(6,'(3A)',ADVANCE='no')'   WRITING.... spatial local density of states (SLDOS) with energy window integrated: ',trim(filenm),' ... '
+
+     if_main write(pid_ldos,'(A,2(F16.8,A))')'# Integrated spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
+     if_main write(pid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
+     if_main write(pid_ldos,'(A,F16.8)'     )'# dE(eV)= ',de
+
+     if(PINPT%flag_collinear) then
+       if_main write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)           SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES'
+     else
+       if_main write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)             SLDOS        ATOM_SPECIES'
+     endif
+
+     do iatom = 1, PGEOM%n_atom
+       do ix = 1, nx
+         do iy = 1, ny
+           do iz = 1, nz
+             coord = coord_cart(:,iatom) + (/T(1,1)*(ix-1) + T(1,2)*(iy-1) + T(1,3)*(iz-1), &
+                                             T(2,1)*(ix-1) + T(2,2)*(iy-1) + T(2,3)*(iz-1), &
+                                             T(3,1)*(iz-1) + T(3,2)*(iz-1) + T(3,3)*(iz-1)/)
+             if(PINPT%nspin .eq. 2) then
+               if_main write(pid_ldos,'(3(F16.8,1x),2(F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
+             else
+               if_main write(pid_ldos,'(3(F16.8,1x), (F16.8,1x),I12)')coord, sldos(iatom, :), PGEOM%spec(iatom)
+             endif
+           enddo
          enddo
        enddo
      enddo
-   enddo
+     if_main write(6,'(A)')'    write SLDOS ... Done!'
+     if_main close(pid_ldos)
+   elseif(.not. flag_sum) then
+     if_main write(6,'(A)')' '
+     if_main write(6,'(3A)',ADVANCE='no')'   WRITING.... spatial local density of states (SLDOS .or. dI/dV) within energy window : ./didv/',trim(PRPLT%replot_didv_fname),'.??? ...'
+     call system('mkdir -p ./didv')
 
-   close(pid_ldos)
+     call mpi_job_distribution_chain(PRPLT%replot_dos_nediv, ourjob, ourjob_disp)
+
+     !do ie = 1, PRPLT%replot_dos_nediv
+     do ie = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+       filenm = trim(PRPLT%replot_didv_fname)
+       mypid_ldos = pid_ldos + myid
+       write(filenm,'(2A,I0)')trim(PRPLT%replot_didv_fname),'.',ie
+       open(mypid_ldos, file='./didv/'//trim(filenm), status = 'unknown')
+
+       write(mypid_ldos,'(A,2(F16.8,A))')'# Spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
+       write(mypid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
+       write(mypid_ldos,'(A,F16.8)'     )'# dE(eV)= ',de
+
+       if(PINPT%flag_collinear) then
+         write(mypid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)        ENERGY(eV)           SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES      ATOM_NUMBER    SITE_INDEX'
+       else
+         write(mypid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)        ENERGY(eV)             SLDOS        ATOM_SPECIES      ATOM_NUMBER    SITE_INDEX'
+       endif
+
+       write(mypid_ldos,'(A,F16.8)')'# ENERGY (eV): ', e_range(ie)
+       do iatom = 1, PGEOM%n_atom
+         do ix = 1, nx
+           do iy = 1, ny
+             do iz = 1, nz
+               coord = coord_cart(:,iatom) + (/T(1,1)*(ix-1) + T(1,2)*(iy-1) + T(1,3)*(iz-1), &
+                                               T(2,1)*(ix-1) + T(2,2)*(iy-1) + T(2,3)*(iz-1), &
+                                               T(3,1)*(iz-1) + T(3,2)*(iz-1) + T(3,3)*(iz-1)/)
+               if(PINPT%nspin .eq. 2) then
+                 write(mypid_ldos,'(4(F16.8,1x),2(F16.8,1x),I12,4x,I12,12x,2A)')coord, e_range(ie), PRPLT%replot_sldos_sum(iatom, :, ie), &
+                                                                                                    PGEOM%spec(iatom), iatom, '#', trim(PGEOM%site_cindex(iatom))
+               else
+                 write(mypid_ldos,'(4(F16.8,1x), (F16.8,1x),I12,4x,I12,12x,2A)')coord, e_range(ie), PRPLT%replot_sldos_sum(iatom, :, ie), &
+                                                                                                    PGEOM%spec(iatom), iatom, '#', trim(PGEOM%site_cindex(iatom))
+               endif
+             enddo
+           enddo
+         enddo
+       enddo
+      !write(pid_ldos,'(A)')' '
+      !write(pid_ldos,'(A)')' '
+       close(mypid_ldos)
+     enddo
+#ifdef MPI
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
+     if_main write(6,'(A)')'    write dI/dV ... Done!'
+   endif
+
 
    return
 endsubroutine

@@ -5,37 +5,40 @@
    IS_SK  .FALSE.  # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
    GFILE  POSCAR-TB # PRINT_GEOM F  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
    PRINT_GEOM F
-   KFILE  KPOINTS_GRID     # default: KPOINTS_BAND
-#  KFILE  KPOINTS_BAND     # default: KPOINTS_BAND
+ # KFILE  KPOINTS_GRID     # default: KPOINTS_BAND
+   KFILE  KPOINTS_BAND     # default: KPOINTS_BAND
   SPGLIB  .FALSE. # do not popup space group information 
 
   LOCCHG  .TRUE. 
   TYPMAG  noncoll   # set type of magnetic moment: nonmagnetic, collinear, noncollinear
    LSORB  .TRUE.       # set spin orbit interaction with 1st-order perturbation theory
-  LORBIT  .TRUE.  rh #bin4      # wf binary (bin: complex*16 bin4:complex*8) # set orbital decomposed band structure
+  LORBIT  .TRUE.  rh  bin4      # wf binary (bin: complex*16 bin4:complex*8) # set orbital decomposed band structure
 #PROJ_BAND    .TRUE.   2
 
- EWINDOW -3:5 NE_MAX 64
+ EWINDOW -13:15 NE_MAX 4
 #ERANGE 2:3      
  GET_BAND .TRUE. 
 
     SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
          FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
-         REPLOT_BAND        .FALSE. wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
-         REPLOT_BAND        .TRUE.  rh bin4  # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
-         REPLOT_BAND        .TRUE.  no   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
-         REPLOT_PROJ_BAND   .TRUE.  1    # replot projected band structure for given atoms and their sum
-         REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
-         REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
+        #REPLOT_BAND        .FALSE. wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+         REPLOT_BAND        .TRUE.  no       # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+        #REPLOT_BAND        .FALSE. no   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+        #REPLOT_PROJ_BAND   .FALSE. 1    # replot projected band structure for given atoms and their sum
+        #REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
+        #REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
+        #REPLOT_DIDV        .TRUE. 
 
-         REPLOT_DOS         .FALSE. 
-         REPLOT_LDOS        .FALSE. 1:32  # following number indicates atom index to be resolved
-         REPLOT_LDOS        .FALSE. 1:2   # following number indicates atom index to be resolved
+         REPLOT_DOS         .TRUE.  
+        #REPLOT_LDOS        .TRUE.  1:32  # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1:2   # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1     # following number indicates atom index to be resolved
+         REPLOT_SLDOS       .TRUE. 
          DOS_EWINDOW   -12.00:12.00   # energy window
-         NEDOS         2000
-         SMEARING      0.1            # gaussian smearing. Default = 0.025
+         NEDOS         1000
+         SMEARING      1.1            # gaussian smearing. Default = 0.025
 
-         REPLOT_SLDOS  .TRUE.       # spatial LDOS within EWINDOW
+        #REPLOT_SLDOS  .TRUE.  TEST.dat     # spatial LDOS within EWINDOW
          REPEAT_CELL   2 2  1  # if REPLOT_SLDOS = .TRUE., cell periodicity for visualization
          RORIGIN       0 0 0   # shift of origin of atomic coordinates (fractional)
          BOND_CUT      1.8     # bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
@@ -99,29 +102,29 @@
 #        GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
 #   END  WCC
 
-   SET DOS
-       GKGRID   10  10    1  # set Monkhorst-Pack grid; if set by GKGRID gamma-centered scheme will be applied
-       KSHIFT       0    0     0
-       PRINT_KPTS  .TRUE.  IBZKPT-DOS_TB           # print out kpoints information into given kpoint file: default = IBZKPT-TB_DOS
-       PRINT_EIG   .FALSE. 1:2 3         # print out eigenstate energy   into given ensurf file: default = ENSURF.EIG.NEIG.dat
-       PRINT_UNIT  RECIPROCAL            # kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A); default = RECIPROCAL
-       PRINT_LDOS  .TRUE. 1 2
-       LDOS_FNAME  LDOS_TB_projected  # header for LDOS file name, atom index will be appended after.
-       NEDOS       6000
-       SMEARING    0.1          # gaussian smearing. Default = 0.025
-       DOS_EWINDOW -12.00:12.00  # energy range
-       DOS_RANGE   1:NEIG                # eigenvalue index range. NEIG = N_ORB * ISPINOR
-       DOS_SPARSE  .TRUE. 
-       DOS_FNAME   DOS_TB_projected.dat  # output file name for DOS calculation
-   END DOS
+  #SET DOS
+  #    GKGRID   10  10    1  # set Monkhorst-Pack grid; if set by GKGRID gamma-centered scheme will be applied
+  #    KSHIFT       0    0     0
+  #    PRINT_KPTS  .TRUE.  IBZKPT-DOS_TB           # print out kpoints information into given kpoint file: default = IBZKPT-TB_DOS
+  #    PRINT_EIG   .FALSE. 1:2 3         # print out eigenstate energy   into given ensurf file: default = ENSURF.EIG.NEIG.dat
+  #    PRINT_UNIT  RECIPROCAL            # kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A); default = RECIPROCAL
+  #    PRINT_LDOS  .TRUE. 1 2
+  #    LDOS_FNAME  LDOS_TB_projected  # header for LDOS file name, atom index will be appended after.
+  #    NEDOS       6000
+  #    SMEARING    0.1          # gaussian smearing. Default = 0.025
+  #    DOS_EWINDOW -12.00:12.00  # energy range
+  #    DOS_RANGE   1:NEIG                # eigenvalue index range. NEIG = N_ORB * ISPINOR
+  #    DOS_SPARSE  .TRUE. 
+  #    DOS_FNAME   DOS_TB_projected.dat  # output file name for DOS calculation
+  #END DOS
 
 
  ## set ribbon geometry ###################################################################################
-    SET  RIBBON
-         NSLAB    4   4  1     # multiplication of unitcell along each direction
-         VACUUM   0  0 0      # apply vacuum region along each direction 
-       # KFILE_R KPOINTS_BAND # KPOINTS file for ribbon band structure
-       # PRINT_ONLY_R .TRUE.
-    END  RIBBON
+ #  SET  RIBBON
+ #       NSLAB    4   4  1     # multiplication of unitcell along each direction
+ #       VACUUM   0  0 0      # apply vacuum region along each direction 
+ #     # KFILE_R KPOINTS_BAND # KPOINTS file for ribbon band structure
+ #     # PRINT_ONLY_R .TRUE.
+ #  END  RIBBON
  #########################################################################################################
 

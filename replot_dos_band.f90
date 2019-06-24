@@ -30,7 +30,8 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    real*8,     allocatable  :: E(:,:) ! (nband * nspin, nkpoint)
    ! be careful that PINPT%nband should be same as nband which will be found by check_band_header routine...
    ! this routine should be modified in this sense...  KHJ May. 15 2019.
-   complex*16, allocatable  :: V(:,:,:), V2(:,:,:)
+   complex*16, allocatable  :: V(:,:,:)
+   real*8,     allocatable  :: V2(:,:,:)
 !  complex*16                  V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin,PKPTS%nkpoint) ! wavevector
 !  real*8                      V2(PGEOM%neig,PINPT%nband*PINPT%nspin,PKPTS%nkpoint) ! V2(m,n,k) = <phi_m|, psi_nk>, m = orbital, n = band, k = kpoint index
    real*8                      time2, time1

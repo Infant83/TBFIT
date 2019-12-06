@@ -6,6 +6,23 @@ module sparse_tool
 #ifdef MKL_SPARSE
    use ISO_C_BINDING
    use MKL_SPBLAS
+
+   interface
+   function MKL_SPARSE_Z_EXPORT_CSR_CF(source,indexing,rows,cols,rows_start,rows_end,col_indx,values) &
+              bind(C, name='MKL_SPARSE_Z_EXPORT_CSR')
+              use, intrinsic :: iso_c_binding , only : c_int, c_double_complex, c_ptr
+              import SPARSE_MATRIX_T
+              type(SPARSE_MATRIX_T) , intent(in) :: source
+              integer(c_int), intent(inout) :: indexing
+              integer       , intent(inout) :: rows
+              integer       , intent(inout) :: cols
+              type(c_ptr)   , intent(inout) :: rows_start
+              type(c_ptr)   , intent(inout) :: rows_end
+              type(c_ptr)   , intent(inout) :: col_indx
+              type(c_ptr)   , intent(inout) :: values
+              integer(c_int) MKL_SPARSE_Z_EXPORT_CSR_CF
+   endfunction 
+   endinterface 
 #endif
 
 contains
@@ -73,7 +90,7 @@ contains
     istat = MKL_SPARSE_CONVERT_CSR(S,SPARSE_OPERATION_NON_TRANSPOSE,SS)
     call sparse_error_report('MKL_SPARSE_CONVERT_CSR: S->SS in sparse_export_csr ', istat)
 
-    istat = MKL_SPARSE_Z_EXPORT_CSR(SS,indx,m,m,    cptrB,    cptrE,    cptrJ,    cptrH)
+    istat = MKL_SPARSE_Z_EXPORT_CSR_CF(SS,indx,m,m,    cptrB,    cptrE,    cptrJ,    cptrH)
     call sparse_error_report('MKL_SPARSE_Z_EXPORT_CSR: SS in sparse_export_csr ', istat)
 
     call c_f_pointer(    cptrB,     ptrB, [m])

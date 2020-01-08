@@ -31,11 +31,17 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    logical      flag_exist_up, flag_exist_dn
    real*8        t0, t1
    character*4   timer
+   real*8        zeff(PGEOM%neig)
+   real*8        nqnum(PGEOM%neig)
+   integer*4     lqnum(PGEOM%neig)
+   character*2   orb(PGEOM%neig)
+
 
    timer = 'init'
    call time_check(t1,t0,timer)
    call set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, pid_chg_up, pid_chg_dn, vol, &
-                              ng1, ng2, ng3, a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
+                              ng1, ng2, ng3, a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3, &
+                              zeff, nqnum, lqnum, orb )
    call write_info_plot_eig(PINPT)
 
 en:do ie = 1, PINPT%n_eig_print
@@ -87,7 +93,7 @@ cell_x:do ix = -1,1
   grid_x:do i1=0,ng1-1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
            call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
-           call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction)
+           call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction, zeff, nqnum, lqnum, orb)
            call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
                           flag_exist_up, flag_exist_dn)
          enddo grid_x
@@ -377,8 +383,9 @@ subroutine PARCHG_head(pid_chg_,ik,ie,PINPT, PGEOM, c_extension)
   write(pid_chg_,'(3F20.16)')PGEOM%a_latt(1:3,3)
   write(pid_chg_,*)PGEOM%c_spec(:)
   write(pid_chg_,*)PGEOM%i_spec(:)
-  if(PGEOM%flag_direct)    write(pid_chg_,'(A)') "Direct"
-  if(PGEOM%flag_cartesian) write(pid_chg_,'(A)') "Cartesian"
+  !if(PGEOM%flag_direct)    write(pid_chg_,'(A)') "Direct"
+  !if(PGEOM%flag_cartesian) write(pid_chg_,'(A)') "Cartesian"
+   write(pid_chg_,'(A)') "Direct"
   do i = 1, PGEOM%n_atom
     write(pid_chg_,'(3F20.16)') PGEOM%a_coord(:,i)+PINPT%r_origin(:)
   enddo
@@ -407,7 +414,8 @@ subroutine get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin, nbasis, ngrid, 
    return
 endsubroutine
 
-subroutine get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, nbasis, rcut_orb_plot, flag_plot_wavefunction)
+subroutine get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, nbasis, rcut_orb_plot, flag_plot_wavefunction, &
+                                          zeff, nqnum, lqnum, orb)
    use orbital_wavefunction, only : get_phi_r
    implicit none 
    integer*4    nbasis, iorb
@@ -416,25 +424,32 @@ subroutine get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, nbasis, rcut_or
    real*8       rz(nbasis)
    real*8       rcut_orb_plot
    character*8  corb(nbasis)  
+   real*8        zeff(nbasis)
+   real*8        nqnum(nbasis)
+   integer*4     lqnum(nbasis)
+   character*2   orb(nbasis)
    complex*16   phi_r(nbasis)
    logical      flag_plot_wavefunction
 
- orb: do iorb = 1, nbasis
+orb_: do iorb = 1, nbasis
         if( sqrt(rx(iorb)**2+ry(iorb)**2+rz(iorb)**2) .gt. rcut_orb_plot) then 
           phi_r(iorb) = (0d0,0d0)
-          cycle orb
+          cycle orb_
         else
-          phi_r(iorb) = get_phi_r(rx(iorb),ry(iorb),rz(iorb),corb(iorb))
+          phi_r(iorb) = get_phi_r(rx(iorb),ry(iorb),rz(iorb),corb(iorb), &
+                                  zeff(iorb), orb(iorb), nqnum(iorb), lqnum(iorb) )
           if(.not. flag_plot_wavefunction) phi_r(iorb)= phi_r(iorb) * conjg(phi_r(iorb)) ! <phi(r)|phi(r)> if density plot is requested
         endif
-      enddo orb
+      enddo orb_
 
    return
 endsubroutine
 
 subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, pid_chg_up, pid_chg_dn, vol, &
-                                 ng1, ng2, ng3, a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
+                                 ng1, ng2, ng3, a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3, &
+                                 zeff, nqnum, lqnum, orb)
    use parameters, only : incar, poscar, pid_chg
+   use element_info, only : angular
    use mpi_setup
    implicit none
    type(incar)  ::  PINPT
@@ -447,6 +462,10 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    real*8           rshift(3)
    character(*), parameter :: func = 'set_variable_plot_eig'
    character*8      corb(PGEOM%neig)
+   real*8           zeff(PGEOM%neig)
+   real*8           nqnum(PGEOM%neig)
+   integer*4        lqnum(PGEOM%neig)
+   character*2      orb(PGEOM%neig), orb_
    real*8           origin(3,PGEOM%neig)
    real*8           grid_d1, grid_a1(0:PINPT%ngrid(1)-1)
    real*8           grid_d2, grid_a2(0:PINPT%ngrid(2)-1)
@@ -458,7 +477,6 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    elseif(.not. PINPT%flag_plot_wavefunction) then
      if_main write(6,'(A)')' *- START WRITING: EIGENSTATE CHARGE DENSITY'
    endif
-
    neig   = PGEOM%neig
    ngrid  = PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3)
    ng1    = PINPT%ngrid(1) ; ng2     = PINPT%ngrid(2) ; ng3     = PINPT%ngrid(3)
@@ -485,6 +503,14 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
                            ( PGEOM%a_coord(2,iatom) + rshift(2) )*a2(:) + &
                            ( PGEOM%a_coord(3,iatom) + rshift(3) )*a3(:)
        corb(iorbital)=trim(PGEOM%c_orbital(iorb,iatom))
+
+       zeff(iorbital) = PGEOM%z_eff_nuc(iorb, iatom)
+       nqnum(iorbital)= PGEOM%n_quantum(iatom)
+       lqnum(iorbital)= PGEOM%l_quantum(iorb,iatom)
+       write(orb(iorbital),'(I0,A)') PGEOM%orb_n_quantum(iorb,iatom), angular(PGEOM%l_quantum(iorb,iatom))
+       !write(orb_,'(I0,A)') PGEOM%orb_n_quantum(iorb,iatom), PGEOM%l_quantum(iorb,iatom)
+       !orb(iorbital) = orb_
+
      enddo
    enddo
 

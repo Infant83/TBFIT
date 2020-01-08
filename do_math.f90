@@ -176,6 +176,58 @@ subroutine get_svd(M, U, WT, msize)
    return
 endsubroutine
 
+! The routine computes all the eigenvalues, and optionally, the eigenvectors of a 
+! complex generalized Hermitian positive-definite eigenproblem, of the form
+! A*x = λ*B*x, 
+! A*B*x = λ*x, or 
+! B*A*x = λ*x.
+! Here A and B are assumed to be Hermitian and B is also positive definite.
+subroutine cal_gen_eig_hermitian(H, S, msize, E, flag_get_orbital)
+    implicit none
+    integer*4  itype
+    integer*4, intent(in) ::  msize
+    integer*4  iflag
+    complex*16 H(msize,msize)
+    complex*16 S(msize,msize)
+    complex*16 H_(msize,msize)
+    real*8     rwork(12*msize)
+    real*8     E(msize)
+    logical    flag_get_orbital
+    character(*), parameter :: func = 'cal_eig_hermitian'
+    integer*4  lwork
+    complex*16, allocatable :: work(:)
+
+   itype = 1
+
+   if(msize .eq. 1) then
+     E = H(1,1)
+     return
+   endif
+
+   lwork = -1
+   allocate(work(12*msize))
+   call  ZHEGV( itype, 'N', 'U', msize, H, msize, S, msize, E, work, lwork, rwork, iflag )
+   if (iflag .eq. 0 .and. real(work(1)) .gt. 0) then
+      lwork= work(1)
+      deallocate(work)
+      allocate(work(lwork))
+   else
+      write(6, '(A,A)')' got an error from function: ',func
+      stop
+   endif
+
+    if(flag_get_orbital) then
+      !JOB = 'V'
+      CALL ZHEGV( itype, 'V', 'U', msize, H, msize, S, msize, E, work, lwork, rwork, iflag )
+    elseif(.not. flag_get_orbital) then
+      !JOB = 'N'
+      H_ = H
+      CALL ZHEGV( itype, 'N', 'U', msize, H_, msize, S, msize, E, work, lwork, rwork, iflag )
+    endif
+
+   return
+endsubroutine
+
 ! The routine computes all the eigenvalues and, optionally, 
 ! the eigenvectors of a square complex Hermitian matrix H.
 ! The eigenvector v(j) of A satisfies the following formula:
@@ -225,6 +277,67 @@ subroutine cal_eig_hermitian(H, msize, E, flag_get_orbital)
 return
 end subroutine
 
+
+! ZHEGVX Computes selected eigenvalues and, optionally, eigenvectors of a complex 
+! generalized Hermitian positive-definite eigenproblem.
+! The routine computes selected eigenvalues, and optionally, 
+! the eigenvectors of a complex generalized Hermitian positive-definite eigenproblem, of the form
+! A * X = lambda * B * X .
+! Eigenvalues and eigenvectors can be selected by specifying either a range of values or a range 
+! of indices for the desired eigenvalues.
+subroutine cal_gen_eig_hermitianx(H,S,msize,iband,nband,E,V,flag_get_orbital)
+    implicit none
+    integer*4  itype
+    integer*4  msize, iflag
+    integer*4  lwork
+    integer*4  iband,fband,nband,nband_
+    integer    ifail(msize), iwork(7*msize)
+    real*8     rwork(12*msize)
+    real*8     E(nband), E_(msize)
+    real*8     vl,vu
+    real*8     abstol
+    logical    flag_get_orbital
+    complex*16 H(msize,msize)
+    complex*16 S(msize,msize)
+    complex*16 V(msize,nband)
+    complex*16, allocatable :: work(:)
+    character(*), parameter :: func = 'cal_gen_eig_hermitianx'
+    character*1 JOBZ
+    real*8      DLAMCH
+    external    DLAMCH
+  
+! itype = 1, the problem type is A*x = λ*B*x
+! itype = 2, the problem type is A*B*x = λ*x
+! itype = 3, the problem type is B*A*x = λ*x
+   itype = 1
+
+   abstol = DLAMCH('U')
+   fband = iband + nband - 1
+   nband_= nband
+   JOBZ  = 'N'
+   if(msize .eq. 1) then
+     E = H(1,1)
+     return
+   endif
+
+   lwork = -1
+   allocate(work(12*msize))
+   call ZHEGVX(itype,'N','I','U',msize,H,msize,S,msize,vl,vu,iband,fband,abstol,nband_,E_,V,msize,work,lwork,rwork,iwork,ifail,iflag)
+   if (iflag .eq. 0 .and. real(work(1)) .gt. 0) then
+      lwork= work(1)
+      deallocate(work)
+      allocate(work(lwork))
+   else
+      write(6, '(A,A)')' got an error from function: ',func
+      stop
+   endif
+   if(flag_get_orbital) JOBZ='V'
+   call ZHEGVX(itype,JOBZ,'I','U',msize,H,msize,S,msize,vl,vu,iband,fband,abstol,nband,E_,V,msize,work,lwork,rwork,iwork,ifail,iflag)
+   E(1:nband) = E_(1:nband)
+
+return
+end subroutine
+
 ! ZHEEVX computes selected eigenvalues and, optionally, eigenvectors
 ! of a complex Hermitian matrix H.  Eigenvalues and eigenvectors can
 ! be selected by specifying either a range of values or a range of
@@ -236,7 +349,7 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
     integer*4  iband,fband,nband,nband_
     integer    ifail(msize), iwork(7*msize)
     real*8     rwork(12*msize)
-    real*8     E(nband)
+    real*8     E(nband), E_(msize)
     real*8     vl,vu
     real*8     abstol
     logical    flag_get_orbital
@@ -315,7 +428,7 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
    
    lwork = -1
    allocate(work(12*msize))
-   call ZHEEVX('N','I','U',msize,H,msize,vl,vu,iband,fband,abstol,nband_,E,V,msize,work,lwork,rwork,iwork,ifail,iflag)
+   call ZHEEVX('N','I','U',msize,H,msize,vl,vu,iband,fband,abstol,nband_,E_,V,msize,work,lwork,rwork,iwork,ifail,iflag)
    if (iflag .eq. 0 .and. real(work(1)) .gt. 0) then
       lwork= work(1)
       deallocate(work)
@@ -325,8 +438,8 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
       stop
    endif
    if(flag_get_orbital) JOBZ='V'
-   call ZHEEVX(JOBZ,'I','U',msize,H,msize,vl,vu,iband,fband,abstol,nband,E,V,msize,work,lwork,rwork,iwork,ifail,iflag)
-
+   call ZHEEVX(JOBZ,'I','U',msize,H,msize,vl,vu,iband,fband,abstol,nband,E_,V,msize,work,lwork,rwork,iwork,ifail,iflag)
+   E(1:nband) = E_(1:nband)
 return
 endsubroutine
 #ifdef SCALAPACK
@@ -398,6 +511,80 @@ endsubroutine
 ! endsubroutine
 #endif
 #ifdef MKL_SPARSE
+subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector,fpm,iflag,ne_prev)
+    use parameters, only: spmat
+    use time
+    implicit none
+    type(spmat) :: SHk, SSk
+    integer*4   msize, iflag
+    integer*4   ne_found, nemax, ne_guess, ne_prev
+    integer*4   loop, fpm(128)
+    integer*4   iter, max_iter
+    real*8      emin, emax
+    real*8      epsout
+    logical     flag_vector
+    real*8      E_(nemax)
+    real*8      E(nemax)
+    real*8      res(nemax)
+    complex*16  V_(SHk%msize,nemax)
+    complex*16  V(SHk%msize,nemax)
+    character(*), parameter :: func = 'cal_eig_hermitianx_sparse'
+    character*1 UPLO
+    logical     flag_success
+    real*8      t1, t0
+
+    flag_success = .false.
+    max_iter = 5; iter = 1
+
+    msize = SHk%msize
+
+    if(fpm(5) .eq. 1) then
+      V_ = 0d0
+      if(ne_prev .ge. 1) V_(:,1:ne_prev) = V(:, 1:ne_prev)
+    endif
+
+    UPLO = 'F'
+    ! FEAST eigensolver for Complex and Hermitian Sparse 3-array matrix
+    ! Extended Eigensolver interface for generalized eigenvalue problem with sparse matrices
+    do while (.not. flag_success .and. iter .le. 5)
+      !call zfeast_hcsrgv(uplo, n, a, ia, ja, b, ib, jb, fpm, epsout, loop, emin, emax, m0, e, x, m, res, info)
+      !call zfeast_hcsrev(uplo, n, a, ia, ja,            fpm, epsout, loop, emin, emax, m0, e, x, m, res, info)
+
+      call zfeast_hcsrgv(UPLO, msize, SHk%H, SHk%I, SHk%J, SSk%H, SSk%I, SSk%J, fpm, epsout, loop, emin, emax, ne_guess, &
+                         E_, V_, ne_found, res, iflag)
+      call report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
+    enddo
+
+    if(ne_found .ge. 1) then
+      E = 0d0
+      E(1:ne_found) = E_(1:ne_found)
+
+      if(fpm(5) .eq. 1) then
+        V = 0d0
+        V(:, 1:ne_found) = V_(:, 1:ne_found)
+      else
+        if(flag_vector) then
+          V = 0d0
+          V(:, 1:ne_found) = V_(:, 1:ne_found)
+        endif
+      endif
+
+    elseif(ne_found .eq. 0) then
+      E = 0d0
+
+      if(fpm(5) .eq. 1) then
+        V = V_ !return to V_ if no result obtained
+      else
+        if(flag_vector) then
+          V = 0d0
+        endif
+      endif
+
+    endif
+
+
+    return
+endsubroutine
 subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag, ne_prev)
     use parameters, only: spmat
     use time
@@ -761,6 +948,25 @@ function area(a,b) result(S)
    S = dsqrt( dot_product(axb,axb) )
 
    return
+endfunction
+
+! caculate the degree <abc (theta) between two vector ca and cb
+function angle(a,b,c) result (theta)
+   use parameters,  only: pi
+   implicit none
+   integer*4     i
+   real*8        a(3), b(3), c(3)
+   real*8        ba(3), cb(3)
+   real*8        theta 
+   real*8        enorm
+   external      enorm
+
+   ba = a - b
+   cb = c - b
+
+   theta = acos ( dot_product(ba,cb)/ ( enorm(3,ba) * enorm(3,cb) ) ) * 180d0 / pi
+
+   return 
 endfunction
 
 endmodule

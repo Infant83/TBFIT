@@ -29,30 +29,24 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
                                               ! be added up and constructed along with the k_loop due to the total number 
                                               ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
   integer*4  feast_ne(PINPT%nspin, nkp)
-#ifdef MPI
-  integer*4  ourjob(nprocs)
-  integer*4  ourjob_disp(0:nprocs-1)
-  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
-  if(flag_stat .and. myid .eq. 0) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
-  call report_job_distribution(flag_stat, ourjob)
-#else
-  integer*4  ourjob(1) 
-  integer*4  ourjob_disp(0)
-  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
-  if(flag_stat) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
-  call report_job_distribution(flag_stat, ourjob)
-#endif
+  integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
 
+  if(flag_stat .and. myid .eq. 0) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
   timer = 'init'
+
+  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+  call report_job_distribution(flag_stat, ourjob)
+
   call initialize_all (EE, neig, nband, nkp, ourjob(myid+1), PINPT, flag_vector, flag_sparse, flag_stat, &
                        ii, iadd, stat, t1, t0, flag_init)
   if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
                                    flag_stat, flag_sparse, flag_use_mpi, nprocs)
+  if(flag_stat .and. myid .eq. 0) write(6,'(A)'             ) ' '
+  if(flag_stat .and. myid .eq. 0) write(6,'(A)',ADVANCE='NO') '   STATUS: '
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
     my_ik = ik - sum(ourjob(1:myid))
     if(flag_sparse) then
       if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then 
-!       EE%V(:,:,ik) = EE%V(:,:,ik-1)
         EE%V(:,:,my_ik) = EE%V(:,:,my_ik-1)
         ne_prev = PINPT%feast_ne(1:PINPT%nspin,ik-1)
       else
@@ -78,25 +72,20 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
                              neig, iband, nband, flag_vector, flag_init, flag_phase)
     endif
 
-!   call print_eig_status(ik*ourjob(myid+1), ii, iadd, stat, nkp, flag_stat)
-    call print_eig_status(ik-sum(ourjob(1:myid)), ii, iadd, stat, ourjob(myid+1), flag_stat)
+    if(flag_stat .and. myid .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
   enddo k_loop
 
 #ifdef MPI
-  call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-  if(flag_vector) then
-    call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
-                     ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                     ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
-                     MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
-  endif
+  call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+  if(flag_vector) call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
+                                   ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                                   ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                                   MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only master node keep wave vector information
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
     PINPT%feast_ne = feast_ne
-    if(flag_stat) then
-      if_main write(6,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne)
-    endif
+    if(flag_stat .and. myid .eq. 0) write(6,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne)
   endif
 #endif
 #else
@@ -104,9 +93,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 #endif
 
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
-  if(flag_stat) then
-    if_main write(6,'(A)')'END: BAND STRUCTURE EVALUATION'
-  endif
+  if(flag_stat .and. myid .eq. 0) write(6,'(A)')'END: BAND STRUCTURE EVALUATION'
 
 return
 endsubroutine
@@ -122,7 +109,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
   implicit none
   type(hopping) :: NN_TABLE
   type(incar  ) :: PINPT
-  type(spmat  ) :: SHk, SH0, SHm, SHs
+  type(spmat  ) :: SHk, SSk, SH0, SS0, SHm, SHs
   integer*4        neig
   integer*4        nemax  !nemax <= neig * nspin. Choosing optimal value is critical for performance.
   integer*4        ne_found(PINPT%nspin), ne_prev(PINPT%nspin)
@@ -142,8 +129,13 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) SHm, SHs will be kept during ik-run. (SHs will be modified if flag_slater_koster=.false.)
       call time_check(t1,t0,timer)
-      call get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+      if(.not. PINPT%flag_use_overlap) then
+        call get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+      elseif(  PINPT%flag_use_overlap) then
+        call get_hamk_sparse_overlap(SHk, SSk, SH0, SS0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+      endif
       call time_check(t1,t0) 
+
       if(timer .eq. 'init' .and. myid .eq. 0) then 
         write(6,'(A,F10.4,A)')'   TIME for SPARSE MATRIX CONSTRUCTION: ',t1, ' (sec)'
         timer = 'off'
@@ -151,12 +143,22 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
         timer = 'off'
       endif
       call get_matrix_index(ie, fe, im, fm, is, nemax, neig, PINPT%ispinor)
-      call cal_eig_sparse(SHk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
-                          emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
+      
+      if(.not. PINPT%flag_use_overlap) then
+        call cal_eig_sparse(SHk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
+                            emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
+      elseif(  PINPT%flag_use_overlap) then
+         call cal_gen_eig_sparse(SHk, SSk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
+                             emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
+      endif
+
       call adjust_ne_guess(feast_info, is, ne_found(is), kp, ik, neig, nemax, PINPT)
       if(allocated(SHk%H)) deallocate(SHk%H)
       if(allocated(SHk%I)) deallocate(SHk%I)
       if(allocated(SHk%J)) deallocate(SHk%J) ! SHk should be deallocated for each run
+      if(allocated(SSk%H)) deallocate(SSk%H)
+      if(allocated(SSk%I)) deallocate(SSk%I)
+      if(allocated(SSk%J)) deallocate(SSk%J)
     enddo sp
 
   if(PINPT%flag_soc .and. .not. PINPT%flag_slater_koster) then
@@ -167,16 +169,21 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
   deallocate(SH0%H)
   deallocate(SH0%I)
   deallocate(SH0%J)
+  if(allocated(SS0%H)) deallocate(SS0%H)
+  if(allocated(SS0%I)) deallocate(SS0%I)
+  if(allocated(SS0%J)) deallocate(SS0%J)
 
 return
 endsubroutine
 #endif
 subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nband, flag_vector, flag_init, flag_phase)
-  use parameters, only : incar, hopping
+  use parameters, only : incar, hopping, pauli_0
+  use kronecker_prod, only: kproduct
   use mpi_setup
   use print_matrix
   use time
   use do_math
+  use phase_factor
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
   integer*4  neig, iband, nband
@@ -184,8 +191,9 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
   real*8     kp(3)
   real*8     E(nband*PINPT%nspin)                      ! will store all the energy eigenvalue for each spin
   complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)     ! will store all the spin block at once in the first dimension
-  complex*16 H0(neig,neig)                             ! slater-koster hopping (k-dependent)
+  complex*16 H0(neig,neig),S0(neig,neig)               ! slater-koster hopping (k-dependent) hamiltonian and overlap matrix
   complex*16 Hk(neig*PINPT%ispinor,neig*PINPT%ispinor) ! total hamiltonian (k-dependent)
+  complex*16 Sk(neig*PINPT%ispinor,neig*PINPT%ispinor) ! total overlap matrix (k-dependent)
   complex*16 Hm(neig*PINPT%ispinor,neig*PINPT%ispinor) ! collinear magnetism hamiltonian (k-independent)
   complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
   logical    flag_vector, flag_init, flag_phase
@@ -195,11 +203,29 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
    E_ = 0d0
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) Hm, Hs will be kept during ik-run. (Hs will be modified if flag_slater_koster=.false.)
-      call get_hamk_dense(Hk, H0, Hm, Hs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase) 
-      call get_matrix_index(ie, fe, im, fm, is, nband, neig, PINPT%ispinor)
-      call cal_eig(Hk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
+         call get_hamk_dense(Hk, H0, Hm, Hs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase) 
+! call print_matrix_c(Hk,neig*2, neig*2, 'Hk',1, 'F8.3')
+
+         if(PINPT%flag_use_overlap .and. is .eq. 1) then
+           call set_ham0(S0, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase, .true.) ! .true. : flag_set_overlap
+           if(PINPT%flag_noncollinear) then 
+             Sk = kproduct(pauli_0, S0, 2, 2, neig, neig)
+           else
+             Sk = S0
+           endif
+         endif
+! call print_matrix_c(Sk,neig*2, neig*2, 'Sk',1, 'F8.3')
+
+         call get_matrix_index(ie, fe, im, fm, is, nband, neig, PINPT%ispinor)
+         
+         if(.not. PINPT%flag_use_overlap) then
+           call cal_eig(Hk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
+         elseif(  PINPT%flag_use_overlap) then
+           call cal_gen_eig(Hk, Sk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
+         endif
     enddo sp
 
+!stop
 return
 endsubroutine
 subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag_sparse, flag_stat, &
@@ -270,8 +296,10 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   real*8     t1, t0
 
   call time_check(t1, t0)
-  if(flag_stat .and. myid .eq. 0) write(6,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1
-
+  if(flag_stat .and. myid .eq. 0) then
+    write(6,*)' '
+    write(6,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1
+  endif
   if(allocated(EE%E)) deallocate(EE%E)
   if(allocated(EE%V)) deallocate(EE%V)
 
@@ -303,7 +331,8 @@ subroutine get_hamk_dense(Hk, H0, Hm, Hs, is, kpoint, PINPT, neig, NN_TABLE, fla
   complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
   complex*16 Hk(neig*PINPT%ispinor,neig*PINPT%ispinor) ! total hamiltonian (k-dependent)
 
-  if(is .eq. 1) call set_ham0(H0, kpoint, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+  if(is .eq. 1) call set_ham0(H0, kpoint, PINPT, neig, NN_TABLE, F_IJ, flag_phase, .false.) ! .false. -> flag_set_overlap (just set H)
+  ! call print_matrix_c(H0, neig, neig, 'H0',0,'F9.4')
   if(flag_init) then
     if(PINPT%flag_collinear) then
       call set_ham_mag(Hm, NN_TABLE, PINPT, neig)
@@ -389,10 +418,18 @@ subroutine set_ham0_file(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
     endif
 
     if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
-      if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+      if(PINPT%slater_koster_type .gt. 10) then
+        if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+          H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const_nrl(5,1,(NN_TABLE%local_U_param_index(i)))
+        else
+          H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_nrl(1,(NN_TABLE%local_U_param_index(i)))
+        endif
       else
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+        if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+          H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+        else
+          H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+        endif
       endif
     elseif(i .eq. j .and. NN_TABLE%Dij(nn) >  tol) then
       H(i,j) = H(i,j) + Eij
@@ -404,7 +441,7 @@ subroutine set_ham0_file(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
 return
 endsubroutine
-subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
+subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase, flag_set_overlap)
   use parameters, only : zi, hopping, incar
   use phase_factor
   implicit none
@@ -424,6 +461,7 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
   complex*16        Eij
   external          tij_sk, tij_cc
   logical           flag_phase  
+  logical           flag_set_overlap
 
   H=0.0d0
   tol=NN_TABLE%onsite_tolerance
@@ -433,9 +471,9 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
     if(PINPT%flag_slater_koster) then
       if(flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ( kpoint, NN_TABLE%Rij(1:3,nn))
-      elseif(.not. flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ( kpoint, NN_TABLE%R  (1:3,nn))
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ( kpoint, NN_TABLE%Rij(1:3,nn))
+      elseif(.not. flag_phase) then                                 
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ( kpoint, NN_TABLE%R  (1:3,nn))
       endif
     elseif(.not.PINPT%flag_slater_koster) then
       if(flag_phase) then
@@ -444,26 +482,46 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase)
         Eij = tij_cc(NN_TABLE,nn,PINPT,tol,.false.) * FIJ( kpoint, NN_TABLE%R  (1:3,nn))
       endif
     endif
+    if(.not. flag_set_overlap) then
+      if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
+        if(PINPT%slater_koster_type .gt. 10) then
+          if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const_nrl(5,1,(NN_TABLE%local_U_param_index(i)))
+          else
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_nrl(1,(NN_TABLE%local_U_param_index(i)))
+          endif
+        else
+          if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+          else
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+          endif
+        endif
 
-!   if(i .eq. j ) then !.and. NN_TABLE%Dij(nn) <= tol) then
-    if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
-      if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+      elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+        H(i,j) = H(i,j) + Eij
       else
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+        H(i,j) = H(i,j) + Eij
+        H(j,i) = H(j,i) + conjg(Eij)
       endif
-    elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
-      H(i,j) = H(i,j) + Eij
-    else
-      H(i,j) = H(i,j) + Eij
-      H(j,i) = H(j,i) + conjg(Eij)
+
+    elseif( flag_set_overlap) then
+      if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then 
+        H(i,j) = H(i,j) + 1d0
+      elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+        H(i,j) = H(i,j) + Eij
+      else
+        H(i,j) = H(i,j) + Eij
+        H(j,i) = H(j,i) + conjg(Eij)
+      endif
     endif
+
   enddo
 
 return
 endsubroutine
 
-subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
+subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase, flag_set_overlap)
   use parameters, only : zi, hopping, incar
   use phase_factor
   implicit none
@@ -483,6 +541,7 @@ subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
   complex*16        Eij
   external          tij_sk, tij_cc
   logical           flag_phase
+  logical           flag_set_overlap
 
   H=0.0d0
   tol=NN_TABLE%onsite_tolerance
@@ -492,9 +551,9 @@ subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
 
     if(PINPT%flag_slater_koster) then
       if(flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
-      elseif(.not. flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
+      elseif(.not. flag_phase) then                                 
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
       endif
     elseif(.not.PINPT%flag_slater_koster) then
       if(flag_phase) then
@@ -504,18 +563,38 @@ subroutine set_ham0_(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
       endif
     endif
 
-    if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
-      if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+    if(.not.flag_set_overlap) then
+      if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
+        if(PINPT%slater_koster_type .gt. 10) then
+          if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const_nrl(5,1,(NN_TABLE%local_U_param_index(i)))
+          else
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_nrl(1,(NN_TABLE%local_U_param_index(i)))
+          endif
+        else
+          if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(i))) .ge. 1) then
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
+          else
+            H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+          endif
+        endif
+      elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+        H(i,j) = H(i,j) + Eij
       else
-        H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+        H(i,j) = H(i,j) + Eij
+        H(j,i) = H(j,i) + conjg(Eij)
       endif
-    elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
-      H(i,j) = H(i,j) + Eij
-    else
-      H(i,j) = H(i,j) + Eij
-      H(j,i) = H(j,i) + conjg(Eij)
+    elseif( flag_set_overlap) then
+      if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
+        H(i,j) = H(i,j) + 1d0
+      elseif(i .eq. j .and. NN_TABLE%Dij(nn) > tol) then
+        H(i,j) = H(i,j) + Eij
+      else
+        H(i,j) = H(i,j) + Eij
+        H(j,i) = H(j,i) + conjg(Eij)
+      endif
     endif
+
   enddo
 
 return
@@ -523,7 +602,7 @@ endsubroutine
 
 
 
-subroutine set_ham0_vel(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
+subroutine set_ham0_vel(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase, flag_set_overlap)
   use parameters, only : zi, hopping, incar
   use phase_factor
   implicit none
@@ -543,6 +622,7 @@ subroutine set_ham0_vel(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
   complex*16        Eij
   external          tij_sk, tij_cc
   logical           flag_phase
+  logical           flag_set_overlap
 
   H=0.0d0
   tol=NN_TABLE%onsite_tolerance
@@ -552,9 +632,9 @@ subroutine set_ham0_vel(H, kpoint, PINPT, neig , NN_TABLE, FIJ, flag_phase)
 
     if(PINPT%flag_slater_koster) then
       if(flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
-      elseif(.not. flag_phase) then
-        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false.) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ(kpoint, NN_TABLE%Rij(1:3,nn))
+      elseif(.not. flag_phase) then                                 
+        Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ(kpoint, NN_TABLE%R  (1:3,nn))
       endif
     elseif(.not.PINPT%flag_slater_koster) then
       if(flag_phase) then
@@ -584,10 +664,18 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
     if(PINPT%flag_collinear) then
       do i = 1, neig
         if(NN_TABLE%stoner_I_param_index(i) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
-            H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+          if(PINPT%slater_koster_type .gt. 10) then
+            if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i))
+            endif
           else
-            H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i) = -0.5d0 * NN_TABLE%local_moment(1,i) * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            endif
           endif
         endif
       enddo
@@ -595,48 +683,90 @@ subroutine set_ham_mag(H, NN_TABLE, PINPT, neig)
     elseif(PINPT%flag_noncollinear) then
       do i = 1, neig  ! Hx
         if(NN_TABLE%stoner_I_param_index(i) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
-            H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
-                                              * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
-            H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
-                                              * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+          if(PINPT%slater_koster_type .gt. 10) then
+            if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i))
+            endif
           else
-            H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
-                                              * PINPT%param(NN_TABLE%stoner_I_param_index(i))
-            H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
-                                              * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i+neig) = H(i,i+neig) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i) = H(i+neig,i) - 0.5d0 * NN_TABLE%local_moment_rot(1,i) &
+                                                * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            endif
           endif
         endif
       enddo
 
       do i = 1, neig  ! Hy
         if(NN_TABLE%stoner_I_param_index(i) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
-            H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
-                                               * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
-            H(i+neig,i) = H(i+neig,i)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
-                                               * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
+          if(PINPT%slater_koster_type .gt. 10) then
+            if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i)) * zi
+              H(i+neig,i) = H(i+neig,i)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i)) * zi
+            else
+              H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i)) * zi
+              H(i,i+neig) = H(i,i+neig)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i)) * zi
+            endif
           else
-            H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
-                                               * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
-            H(i,i+neig) = H(i,i+neig)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
-                                               * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
+            if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
+              H(i+neig,i) = H(i+neig,i)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i)) * zi
+            else
+              H(i,i+neig) = H(i,i+neig)  + 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
+              H(i,i+neig) = H(i,i+neig)  - 0.5d0 * NN_TABLE%local_moment_rot(2,i) &
+                                                 * PINPT%param(NN_TABLE%stoner_I_param_index(i)) * zi
+            endif
           endif
         endif
       enddo
 
       do i = 1, neig ! Hz
         if(NN_TABLE%stoner_I_param_index(i) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
-            H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
-                                    * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
-            H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
-                                                        * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+          if(PINPT%slater_koster_type .gt. 10) then
+            if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                      * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                                          * PINPT%param_const_nrl(5,1,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                      * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                                          * PINPT%param_nrl(1,NN_TABLE%stoner_I_param_index(i))
+            endif
           else
-            H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
-                                    * PINPT%param(NN_TABLE%stoner_I_param_index(i))
-            H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
-                                                        * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(i))) .eq. 1) then ! if i-th basis has constraint .true.
+              H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                      * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                                          * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(i))
+            else
+              H(i,i) = H(i,i) - 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                      * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+              H(i+neig,i+neig) = H(i+neig,i+neig) + 0.5d0 * NN_TABLE%local_moment_rot(3,i) &
+                                                          * PINPT%param(NN_TABLE%stoner_I_param_index(i))
+            endif
           endif
         endif
       enddo
@@ -669,41 +799,55 @@ subroutine initialize_eig_status(ii, iadd, stat, nkpoint)
    implicit none
    character*100 stat
    integer*4     iadd, ii, nkpoint
-    
+  
    stat = '****************************************************************************************************'
    if(myid .eq. 0) write(6,'(A)')stat
    if(nkpoint .le. 25) then
-!    iadd=floor(real(1)/real(nkpoint)*100d0)
      iadd=10
      ii = 1
    else
      iadd=5
      ii = 1
    endif
-!#write(6,*)"XX ", iadd
-!stop
 return
 endsubroutine
-
-subroutine print_eig_status(ik, ii, iadd, stat, nkpoint, flag_stat)
+subroutine print_eig_status(ik, ii, iadd, ourjob)
    use mpi_setup
    implicit none
-   character*100   stat
-   integer*4       ik, ii, iadd, nkpoint
-   real*8          percent
-   logical         flag_stat
+   integer*4 ik, ii, iadd
+   integer*4 ourjob(nprocs)
 
-   if(.not.flag_stat) return
-   if(myid .ne. 0) return
-
-   percent =  ik / real(nkpoint) * 100d0
-   if( floor(percent) .ge. real(iadd*ii) ) then
-     if_main write(6,'(A,I3)')stat(1:iadd*ii),floor(percent)
+   if( floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) .ge. real(iadd*ii) ) then
+     if( floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) .ge. 100) then
+       if_main write(6,'(I0,A,$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0),' Done!'
+     else
+       if_main write(6,'(I0," ",$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0)
+     endif
      ii = ii + 1
    endif
 
-return
+   return
 endsubroutine
+
+!subroutine print_eig_status(ik, ii, iadd, stat, nkpoint, flag_stat)
+!  use mpi_setup
+!  implicit none
+!  character*100   stat
+!  integer*4       ik, ii, iadd, nkpoint
+!  real*8          percent
+!  logical         flag_stat
+
+!  if(.not.flag_stat) return
+!  if(myid .ne. 0) return
+
+!  percent =  ik / real(nkpoint) * 100d0
+!  if( floor(percent) .ge. real(iadd*ii) ) then
+!    if_main write(6,'(A,I3)')stat(1:iadd*ii),floor(percent)
+!    ii = ii + 1
+!  endif
+
+!return
+!endsubroutine
 
 subroutine get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint, is, neig, flag_phase)
    use parameters, only: hopping, incar
@@ -743,13 +887,37 @@ subroutine stop_get_eig(msize, nband)
 
 return
 endsubroutine
+subroutine cal_gen_eig(Hk, Sk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
+   use do_math
+   use mpi_setup
+   implicit none
+   integer*4, intent(in):: iband, nband, neig, ispinor, ispin
+   integer*4              msize
+   complex*16             Hk(neig*ispinor,neig*ispinor)
+   complex*16             Sk(neig*ispinor,neig*ispinor)
+   complex*16             V(neig*ispinor,nband)
+   real*8                 E(nband)
+   logical                flag_vector
 
+   msize = neig * ispinor
+
+   if(msize .eq. nband) then
+     ! nband = neig*ispinor if no erange defined
+     call cal_gen_eig_hermitian(Hk, Sk, msize, E, flag_vector)
+     if(flag_vector) V = Hk
+   elseif(msize .ne. nband .and. nband .lt. msize) then
+     call cal_gen_eig_hermitianx(Hk, Sk, msize, iband, nband, E, V, flag_vector)
+   else
+     call stop_get_eig(msize,nband)
+   endif
+
+return
+endsubroutine
 subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
    use do_math
    use mpi_setup
    implicit none
    integer*4, intent(in):: iband, nband, neig, ispinor, ispin
-!  integer*4              neig, iband, nband, ispinor, ispin, msize
    integer*4              msize
    complex*16             Hk(neig*ispinor,neig*ispinor)
    complex*16             V(neig*ispinor,nband)
@@ -771,6 +939,27 @@ subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
 return
 endsubroutine
 #ifdef MKL_SPARSE
+subroutine cal_gen_eig_sparse(SHk, SSk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag_vector, &
+                          emin, emax, ne_found, feast_fpm, feast_info, ne_prev)
+   use parameters, only : spmat
+   use do_math
+   use mpi_setup
+   implicit none
+   type(spmat):: SHk, SSk
+   integer*4     neig, nemax, ispinor, ispin, ne_prev
+   complex*16    V(neig*ispinor,nemax)
+   real*8        E(nemax)
+   real*8        emin, emax
+   integer*4     ne_found, ne_guess, feast_info
+   integer*4     feast_fpm(128)
+   logical       flag_vector
+
+   call cal_gen_eig_hermitianx_sparse(SHk, SSk, emin, emax, nemax, ne_found, ne_guess, E, V, flag_vector,&
+                                  feast_fpm, feast_info, ne_prev)
+
+return
+endsubroutine
+
 subroutine cal_eig_sparse(SHk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag_vector, &
                           emin, emax, ne_found, feast_fpm, feast_info, ne_prev)
    use parameters, only : spmat

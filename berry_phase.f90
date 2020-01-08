@@ -112,7 +112,7 @@ subroutine get_phase_shift(phase_shift, dk, PGEOM, ispinor)
 
    do is = 1, ispinor
      do ibasis = 1, PGEOM%neig
-       phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ(-dk, PGEOM%o_coord_cart(:, ibasis))
+       phase_shift(ibasis + (is-1)*PGEOM%neig) = F_IJ( dk, PGEOM%o_coord_cart(:, ibasis))
        
 !      phase_shift(ibasis + (is-1)*PGEOM%neig) = cos(dk(1) * PGEOM%o_coord_cart(1, ibasis)  + &
 !                                                    dk(2) * PGEOM%o_coord_cart(2, ibasis)  + &  
@@ -123,7 +123,6 @@ subroutine get_phase_shift(phase_shift, dk, PGEOM, ispinor)
 
      enddo
    enddo
-
    return
 endsubroutine
 
@@ -189,8 +188,12 @@ subroutine get_velocity_matrix(PINPT, NN_TABLE, kpoint, neig, dHk, dF_IJ, flag_p
    complex*16       dHs(neig*PINPT%ispinor,neig*PINPT%ispinor) 
    complex*16       dHk(neig*PINPT%ispinor,neig*PINPT%ispinor) 
    logical          flag_phase
-
-   call set_ham0_vel(dH0, kpoint, PINPT, neig, NN_TABLE, dF_IJ, flag_phase)
+   logical          flag_set_overlap
+   
+   flag_set_overlap = .false. ! only hamiltonian part is considered, i.e., assume that USE_OVERLAP = .false.
+                              ! However, if overlap matrix is considered, one may use another approach 
+                              ! for the berry curvature evaluation. This will be updated in the near future. (HJ Kim, KIAS, 2019. Sep.)
+   call set_ham0_vel(dH0, kpoint, PINPT, neig, NN_TABLE, dF_IJ, flag_phase, flag_set_overlap)
 
    if(PINPT%flag_noncollinear) then
 
@@ -226,11 +229,16 @@ subroutine get_velocity_matrix_direct(PINPT, NN_TABLE, kpoint, neig, dHk, dk)
    real*8           k1(3), k2(3), kpoint(3), dk(3), enorm
    external         enorm
    logical          flag_phase
+   logical          flag_set_overlap 
+
+   flag_set_overlap = .false. ! only hamiltonian part is considered, i.e., assume that USE_OVERLAP = .false.
+                              ! However, if overlap matrix is considered, one may use another approach 
+                              ! for the berry curvature evaluation. This will be updated in the near future. (HJ Kim, KIAS, 2019. Sep.)
 
    flag_phase = .true.
    k1 = kpoint - dk; k2 = kpoint + dk
-   call set_ham0_(dH2, k2 , PINPT, neig, NN_TABLE, F_IJ, flag_phase)
-   call set_ham0_(dH1, k1 , PINPT, neig, NN_TABLE, F_IJ, flag_phase)
+   call set_ham0_(dH2, k2 , PINPT, neig, NN_TABLE, F_IJ, flag_phase, flag_set_overlap)
+   call set_ham0_(dH1, k1 , PINPT, neig, NN_TABLE, F_IJ, flag_phase, flag_set_overlap)
    dH0= (dH2 - dH1) / (2d0*eta)
 
    if(PINPT%ispinor .eq. 2) then
@@ -543,18 +551,20 @@ subroutine get_parity_matrix_ij(phi1, phi2, nbasis, M, lambda)
    return
 endsubroutine
 
-subroutine set_parity_matrix_op(PGEOM, PINPT, parity_matrix_op, parity_operator, origin)
+subroutine set_parity_matrix_op(PGEOM, PINPT, P_OP, ROT, origin)
    use parameters, only: poscar, incar, onsite_tolerance
+   use print_matrix 
    implicit none
    type (incar)   :: PINPT       ! parameters for input arguments
    type (poscar)  :: PGEOM       ! parameters for geometry info
-   real*8            parity_operator(3,3)
+   real*8            ROT(3,3)
    real*8            origin(3)
-   complex*16        parity_matrix_op(PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor)
+   complex*16        P_OP(PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor)
    integer*4         i, j, ix, iy, iz
    integer*4         is, iorb, jorb
    integer*4         imatrix, jmatrix
    integer*4         max_x, max_y, max_z
+   integer*4         mpierr
    real*8            R(3), R_(3)
    real*8            a1(3), a2(3), a3(3)
    real*8            pos_i(3), pos_j(3)
@@ -567,7 +577,7 @@ subroutine set_parity_matrix_op(PGEOM, PINPT, parity_matrix_op, parity_operator,
    a3=PGEOM%a_latt(1:3,3)
    max_x = 1 ;    max_y = 1 ;   max_z = 1
 
-   parity_matrix_op = 0d0
+   P_OP = 0d0
 
 loop_i:do i = 1, PGEOM%n_atom
      if(PGEOM%n_orbital(i) .eq. 0) cycle loop_i
@@ -582,7 +592,7 @@ loop_i:do i = 1, PGEOM%n_atom
   loop_j:do j = 1, PGEOM%n_atom
            if(PGEOM%n_orbital(j) .eq. 0 .and. PGEOM%spec(i) .eq. PGEOM%spec(j) ) cycle loop_j
            R_ = PGEOM%a_coord(:,j) - origin
-           R_ = matmul( transpose(parity_operator), R_ )
+           R_ = matmul( transpose(ROT), R_ )
            pos_j= (R_(1) + ix)*a1(:) + (R_(2) + iy)*a2(:) + (R_(3) + iz)*a3(:)
 
            if(enorm(3, pos_i - pos_j) .lt. onsite_tolerance) then
@@ -593,12 +603,12 @@ loop_i:do i = 1, PGEOM%n_atom
                  jmatrix = sum( PGEOM%n_orbital(1:j) ) - PGEOM%n_orbital(j) + jorb
                  orb_name = trim(PGEOM%c_orbital(iorb,i))
                  call get_angular_momentum_quantum_number(orb_name, l)
-                 parity_matrix_op(imatrix, jmatrix) = (-1d0)**l
+                 P_OP(imatrix, jmatrix) = (-1d0)**l
                endif
              enddo
 
              if(PINPT%ispinor .eq. 2) then
-               parity_matrix_op(imatrix + PGEOM%neig, jmatrix + PGEOM%neig) = parity_matrix_op(imatrix, jmatrix)
+               P_OP(imatrix + PGEOM%neig, jmatrix + PGEOM%neig) = P_OP(imatrix, jmatrix)
              endif
 
            endif
@@ -610,6 +620,7 @@ loop_i:do i = 1, PGEOM%n_atom
      enddo
    enddo loop_i
 
+!  call print_matrix_i(int(real(parity_matrix_op)),PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor, 'parity_mat', 0,'I3')
    return
 endsubroutine
 
@@ -634,34 +645,37 @@ subroutine get_angular_momentum_quantum_number(orb_name, l)
    return
 endsubroutine
 
-subroutine symmetrize_hamk(H, V, M, neig, ispinor)
+subroutine symmetrize_hamk(H, HS, S, neig, ispinor)
    implicit none
    integer*4         neig, ispinor
-   complex*16        V(neig*ispinor,neig*ispinor)
+   complex*16       HS(neig*ispinor,neig*ispinor)
    complex*16        H(neig*ispinor,neig*ispinor)
-   complex*16        M(neig*ispinor,neig*ispinor) ! symmetry operator
+   complex*16        S(neig*ispinor,neig*ispinor) ! symmetry operator
+ 
+   HS = 0d0
 
-   V = (matmul(transpose(M),matmul(H,M)) + H)/2d0
-
-   return
-endsubroutine
-
-subroutine get_symmetry_eigenvalue(L, V, M, neig, ispinor)
-   implicit none
-   integer*4         neig, ispinor
-   integer*4         i,j
-   complex*16        V(neig*ispinor,neig*ispinor)
-   complex*16        L(neig*ispinor,neig*ispinor)
-   complex*16        M(neig*ispinor,neig*ispinor)
-
-
-   do i = 1, neig*ispinor
-     do j = 1, neig*ispinor
-       L(i,j) = dot_product( V(:,i), matmul(M, V(:,j)) )
-     enddo
-   enddo
+   !HS = (matmul(transpose(M),matmul(H,S)) + H)/2d0
+   HS = matmul(S, matmul(H, transpose(conjg(S) ) ) )
 
    return
 endsubroutine
+
+!subroutine get_symmetry_eigenvalue(L, V, M, neig, ispinor)
+!   implicit none
+!   integer*4         neig, ispinor
+!   integer*4         i,j
+!   complex*16        V(neig*ispinor,neig*ispinor)
+!   complex*16        L(neig*ispinor,neig*ispinor)
+!   complex*16        M(neig*ispinor,neig*ispinor)
+!
+
+!   do i = 1, neig*ispinor
+!     do j = 1, neig*ispinor
+!       L(i,j) = dot_product( V(:,i), matmul(M, V(:,j)) )
+!     enddo
+!   enddo
+
+!   return
+!endsubroutine
 
 end module

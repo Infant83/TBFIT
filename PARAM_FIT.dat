@@ -1,12 +1,75 @@
-PRINT_INDEX .FALSE.
-               e_cp1_A        0.21937163 0
-               e_cp1_B        0.21937163 0
-              ccn_1_AB        2.51430378  
-              ccm_1_AA        0.11       0
-              ccm_1_BB        0.11       0
-           local_U_c_A        0.61010000 0
-           local_U_c_B       -0.61010000 0
-           lsoc_c_1_AA        0.41000000 0
-           lsoc_c_1_BB        0.41000000 0
-           stoner_I_c_A       1.1 0
-           stoner_I_c_B       1.1 0
+ 
+# PARAM_FIT.dat
+# E_TARGET FILE NAME : DOS_atom_projected.dat
+    # KRANGE                    :      TBABND                    :      DFTBND                 1:16      WEIGHT        4
+    # KRANGE                    :      TBABND                  1:4      DFTBND                  1:4      WEIGHT       40
+    # KRANGE                    :      TBABND                 5:10      DFTBND                 5:10      WEIGHT       40
+    # KRANGE                    :      TBABND                13:14      DFTBND                13:14      WEIGHT       40
+    # KRANGE              110:125      TBABND                13:14      DFTBND                13:14      WEIGHT       80
+    # KRANGE               10:160      TBABND                 7:12      DFTBND                 7:12      WEIGHT      140
+    # KRANGE  55:70       120:170      TBABND                 7:12      DFTBND                 7:12      WEIGHT      280
+       PRINT_INDEX      .FALSE.
+       USE_OVERLAP       .FALSE.
+     SK_SCALE_MODE           1 
+ 
+                e_s_Bi       -9.73451706         
+               e_px_Bi       -0.39223460        F
+               e_py_Bi       -0.39223460        F
+               e_pz_Bi       -0.65397866         
+            sss_1_BiBi       -0.44293688         
+            sps_1_BiBi       -1.65564482         
+            pps_1_BiBi       -1.89121838         
+            ppp_1_BiBi        0.48620189         
+            sss_3_BiBi        0.06125289         
+            sps_3_BiBi       -0.24136190         
+            pps_3_BiBi        0.25629074         
+            ppp_3_BiBi       -0.01216627         
+            sss_5_BiBi       -0.13249707         
+            sps_5_BiBi        0.20311542         
+            pps_5_BiBi        0.01099896         
+            ppp_5_BiBi       -0.00435328         
+            sss_2_BiBi       -0.26670324         
+            sps_2_BiBi        0.09637603         
+            pps_2_BiBi       -1.38547014         
+            ppp_2_BiBi        0.27526311         
+            sss_4_BiBi       -0.26020128         
+            sps_4_BiBi       -0.10474382         
+            pps_4_BiBi        0.12430890         
+            ppp_4_BiBi        0.04986286         
+            sss_6_BiBi        0.10975338         
+            sps_6_BiBi        0.48774698         
+            pps_6_BiBi        0.11690196         
+            ppp_6_BiBi       -0.01593436         
+            sss_7_BiBi        0.02489290         
+            sps_7_BiBi        0.04326981         
+            pps_7_BiBi       -0.01894084         
+            ppp_7_BiBi       -0.00957675         
+          o_sss_1_BiBi        0.07562057        F
+          o_sps_1_BiBi        0.07441820        F
+          o_pps_1_BiBi        0.06866595        F
+          o_ppp_1_BiBi       -0.03716857        F
+          o_sss_3_BiBi        0.00459488        F
+          o_sps_3_BiBi        0.02728959        F
+          o_pps_3_BiBi        0.01562947        F
+          o_ppp_3_BiBi       -0.01242108        F
+          o_sss_5_BiBi        0.01661742        F
+          o_sps_5_BiBi       -0.01317673        F
+          o_pps_5_BiBi        0.02365053        F
+          o_ppp_5_BiBi       -0.00361893        F
+          o_sss_2_BiBi        0.08934592        F
+          o_sps_2_BiBi       -0.07183909        F
+          o_pps_2_BiBi        0.07294681        F
+          o_ppp_2_BiBi       -0.05731416        F
+          o_sss_4_BiBi        0.03167404        F
+          o_sps_4_BiBi        0.00033998        F
+          o_pps_4_BiBi        0.01991432        F
+          o_ppp_4_BiBi       -0.01617388        F
+          o_sss_6_BiBi       -0.00789335        F
+          o_sps_6_BiBi       -0.02808727        F
+          o_pps_6_BiBi        0.07616292        F
+          o_ppp_6_BiBi       -0.05904106        F
+          o_sss_7_BiBi       -0.00028248        F
+          o_sps_7_BiBi       -0.01884387        F
+          o_pps_7_BiBi       -0.00024146        F
+          o_ppp_7_BiBi        0.00979064        F
+           lambda_p_Bi        1.27513779  

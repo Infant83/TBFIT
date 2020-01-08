@@ -1,4 +1,5 @@
 #include "alias.inc"
+#ifdef SPGLIB
 subroutine get_symmetry_info(PGEOM)
    use parameters, only: poscar, onsite_tolerance, max_nsym, alphabet
    use spglib_interface
@@ -200,6 +201,7 @@ subroutine get_symmetry_info(PGEOM)
 99 format('           [',I3,1x,I3,1x,I3,']   [z]','   [',F8.4,']')
 return
 endsubroutine
+#endif
 
 subroutine get_operated_coord(rot, t, R, R_, nsym, natom)
    implicit none
@@ -293,6 +295,225 @@ subroutine  get_crystal_system(crystal_system,space_group) !result(crystal_syste
        crystal_system='cubic' 
    
    end select
+
+   return
+endsubroutine
+
+subroutine set_symmetry_operator(S, ROT, O, theta, PGEOM, PINPT)
+   use parameters, only: poscar, incar, onsite_tolerance, zi, pi
+   use print_matrix
+   use mpi_setup
+   use do_math
+   use element_info
+   implicit none
+   type (incar)   :: PINPT       ! parameters for input arguments
+   type (poscar)  :: PGEOM       ! parameters for geometry info
+   real*8            ROT(3,3)    ! rotation matrix (rotation in fractional coord)
+   real*8            O(3)        ! origin
+   complex*16        S(PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor) ! symmetry operator for each orbital
+   complex*16,allocatable :: S_block(:,:)
+   real*8            a1(3), a2(3), a3(3)
+   real*8            R(3), R_(3) ! R and R' where R' = ROT * R
+   real*8            pos_i(3), pos_j(3) ! cartesian position for i(j) orbital
+   real*8            shift(3)
+   real*8            theta, r0(3)
+   integer*4         iorb, jorb, imatrix, jmatrix
+   integer*4         iinit, iend, jinit, jend
+   integer*4         neig, niorb, njorb
+   integer*4         ix, iy, iz, i, j, is
+   integer*4         ispec, jspec
+   character*8       orb_name
+   integer*4         l, mpierr
+   real*8,external:: enorm
+
+   neig = PGEOM%neig
+   a1=PGEOM%a_latt(1:3,1)
+   a2=PGEOM%a_latt(1:3,2)
+   a3=PGEOM%a_latt(1:3,3)
+   r0=(/0d0,0d0,0d0/)
+   S = 0d0
+
+ii:do i = 1, PGEOM%n_atom
+     niorb = PGEOM%n_orbital(i)
+     if(niorb .eq. 0) cycle ii
+     R = PGEOM%a_coord(:,i) - O
+     pos_i = R(1)*a1 + R(2)*a2 + R(3)*a3
+     ispec = atomic_number(PGEOM%c_spec(PGEOM%spec(i)))
+     imatrix = sum( PGEOM%n_orbital(1:i) ) - PGEOM%n_orbital(i) + 1
+     do ix = -2,2
+     do iy = -2,2
+     do iz = -2,2
+    jj:do j = 1, PGEOM%n_atom
+         njorb = PGEOM%n_orbital(j)
+         jspec = atomic_number(PGEOM%c_spec(PGEOM%spec(j)))
+         if(njorb .eq. 0 .and. PGEOM%spec(i) .eq. PGEOM%spec(j) ) cycle jj
+
+         R_ = PGEOM%a_coord(:,j) - O
+         R_ = matmul( transpose(ROT), R_ )
+         pos_j= R_(1)*a1 + R_(2)*a2 + R_(3)*a3
+         shift= ix*a1+iy*a2+iz*a3
+         
+         if( enorm(3, pos_i - pos_j - shift ) .lt. onsite_tolerance) then
+           ! equivalent (atomic position) under rotation ROT
+           allocate( S_block( njorb, njorb ) )
+           call set_symmetry_block(S_block, njorb, PGEOM%c_orbital(:,1: njorb), theta)
+           jmatrix = sum( PGEOM%n_orbital(1:j) ) - PGEOM%n_orbital(j) + 1
+           if(PINPT%ispinor .eq. 2) then
+             iinit=imatrix ; iend=imatrix+niorb-1 ; jinit=jmatrix ; jend=jmatrix+njorb-1
+             S(iinit:iend, jinit:jend) = S_block * exp( zi*theta/180d0*pi/2d0) !spin-up
+
+             iinit=imatrix+neig ; iend=imatrix+niorb-1+neig ; jinit=jmatrix+neig ; jend=jmatrix+njorb-1+neig
+             S(iinit:iend, jinit:jend) = S_block * exp(-zi*theta/180d0*pi/2d0) !spin-dn
+           elseif(PINPT%ispinor .eq. 1) then
+             iinit=imatrix ; iend=imatrix+niorb-1 ; jinit=jmatrix ; jend=jmatrix+njorb-1
+             S(iinit:iend, jinit:jend) = S_block                               !spin-up
+           endif
+  
+          deallocate(S_block)
+         endif
+       enddo jj
+     enddo
+     enddo
+     enddo     
+   enddo ii  
+
+   ! call print_matrix_c(S, PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor, 'SYMM', 0, 'F6.3')
+
+   return
+endsubroutine
+subroutine set_symmetry_block(S_block, norb, corb, theta)
+   use parameters, only: pi
+   use mpi_setup
+   use print_matrix
+   implicit none
+   integer*4    i
+   integer*4    iorb
+   integer*4    iporb(3), idorb(5)
+   integer*4    norb, mpierr
+   integer*4    p_order, d_order
+   integer*4    ispinor
+   real*8       theta
+   complex*16   S_block(norb, norb)
+   character*8  corb(norb), corb_, porb_
+   character*8  orb_s, orb_px, orb_py, orb_pz
+   character*8  orb_dx2, orb_dxy, orb_dz2, orb_dxz, orb_dyz
+   real*8       c, s
+   logical      flag_skip_p, flag_skip_s, flag_skip_d
+
+   S_block = 0d0
+   p_order = 0
+   d_order = 0
+   c = cos(theta / 180d0 * pi)
+   s = sin(theta / 180d0 * pi)
+   flag_skip_s = .false.
+   flag_skip_p = .false.
+   flag_skip_d = .false.
+   
+   do iorb=1,norb
+     corb_ = trim(corb(iorb))
+     if( corb_(1:1) .eq. 'p' .and. .not. flag_skip_p) then
+       do i = 1, norb
+         if(corb(i) .eq. 'px') then
+           iporb(1) = i
+         elseif(corb(i) .eq. 'py') then
+           iporb(2) = i
+         elseif(corb(i) .eq. 'pz') then
+           iporb(3) = i
+         endif
+       enddo     
+       flag_skip_p = .true.
+     elseif( corb_(1:1) .eq. 'd' .and. .not. flag_skip_d) then
+       do i = 1, norb
+         if(corb(i) .eq. 'dx2') then
+           idorb(1) = i
+         elseif(corb(i) .eq. 'dxy') then
+           idorb(2) = i
+         elseif(corb(i) .eq. 'dz2') then
+           idorb(3) = i
+         elseif(corb(i) .eq. 'dxz') then
+           idorb(4) = i
+         elseif(corb(i) .eq. 'dyz') then
+           idorb(5) = i
+         endif
+       enddo
+       flag_skip_d = .true.
+     endif
+   enddo
+orb:do iorb=1, norb
+      corb_ = trim(corb(iorb))
+      if( corb_(1:1) .eq. 's') then
+        S_block(iorb, iorb) = 1d0
+      elseif( corb_(1:2) .eq. 'px') then
+        S_block(iporb(1), iporb) = (/   c,   s, 0d0/)
+      elseif( corb_(1:2) .eq. 'py') then
+        S_block(iporb(2), iporb) = (/  -s,   c, 0d0/)
+      elseif( corb_(1:2) .eq. 'pz') then
+        S_block(iporb(3), iporb) = (/ 0d0, 0d0, 1d0/)
+      endif
+
+    enddo orb
+
+ !call print_matrix_c(S_block, norb, norb, 'SSSS', 0, 'F9.4')
+
+!kill_job
+
+   return
+endsubroutine
+subroutine get_symmetry_matrix(Sij, S_eig, V, phase_shift, S_OP, E, PGEOM,  neig, ispinor, flag_phase_shift)
+   use parameters, only: poscar, eta
+   use do_math
+   use print_matrix
+   use berry_phase
+   implicit none
+   type (poscar)  :: PGEOM       ! parameters for geometry info
+   integer*4    neig, ispinor
+   integer*4    ie, je, init,iend
+   complex*16   V(neig*ispinor,neig*ispinor)
+   complex*16   S_(neig*ispinor,neig*ispinor)
+   complex*16   S_OP(neig*ispinor,neig*ispinor)
+   complex*16   Sij(neig*ispinor,neig*ispinor)
+   complex*16   S_eig(neig*ispinor)
+   complex*16   S_eig_(neig*ispinor)
+   complex*16   phase_shift(neig*ispinor)
+   real*8       E(neig*ispinor)
+   logical      flag_phase_shift 
+   real*8       very_small
+
+   very_small = 0.0000001d0
+   init   = 1
+   Sij = 0d0
+
+   do ie = 1, neig*ispinor
+     do je = 1, neig*ispinor
+      Sij(ie,je) = dot_product( V(:,ie), matmul(S_OP, phase_shift*V(:,je) ) )
+      !if(flag_phase_shift) then
+      !  Sij(ie,je) = dot_product( V(:,ie), matmul(S_OP,      phase_shift  *   V(:,je) ) )
+      !else
+      !  Sij(ie,je) = dot_product( V(:,ie), matmul(S_OP, V(:,je) ) )
+      !endif
+     enddo
+   enddo
+
+   S_ = Sij  ! save
+ 
+   ! check degeneracy & indexing eigenvalue and subspace
+   do ie=1,neig*ispinor - 1
+     if(abs(E(ie)-E(ie+1)) .gt. very_small .and. ie .ne. neig*ispinor-1) then
+       iend = ie
+       call cal_eig_nonsymm(S_(init:iend,init:iend), iend-init+1, S_eig(init:iend))
+       init = ie+1
+     elseif(abs(E(ie)-E(ie+1)) .gt. very_small .and. ie .eq. neig*ispinor-1) then
+       iend = ie
+       call cal_eig_nonsymm(S_(init:iend,init:iend), iend-init+1, S_eig(init:iend))
+       init = ie+1
+       iend = ie+1
+       call cal_eig_nonsymm(S_(init:iend,init:iend), iend-init+1, S_eig(init:iend))
+     elseif(abs(E(ie)-E(ie+1)) .lt. very_small .and. ie .eq. neig*ispinor-1) then
+       iend = ie + 1
+       call cal_eig_nonsymm(S_(init:iend,init:iend), iend-init+1, S_eig(init:iend))
+
+     endif
+   enddo
 
    return
 endsubroutine

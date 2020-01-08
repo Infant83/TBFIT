@@ -291,10 +291,9 @@ END SUBROUTINE FDJAC
 ! Main Geodesic-Bold-BroydenUpdate-Levenberg-Marquardt routine
 ! version 1.0.2
 
-SUBROUTINE geodesiclm(func, jacobian, Avv, &
+SUBROUTINE geodesiclm(func, &
        x, fvec, fjac, n, m, &
-       callback, info, &
-       analytic_jac, analytic_Avv, &
+       info, &
        center_diff, h1, h2,&
        dtd, damp_mode, &
        niters, nfev, njev, naev, &
@@ -533,11 +532,13 @@ SUBROUTINE geodesiclm(func, jacobian, Avv, &
 
   IMPLICIT NONE
   !! Passed parameters
-  EXTERNAL func, jacobian, Avv, callback
+ !EXTERNAL func, jacobian, Avv, callback
+  EXTERNAL func,  callback
 
   REAL (KIND=8) x(n), fvec(m), fjac(m,n)
   INTEGER n, m
-  LOGICAL analytic_jac, analytic_Avv, center_diff
+ !LOGICAL analytic_jac, analytic_Avv, center_diff
+  LOGICAL center_diff
   REAL (KIND=8) h1, h2
   REAL (KIND=8) dtd(n,n)
   INTEGER damp_mode, info
@@ -624,17 +625,17 @@ SUBROUTINE geodesiclm(func, jacobian, Avv, &
   Cbest = C
   fvec_best = fvec
   x_best = x
-  IF(analytic_jac) THEN
-     CALL jacobian(m,n,x,fjac)
-     njev = njev + 1
-  ELSE 
+! IF(analytic_jac) THEN
+!    CALL jacobian(m,n,x,fjac)
+!    njev = njev + 1
+! ELSE 
      CALL fdjac(m,n,x,fvec,fjac,func,h1,center_diff)
      IF (center_diff) THEN
         nfev = nfev + 2*n
      ELSE
         nfev = nfev + n
      ENDIF
-  ENDIF
+! ENDIF
   jac_uptodate = .TRUE.
   jac_force_update = .FALSE.
   jtj = MATMUL(TRANSPOSE(fjac), fjac)
@@ -687,12 +688,12 @@ SUBROUTINE geodesiclm(func, jacobian, Avv, &
   !! Main Loop
   main: DO istep=1, maxiter
      
-     info = 0
-     CALL callback(m,n,x,v,a,fvec,fjac,acc,lam,dtd,fvec_new,accepted,info)
-     IF( info .NE. 0) THEN
-        converged = -10
-        exit main
-     ENDIF
+    !info = 0
+    !CALL callback(m,n,x,v,a,fvec,fjac,acc,lam,dtd,fvec_new,accepted,info)
+    !IF( info .NE. 0) THEN
+    !   converged = -10
+    !   exit main
+    !ENDIF
      !! Update Functions
 
      !! Full or partial Jacobian Update?
@@ -718,17 +719,17 @@ SUBROUTINE geodesiclm(func, jacobian, Avv, &
      
 
      IF( jac_force_update ) THEN !! Full rank update of jacobian
-        IF(analytic_jac) THEN
-           CALL jacobian(m,n,x,fjac)
-           njev = njev + 1
-        ELSE
+!       IF(analytic_jac) THEN
+!          CALL jacobian(m,n,x,fjac)
+!          njev = njev + 1
+!       ELSE
            CALL fdjac(m,n,x,fvec,fjac,func,h1,center_diff)
            IF (center_diff) THEN
               nfev = nfev + 2*n
            ELSE
               nfev = nfev + n
            ENDIF
-        ENDIF
+!       ENDIF
         jac_uptodate = .TRUE.
         jac_force_update = .FALSE.
      ENDIF
@@ -805,17 +806,17 @@ SUBROUTINE geodesiclm(func, jacobian, Avv, &
         IF ( imethod .LT. 10) delta = SQRT(DOT_PRODUCT(v, MATMUL(dtd, v)))  !! Update delta if not set directly
         !! update acceleration
         IF(iaccel .GT. 0) THEN
-           IF( analytic_Avv ) THEN 
-              CALL Avv(m,n,x,v,acc)
-              naev = naev + 1
-           ELSE
+!          IF( analytic_Avv ) THEN 
+!             CALL Avv(m,n,x,v,acc)
+!             naev = naev + 1
+!          ELSE
               CALL FDAvv(m,n,x,v,fvec, fjac, func, acc, jac_uptodate, h2)
               IF(jac_uptodate) THEN
                  nfev = nfev + 1
               ELSE 
                  nfev = nfev + 2 !! we don't use the jacobian if it is not up to date
               ENDIF
-           ENDIF
+!          ENDIF
            !! Check accel for nans
            valid_result = .TRUE.
            checkAccel: DO i = 1,m     

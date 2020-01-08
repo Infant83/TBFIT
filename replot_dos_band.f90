@@ -878,6 +878,9 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
                    if(ispinor .eq. 2) then
                      c_up = V2(im,ie,ik)
                      write(pid_energy,'(*(F9.4))',ADVANCE='NO') c_up
+ !if(ie .eq. 161 .and. ik .eq. 46 ) then
+ !  write(6,*)"XXXX ", ia, ik, ie, c_up
+ !endif
                      c_tot = c_tot + c_up
                    elseif(ispinor .eq. 1) then
 !                    c_up = V(im+PGEOM%neig*(is-1),ie+nband*(is-1),ik)
@@ -1112,7 +1115,8 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
 
      if_main write(pid_ldos,'(A,2(F16.8,A))')'# Integrated spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
      if_main write(pid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
-     if_main write(pid_ldos,'(A,F16.8)'     )'# dE(eV)= ',de
+    !if_main write(pid_ldos,'(A,F16.8)'     )'# dE(eV)= ',de
+     if_main write(pid_ldos,'(2(A,F16.8))'  )'# dE(eV)= ',de, ' ,SMEARING(eV)= ', PRPLT%replot_dos_smearing
 
      if(PINPT%flag_collinear) then
        if_main write(pid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)           SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES'
@@ -1154,7 +1158,7 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
 
        write(mypid_ldos,'(A,2(F16.8,A))')'# Spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
        write(mypid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
-       write(mypid_ldos,'(A,F16.8)'     )'# dE(eV)= ',de
+       write(mypid_ldos,'(2(A,F16.8))'  )'# dE(eV)= ',de, ' ,SMEARING(eV)= ', PRPLT%replot_dos_smearing
 
        if(PINPT%flag_collinear) then
          write(mypid_ldos,'(A)'           )'#           CARTESIAN COORDINATE Rx,Ry,Rz(Ang)        ENERGY(eV)           SLDOS(UP)        SLDOS(DN)        ATOM_SPECIES      ATOM_NUMBER    SITE_INDEX'

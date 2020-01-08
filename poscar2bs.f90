@@ -5,7 +5,7 @@
 
 program poscar2bs
   implicit none
-  integer,parameter::matom=9024
+  integer,parameter::matom=129024
   integer,parameter::mtype=16
   character(len=80)::title,fname,atom_name
   integer::nx,ny,nz, ishift

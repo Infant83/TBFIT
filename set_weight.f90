@@ -19,7 +19,8 @@ subroutine set_penalty_orb(NN_TABLE, PINPT, PGEOM, PKPTS, PWGHT, strip_kp, strip
    character(*)     strip_kp, strip_tb, strip_pen, strip_orb, strip_site
    logical          flag_number
    external         flag_number
-   
+   integer*4        mpierr
+
    if_main_then
    write(6,'(10A)')' O_PENALTY: KRANGE=[',trim(strip_kp),'],TB_RANGE=[',trim(strip_tb), &
                    '],ORB_RANGE=[',trim(strip_orb),'],SITE_RANGE=[',trim(strip_site), &
@@ -43,7 +44,7 @@ subroutine set_penalty_orb(NN_TABLE, PINPT, PGEOM, PKPTS, PWGHT, strip_kp, strip
    elseif(.not. flag_number(trim(strip_pen))) then
      if_main write(6,*)'  !WARN! PENALTY setting argument is not properly asigned. '
      if_main write(6,*)'         Check! Exit...',func
-     stop
+     kill_job
    endif
 
    PWGHT%PENALTY_ORB(siterange(1:size_siterange),tbrange(1:size_tbrange),krange(1:size_krange))=pen_orb
@@ -72,7 +73,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
    logical          flag_number, flag_collinear, flag_noncollinear
    external         nitems   
    external         flag_number
-
+   integer*4        mpierr
 
    flag_collinear = PINPT%flag_collinear
    flag_noncollinear = PINPT%flag_noncollinear
@@ -103,7 +104,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            fina=PKPTS%nkpoint
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -125,7 +126,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            init=1
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -141,7 +142,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            fina=PKPTS%nkpoint
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -198,7 +199,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            endif
          else
            if_main write(6,*)' 1!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -224,7 +225,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            init=1
          else
            if_main write(6,*)' 2!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -244,7 +245,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            endif
          else
            if_main write(6,*)' 3!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -306,7 +307,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            endif
          else
            if_main write(6,*)' 1!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -330,7 +331,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            init=1
          else
            if_main write(6,*)' 2!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -354,7 +355,7 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
            endif
          else 
            if_main write(6,*)' 3!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -394,10 +395,10 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
    !reset target energy & weight
    if(size(tbrange) .ne. size(dfrange)) then
      if_main write(6,'(A,A)')'  !WARN! size of TBRANGE and DFRANGE is not same. Please check "SET WEIGHT" tag. Exit...',func
-     stop
+     kill_job
    endif
    EDFT%E(tbrange,krange) = EDFT_all%E(dfrange,krange)
-   PWGHT%WT(tbrange,krange)=w
+   PWGHT%WT(tbrange,krange) = w
 
 return
 endsubroutine
@@ -426,6 +427,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
    logical          flag_number, flag_collinear, flag_noncollinear
    external         nitems
    external         flag_number
+   integer*4        mpierr
 
    siterange_dummy = 0
    flag_collinear = PINPT%flag_collinear
@@ -485,7 +487,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
          if(allocated(irange)) then
            if_main write(6,*)'  !WARN! SITERANGE setting argument is not properly asigned. '
            if_main write(6,*)'         Check! Exit...',func
-           stop
+           kill_job
          elseif(.not. allocated(irange)) then
            allocate(irange(PGEOM%n_atom))
            irange(1:PGEOM%n_atom) = (/(k, k=1,PGEOM%n_atom)/)
@@ -498,7 +500,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
            if(size_range_dummy .ne. 1) then
              if_main write(6,*)'  !WARN! SITERANGE setting argument is not properly asigned. '
              if_main write(6,*)'         Check! Exit...',func
-             stop
+             kill_job
            endif
            init = range_dummy(1)
          endif
@@ -509,7 +511,7 @@ subroutine get_siterange(strip_site, NN_TABLE, PGEOM, PINPT, orbrange, size_orbr
            if(size_range_dummy .ne. 1) then
              if_main write(6,*)'  !WARN! SITERANGE setting argument is not properly asigned. '
              if_main write(6,*)'         Check! Exit...',func
-             stop
+             kill_job
            endif
            fina = range_dummy(1)
          endif
@@ -569,7 +571,8 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
    logical          flag_number, flag_collinear, flag_noncollinear
    external         nitems
    external         flag_number
-  
+   integer*4        mpierr
+
    !orbrange set
    nrange=nitems(strip_orb)
    allocate(str(nrange))
@@ -584,7 +587,7 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
          fina=init
        elseif(.not. flag_number(str(i))) then
          if_main write(6,*)'  !WARN! ORBRANGE setting argument is not properly asigned. Check! Exit...',func
-         stop
+         kill_job
        endif
 
      elseif(index(str(i),':') .gt. 0)then
@@ -601,7 +604,7 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
        elseif(.not. flag_number(str(i))) then
          if(trim(dummy) .eq. 'ALL') then
            if_main write(6,*)'  !WARN! ORBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -615,7 +618,7 @@ subroutine get_orbrange(strip_orb, PGEOM, orbrange_dummy, size_orbrange)
        elseif(.not. flag_number(str(i))) then
          if(trim(dummy) .eq. 'ALL') then
            if_main write(6,*)'  !WARN! ORBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -654,6 +657,7 @@ return
 endsubroutine
 subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrange)
    use parameters
+   use mpi_setup
    implicit none
    type(incar )  :: PINPT
    type(weight)  :: PWGHT
@@ -663,6 +667,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
    integer*4, intent(out) :: dfrange_dummy(PGEOM%neig_target)
    integer*4        nrange
    integer*4        init, fina
+   integer*4        mpierr
    integer*4, allocatable :: irange(:), irange_new(:), dfrange(:)
    character(*)     strip_df
    character*20,allocatable :: str(:)
@@ -703,7 +708,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
            endif
          else
            if_main write(6,*)' 1!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -727,7 +732,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
            init=1
          else
            if_main write(6,*)' 2!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -751,7 +756,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
            endif
          else
            if_main write(6,*)' 3!WARN! DFRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -802,6 +807,7 @@ return
 endsubroutine
 subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
    use parameters
+   use mpi_setup
    implicit none
    type(incar )  :: PINPT
    type(poscar)  :: PGEOM
@@ -818,7 +824,8 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
    logical          flag_number, flag_collinear, flag_noncollinear
    external         nitems
    external         flag_number
-   
+   integer*4        mpierr
+
    flag_collinear = PINPT%flag_collinear
    flag_noncollinear = PINPT%flag_noncollinear
 
@@ -850,7 +857,7 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
            endif
          else
            if_main write(6,*)' 1!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -876,7 +883,7 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
            init=1
          else
            if_main write(6,*)' 2!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -896,7 +903,7 @@ subroutine get_tbrange(strip_tb, PGEOM, PINPT, tbrange_dummy, size_tbrange)
            endif
          else
            if_main write(6,*)' 3!WARN! TBRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -960,6 +967,7 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
    logical          flag_number
    external         nitems
    external         flag_number
+   integer*4        mpierr
 
    !krange set
    nrange=nitems(strip_kp)
@@ -982,7 +990,7 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
            fina=PKPTS%nkpoint
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 
@@ -1004,7 +1012,7 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
            init=1
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
        dummy=str(i)
@@ -1020,7 +1028,7 @@ subroutine get_krange(strip_kp, PKPTS, krange_dummy, size_krange)
            fina=PKPTS%nkpoint
          else
            if_main write(6,*)'  !WARN! KRANGE setting argument is not properly asigned. Check! Exit...',func
-           stop
+           kill_job
          endif
        endif
 

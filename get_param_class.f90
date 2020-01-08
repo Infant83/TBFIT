@@ -19,12 +19,12 @@ subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
    max_nn = 0
    dist_nn(0)=onsite_tol
    do n = 1, PGEOM%n_nn_type
-     index_iatom=index( PGEOM%nn_pair(n),c_atom_i(1:li) )
-     index_jatom=index( PGEOM%nn_pair(n),c_atom_j(1:lj) ,.TRUE. )
+     index_iatom=index( PGEOM%nn_pair(n),c_atom_i(1:li) ) ! pick former. for example pick A out of "xx_xx_AB"
+     index_jatom=index( PGEOM%nn_pair(n),c_atom_j(1:lj) ,.TRUE. ) ! pick later one. for example pick B out of "xx_xx_AB"
 
      if(index_iatom .eq. 0 .or. index_jatom .eq. 0) then
        cycle
-     elseif(index_iatom .ge. 1 .and. index_jatom .ge. 1 .and. index_iatom .ne. index_jatom) then
+     elseif(index_iatom .ge. 1 .and. index_jatom .ge. 1 .and. index_iatom .ne. index_jatom) then ! if correctly pick A and B
        nn = len_trim(PGEOM%nn_pair(n)) - li - lj
      else
        cycle
@@ -32,8 +32,9 @@ subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
 
      if( nn .ge. 1) then
        max_nn = max(nn, max_nn)
-       dist_nn(nn) = PGEOM%nn_dist(n)
-       r0_nn(nn)   = PGEOM%nn_r0(n)
+       dist_nn(nn) = PGEOM%nn_dist(n)  ! cutoff distance for n-th nn neighbor pair
+       r0_nn(nn)   = PGEOM%nn_r0(n)    ! reference distance R0 for n-th nn neighbor pair
+                                       ! if SK_SCALE_TYPE >= 11, max(nn_r0) will be taken for the R0 to calculate rho_i
      endif
    enddo
 
@@ -134,7 +135,7 @@ endsubroutine
 subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
                             index_sigma_scale,index_pi_scale,index_delta_scale, &
                             PINPT, param_class, nn_class, ci_atom, cj_atom, i_atom, j_atom, &
-                            ci_site, cj_site, flag_use_site_cindex)
+                            ci_site, cj_site, flag_use_site_cindex, flag_use_overlap)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT
@@ -148,7 +149,7 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    character*8, intent(in) ::  ci_atom , cj_atom
    character*20,intent(in) ::  ci_site , cj_site 
    character*28            ::  ci_atom_, cj_atom_
-   logical      flag_scale, flag_use_site_cindex
+   logical      flag_scale, flag_use_site_cindex, flag_use_overlap
 
    ! initialize  
    index_sigma       =  0
@@ -161,14 +162,14 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    if(.not.flag_use_site_cindex) then
 
      flag_scale = .false.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi   )
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma      , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi         , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta      , flag_use_overlap)
 
      flag_scale = .true. 
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   )
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale, flag_use_overlap)
 
    elseif(flag_use_site_cindex) then
 
@@ -176,14 +177,14 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
      write(cj_atom_,'(A,A)')trim(cj_atom),trim(cj_site)
 
      flag_scale = .false.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi   )
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma      , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi         , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta      , flag_use_overlap)
 
      flag_scale = .true.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma_scale)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi_scale   )
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta_scale)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma_scale, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi_scale   , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta_scale, flag_use_overlap)
 
    endif
 
@@ -227,7 +228,28 @@ subroutine get_local_U_param_index(local_U_param_index, PINPT, nn_class, param_c
 
 return
 endsubroutine
+subroutine get_l_onsite_param_index(l_onsite_param_index, PINPT, ci_atom)
+   use parameters, only : incar
+   implicit none
+   type(incar) :: PINPT
+   integer*4      i, ii, liatom, lparam
+   integer*4      l_onsite_param_index
+   character*8    ci_atom
+   character*40   l_onsite_param_name
+  
+   ! initialize
+   l_onsite_param_index = 0
+   
+   liatom = len_trim(ci_atom)
 
+   write(l_onsite_param_name, 99)'lonsite_',ci_atom(1:liatom)
+   
+   call get_param_index(PINPT, l_onsite_param_name, l_onsite_param_index)
+
+99 format(A,A)
+   
+return
+endsubroutine
 subroutine get_plus_U_param_index(plus_U_param_index, PINPT, nn_class, param_class, ci_atom)
    use parameters, only : incar
    implicit none
@@ -296,31 +318,47 @@ subroutine get_stoner_I_param_index(stoner_I_param_index, PINPT, nn_class, param
 
 return
 endsubroutine
-subroutine get_param_name(param_name, param_class, param_type, nn_class, ci_atom, cj_atom, flag_scale)
+subroutine get_param_name(param_name, param_class, param_type, nn_class, ci_atom, cj_atom, flag_scale, flag_use_overlap)
    implicit none
    integer*4    lia, lja, lp
    integer*4    nn_class
    character*2  param_class
    character*8  param_type
    character*40 param_name
-   logical      flag_scale
+   logical      flag_scale, flag_use_overlap
    character(*), intent(in) ::  ci_atom, cj_atom
 
    lia = len_trim(ci_atom)
    lja = len_trim(cj_atom)
    lp  = len_trim(param_class)
 
-   if(.not. flag_scale) then
-     if(nn_class .lt. 10) then
-       write(param_name,99)      param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
-     elseif(nn_class .ge. 10) then
-       write(param_name,98)      param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+   if(.not. flag_use_overlap) then
+     if(.not. flag_scale) then
+       if(nn_class .lt. 10) then
+         write(param_name,99)      param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       elseif(nn_class .ge. 10) then
+         write(param_name,98)      param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       endif
+     elseif(flag_scale) then
+       if(nn_class .lt. 10) then
+         write(param_name,89) 's_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       elseif(nn_class .ge. 10) then
+         write(param_name,88) 's_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       endif
      endif
-   elseif(flag_scale) then
-     if(nn_class .lt. 10) then
-       write(param_name,89) 's_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
-     elseif(nn_class .ge. 10) then
-       write(param_name,88) 's_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+   elseif( flag_use_overlap) then
+     if(.not. flag_scale) then
+       if(nn_class .lt. 10) then
+         write(param_name,89) 'o_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       elseif(nn_class .ge. 10) then
+         write(param_name,88) 'o_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       endif
+     elseif(flag_scale) then
+       if(nn_class .lt. 10) then
+         write(param_name,89)'os_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       elseif(nn_class .ge. 10) then
+         write(param_name,88)'os_',param_class(1:lp),param_type(1:1),'_',nn_class,'_',ci_atom(1:lia),cj_atom(1:lja)
+       endif
      endif
    endif
 
@@ -333,7 +371,7 @@ return
 endsubroutine
 
 subroutine get_param_name_index(PINPT, param_class, param_type, nn_class, ci_atom, cj_atom, &
-                                flag_scale, param_index)
+                                flag_scale, param_index, flag_use_overlap)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT
@@ -344,13 +382,13 @@ subroutine get_param_name_index(PINPT, param_class, param_type, nn_class, ci_ato
    character*2    param_class
    character*8    param_type
    character*40   param_name
-   logical        flag_scale  
+   logical        flag_scale, flag_use_overlap
 
 loop:do i_atempt = 0, 1
        if(i_atempt .eq. 0) call get_param_name(param_name, param_class, trim(param_type), nn_class, &
-                                               ci_atom, cj_atom, flag_scale)
+                                               ci_atom, cj_atom, flag_scale, flag_use_overlap)
        if(i_atempt .eq. 1) call get_param_name(param_name, param_class, trim(param_type), nn_class, &
-                                               cj_atom, ci_atom, flag_scale)
+                                               cj_atom, ci_atom, flag_scale, flag_use_overlap)
        call get_param_index(PINPT, param_name, param_index)
        if(param_index .gt. 0) exit loop 
      enddo loop
@@ -360,7 +398,7 @@ subroutine get_param_index(PINPT, param_name, param_index)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT
-   integer*4      i
+   integer*4      i, k
    integer*4      param_index
    character(*), intent(in) ::  param_name
    character*40   pname_file, pname 
@@ -374,40 +412,103 @@ subroutine get_param_index(PINPT, param_name, param_index)
    do i = 1, PINPT%nparam
      pname_file=adjustl(trim(PINPT%param_name(i)))
      pname_file=str2lowcase(pname_file)
-!    if( adjustl(trim(PINPT%param_name(i))) .eq. adjustl(trim(param_name)) ) then
 
      if( trim(pname_file) .eq. adjustl(trim(pname)) ) then
-       if( nint(PINPT%param_const(1,i)) .ge. 1 ) then
-         param_index = nint(PINPT%param_const(1,i), 4) ! set constraint condition: if equal to
-!  write(6,*)"XXX ", pname, pname_file, i, param_index
+       if( PINPT%slater_koster_type .gt. 10) then
+         k = nint(PINPT%param_const_nrl(1,1,i))
+       else
+         k = nint(PINPT%param_const(1,i))
+       endif
+
+       if( k .ge. 1 ) then
+         param_index = k  ! set constraint condition: if equal to
        else
          param_index = i
        endif
+
        exit
      endif
    enddo
 
 return
 endsubroutine
-subroutine get_param(PINPT, param_index, param)
-   use parameters, only : incar
-   implicit none
-   type(incar) :: PINPT
-   integer*4      param_index
-   real*8         param
 
+!module get_parameter
+! use mpi_setup
 
-   if(param_index .ne. 0) then
-     ! get parameter value with given parameter index
-     if( nint(PINPT%param_const(4, param_index )) .ge. 1 ) then
-       param = PINPT%param_const(5, param_index ) ! set constraint condition: if fixed
-     else
-       param = PINPT%param( param_index )
-     endif
+! contains
+!   elemental subroutine get_param_temp(PINPT, param_index, isub, param)
+!      use parameters, only: incar
+!      implicit none
+!      type(incar), intent(in) :: PINPT
+!      integer*4,   intent(in) :: param_index, isub
+!      integer*4                  k
+!      real*8,      intent(out):: param
 
-   elseif(param_index .eq. 0) then
-     param = 0.d0
-   endif
+!      if(param_index .ne. 0) then
+!        if(PINPT%slater_koster_type .gt. 10) then
+!          k = nint(PINPT%param_const_nrl(4,1, param_index))
+!          if(k .ge. 1) then 
+!            param = PINPT%param_const_nrl(5,isub,param_index)
+!          else
+!            param = PINPT%param_nrl(isub,param_index)
+!          endif
+!        else
+!          k = nint(PINPT%param_const(4, param_index))
+!          if(k .ge. 1) then
+!            param = PINPT%param_const(5,param_index)
+!          else
+!            param = PINPT%param(param_index)
+!          endif
+!        endif   
 
-return
-endsubroutine
+!      else
+!        param = 0d0 
+!      endif       
+
+!   return
+!   endsubroutine
+!endmodule
+!   subroutine get_param_nrl(PINPT, param_index, param_nrl)
+!      use parameters, only : incar
+!      implicit none
+!      type(incar), intent(in):: PINPT
+!      integer*4,   intent(in) :: param_index
+!      integer*4      k, nsub
+!      real*8         param_nrl(PINPT%param_nsub(param_index))
+!
+!      if(param_index .ne. 0) then
+!        ! get parameter value with given parameter index
+!        k = nint(PINPT%param_const_nrl(4, 1, param_index ))
+!        nsub = PINPT%param_nsub(param_index)
+!        if( k .ge. 1 ) then
+!          param_nrl(1:nsub) = PINPT%param_const_nrl(5,1:nsub, param_index ) ! set constraint condition: if fixed
+!        else
+!          param_nrl(1:nsub) = PINPT%param_nrl(1:nsub, param_index )
+!        endif
+!      elseif(param_index .eq. 0) then
+!        param_nrl = 0.d0
+!      endif
+!   return
+!   endsubroutine
+!   subroutine get_param(PINPT, param_index, param)
+!      use parameters, only : incar
+!      implicit none
+!      type(incar) :: PINPT
+!      integer*4      param_index
+!      real*8         param
+!
+!      if(param_index .ne. 0) then
+!        ! get parameter value with given parameter index
+!        if(  nint(PINPT%param_const(4, param_index )) .ge. 1 ) then
+!          param = PINPT%param_const(5, param_index ) ! set constraint condition: if fixed
+!        else
+!          param = PINPT%param( param_index )
+!        endif
+!
+!      elseif(param_index .eq. 0) then
+!        param = 0.d0
+!      endif
+!
+!   return
+!   endsubroutine

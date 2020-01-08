@@ -18,7 +18,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   character*40  str2lowcase
   character*132 strip_zak_range
   real*8        enorm
-  real*8        param_const(5,max_nparam)
+  real*8        param_const(5,max_nparam), param_const_nrl(5,4,max_nparam)
   character(*), parameter :: func = 'read_input'
   character*40  fname
   logical       flag_kfile_exist, flag_gfile_exist, flag_read_energy, flag_number
@@ -48,6 +48,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(.not. PINPT%flag_parse .and. .not. PINPT%flag_pfile) PINPT%flag_pfile=.false.
   PINPT%flag_pincar=.false.
   PINPT%flag_tbfit=.false.
+  PINPT%flag_plot_fit=.false.
+  PINPT%flag_print_energy_diff = .false.
+  PINPT%filenm_gnuplot = 'gnuBAND-TB.gpi' ! default
   PINPT%flag_print_only_target=.false.
   PINPT%flag_print_param=.false.
   PINPT%flag_plot_stm_image = .false.
@@ -61,14 +64,17 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   if(.not. PINPT%flag_proj_parse)   PINPT%flag_print_proj=.false.
+  PINPT%itarget_e_start = 1 ! default
   PINPT%nproj_sum = 0
   PINPT%flag_pfile_index=.false.
+  PINPT%flag_use_overlap=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
   PINPT%flag_get_z2=.false.
   PINPT%flag_get_zak_phase=.false.
   PINPT%flag_zak_separate=.false.
   PINPT%flag_get_parity=.false.
+  PINPT%flag_get_symmetry=.false.
   PINPT%flag_berryc_separate=.false.
   PINPT%flag_zak_kfile_read = .false.
   PINPT%flag_get_berry_curvature = .false.
@@ -80,6 +86,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_set_ribbon=.false.
   PINPT%flag_print_only_ribbon_geom=.false.
   PINPT%flag_slater_koster = .true. 
+  PINPT%slater_koster_type = 1 ! default scaling method
+  PINPT%param_nsub_max = 1 ! default if SK_SCALE_TYPE <= 10
+  PINPT%l_broaden = 0.15 ! angstrong unit, default for cutoff-function broadening
   PINPT%flag_scissor = .false.
   PINPT%flag_efield = .false.
   PINPT%flag_efield_frac = .false.
@@ -88,6 +97,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_sparse = .false.
   PINPT%flag_get_effective_ham=.false.
   PINPT%flag_write_unformatted=.false.
+  PINPT%efile_type = 'user'
+  PINPT%efile_ef   = 0d0
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -95,6 +106,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT_BERRY%flag_bc_phase  = .false.
   PINPT_BERRY%flag_z2_phase  = .false.
   PINPT_BERRY%flag_zak_phase = .false.
+  PINPT_BERRY%noccupied      = 0
+  PINPT_BERRY%flag_print_hamiltonian_parity = .false.
+  PINPT_BERRY%flag_print_hamiltonian_symmetry = .false.
+  PINPT_BERRY%flag_parity_phase = .false.
+  PINPT_BERRY%flag_symmetry_phase = .false.
 
   flag_read_energy=.false.
   flag_kfile_ribbon=.false.
@@ -108,6 +124,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(.not. PINPT%flag_mxfit_parse) PINPT%mxfit = 1       ! default 
   PINPT%ftol  = 0.00001 ! default 
   PINPT%ptol  = 0.00001 ! default 
+  PINPT%fdiff = 0.001   ! default
   PINPT%ispin = 1 ! default (1 : nonmag, 2: collinear & noncollinear)
   PINPT%ispinor = 1 ! default (1 : nonmag, collinear 2: noncollinear)
   PINPT%nspin = 1 ! default (1 : nonmag, 2: collinear, 1: noncollinear)
@@ -184,7 +201,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           case('GET_BAND', 'BAND')
             call set_get_band(PINPT,inputline, desc_str)
 
-          case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT')
+          case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT', 'FDIFF')
             call set_tbfit(PINPT, inputline, desc_str)
 
           case('EWINDOW')
@@ -212,7 +229,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           !read TB-parameter file from PFILE
           case('PFILE')
-           call set_tbparam_file(PINPT, param_const, inputline)
+           call set_tbparam_file(PINPT, param_const, param_const_nrl, inputline)
 
           !hopping type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
           case('IS_SK', 'SLATER_KOSTER')
@@ -248,9 +265,21 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           case('PLUS+U')
             call set_plus_U_scheme(PINPT, inputline)
 
-          !read TB-parameter file from PFILE
+          !read target (DFT) energy file from EFILE
           case('EFILE','EFILEU','EFILED')
             call set_target_file(PINPT, flag_read_energy, inputline, desc_str)
+          case('EFILE_EF')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%efile_ef
+            if_main write(6,'(A,F12.5)')'  EDFT_EF:  ', PINPT%efile_ef
+
+          case('PLOTFIT')
+            if(nitems(inputline) -1 .eq. 1) then
+              read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
+            else
+              read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit, PINPT%filenm_gnuplot
+            endif
+          case('PRTDIFF')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
 
           !initial energy of the target band
           case('IBAND','FBAND')
@@ -283,12 +312,12 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
           case('SET')
             read(inputline,*,iostat=i_continue) desc_str, desc_str
            
-            !set TB-parameter
-            if(trim(desc_str) .eq. 'TBPARAM') then
-              call set_tbparam(PINPT, param_const, desc_str)
+            !set TB-parameter ! deprecated... 
+           !if(trim(desc_str) .eq. 'TBPARAM') then
+           !  call set_tbparam(PINPT, param_const, desc_str)
            
             !set constraint for parameters
-            elseif(trim(desc_str) .eq. 'CONSTRAINT') then
+            if(trim(desc_str) .eq. 'CONSTRAINT') then
               call set_constraint(PINPT, desc_str)
            
             !set weight for the fitting
@@ -331,6 +360,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             elseif(trim(desc_str) .eq. 'PARITY' .or. trim(desc_str) .eq. 'PARITY_CHECK') then
               call set_parity_check(PINPT, PINPT_BERRY, desc_str)
 
+            elseif(trim(desc_str) .eq. 'SYMMETRY_EIG' .or.  trim(desc_str) .eq. 'SYMMETRY_INDICATOR') then
+              call set_symmetry_check(PINPT, PINPT_BERRY, desc_str)
+
             !set Berry curvature
             elseif(trim(desc_str) .eq. 'BERRY_CURVATURE' .or. trim(desc_str) .eq. 'BERRYC') then
               call set_berry_curvature(PINPT, PINPT_BERRY, desc_str)
@@ -365,22 +397,38 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
 
   if( PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     if_main write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     if(PINPT%slater_koster_type .gt. 10) then
+       if_main write(6,'(A)') '         : NRL TB scheme is applied in parameterization'
+       if_main write(6,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden
+     endif
      do i=1,PINPT%nparam
-       if(myid .eq. 0) write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+       if(PINPT%slater_koster_type .gt. 10) then
+         if_main write(6,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i)
+       else
+         if_main write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+       endif
      enddo
   elseif( PINPT%flag_tbfit .and. .not. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if(myid .eq. 0) write(6,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!'
+     if_main write(6,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!'
      kill_job
   elseif( .not. PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if(myid .eq. 0) write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     if_main write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     if(PINPT%slater_koster_type .gt. 10) then
+       if_main write(6,'(A)') '         : NRL TB scheme is applied in parameterization'
+       if_main write(6,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden
+     endif
      do i=1,PINPT%nparam
-       if(myid .eq. 0) write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+       if(PINPT%slater_koster_type .gt. 10) then
+         if_main write(6,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i)
+       else
+         if_main write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+       endif
      enddo
   endif
 
   if (linecount == 0) then
-    if(myid .eq. 0) write(6,*)'Attention - empty input file: INCAR-TB ',func
+    if_main write(6,*)'Attention - empty input file: INCAR-TB ',func
   endif
   close(pid_incar)
 
@@ -390,7 +438,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   inquire(file=PINPT%gfilenm,exist=flag_gfile_exist)
   inquire(file=PINPT%kfilenm,exist=flag_kfile_exist)
   if(flag_read_energy .and. PINPT%flag_tbfit) then
-    if(PINPT%flag_collinear) then
+    if(PINPT%flag_collinear .and. PINPT%efile_type .eq. 'user') then
       if(len_trim(PINPT%efilenmu) .eq. 0 .or. len_trim(PINPT%efilenmd) .eq. 0) then
         if(myid .eq. 0) write(6,'(A)')'  !WARN!  EFILE has not been set properly. Check EFILE or EFILEU, EFILED. Exit program.'
         kill_job
@@ -409,12 +457,22 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
     !set parameter constraint
     allocate( PINPT%param_const(5,PINPT%nparam) )
+
     !initialize
      PINPT%param_const(1,:) =param_const(1,1:PINPT%nparam)  ! if gt 0, param is same as i-th parameter 
      PINPT%param_const(2,:) =param_const(2,1:PINPT%nparam)  ! default upper bound 
      PINPT%param_const(3,:) =param_const(3,1:PINPT%nparam)  ! default lower bound
      PINPT%param_const(4,:) =param_const(4,1:PINPT%nparam)  ! if set to 1; fix 
      PINPT%param_const(5,:) =param_const(5,1:PINPT%nparam)  ! if set to 1; fix and save the parameter as constant
+
+    if(PINPT%slater_koster_type .gt. 10) then
+      allocate( PINPT%param_const_nrl(5,4,PINPT%nparam) )
+      PINPT%param_const_nrl(1,:,:) =param_const_nrl(1,:,1:PINPT%nparam)  ! if gt 0, param is same as i-th parameter 
+      PINPT%param_const_nrl(2,:,:) =param_const_nrl(2,:,1:PINPT%nparam)  ! default upper bound 
+      PINPT%param_const_nrl(3,:,:) =param_const_nrl(3,:,1:PINPT%nparam)  ! default lower bound
+      PINPT%param_const_nrl(4,:,:) =param_const_nrl(4,:,1:PINPT%nparam)  ! if set to 1; fix 
+      PINPT%param_const_nrl(5,:,:) =param_const_nrl(5,:,1:PINPT%nparam)  ! if set to 1; fix and save the parameter as constant
+    endif
 
     if(PINPT%flag_set_param_const) call set_param_const(PINPT,PGEOM)
 
@@ -423,12 +481,16 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
              PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_proj_band .or. &
              PRPLT%flag_replot_didv  .or. PRPLT%flag_replot_band )) then
       call find_nn(PINPT,PGEOM, NN_TABLE)
-      call print_nn_table(NN_TABLE,PINPT)
-      if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit) then
+!     if(PINPT%slater_koster_type .le. 10) then ! note: we are not able to write "hopping.dat" file if SK_SCALE_TYPE >= 11 
+        call print_nn_table(NN_TABLE,PINPT)     !       due to some technical problem which is not harm the results.
+!     endif
+      if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit .and. .not. PINPT%flag_use_overlap) then
        call load_nn_table(NN_TABLE, PINPT)
-      elseif(PINPT%flag_load_nntable .and. PINPT%flag_tbfit) then
-       if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure. '
-       if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option. Exit..'
+      elseif(PINPT%flag_load_nntable .and. (PINPT%flag_tbfit .or. PINPT%flag_use_overlap) ) then
+       if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure or '
+       if_main write(6,'(A)')'         with overlap matrix constructions, i.e., using overlap integrals.'
+       if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option or do not use overlap integrals in'
+       if_main write(6,'(A)')'         your PARAM_FIT.dat file. Exit..'
        kill_job
       endif
     endif
@@ -508,8 +570,10 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
   ! read info: target energy to be fitted with
   if(PINPT%flag_collinear .and. flag_read_energy .and. PINPT%flag_tbfit) then 
-    if(flag_efileu_exist .and. flag_efiled_exist) then
+    if(flag_efileu_exist .and. flag_efiled_exist .and. PINPT%efile_type .eq. 'user') then
       flag_efile_exist = .true.
+    elseif(flag_efileu_exist .and. PINPT%efile_type .eq. 'vasp' ) then
+      flag_efile_exist = .true. 
     else
       flag_efile_exist = .false.
     endif
@@ -525,9 +589,13 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
     if(PWGHT%flag_weight_default) then
       allocate(PWGHT%WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
-      PWGHT%WT(:,:)=1.d0 !initialize
+      PWGHT%WT(:,:)=0.00001d0 !initialize
 
-      call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
+      if(PINPT%efile_type .eq. 'vasp') then
+        call read_energy_vasp(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
+      else
+        call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
+      endif
 
       if(PINPT%flag_print_only_target ) then
         if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
@@ -539,13 +607,20 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
     elseif(.not. PWGHT%flag_weight_default) then
       allocate(PWGHT%WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
-      call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
-      PWGHT%WT(:,:)=1.d0 !initialize
+
+      if(PINPT%efile_type .eq. 'vasp') then
+        call read_energy_vasp(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
+      else
+        call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
+      endif
+      PWGHT%WT(:,:)=0.00001d0 !initialize
 
       do i=1, PWGHT%nweight
         call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PINPT%strip_kp(i), PINPT%strip_tb(i), &
                         PINPT%strip_df(i), PINPT%strip_wt(i))
       enddo
+      ! normalize weight so that their sum to be 1
+      !PWGHT%WT = PWGHT%WT / sum(PWGHT%WT)
 
       if(PINPT%flag_print_only_target ) then
         if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
@@ -565,12 +640,12 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
       allocate(PWGHT%PENALTY_ORB(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
       PWGHT%PENALTY_ORB(:,:,:) = 0.d0 ! initialize
       do i = 1, PWGHT%npenalty_orb
+!write(6,*)"XXX ", i
         call set_penalty_orb(NN_TABLE, PINPT, PGEOM, PKPTS, PWGHT, PINPT%strip_kp_orb(i), PINPT%strip_tb_orb(i), &
                              PINPT%strip_orb(i), PINPT%strip_site(i), PINPT%strip_pen_orb(i) )
       enddo
-
     endif
-
+!stop
   elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist .and. flag_read_energy) then
     if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%efilenmu),' does not exist!! Exit...'
     kill_job
@@ -579,6 +654,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(myid .eq. 0) write(6,'(A)')'  !WARN! TBFIT=.true. but the target data (EFILE) does not specified. Exit...'
     kill_job
   endif
+
 
   if(PINPT%flag_get_zak_phase) then
     call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'zk')
@@ -594,10 +670,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(PINPT%flag_get_z2) then
     call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'z2')
   endif
-  if(PINPT%flag_get_parity) then
-    call get_kpoint(PINPT_BERRY%parity_kpoint, PINPT_BERRY%parity_kpoint_reci, &
-                    PINPT_BERRY%parity_nkpoint, PGEOM)
-  endif
+  if(PINPT%flag_get_parity)  call get_kpoint(PINPT_BERRY%parity_kpoint, PINPT_BERRY%parity_kpoint_reci, PINPT_BERRY%parity_nkpoint, PGEOM)
+  if(PINPT%flag_get_symmetry)call get_kpoint(PINPT_BERRY%symmetry_kpoint, PINPT_BERRY%symmetry_kpoint_reci, PINPT_BERRY%symmetry_nkpoint, PGEOM)
 
   if(.not.PINPT%flag_erange) then
     PINPT%init_erange = 1 ! default
@@ -638,7 +712,6 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     endif
   endif
 
-
 ! if(PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos) then
 !  
 !   ! setup ldos atom if not allocated
@@ -651,6 +724,25 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 !     if_main write(6,'(A,I0)')' REPLOT_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
 !   endif
 ! endif
+
+  if(PINPT%flag_slater_koster .and. (PINPT%flag_plot_stm_image .or. PINPT%flag_plot_eigen_state) ) then
+    call set_effective_nuclear_charge(PGEOM)
+ !  call set_angular_momentum_quatnum_number(PGEOM)
+  endif
+
+  if(PINPT%flag_tbfit .and. PINPT%flag_print_energy_diff ) then 
+    if(PINPT%flag_print_orbital) PINPT%flag_print_energy_diff = .false.
+  else
+    PINPT%flag_print_energy_diff = .false.
+  endif
+
+  if(.not. PINPT%flag_slater_koster .and. PINPT%flag_use_overlap) then
+    if_main write(6,'(A)')'    !WARN! Construction of overlap matrix is only available within Slakter-Koster method turned on.'
+    if_main write(6,'(A)')'           Set "USE_OVERLAP .FALSE." in your PARAM_FIT.dat file or set "IS_SK .TRUE." and prepare '
+    if_main write(6,'(A)')'           proper parameter set for overlap integrals, for example, o_pps_1_CC, o_sps_1_CC, and etc., to proceed'
+    if_main write(6,'(A)')'           Exit program...'
+    kill_job
+  endif
 
   if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '

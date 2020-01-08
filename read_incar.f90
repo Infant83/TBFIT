@@ -93,6 +93,15 @@ mode: select case ( trim(plot_mode) )
                     if_main write(6,'(A)')'    !WARN! RCUT_ORB tag of "SET EIGPLOT" should be single real type parameter.'
                     if_main write(6,'(A,A)')'           Please check RCUT_ORB tag again. Exit... ',func
                   endif
+                case('REPEAT_CELL')
+                  i_dummy = nitems(inputline) - 1
+                  if(i_dummy .ne. 3) then
+                    if_main write(6,'(A)')'   !WARN! REPEAT_CELL only accepts three logical arguments, for example "T T F",'
+                    if_main write(6,'(A)')'          which implies that the orbitals along a1 and a2 direction are repeated and'
+                    if_main write(6,'(A)')'          not for the a3 direction. check manual. Stop program...'
+                    stop
+                  endif
+                  read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_repeat_cell_orb_plot(1:3)
 
               end select eig_mode
 
@@ -186,8 +195,8 @@ mode: select case ( trim(plot_mode) )
           PINPT%repeat_cell_orb_plot(i) = 1
         else
           PINPT%repeat_cell_orb_plot(i) = 0
-          write(6,'(A,I1,A)')'   !WARN! You have set the orbital along a',i,'-direction will not'
-          write(6,'(A)')     '          be repeated in the STM or EIGPLOT. Proceed anyway...'
+          write(6,'(A,I1,A)')'   !WARN! You have set the orbitals will not be repeated along a',i,'-direction'
+          write(6,'(A)')     '          in the STM or EIGPLOT. Proceed anyway...'
         endif
       enddo
 
@@ -195,6 +204,7 @@ mode: select case ( trim(plot_mode) )
       return    
    endsubroutine
 
+   ! deprecated option .. use set_tbparam_file instead
    subroutine set_tbparam(PINPT,param_const,desc_str)
       type(incar)  ::  PINPT
       integer*4     i, ii, i_continue
@@ -580,6 +590,15 @@ mode: select case ( trim(plot_mode) )
 
                endif
 
+!            case('REPLOT_EIG')
+!              i_dummy = nitems(inputline) - 1
+!              if(i_dummy .eq. 1) then
+!                read(inputline, *, iostate=i_continue) desc_str, PRPLT%flag_replot_eig, 
+!                if(PRPLT%flag_replot_eig) then
+!                  if_main write(6,'(A)')' REPLT_EIG: .TRUE.'
+!                endif
+!              endif
+
              case('REPLOT_PROJ_BAND', 'REPLOT_PROJ_SUM')
                i_dummy = nitems(inputline) - 1
                if(i_dummy .eq. 1) then
@@ -897,7 +916,6 @@ mode: select case ( trim(plot_mode) )
               if(i_continue .ne. 0) cycle      ! skip empty line
               if(desc_str(1:1).eq.'#') cycle   ! skip comment
               if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
-
     case_dos: select case ( trim(desc_str) )
                 case('NEDOS')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_nediv
@@ -1971,6 +1989,106 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_symmetry_check(PINPT, PINPT_BERRY, desc_str)
+      type(incar)         :: PINPT
+      type(berry)    :: PINPT_BERRY
+      character*132          inputline
+      character*40           desc_str
+      character(*), parameter :: func = 'set_symmetry_check'
+      integer*4, external :: nitems
+      logical,   external :: flag_number
+      integer*4              i_dummy, i_continue
+      integer*4              i, nkp
+      character*10           kp_name(10)
+      real*8                 kp(3,10) !reciprocal unit 
+      PINPT%flag_get_symmetry = .true.
+      nkp = 0
+
+      ! default rotation matrix for the coordinates
+      PINPT_BERRY%symmetry_operator(:,1) = (/-1d0,    0d0,    0d0/)
+      PINPT_BERRY%symmetry_operator(:,2) = (/   0d0, -1d0,    0d0/)
+      PINPT_BERRY%symmetry_operator(:,3) = (/   0d0,    0d0, -1d0/)
+
+
+ set_symm:   do while(trim(desc_str) .ne. 'END')
+        read(pid_incar,'(A)',iostat=i_continue) inputline
+        read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+        if(i_continue .ne. 0) cycle      ! skip empty line
+        if(desc_str(1:1).eq.'#') cycle   ! skip comment
+        if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+        select case ( trim(desc_str) )
+          case('SYMMETRY_KP', 'SYMM_KP')
+            ! KPOINT (usually time-reversal invariant momentum point would be meaningful)
+            nkp = nkp + 1
+
+            i_dummy = nitems(inputline)
+
+            if(i_dummy .eq. 4) then
+              read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp)
+              write(kp_name(nkp),'(A,I0)')'KP',nkp
+              if_main write(6,'(A,3F10.5)')'  SYMM_KP: ', kp(:,nkp), kp_name(nkp)
+            elseif(i_dummy .gt. 4) then
+              read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp), kp_name(nkp)
+              if(.not. flag_number(kp_name(nkp))) then
+                if_main write(6,'(A,3F10.5,2x,A)')'  SYMM_KP: ', kp(:,nkp), trim(kp_name(nkp))
+              else
+                if_main write(6,'(4A)')'    !WANR! Check SYMMETRY_EIG   SETTING tags ->',trim(desc_str), ' ', trim(func)
+                stop
+              endif
+            endif
+          
+          case('SYMMETRY_ORIGIN', 'ORIGIN', 'ORIGIN_SHIFT')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_origin(1:3)
+            if_main write(6,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%symmetry_origin(1:3), ' (used in SYMMETRY_EIG)'
+
+          case('SYMM_OP1','SYMMETRY_OP1','ROTATION_MAT1','ROTATION1')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_operator(1:3,1)
+          case('SYMM_OP2','SYMMETRY_OP2','ROTATION_MAT2','ROTATION2')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_operator(1:3,2)
+          case('SYMM_OP3','SYMMETRY_OP3','ROTATION_MAT3','ROTATION3')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_operator(1:3,3)
+
+          case('NOCC', 'NOCCUPIED','N_OCC','N_OCCUPIED')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%noccupied
+          case('ROT_ANGLE', 'ROTATION_ANGLE',  'ANGLE_ROT', 'ANGLE_ROTATION')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_theta
+
+          case('PRINT_HAMILTONIAN', 'PRINT_MATRIX', 'PRINT_HAM' )
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%flag_print_hamiltonian_symmetry
+          case('SYMMETRY_PHASE' )
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%flag_symmetry_phase
+
+        end select
+      enddo set_symm
+
+      if( nkp .eq. 0) then
+        PINPT_BERRY%symmetry_nkpoint = 1
+        allocate(PINPT_BERRY%symmetry_kpoint(3,1))
+        allocate(PINPT_BERRY%symmetry_kpoint_reci(3,1))
+        allocate(PINPT_BERRY%symmetry_kpoint_name(1))
+        if_main write(6,'(A,3F10.5,2x,A)')'SYMMETRY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'
+        PINPT_BERRY%symmetry_kpoint_reci(:,1) = (/0d0, 0d0, 0d0/) ! set default
+        PINPT_BERRY%symmetry_kpoint_name(1) = 'Gamma'
+
+      elseif( nkp .ge. 1) then
+        PINPT_BERRY%symmetry_nkpoint = nkp
+        allocate(PINPT_BERRY%symmetry_kpoint(3,nkp))
+        allocate(PINPT_BERRY%symmetry_kpoint_reci(3,nkp))
+        allocate(PINPT_BERRY%symmetry_kpoint_name(nkp))
+        PINPT_BERRY%symmetry_kpoint_reci(:,:) = kp(1:3,1:nkp)
+        do i = 1, nkp
+          PINPT_BERRY%symmetry_kpoint_name(i) = kp_name(i)
+        enddo
+      endif   
+   
+      if_main write(6,'(A,3(F8.5,2x),A)')'[SYMMETRY] [  ', PINPT_BERRY%symmetry_operator(:,1),']                          '
+      if_main write(6,'(A,3(F8.5,2x),A)')'[OPERATOR]=[  ', PINPT_BERRY%symmetry_operator(:,2),'] => R(inv) = S * ( R - ORIGIN )'
+      if_main write(6,'(A,3(F8.5,2x),A)')'[    S   ] [  ', PINPT_BERRY%symmetry_operator(:,3),']                          '
+
+      return
+   endsubroutine
+
    subroutine set_parity_check(PINPT, PINPT_BERRY, desc_str)
       type(incar)         :: PINPT
       type(berry)    :: PINPT_BERRY
@@ -2030,6 +2148,14 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,2)
           case('PARITY_OP3','SYMMETRY_OP3','ROTATION_MAT3','ROTATION3')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,3)
+
+          case('NOCC', 'NOCCUPIED','N_OCC','N_OCCUPIED')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%noccupied
+
+          case('PRINT_HAMILTONIAN', 'PRINT_MATRIX', 'PRINT_HAM' )
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%flag_print_hamiltonian_parity
+          case('PARITY_PHASE' )
+            read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%flag_parity_phase
 
         end select
       enddo set_parity
@@ -2136,12 +2262,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_tbparam_file(PINPT, param_const, inputline)
+   subroutine set_tbparam_file(PINPT, param_const, param_const_nrl, inputline)
       type(incar)  ::  PINPT
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
-      real*8        param_const(5,max_nparam)
+      real*8        param_const(5,max_nparam), param_const_nrl(5,4,max_nparam)
       character(*), parameter :: func = 'set_tbparam_file'
 
       if(.not. PINPT%flag_pfile) then
@@ -2156,7 +2282,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         endif
       endif
       if_main write(6,'(A,A)')' PARA_FNM:  ',trim(PINPT%pfilenm)
-      call read_param(PINPT, param_const)
+      call read_param(PINPT, param_const, param_const_nrl)
 
       return
    endsubroutine
@@ -2255,14 +2381,32 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
+      integer*4     nitems, i_dummy 
       character(*), parameter :: func = 'set_hopping_type'
+      external      nitems
 
-      read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_slater_koster
-      if(PINPT%flag_slater_koster) then
-        if_main write(6,'(A,A)')' TYPE_HOP:  ','SLATER_KOSTER'
-      elseif(.not. PINPT%flag_slater_koster) then
-        if_main write(6,'(A,A)')' TYPE_HOP:  ','USER_DEFINED'
-      endif
+     !i_dummy = nitems(inputline) - 1
+
+     !if(i_dummy .eq. 1) then
+        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_slater_koster
+        if(PINPT%flag_slater_koster) then
+          !if_main write(6,'(A,A)')' TYPE_HOP:  ','SLATER_KOSTER: mode 1'
+          if_main write(6,'(A,A)')' TYPE_HOP:  ','SLATER_KOSTER'
+        elseif(.not. PINPT%flag_slater_koster) then
+          if_main write(6,'(A,A)')' TYPE_HOP:  ','USER_DEFINED'
+        endif
+
+    ! elseif(i_dummy .eq. 3) then
+ 
+    !   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_slater_koster, desc_str, PINPT%slater_koster_type
+    !   if(PINPT%flag_slater_koster) then
+    !     if_main write(6,'(A,A,I0)')' TYPE_HOP:  ','SLATER_KOSTER: mode ', PINPT%slater_koster_type 
+    !     ! parameterization scheme : if 11 : see Mehl & Papaconstantopoulos PRB 54, 4519 (1996)
+    !   elseif(.not. PINPT%flag_slater_koster) then
+    !     if_main write(6,'(A,A)')' TYPE_HOP:  ','USER_DEFINED'
+    !   endif
+
+    ! endif
 
       return
    endsubroutine
@@ -2352,7 +2496,27 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           if(i_dummy .eq. 1) then
             read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu
           elseif(i_dummy .eq. 2) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu, PINPT%read_energy_column_index
+            read(inputline,*,iostat=i_continue) desc_str, desc_str
+            if(trim(desc_str) .eq. 'VASP' .or. trim(desc_str) .eq. 'vasp') then
+              PINPT%efile_type='vasp'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu !, PINPT%read_energy_column_index
+            elseif(trim(desc_str) .eq. 'USER' .or. trim(desc_str) .eq. 'user') then
+              PINPT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu !, PINPT%read_energy_column_index
+            else
+              PINPT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu, PINPT%read_energy_column_index
+            endif
+          elseif(i_dummy .eq. 3) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%efile_type, desc_str, PINPT%itarget_e_start
+            if(trim(PINPT%efile_type) .eq. 'VASP' .or. trim(PINPT%efile_type) .eq. 'vasp') then
+              PINPT%efile_type='vasp'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu, PINPT%itarget_e_start !, PINPT%read_energy_column_index
+            elseif(trim(PINPT%efile_type) .eq. 'USER' .or. trim(PINPT%efile_type) .eq. 'user' ) then
+              PINPT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu, PINPT%itarget_e_start !, PINPT%read_energy_column_index
+            endif
+
           endif
           if_main write(6,'(A,A)')' EDFT_FNM: ',trim(PINPT%efilenmu)
           flag_read_energy=.true.
@@ -2708,6 +2872,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         case('FTOL') !set function tolerance for iteration step
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ftol
           if_main write(6,'(A,F15.8)')'    F_TOL:  ',PINPT%ftol
+
+        case('FDIFF') !set function tolerance for fitting step (compared with previous fitting steps)
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%fdiff
+          if_main write(6,'(A,F15.8)')'   F_DIFF:  ',PINPT%fdiff
 
         case('MITER') !set maximum iteration % maximum # of generations for GA
           if(.not. PINPT%flag_miter_parse) then

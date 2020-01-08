@@ -95,7 +95,7 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
        call get_matrix_index(ie, fe, im, fm, is, neig_eff*ispinor, neig_eff, PINPT%ispinor)
        call cal_eig_hermitian(Hef,neig_eff*ispinor, EEF(ie:fe,ik), flag_vector) ; if(flag_vector) VEF(im:fm,ie:fe,ik) = Hef
      enddo
-     call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
+     !call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
    enddo k_loop
 
 #ifdef MPI

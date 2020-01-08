@@ -43,7 +43,11 @@ program tbfit
       call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
       call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
                    PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
-      if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+      if(PINPT%flag_print_energy_diff) then
+        if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, EDFT%E, ETBA%V, PGEOM%neig, PINPT, PWGHT) 
+      else
+        if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, PGEOM%neig, PINPT, PWGHT) 
+      endif
       if(PINPT%flag_print_proj .and. myid .eq. 0) call print_energy_proj(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
       if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
       if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
@@ -60,6 +64,7 @@ program tbfit
     if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
     if(PINPT%flag_get_z2)              call get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
     if(PINPT%flag_get_parity)          call get_parity(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
+    if(PINPT%flag_get_symmetry)        call get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
 
   elseif( (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos &

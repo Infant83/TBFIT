@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   use parameters,  only : incar, poscar, hopping, pid_geom
 ! use inverse_mat, only : inv
@@ -16,7 +17,9 @@ subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   character*264               inputline, str2lowcase
   character*132               fname, inputline_dummy, dummy
   character*40                desc_str,dummy1,dummy2,dummy3
+  real*8, allocatable      :: temp_orbital_sign(:,:)
   character*8, allocatable :: temp_orbital(:,:)
+  character*8                 temp
   character*20,allocatable :: site_c_index_(:)
   logical,     allocatable :: flag_site_c_index_(:)
   character*10                site_index
@@ -110,10 +113,12 @@ line: do
                      local_charge_(PGEOM%n_atom*max_orb_temp), &
                      local_moment_(3,PGEOM%n_atom*max_orb_temp), &
                      site_c_index_(PGEOM%n_atom), flag_site_c_index_(PGEOM%n_atom), &
-                     temp_orbital(max_orb_temp, PGEOM%n_atom) )
+                     temp_orbital(max_orb_temp, PGEOM%n_atom), &
+                     temp_orbital_sign(max_orb_temp, PGEOM%n_atom ) )
                      local_charge_ = 0d0 ! initialize as zero
                      local_moment_ = 0d0 ! initialize as zero
                      flag_site_c_index_ = .false. ! initialize as .false.
+                     temp_orbital_sign = 1d0 ! initialize as unity.
            if(myid .eq. 0) write(6,'(A)',ADVANCE='NO')' '
            do i=1,PGEOM%n_spec
              if(i .eq. 1)then
@@ -330,14 +335,22 @@ line: do
                temp_orbital(1,i)='_na_'
              elseif(PGEOM%n_orbital(i) .ge. 1) then
                if(PGEOM%flag_selective) then
-                 read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), desc_str, desc_str, desc_str, temp_orbital(1:PGEOM%n_orbital(i),i)
+                 read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), desc_str, desc_str, desc_str, &
+                                                     temp_orbital(1:PGEOM%n_orbital(i),i)
                else
-                 read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), temp_orbital(1:PGEOM%n_orbital(i),i)
+                 read(inputline,*,iostat=i_continue) PGEOM%a_coord(1:3,i), &
+                                                     temp_orbital(1:PGEOM%n_orbital(i),i)
+                 do i_dummy = 1, PGEOM%n_orbital(i)
+                   temp = trim(temp_orbital(i_dummy,i))
+                   if(temp(1:1) .eq. '-') then
+                     temp_orbital(i_dummy,i) = temp(2:)
+                     temp_orbital_sign(i_dummy,i) = -1d0
+                   endif
+                 enddo
                endif
              endif
 
            enddo !n_atom
-
            PGEOM%neig=sum(PGEOM%n_orbital(1:PGEOM%n_atom))
            PGEOM%neig_total = PGEOM%neig * PINPT%ispin
            PGEOM%nbasis = PGEOM%neig 
@@ -348,7 +361,9 @@ line: do
              if(myid .eq. 0) write(6,'(A,i8)')'  N_ORBIT:',PGEOM%neig
              PGEOM%max_orb=maxval( PGEOM%n_orbital(:) )
              allocate( PGEOM%c_orbital(PGEOM%max_orb,PGEOM%n_atom) ) ; PGEOM%c_orbital = '_na_'
+             allocate( PGEOM%orb_sign(PGEOM%max_orb,PGEOM%n_atom) )  ; PGEOM%orb_sign = 1d0
              PGEOM%c_orbital(1:PGEOM%max_orb,1:PGEOM%n_atom) = temp_orbital(1:PGEOM%max_orb,1:PGEOM%n_atom)
+             PGEOM%orb_sign(1:PGEOM%max_orb,1:PGEOM%n_atom)  = temp_orbital_sign(1:PGEOM%max_orb,1:PGEOM%n_atom)
              do i=1,PGEOM%n_atom
                if(PGEOM%n_orbital(i) .eq. 0) then
                  if(myid .eq. 0 .and. PINPT%flag_report_geom) write(6,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), &
@@ -511,8 +526,142 @@ line: do
   if(PINPT%flag_spglib) call get_symmetry_info(PGEOM)
 #endif
 
+
   if(myid .eq. 0) write(6,*)'*- END READING GEOMETRY FILE ---------------------'
   if(myid .eq. 0) write(6,*)' '
 
 return
+endsubroutine
+
+subroutine set_effective_nuclear_charge(PGEOM)
+  use parameters,  only : poscar
+  use mpi_setup
+  use element_info, only : z_eff
+  implicit none
+  type (poscar)            :: PGEOM
+  integer*4                   iatom, jorb
+  character*8                 spec
+  character*8                 orb
+  integer*4                   ispec, n, l, orb_n
+  integer*4                   mpierr
+  integer*4, allocatable ::   ispec_(:)
+  integer*4, allocatable ::   l_quantum_(:,:)
+  integer*4, allocatable ::   orb_n_quantum_(:,:)
+  real*8,    allocatable ::   n_quantum_(:) ! just set to "real" for the convinience.
+  real*8,    allocatable ::   z_eff_nuc_(:,:)
+
+#ifdef MPI
+  integer*4  ourjob(nprocs)
+  integer*4  ourjob_disp(0:nprocs-1)
+  call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+#else
+  integer*4  ourjob(1)
+  integer*4  ourjob_disp(0)
+  call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+#endif
+
+  allocate(PGEOM%n_quantum(PGEOM%n_atom), &
+                n_quantum_(PGEOM%n_atom) ) ! n=1, 2, ...?
+  allocate(PGEOM%l_quantum(PGEOM%max_orb, PGEOM%n_atom), &
+                l_quantum_(PGEOM%max_orb, PGEOM%n_atom)) ! s, p, d?? for each orb
+  allocate(PGEOM%orb_n_quantum(PGEOM%max_orb, PGEOM%n_atom), &
+                orb_n_quantum_(PGEOM%max_orb, PGEOM%n_atom)) ! 1s, 2p, 3d?? for each orb
+  allocate(PGEOM%z_eff_nuc(PGEOM%max_orb, PGEOM%n_atom), &
+                z_eff_nuc_(PGEOM%max_orb, PGEOM%n_atom)) 
+  allocate(PGEOM%ispec(PGEOM%n_atom), &
+                ispec_(PGEOM%n_atom))
+  l_quantum_ = 0; orb_n_quantum_=0;z_eff_nuc_=0d0 ;n_quantum_ = 0d0 
+  ispec_ = 0
+
+  do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+    spec=adjustl(trim(PGEOM%c_spec( PGEOM%spec(iatom) )))
+    call find_spec(spec, ispec,n)
+    ispec_(iatom) = ispec
+    n_quantum_(iatom) = real(n)
+    do jorb = 1, PGEOM%n_orbital(iatom)
+      orb = adjustl(trim(PGEOM%c_orbital(jorb,iatom)))
+      call find_lmom(ispec, orb, l, orb_n)
+      l_quantum_(jorb,iatom)     = l
+      orb_n_quantum_(jorb,iatom) = orb_n
+
+      ! WARN ! Be sure that the effective nuclear charge information has not been fully stored
+             ! in z_eff function in element_info module. Please update the database based on
+             ! the information tabulated in following link: http://www.knowledgedoor.com
+             ! 
+             ! Ref.1: Clementi, E., and D. L. Raimondi. "Atomic Screening Constants from SCF Functions." 
+             !        Journal of Chemical Physics, volume 38, number 11, 1963, pp. 2686–2689. doi:10.1063/1.1733573
+             ! Ref.2: Clementi, E., D. L. Raimondi, and W. P. Reinhardt. "Atomic Screening Constants from SCF Functions. II. Atoms with 37 to 86 Electrons." 
+             !        Journal of Chemical Physics, volume 47, number 4, 1967, pp. 1300–1307. doi:10.1063/1.1712084
+
+      z_eff_nuc_(jorb,iatom) = z_eff(ispec, orb_n, l)
+    enddo
+  enddo
+
+#ifdef MPI
+  call MPI_ALLREDUCE(ispec_,         PGEOM%ispec,         size(PGEOM%ispec),         MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+  call MPI_ALLREDUCE(l_quantum_,     PGEOM%l_quantum,     size(PGEOM%l_quantum),     MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+  call MPI_ALLREDUCE(orb_n_quantum_, PGEOM%orb_n_quantum, size(PGEOM%orb_n_quantum), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+  call MPI_ALLREDUCE(n_quantum_,     PGEOM%n_quantum,     size(PGEOM%n_quantum),     MPI_REAL8,    MPI_SUM, mpi_comm_earth, mpierr)
+  call MPI_ALLREDUCE(z_eff_nuc_,     PGEOM%z_eff_nuc,     size(PGEOM%z_eff_nuc),     MPI_REAL8,    MPI_SUM, mpi_comm_earth, mpierr)
+#else
+  PGEOM%ispec         = ispec_
+  PGEOM%l_quantum     = l_quantum_
+  PGEOM%orb_n_quantum = orb_n_quantum_
+  PGEOM%n_quantum     = n_quantum_
+  PGEOM%z_eff_nuc     = z_eff_nuc_
+#endif
+  
+   deallocate(ispec_)
+   deallocate(l_quantum_)
+   deallocate(orb_n_quantum_)
+   deallocate(n_quantum_)
+   deallocate(z_eff_nuc_)
+
+   return
+endsubroutine
+
+subroutine find_lmom(ispec,orb, l, orb_n)
+   use element_info
+   implicit none
+   integer*4    ispec, n, l, orb_n
+   integer*4    i, lo
+   character*8  orb
+ 
+   !lo = len_trim(orb)
+
+   select case( orb(1:1) )
+     case('s')
+       l = 1
+     case('p')
+       l = 2
+     case('d')
+       l = 3
+     case('f')
+       l = 4
+   endselect
+
+   orb_n = l_qnumb(l,ispec)
+
+   return
+endsubroutine
+subroutine find_spec(spec,ispec,n)
+  use element_info
+  implicit none
+  character*8   spec
+  character*2   ele
+  integer*4     n, ispec
+  integer*4     i, le, ls
+
+  l1:do i = 1, 112
+       ele = adjustl(trim(element(i)))
+       le = len_trim(ele)
+       ls = len_trim(spec)
+       if( spec(1:ls)  .eq.  ele(1:le) ) then
+         ispec = i
+         n     = n_qnumb(i)
+         exit l1   
+       endif
+     enddo l1
+
+  return
 endsubroutine

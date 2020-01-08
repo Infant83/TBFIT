@@ -3,6 +3,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
     use kronecker_prod, only: kproduct
     use phase_factor
     use print_matrix
+    use get_parameter
     implicit none
     interface
       function FIJ(kp,R)
@@ -42,8 +43,12 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
         ! set SOC hamiltonian based on atomic orbitals
         if( soc_index .gt. 0 .and. (NN_TABLE%p_class(nn) .eq. 'pp' .or. NN_TABLE%p_class(nn) .eq. 'dd') ) then
-          call get_param(PINPT,    soc_index, lambda_soc   )
-
+          call get_param(PINPT, soc_index, 1, lambda_soc)
+         !if(PINPT%slater_koster_type .gt. 10) then
+         !  call get_param_nrl(PINPT,    soc_index, lambda_soc   )
+         !else
+         !  call get_param(PINPT,    soc_index, lambda_soc   )
+         !endif
           ! CALCULATE  <orb_i|LS|orb_j> 
           Hx(i,j) = lambda_soc * L_x(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
           Hy(i,j) = lambda_soc * L_y(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
@@ -55,7 +60,12 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
         ! set SOC hamiltonian based on 'xx' type orbitals which are composed by linear combination of atomic orbitals
         elseif( soc_index .gt. 0 .and. NN_TABLE%p_class(nn) .eq. 'xx' ) then
-          call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PINPT, soc_index, 1, lambda_soc)
+         !if(PINPT%slater_koster_type .gt. 10) then
+         !  call get_param_nrl(PINPT,    soc_index, lambda_soc   )
+         !else  
+         !  call get_param(PINPT,    soc_index, lambda_soc   )
+         !endif
 
           ! CALCULATE  <orb_i|LS|orb_j> 
           Hx(i,j) = lambda_soc * L_x(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
@@ -96,8 +106,10 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
         endif
 
         if( soc_index .ge. 1 .and. rashba_index .ge. 1) then
-          call get_param(PINPT,    soc_index, lambda_soc   )
-          call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PINPT,    soc_index, 1, lambda_soc   )
+          call get_param(PINPT, rashba_index, 1, lambda_rashba)
+         !call get_param(PINPT,    soc_index, lambda_soc   )
+         !call get_param(PINPT, rashba_index, lambda_rashba)
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x
@@ -128,7 +140,8 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
             H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
           endif
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
-          call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PINPT,    soc_index, 1, lambda_soc   )
+         !call get_param(PINPT,    soc_index, lambda_soc   )
 
           ! This model is only for Kane-mele type of SOC. Be careful..
           prod=exp(-2d0*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
@@ -144,7 +157,8 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
             H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
           endif
         elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered
-          call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PINPT, rashba_index, 1, lambda_rashba)
+         !call get_param(PINPT, rashba_index, lambda_rashba)
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x

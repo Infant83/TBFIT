@@ -11,40 +11,49 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    type (hopping) :: NN_TABLE_dummy
    character(*), parameter :: func = 'find_nn'
    integer*4, parameter :: max_neighbor = 30
-   integer*4   nn, i, j, iorb, jorb, ix, iy, iz, imatrix, jmatrix, max_nn, ii
-   integer*4   index_sigma,index_pi,index_delta   !sk param index
-   integer*4   index_sigma_scale,index_pi_scale,index_delta_scale ! sk scale param index
-   integer*4   index_stoner !stoner param index
-   integer*4   index_custom
-   integer*4   index_custom_soc
-   integer*4   stoner_I_param_index      ! stoner I param index
-   integer*4   local_U_param_index      ! local U param index (for example, staggered potential)
-   integer*4   plus_U_param_index      ! plus U param index 
-   integer*4   index_lambda !soc param index
-   integer*4   max_x, max_y, max_z
-   integer*4   size_NN_TABLE
-   real*8    max_nn_dist
-   real*8    Rij_(3),pos_i(3), pos_j(3), Dij_, Dij0_
-   real*8    R_(3)
-   real*8    enorm
-   real*8    tij_sk
-   real*8    tij_cc
-   real*8    onsite_tol, a1(3), a2(3), a3(3)
-   integer*4 onsite_param_index
-   character*2       param_class
-   character*20      soc_type
-   integer*4         nn_class
-   external enorm
-   external tij_sk, tij_cc
-   logical  flag_init, flag_use_site_cindex
+   integer*4      nn, i, j, iorb, jorb, ix, iy, iz, imatrix, jmatrix, max_nn, ii
+   integer*4      max_nn_pair
+   integer*4      add_overlap
+   integer*4      index_sigma,index_pi,index_delta   !sk param index
+   integer*4      index_sigma_scale,index_pi_scale,index_delta_scale ! sk scale param index
+   integer*4      index_stoner !stoner param index
+   integer*4      index_custom
+   integer*4      index_custom_soc
+   integer*4      stoner_I_param_index      ! stoner I param index
+   integer*4      local_U_param_index      ! local U param index (for example, staggered potential)
+   integer*4      plus_U_param_index      ! plus U param index 
+   integer*4      l_onsite_param_index    ! scaling parameter for local atomic density evaluation (valid if SK_SCALE_TYPE >=11)
+   integer*4      index_lambda !soc param index
+   integer*4      max_x, max_y, max_z
+   integer*4      size_NN_TABLE
+   real*8         max_nn_dist
+   real*8         Rij_(3),pos_i(3), pos_j(3), Dij_, Dij0_
+   real*8         R_(3)
+   real*8         enorm
+   real*8         tij_sk
+   real*8         tij_cc
+   real*8         onsite_tol, a1(3), a2(3), a3(3)
+   integer*4      onsite_param_index
+   character*2    param_class
+   character*20   soc_type
+   integer*4      nn_class
+   external       enorm
+   external       tij_sk, tij_cc
+   logical        flag_init, flag_use_site_cindex
 #ifdef MPI
-   integer*4                  nn_temp, nn_mpi(nprocs), nn_mpi_disp(0:nprocs-1), mpierr
-
+   integer*4      nn_temp, nn_mpi(nprocs), nn_mpi_disp(0:nprocs-1), mpierr
    nn_mpi = 0
 #endif
 
+   if(PINPT%flag_use_overlap) then
+     add_overlap = 6
+   else
+     add_overlap = 0
+   endif
+
    flag_init = .true.
-   max_nn= PGEOM%n_atom * max_neighbor * PGEOM%max_orb * PGEOM%max_orb
+   max_nn= PGEOM%n_atom * max_neighbor * PGEOM%max_orb * PGEOM%max_orb * 10
+   if(PINPT%slater_koster_type .gt. 10) max_nn_pair = 2000   ! temporary
    allocate( NN_TABLE_dummy%i_atom(max_nn)   )
    allocate( NN_TABLE_dummy%j_atom(max_nn)   )
    allocate( NN_TABLE_dummy%i_coord(3,max_nn)  )
@@ -55,15 +64,30 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    allocate( NN_TABLE_dummy%Dij0(max_nn)     )
    allocate( NN_TABLE_dummy%i_matrix(max_nn) )
    allocate( NN_TABLE_dummy%ci_orb(max_nn)   )
+   allocate( NN_TABLE_dummy%i_sign(max_nn)   )
    allocate( NN_TABLE_dummy%j_matrix(max_nn) )
    allocate( NN_TABLE_dummy%cj_orb(max_nn)   )
+   allocate( NN_TABLE_dummy%j_sign(max_nn)   )
    allocate( NN_TABLE_dummy%p_class(max_nn)  )
    allocate( NN_TABLE_dummy%n_class(max_nn)  )
-   if(     PINPT%flag_slater_koster) allocate( NN_TABLE_dummy%sk_index_set(0:6,max_nn) )
+   if(PINPT%slater_koster_type .gt. 10) then
+     allocate( NN_TABLE%n_nn(                  PGEOM%n_atom) ) ; NN_TABLE%n_nn       = 0 ! initialize
+     allocate( NN_TABLE_dummy%n_nn(            PGEOM%n_atom) ) ; NN_TABLE_dummy%n_nn = 0
+     allocate( NN_TABLE_dummy%R_nn(max_nn_pair,PGEOM%n_atom) ) ; NN_TABLE_dummy%R_nn = 0d0
+     allocate( NN_TABLE_dummy%R0_nn(max_nn_pair,PGEOM%n_atom) ) ; NN_TABLE_dummy%R0_nn = 0d0
+     allocate( NN_TABLE_dummy%j_nn(max_nn_pair,PGEOM%n_atom) ) ; NN_TABLE_dummy%j_nn = 0
+   else
+     allocate( NN_TABLE%n_nn(                  PGEOM%n_atom) ) ; NN_TABLE%n_nn       = 0
+     allocate( NN_TABLE_dummy%n_nn(            PGEOM%n_atom) ) ; NN_TABLE_dummy%n_nn = 0
+   endif
+   if(     PINPT%flag_slater_koster) allocate( NN_TABLE_dummy%sk_index_set(0:6+add_overlap,max_nn) )
    if(     PINPT%flag_slater_koster)           NN_TABLE_dummy%sk_index_set(0,1:max_nn) = -9999d0
    if(.not.PINPT%flag_slater_koster) allocate( NN_TABLE_dummy%cc_index_set(0:3,max_nn) )
    if(.not.PINPT%flag_slater_koster)           NN_TABLE_dummy%cc_index_set(0,1:max_nn) = -9999d0
-   allocate( NN_TABLE_dummy%tij(max_nn)      )
+   allocate( NN_TABLE_dummy%tij(max_nn)      ) ; NN_TABLE_dummy%tij = 0d0
+   if(    PINPT%flag_use_overlap)   allocate( NN_TABLE_dummy%sij(max_nn)      )
+   if(allocated(NN_TABLE_dummy%sij))NN_TABLE_dummy%sij = 0d0
+
    allocate( NN_TABLE_dummy%soc_param_index(max_nn) )
 
    allocate( NN_TABLE_dummy%site_cindex(PGEOM%n_atom) ) ! this argument will be used only in this routine 'find_nn'
@@ -77,6 +101,10 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    NN_TABLE%stoner_I_param_index = 0
    NN_TABLE%local_U_param_index = 0
    NN_TABLE%plus_U_param_index = 0
+   if(PINPT%slater_koster_type .gt. 10) then
+     allocate( NN_TABLE_dummy%l_onsite_param_index(PGEOM%n_atom) )
+     NN_TABLE_dummy%l_onsite_param_index = 0
+   endif
 #ifdef MPI
    allocate( NN_TABLE_dummy%stoner_I_param_index(PGEOM%neig) )
    allocate( NN_TABLE_dummy%local_U_param_index(PGEOM%neig) )
@@ -102,11 +130,17 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    max_nn_dist = maxval(PGEOM%nn_dist(:))
    nn=0;
 
+
+
  loop_i:do i=1+myid, PGEOM%n_atom, nprocs
           if(PGEOM%n_orbital(i) .eq. 0) cycle loop_i
           pos_i= PGEOM%a_coord(1,i)*a1(:) + &
                  PGEOM%a_coord(2,i)*a2(:) + &
                  PGEOM%a_coord(3,i)*a3(:)
+          if(PINPT%slater_koster_type .gt. 10) then
+            call get_l_onsite_param_index(l_onsite_param_index, PINPT, PGEOM%c_spec(PGEOM%spec(i)) )
+            NN_TABLE_dummy%l_onsite_param_index(i) = l_onsite_param_index
+          endif
           do iorb=1,PGEOM%n_orbital(i)
              imatrix= sum( PGEOM%n_orbital(1:i) ) - PGEOM%n_orbital(i) + iorb
             do ix=-max_x,max_x
@@ -122,8 +156,14 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                      Rij_= pos_j - pos_i
                      Dij_=enorm(3,Rij_)
                      if(Dij_ .gt. max_nn_dist) cycle loop_j
-                     call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_)
+                     call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_) !, Dij0_cut)
                      if(nn_class .ne. -9999) then
+                       if(nn_class .gt. 0 .and. PINPT%slater_koster_type .gt. 10) then
+                         NN_TABLE_dummy%n_nn(i)                  = NN_TABLE_dummy%n_nn(i) + 1
+                         NN_TABLE_dummy%j_nn(NN_TABLE_dummy%n_nn(i),i) = j
+                         NN_TABLE_dummy%R_nn(NN_TABLE_dummy%n_nn(i),i) = Dij_
+                         NN_TABLE_dummy%R0_nn(NN_TABLE_dummy%n_nn(i),i)= Dij0_
+                       endif
                        do jorb=1,PGEOM%n_orbital(j)
                          jmatrix= sum( PGEOM%n_orbital(1:j) ) - PGEOM%n_orbital(j) + jorb
                          if(jmatrix .ge. imatrix) then
@@ -139,15 +179,16 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                              NN_TABLE_dummy%Dij0(nn)     = Dij0_
                              NN_TABLE_dummy%i_matrix(nn) = imatrix
                              NN_TABLE_dummy%ci_orb(nn)   = PGEOM%c_orbital(iorb,i)
+                             NN_TABLE_dummy%i_sign(nn)   = PGEOM%orb_sign(iorb,i)
                              NN_TABLE_dummy%j_matrix(nn) = jmatrix
                              NN_TABLE_dummy%cj_orb(nn)   = PGEOM%c_orbital(jorb,j)
+                             NN_TABLE_dummy%j_sign(nn)   = PGEOM%orb_sign(jorb,j)
                              NN_TABLE_dummy%p_class(nn)  = param_class
                              NN_TABLE_dummy%n_class(nn)  = nn_class
-                             if(      PINPT%flag_slater_koster) NN_TABLE_dummy%sk_index_set(0:6,nn)= 0  ! initialize
+                             if(      PINPT%flag_slater_koster) NN_TABLE_dummy%sk_index_set(0:6+add_overlap,nn)= 0  ! initialize
                              if(.not. PINPT%flag_slater_koster) NN_TABLE_dummy%cc_index_set(0:3,nn)= 0  ! initialize
 
                              if(nn_class .eq. 0) then
-
                                !SET ONSITE energies
                                call get_onsite_param_index(onsite_param_index, PINPT, &
                                                            PGEOM%c_orbital(iorb,i),   &
@@ -155,7 +196,9 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                                            PGEOM%c_spec(PGEOM%spec(i)))
                                if(     PINPT%flag_slater_koster) then 
                                  NN_TABLE_dummy%sk_index_set(0,nn)  = onsite_param_index
-                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
+                                 if(PINPT%slater_koster_type .le. 10) then
+                                   NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init, .false. )
+                                 endif
                                elseif(.not.PINPT%flag_slater_koster) then 
                                  if(param_class .eq. 'cc') then
                                    NN_TABLE_dummy%cc_index_set(0,nn)  = onsite_param_index
@@ -218,22 +261,41 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                if(PINPT%flag_slater_koster) then
                                  
                                  ! CASE: SLATER_KOSTER TYPE HOPPING
-!                                flag_use_site_cindex = logical(NN_TABLE%flag_site_cindex(i) .and. NN_TABLE%flag_site_cindex(j))
                                  flag_use_site_cindex = .false.    ! BE CAREFUL ! This is for TaS2 system only...
                                  call get_sk_index_set(index_sigma,index_pi,index_delta, &
                                                        index_sigma_scale,index_pi_scale,index_delta_scale, &
                                                        PINPT, param_class, nn_class, &
                                                        PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
                                                        PGEOM%spec(i), PGEOM%spec(j), &
-                                                       NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex )
+                                                       NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .false. )
                                  NN_TABLE_dummy%sk_index_set(1,nn)  = index_sigma
                                  NN_TABLE_dummy%sk_index_set(2,nn)  = index_pi
                                  NN_TABLE_dummy%sk_index_set(3,nn)  = index_delta 
                                  NN_TABLE_dummy%sk_index_set(4,nn)  = index_sigma_scale
                                  NN_TABLE_dummy%sk_index_set(5,nn)  = index_pi_scale
                                  NN_TABLE_dummy%sk_index_set(6,nn)  = index_delta_scale
+                                 if(PINPT%slater_koster_type .le. 10) then
+                                   NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init,.false.)
+                                 endif
 
-                                 NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init)
+                                 if(PINPT%flag_use_overlap) then
+                                   call get_sk_index_set(index_sigma,index_pi,index_delta, &
+                                                         index_sigma_scale,index_pi_scale,index_delta_scale, &
+                                                         PINPT, param_class, nn_class, &
+                                                         PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
+                                                         PGEOM%spec(i), PGEOM%spec(j), &
+                                                         NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .true. )
+                                   NN_TABLE_dummy%sk_index_set(1+add_overlap,nn)  = index_sigma
+                                   NN_TABLE_dummy%sk_index_set(2+add_overlap,nn)  = index_pi
+                                   NN_TABLE_dummy%sk_index_set(3+add_overlap,nn)  = index_delta
+                                   NN_TABLE_dummy%sk_index_set(4+add_overlap,nn)  = index_sigma_scale
+                                   NN_TABLE_dummy%sk_index_set(5+add_overlap,nn)  = index_pi_scale
+                                   NN_TABLE_dummy%sk_index_set(6+add_overlap,nn)  = index_delta_scale
+                                   if(PINPT%slater_koster_type .le. 10) then
+                                     NN_TABLE_dummy%sij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init,.true.)
+                                   endif
+                                 endif
+
                                elseif(.not. PINPT%flag_slater_koster) then ! cc index : custum orbital hopping index
                                  
                                  ! CASE: USER DEFINED CUSTOM HOPPING
@@ -291,6 +353,17 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    enddo
    call MPI_ALLREDUCE(nn, nn_temp, 1, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
    nn = nn_temp
+
+   if(PINPT%slater_koster_type .gt. 10) then
+     call MPI_ALLREDUCE(NN_TABLE_dummy%n_nn, NN_TABLE%n_nn, PGEOM%n_atom, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+     NN_TABLE%max_nn_pair = maxval(NN_TABLE%n_nn) ! update max_nn_pair
+     max_nn_pair = NN_TABLE%max_nn_pair
+   endif
+#else
+   if(PINPT%slater_koster_type .gt. 10) then
+     NN_TABLE%max_nn_pair = maxval(NN_TABLE%n_nn) ! update max_nn_pair
+     max_nn_pair = NN_TABLE%max_nn_pair
+   endif
 #endif
 
    NN_TABLE%n_neighbor = nn
@@ -311,14 +384,30 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    allocate( NN_TABLE%Dij0(nn)     )
    allocate( NN_TABLE%i_matrix(nn) )
    allocate( NN_TABLE%ci_orb(nn)   )
+   allocate( NN_TABLE%i_sign(nn)   )
    allocate( NN_TABLE%j_matrix(nn) )
    allocate( NN_TABLE%cj_orb(nn)   )
+   allocate( NN_TABLE%j_sign(nn)   )
    allocate( NN_TABLE%p_class(nn)  )
    allocate( NN_TABLE%n_class(nn)  )
-   if(     PINPT%flag_slater_koster) allocate( NN_TABLE%sk_index_set(0:6,nn)  )
+   if(PINPT%slater_koster_type .gt. 10) then
+    if(max_nn_pair .ge. 1) then
+      if(allocated(NN_TABLE_dummy%R_nn ))allocate( NN_TABLE%R_nn(max_nn_pair,PGEOM%n_atom) )  
+      if(allocated(NN_TABLE_dummy%R0_nn))allocate( NN_TABLE%R0_nn(max_nn_pair,PGEOM%n_atom))  
+      if(allocated(NN_TABLE_dummy%j_nn ))allocate( NN_TABLE%j_nn(max_nn_pair,PGEOM%n_atom) )  
+    else
+      if(allocated(NN_TABLE_dummy%R_nn ))allocate( NN_TABLE%R_nn(1,PGEOM%n_atom) )  
+      if(allocated(NN_TABLE_dummy%R0_nn))allocate( NN_TABLE%R0_nn(1,PGEOM%n_atom) )  
+      if(allocated(NN_TABLE_dummy%j_nn ))allocate( NN_TABLE%j_nn(1,PGEOM%n_atom) )  
+    endif
+    allocate( NN_TABLE%l_onsite_param_index(PGEOM%n_atom) )
+   endif
+   if(     PINPT%flag_slater_koster) allocate( NN_TABLE%sk_index_set(0:6+add_overlap,nn)  )
    if(.not.PINPT%flag_slater_koster) allocate( NN_TABLE%cc_index_set(0:3,nn)  )
    allocate( NN_TABLE%tij(nn)      )
+   if(allocated(NN_TABLE_dummy%sij)) allocate( NN_TABLE%sij(nn) )
    if(     PINPT%flag_load_nntable ) allocate( NN_TABLE%tij_file(nn)          )
+   if(     PINPT%flag_load_nntable .and. allocated(NN_TABLE%sij) ) allocate( NN_TABLE%sij_file(nn) )
    allocate( NN_TABLE%soc_param_index(nn) )
 
 #ifdef MPI
@@ -336,8 +425,13 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                        nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
    call MPI_ALLGATHERV(NN_TABLE_dummy%n_class(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%n_class, &
                        nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
+
    call MPI_ALLGATHERV(NN_TABLE_dummy%tij(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%tij, &
                        nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   if(allocated(NN_TABLE_dummy%sij)) then
+     call MPI_ALLGATHERV(NN_TABLE_dummy%sij(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%sij, &
+                         nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   endif
    call MPI_ALLGATHERV(NN_TABLE_dummy%soc_param_index(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%soc_param_index, &
                        nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
    do ii = 1, 3
@@ -351,7 +445,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                          NN_TABLE%R(ii,:), nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
    enddo
    if(PINPT%flag_slater_koster) then
-     do ii = 0, 6
+     do ii = 0, 6+add_overlap
        call MPI_ALLGATHERV(NN_TABLE_dummy%sk_index_set(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%sk_index_set(ii,1:nn_mpi(myid+1))), MPI_INTEGER4, &
                            NN_TABLE%sk_index_set(ii,:), nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
      enddo
@@ -360,6 +454,14 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
        call MPI_ALLGATHERV(NN_TABLE_dummy%cc_index_set(ii,1:nn_mpi(myid+1)), size(NN_TABLE_dummy%cc_index_set(ii,1:nn_mpi(myid+1))), MPI_INTEGER4, &
                            NN_TABLE%cc_index_set(ii,:), nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
      enddo
+   endif
+   if(PINPT%slater_koster_type .gt. 10 .and. max_nn_pair .gt. 0) then
+     do ii = 1, PGEOM%n_atom
+       call MPI_ALLREDUCE(NN_TABLE_dummy%R_nn(1:max_nn_pair,ii),NN_TABLE%R_nn(1:max_nn_pair,ii), max_nn_pair, MPI_REAL8   , MPI_SUM, mpi_comm_earth, mpierr)
+       call MPI_ALLREDUCE(NN_TABLE_dummy%R0_nn(1:max_nn_pair,ii),NN_TABLE%R0_nn(1:max_nn_pair,ii),max_nn_pair, MPI_REAL8  , MPI_SUM, mpi_comm_earth, mpierr)
+       call MPI_ALLREDUCE(NN_TABLE_dummy%j_nn(1:max_nn_pair,ii),NN_TABLE%j_nn(1:max_nn_pair,ii), max_nn_pair, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+     enddo
+     call MPI_ALLREDUCE(NN_TABLE_dummy%l_onsite_param_index, NN_TABLE%l_onsite_param_index, PGEOM%n_atom, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
    endif
    call MPI_ALLREDUCE(NN_TABLE%stoner_I_param_index, NN_TABLE_dummy%stoner_I_param_index, PGEOM%neig, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
    call MPI_ALLREDUCE(NN_TABLE%local_U_param_index, NN_TABLE_dummy%local_U_param_index, PGEOM%neig, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
@@ -372,6 +474,10 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                        nn_mpi*8, nn_mpi_disp*8, MPI_CHAR, mpi_comm_earth, mpierr)
    call MPI_ALLGATHERV(NN_TABLE_dummy%cj_orb(1:nn_mpi(myid+1)), nn_mpi(myid+1)*8, MPI_CHAR, NN_TABLE%cj_orb, &
                        nn_mpi*8, nn_mpi_disp*8, MPI_CHAR, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%i_sign(1:nn_mpi(myid+1)), size(NN_TABLE_dummy%i_sign(1:nn_mpi(myid+1))), MPI_REAL8, NN_TABLE%i_sign, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%j_sign(1:nn_mpi(myid+1)), size(NN_TABLE_dummy%j_sign(1:nn_mpi(myid+1))), MPI_REAL8, NN_TABLE%j_sign, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
    call MPI_ALLGATHERV(NN_TABLE_dummy%p_class(1:nn_mpi(myid+1)), nn_mpi(myid+1)*2, MPI_CHAR, NN_TABLE%p_class, &
                        nn_mpi*2, nn_mpi_disp*2, MPI_CHAR, mpi_comm_earth, mpierr)
 #else
@@ -385,16 +491,30 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    NN_TABLE%Dij0(1:nn)             = NN_TABLE_dummy%Dij0(1:nn)
    NN_TABLE%i_matrix(1:nn)         = NN_TABLE_dummy%i_matrix(1:nn)
    NN_TABLE%ci_orb(1:nn)           = NN_TABLE_dummy%ci_orb(1:nn)  
+   NN_TABLE%i_sign(1:nn)           = NN_TABLE_dummy%i_sign(1:nn)  
    NN_TABLE%j_matrix(1:nn)         = NN_TABLE_dummy%j_matrix(1:nn)
    NN_TABLE%cj_orb(1:nn)           = NN_TABLE_dummy%cj_orb(1:nn)  
+   NN_TABLE%j_sign(1:nn)           = NN_TABLE_dummy%j_sign(1:nn)  
    NN_TABLE%p_class(1:nn)          = NN_TABLE_dummy%p_class(1:nn)
    NN_TABLE%n_class(1:nn)          = NN_TABLE_dummy%n_class(1:nn)
-   if(     PINPT%flag_slater_koster) NN_TABLE%sk_index_set(0:6,1:nn) = NN_TABLE_dummy%sk_index_set(0:6,1:nn)
+   if(PINPT%slater_koster_type .gt. 10) then
+     if(max_nn_pair .gt. 0) then
+       NN_TABLE%R_nn(1:max_nn_pair,1:PGEOM%n_atom) = NN_TABLE_dummy%R_nn(1:max_nn_pair,1:PGEOM%n_atom)
+       NN_TABLE%R0_nn(1:max_nn_pair,1:PGEOM%n_atom) = NN_TABLE_dummy%R0_nn(1:max_nn_pair,1:PGEOM%n_atom)
+       NN_TABLE%j_nn(1:max_nn_pair,1:PGEOM%n_atom) = NN_TABLE_dummy%j_nn(1:max_nn_pair,1:PGEOM%n_atom)
+     else ! find no nearest neighbor pair
+       NN_TABLE%R_nn(1,1:PGEOM%n_atom) = 0d0
+       NN_TABLE%R0_nn(1,1:PGEOM%n_atom) = 0d0
+       NN_TABLE%j_nn(1,1:PGEOM%n_atom) = 0
+     endif
+     NN_TABLE%l_onsite_param_index(1:PGEOM%n_atom) = NN_TABLE_dummy%l_onsite_param_index(1:PGEOM%n_atom)
+   endif
+   if(     PINPT%flag_slater_koster) NN_TABLE%sk_index_set(0:6+add_overlap,1:nn) = NN_TABLE_dummy%sk_index_set(0:6+add_overlap,1:nn)
    if(.not.PINPT%flag_slater_koster) NN_TABLE%cc_index_set(0:3,1:nn) = NN_TABLE_dummy%cc_index_set(0:3,1:nn)
    NN_TABLE%tij(1:nn)              = NN_TABLE_dummy%tij(1:nn)
+   if(allocated(NN_TABLE%sij)) NN_TABLE%sij(1:nn)              = NN_TABLE_dummy%sij(1:nn)
    NN_TABLE%soc_param_index(1:nn)  = NN_TABLE_dummy%soc_param_index(1:nn)
 #endif
-
    deallocate( NN_TABLE_dummy%i_atom   )
    deallocate( NN_TABLE_dummy%j_atom   )
    deallocate( NN_TABLE_dummy%i_coord  )
@@ -405,14 +525,22 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    deallocate( NN_TABLE_dummy%Dij0     )
    deallocate( NN_TABLE_dummy%i_matrix )
    deallocate( NN_TABLE_dummy%ci_orb   )
+   deallocate( NN_TABLE_dummy%i_sign   )
    deallocate( NN_TABLE_dummy%j_matrix )
    deallocate( NN_TABLE_dummy%cj_orb   )
+   deallocate( NN_TABLE_dummy%j_sign   )
    deallocate( NN_TABLE_dummy%p_class  )
    deallocate( NN_TABLE_dummy%n_class  )
-   if(     PINPT%flag_slater_koster) deallocate( NN_TABLE_dummy%sk_index_set )
-   if(.not.PINPT%flag_slater_koster) deallocate( NN_TABLE_dummy%cc_index_set )
+   if(     PINPT%flag_slater_koster)  deallocate( NN_TABLE_dummy%sk_index_set )
+   if(.not.PINPT%flag_slater_koster)  deallocate( NN_TABLE_dummy%cc_index_set )
    deallocate( NN_TABLE_dummy%tij      )
+   if(allocated(NN_TABLE_dummy%sij))  deallocate( NN_TABLE_dummy%sij )
    deallocate( NN_TABLE_dummy%soc_param_index )
+   if(allocated(NN_TABLE_dummy%n_nn)) deallocate( NN_TABLE_dummy%n_nn )
+   if(allocated(NN_TABLE_dummy%R_nn)) deallocate( NN_TABLE_dummy%R_nn )
+   if(allocated(NN_TABLE_dummy%R0_nn)) deallocate( NN_TABLE_dummy%R0_nn )
+   if(allocated(NN_TABLE_dummy%j_nn)) deallocate( NN_TABLE_dummy%j_nn )
+   if(allocated(NN_TABLE_dummy%l_onsite_param_index)) deallocate( NN_TABLE_dummy%l_onsite_param_index )
 #ifdef MPI
    deallocate( NN_TABLE_dummy%stoner_I_param_index )
    deallocate( NN_TABLE_dummy%local_U_param_index )
@@ -456,6 +584,11 @@ subroutine load_nn_table(NN_TABLE, PINPT)
 
    open(pid_nntable, file=PINPT%nnfilenm, status='old')
    read(pid_nntable,*)     ! ignore fist line  
+
+   ! IMPORTANT!!!
+   ! In the current version, if USE_OVERALP = .TRUE., the overlap matrix construction does not supported (need to write some routines for reading 'overlap.dat' file as 'hopping.dat') 
+   ! This is future work. Need to be updated... (HJ Kim. 2019. Sep.)
+   ! some routines for reading "NN_TABLE%sij_file" is needed.....
 
    do ii=1, NN_TABLE%n_neighbor
      if(flag_soc) then
@@ -520,6 +653,8 @@ subroutine print_nn_table(NN_TABLE, PINPT)
  type (incar  ) :: PINPT
  integer*4  ii, i, i_check
  logical    flag_soc, flag_slater_koster, flag_local_charge, flag_plus_U, flag_collinear
+ real*8     tij_sk
+ external   tij_sk
 
  flag_soc = PINPT%flag_soc
  flag_slater_koster = PINPT%flag_slater_koster
@@ -530,7 +665,7 @@ subroutine print_nn_table(NN_TABLE, PINPT)
  open(pid_nntable, file='hopping.dat', status='unknown')
  if(flag_soc) then
    if(flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='yes')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  sig   pi  del sig_s pi_s del_s  nn_class  t_IJ(eV)   lambda_i   stoner_i'
    elseif(.not. flag_slater_koster) then
      write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
@@ -566,10 +701,15 @@ subroutine print_nn_table(NN_TABLE, PINPT)
  do ii = 1, NN_TABLE%n_neighbor
    if(flag_soc) then
      if(flag_slater_koster) then
+       if(PINPT%slater_koster_type .gt. 10) NN_TABLE%tij(ii) = tij_sk(NN_TABLE,ii,PINPT,NN_TABLE%onsite_tolerance,.true.,.false.) ! calculate@here if SK_SCALE_TYPE > 10
        write(pid_nntable,98,ADVANCE='no')NN_TABLE%i_atom(ii)  , NN_TABLE%j_atom(ii), NN_TABLE%Rij(1:3,ii), NN_TABLE%Dij(ii), NN_TABLE%Dij0(ii), &
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
                                          NN_TABLE%p_class(ii), NN_TABLE%sk_index_set(0:6,ii), NN_TABLE%n_class(ii), NN_TABLE%tij(ii), &
                                          NN_TABLE%soc_param_index(ii)
+!if(ii .eq. 95) then
+!write(6,*)"XZZZ TIJ", NN_TABLE%tij(ii)
+! stop
+!endif
      elseif(.not. flag_slater_koster) then
        write(pid_nntable,96,ADVANCE='no')NN_TABLE%i_atom(ii)  , NN_TABLE%j_atom(ii), NN_TABLE%Rij(1:3,ii), NN_TABLE%Dij(ii), NN_TABLE%Dij0(ii), &
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
@@ -599,6 +739,7 @@ subroutine print_nn_table(NN_TABLE, PINPT)
      write(pid_nntable,'(A)',ADVANCE='yes')' ' 
    elseif(.not. flag_soc) then
      if(flag_slater_koster) then
+       if(PINPT%slater_koster_type .gt. 10) NN_TABLE%tij(ii) = tij_sk(NN_TABLE,ii,PINPT,NN_TABLE%onsite_tolerance,.true.,.false.) ! calculate@here if SK_SCALE_TYPE > 10
        write(pid_nntable,99,ADVANCE='no')NN_TABLE%i_atom(ii)  , NN_TABLE%j_atom(ii), NN_TABLE%Rij(1:3,ii), NN_TABLE%Dij(ii), NN_TABLE%Dij0(ii), &
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
                                          NN_TABLE%p_class(ii), NN_TABLE%sk_index_set(0:6,ii), NN_TABLE%n_class(ii), NN_TABLE%tij(ii)

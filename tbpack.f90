@@ -1,4 +1,91 @@
 #include "alias.inc"
+subroutine get_fvec2(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
+  use parameters, only: weight, incar
+  use mpi_setup
+  implicit none
+  type (weight)  :: PWGHT
+  type (incar )  :: PINPT
+  integer*4  i, ik, neig, nkpoint
+  integer*4  is, ie, ie_, iband, nband
+  integer*4  mpierr
+  integer*4  ldjac, imode
+  real*8     E_TBA(nband*PINPT%nspin,nkpoint)
+  real*8     E_DFT(neig*PINPT%ispin,nkpoint), dE(nband*PINPT%nspin)
+  real*8     fvec(ldjac)
+  real*8     fvec_(ldjac)
+  real*8     OW(nband*PINPT%nspin)
+  real*8     OW2
+  complex*16, intent(in) :: V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
+  real*8     enorm
+  external   enorm
+  integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1), sumk, sumk1, my_i
+  real*8     de2(nband)
+  ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
+  ! imode : 2, if ldjac > nparam
+
+  if(imode .eq. 1) then
+    if(PWGHT%flag_weight_default_orb) then
+      call mpi_job_ourjob(nkpoint, ourjob)
+      sumk = sum(ourjob(1:myid)) ; sumk1 = sum(ourjob(1:myid+1)) ; fvec_ = 0d0
+      do ik= sumk + 1, sumk1
+        my_i  = (ik - 1) * nband * PINPT%nspin 
+        do is = 1, PINPT%nspin
+          ie_ = iband - 1 + (is-1) * neig
+          de2 = (E_TBA(1+(is-1)*PINPT%nband:is*PINPT%nband,ik) - E_DFT(ie_+1:ie_+PINPT%nband,ik))**2
+          fvec_(my_i+1 +nband*(is-1):my_i+nband*is) = de2(:) * PWGHT%WT(ie_+1:ie_+PINPT%nband,ik)
+        enddo
+      enddo
+#ifdef MPI
+      call MPI_ALLREDUCE(fvec_, fvec, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+#else
+      fvec = fvec_
+#endif
+    elseif(.not.PWGHT%flag_weight_default_orb) then
+      do ik=1,nkpoint
+        do is = 1, PINPT%nspin
+          do ie = 1, PINPT%nband
+            ie_ = ie + iband - 1 + (is-1) * neig
+            OW(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) ) ! orbital weight
+            dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW(ie_)
+          enddo
+        enddo
+        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
+      enddo
+    endif
+
+  elseif(imode .eq. 2) then
+    if(PWGHT%flag_weight_default_orb) then
+      do ik=1,nkpoint
+        do is = 1, PINPT%nspin
+          do ie = 1, PINPT%nband
+            ie_ = ie + iband - 1 + (is-1) * neig
+            dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))    * PWGHT%WT(ie_,ik)
+          enddo
+        enddo
+        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
+      enddo
+    elseif(.not.PWGHT%flag_weight_default_orb) then
+#ifdef MPI
+      call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+#endif
+      do ik=1,nkpoint
+        do is = 1, PINPT%nspin
+          do ie = 1, PINPT%nband
+            ie_ = ie + iband - 1 + (is-1) * neig
+           !OW(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
+           !dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW(ie_)
+            OW2 = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
+            dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW2
+          enddo
+        enddo
+        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
+      enddo
+    endif
+  endif
+
+return
+endsubroutine
+
 subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
   use parameters, only: weight, incar
   implicit none
@@ -19,9 +106,11 @@ subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, 
       do is = 1, PINPT%nspin
         do ie = 1, PINPT%nband
           ie_ = ie + iband - 1 + (is-1) * neig
-          dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) 
+         !dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))**2 * PWGHT%WT(ie_,ik) 
+          dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))    * PWGHT%WT(ie_,ik) 
         enddo
       enddo
+!     fvec(ik) = sum ( dE )
       fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
     enddo
 
@@ -265,235 +354,6 @@ subroutine print_kpoint (kpoint_reci, nkpoint, fname)
 
 return
 endsubroutine
-subroutine print_param (PINPT, iter, title, flag_print_param)
-  use parameters, only : incar
-  implicit none
-  integer*4 i,iter, pid_param_new
-  character ( len = * ) title
-  logical flag_print_param
-  type (incar)   :: PINPT
-
-  if(.not. flag_print_param) then
-    pid_param_new = 6
-  elseif(flag_print_param)then
-    pid_param_new = 81
-    open(pid_param_new, file = trim(title), status = 'unknown')
-  endif
-
-  if( iter .ge. 1 ) then
-    
-    if(pid_param_new .eq. 6) write ( pid_param_new, '(A,i4,A)',ADVANCE='NO') '   PARAM(iter=',iter,')='
-    do i = 1, PINPT%nparam
-      if( nint(PINPT%param_const(1,i)) .eq. 0) then
-        write ( pid_param_new, '(F9.3)',ADVANCE='NO' ) PINPT%param(i)
-      elseif( nint(PINPT%param_const(1,i)) .ge. 1) then
-        write ( pid_param_new, '(F9.3)',ADVANCE='NO' ) PINPT%param( nint(PINPT%param_const(1,i)) )
-      endif
-    enddo
-    write ( *, '(A)' ) ''
-
-  elseif ( iter .le. 0 ) then
-
-    write ( pid_param_new, '(A)' ) ' '
-    if(flag_print_param) then
-      write ( pid_param_new, '(A,A)' ) '# ',trim ( title )
-      if(PINPT%flag_collinear) then
-        write(pid_param_new,'(A,A)')'# E_TARGET FILE NAME (up): ',trim(PINPT%efilenmu)
-        write(pid_param_new,'(A,A)')'# E_TARGET FILE NAME (dn): ',trim(PINPT%efilenmd)
-      else
-        write(pid_param_new,'(A,A)')'# E_TARGET FILE NAME : ',trim(PINPT%efilenmu)
-      endif
-      if(PINPT%flag_scissor) then 
-        write(pid_param_new,'(A,F8.2,A,I5,A)')'# SCISSOR: .TRUE. => EDFT(n,k) + ',PINPT%r_scissor,' (if n >=',PINPT%i_scissor,')'
-      endif
-      if(PINPT%nweight .ge. 1) then
-        do i = 1, PINPT%nweight
-          write(pid_param_new,'(3(A13,A20),A13,A8)')'# KRANGE ',trim(PINPT%strip_kp(i)), &
-                                                    '  TBABND ',trim(PINPT%strip_tb(i)), &
-                                                    '  DFTBND ',trim(PINPT%strip_df(i)), &
-                                                    '  WEIGHT ',trim(PINPT%strip_wt(i))
-        enddo
-      endif
-      if(PINPT%npenalty_orb .ge. 1) then
-        do i = 1, PINPT%npenalty_orb
-          write(pid_param_new,'(5(A13,A20))')'# KRANGE ',trim(PINPT%strip_kp_orb(i)), &
-                                         '  TBABND ',trim(PINPT%strip_tb_orb(i)), &
-                                         '  ORB_RANGE ',trim(PINPT%strip_orb(i)), &
-                                         '  SITE_RANGE ',trim(PINPT%strip_site(i)), &
-                                         '  PENALTY ',trim(PINPT%strip_pen_orb(i))
-        enddo
-      endif
-      
-      if(PINPT%flag_pfile_index) then
-        write(pid_param_new, '(A)') ' PRINT_INDEX .TRUE.'
-      else
-        write(pid_param_new, '(A)') ' PRINT_INDEX .FALSE.'
-      endif
-    else
-      write ( pid_param_new, '(A)' ) trim ( title )
-    endif
-
-    do i = 1, PINPT%nparam
-
-      if( nint(PINPT%param_const(1,i)) .eq. 0) then ! if do not have pair
-
-        if( nint(PINPT%param_const(4,i)) .eq. 1) then ! if fixed
-          if( .not. PINPT%flag_pfile_index) then
-            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
-          else
-            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param(i),'  '
-          else
-            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param(i),'  '
-          endif
-        endif
-
-      elseif( nint(PINPT%param_const(1,i)) .ge. 1) then
-
-        if( nint( PINPT%param_const( 4,nint(PINPT%param_const(1,i)) ) ) .eq. 1) then
-!         write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param( nint(PINPT%param_const(1,i)) ), '  Fixed'
-          if( .not. PINPT%flag_pfile_index) then
-            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), &
-                                                           PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
-          else
-            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), &
-                                                                  PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            write ( pid_param_new, '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), &
-                                                           PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
-          else
-            write ( pid_param_new, '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), &
-                                                                  PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
-          endif
-        endif
-
-      endif
-
-    enddo
-
-    if(.not. flag_print_param) write ( *, '(a)' ) ' '
-
-  endif
-
-  if(flag_print_param) close(pid_param_new)
-
-return
-endsubroutine
-
-module print_matrix
-contains
-
-subroutine print_matrix_c(H_,msize_row,msize_col, title, iflag, fmt_)
- use parameters, only : pid_matrix, eta, zi
- implicit none
- integer*4 i,j,iflag,msize_row,msize_col
- complex*16 H(msize_row,msize_col)
- complex*16 H_(msize_row,msize_col)
- character (len = *) title
- character*80 fname
- character(len = *), optional :: fmt_ ! format, ex) f12.5
- character*80 fmt
- real*8       a
- if(present(fmt_)) then
-   write(fmt,'(5A)')'(*(2x,',trim(fmt_),",'+',",trim(fmt_),",'i'))"
- else
-   write(fmt,'(A)')"(*(2x,F7.3,'+',F7.3,'i'))"
- endif
-
- H = H_
-
- ! iflag=0 : print to monitor, 1: print to file with name 'title'
- if (iflag .eq. 0) then
-  write(6,'(A,A)')trim(title),'= ['
-  do i=1,msize_row
-   do j = 1, msize_col
-     if(abs( real(H(i,j))) .lt. 10d0*eta) then 
-       a = aimag(H(i,j))
-       H(i,j) = 0d0 + a * zi  ! be careful !!
-     endif
-     if(abs(aimag(H(i,j))) .lt. 10d0*eta) then 
-        a = real(H(i,j))
-        H(i,j) =  a+ 0d0 * zi ! be careful !!
-     endif
-   enddo
-   write(6,fmt,ADVANCE='NO')H(i,1:msize_col)
-   if(i .eq. msize_row) then
-     write(6,'(A)',ADVANCE='YES')'];'
-   elseif(i .lt. msize_row) then
-     write(6,'(A)',ADVANCE='YES')';'
-   endif
-  enddo
-  write(6,*)''
- elseif(iflag .eq. 1) then
-  write(fname,'(A,A)')trim(title),'.matrix.dat'
-  open(pid_matrix,file=fname,status='unknown')
-  write(pid_matrix,'(A,A,A)')"# ",trim(title),'='
-  do i=1,msize_row
-   do j = 1, msize_col
-     if(abs( real(H(i,j))) .lt. 10d0*eta) then 
-       a = aimag(H(i,j))
-       H(i,j) = 0d0 + a * zi  ! be careful !!
-     endif
-     if(abs(aimag(H(i,j))) .lt. 10d0*eta) then
-        a = real(H(i,j))
-        H(i,j) =  a+ 0d0 * zi ! be careful !!
-     endif
-   enddo
-   write(pid_matrix,fmt,ADVANCE='YES')H(i,1:msize_col)
-  enddo
-  write(pid_matrix,*)''
-  close(pid_matrix)
- endif
-999 format( *(2x,F7.3,'+',F7.3,'i') )
-998 format( *(2x,F15.8,' + ',F15.8,' i') )
-return
-end subroutine
-
-subroutine print_matrix_r(H,msize_row,msize_col, title, iflag,fmt_)
- use parameters, only : pid_matrix, eta
- implicit none
- integer*4 i,j,iflag,msize_row,msize_col
- real*8 H(msize_row,msize_col)
- character (len = *) title
- character*80 fname
- character(len = *), optional :: fmt_
- character*80 fmt
-
- if(present(fmt_)) then
-   write(fmt,'(3A)')'(4x,*(',trim(fmt_),'))'
- else
-   write(fmt,'(A)')"(4x,*(F10.5))"
- endif
-
- ! iflag=0 : print to monitor, 1: print to file with name 'title'
- if (iflag .eq. 0) then
-  write(6,'(A,A)')trim(title),'='
-  do i=1,msize_row
-   do j = 1, msize_col
-     if(abs(H(i,j)) .lt.100d0*eta) H(i,j) = 0d0 ! be careful !!
-   enddo
-   write(6,fmt,ADVANCE='YES')H(i,1:msize_col)
-  enddo
- elseif(iflag .eq. 1) then
-  write(fname,'(A,A)')trim(title),'.matrix.dat'
-  open(pid_matrix,file=fname,status='unknown')
-  write(pid_matrix,'(A,A,A)')"# ",trim(title),'='
-  do i=1,msize_row
-   do j = 1, msize_col
-     if(abs(H(i,j)) .lt.100d0*eta) H(i,j) = 0d0 ! be careful !!
-   enddo
-   write(pid_matrix,fmt,ADVANCE='YES')H(i,1:msize_col)
-  enddo
-  close(pid_matrix)
- endif
-return
-end subroutine
-endmodule
 
 ! subroutine for computing reciprocal lattice vector
 subroutine get_reci(b1,b2,b3, a1,a2,a3)
@@ -819,7 +679,9 @@ function enorm ( n, x )
   integer*4 n
   real*8 x(n),enorm
 
+ !enorm = sqrt ( sum ( x(1:n) ** 2 ))
   enorm = sqrt ( sum ( x(1:n) ** 2 ))
+! enorm = abs  ( sum ( abs (x(1:n)) ))
   return
 end
 subroutine kronprod(A,B,row_a,col_a,row_b,col_b,AB) 

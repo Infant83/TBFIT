@@ -334,6 +334,25 @@ module mpi_setup
 
 #endif  
 !!!!!!! end if_def MPI
+   subroutine mpi_job_ourjob(njob, ourjob)
+     implicit none 
+     integer*4     njob, mynjob
+     integer*4     ourjob(nprocs)
+     integer*4     cpuid, mpierr
+     integer*4     nresidue
+ 
+     mynjob = floor ( real(njob)/real(nprocs) )
+     nresidue = nint ( real(njob) - real(mynjob) * real(nprocs) )   
+     ourjob = 0
+     do cpuid = 1, nprocs   
+       if( cpuid .le. nresidue ) then
+         ourjob(cpuid) = mynjob + 1
+       else
+         ourjob(cpuid) = mynjob
+       endif
+     enddo
+
+   endsubroutine
 
    subroutine mpi_job_distribution_chain(njob, ourjob, ourjob_disp)
      implicit none

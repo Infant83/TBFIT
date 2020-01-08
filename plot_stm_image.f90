@@ -35,6 +35,10 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    character*2   spin_index_c(2)
    real*8        t0, t1
    character*4   timer
+   real*8        zeff(PGEOM%neig)
+   real*8        nqnum(PGEOM%neig)
+   integer*4     lqnum(PGEOM%neig)
+   character*2   orb(PGEOM%neig)
 
    timer = 'init'
    spin_index_c(1) = 'up'
@@ -46,7 +50,8 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    
    call set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, &
                               pid_stm_up, pid_stm_dn, vol, ng1, ng2, ng3, &
-                              a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
+                              a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3, &
+                              zeff, nqnum, lqnum, orb)
 #ifdef MPI
    call MPI_BARRIER(mpi_comm_earth, mpierr)
 #endif
@@ -83,18 +88,20 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
            ! It is due to the V(:,iee) is only for "up" part. For "dn" part, V(:,iee + nband)
            call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
-     band: do ie = 1+myid, stm_neig(is),nprocs
+     !band: do ie = 1+myid, stm_neig(is),nprocs
+     band: do ie = 1, stm_neig(is)
              iee = stm_erange(ie,is) - PINPT%init_erange + 1
     cell_z: do iz =  -PINPT%repeat_cell_orb_plot(3),PINPT%repeat_cell_orb_plot(3) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_y: do iy =  -PINPT%repeat_cell_orb_plot(2),PINPT%repeat_cell_orb_plot(2) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_x: do ix =  -PINPT%repeat_cell_orb_plot(1),PINPT%repeat_cell_orb_plot(1) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
               call reset_orbital_origin(origin_reset, origin, neig, a1, a2, a3, ix, iy, iz)
-      grid_z: do i3=0,ng3-1
+      !grid_z: do i3=0,ng3-1
+      grid_z: do i3=0+myid,ng3-1, nprocs
       grid_y: do i2=0,ng2-1
       grid_x: do i1=0,ng1-1
                 igrid = i1+1+i2*ng1+i3*ng1*ng2
                 call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
-                call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, .false.)
+                call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, .false., zeff, nqnum, lqnum, orb)
                 if(PINPT%nspin .eq. 1) then
                   call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor,PINPT%nspin)
                 elseif(PINPT%nspin .eq. 2) then
@@ -278,8 +285,9 @@ subroutine CHGCAR_stm_head(pid_stm_, istm, PINPT, PGEOM, c_extension)
    write(pid_stm_,'(3F20.16)')PGEOM%a_latt(1:3,3)
    write(pid_stm_,*)PGEOM%c_spec(:)
    write(pid_stm_,*)PGEOM%i_spec(:)
-   if(PGEOM%flag_direct)    write(pid_stm_,'(A)') "Direct"
-   if(PGEOM%flag_cartesian) write(pid_stm_,'(A)') "Cartesian"
+   !if(PGEOM%flag_direct)    write(pid_stm_,'(A)') "Direct"
+   !if(PGEOM%flag_cartesian) write(pid_stm_,'(A)') "Cartesian"
+   write(pid_stm_,'(A)') "Direct" ! only direct coordinate will be written
    do i = 1, PGEOM%n_atom
 !    write(pid_stm_,'(3F20.16)') PGEOM%a_coord(:,i)+PINPT%r_origin(:) ! origin_shift is not 
                                                                       ! applied at this point
@@ -356,8 +364,9 @@ endsubroutine
 
 subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, &
                                  pid_stm_up, pid_stm_dn, vol, ng1, ng2, ng3, &
-                                 a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3)
+                                 a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3, zeff, nqnum, lqnum, orb)
    use parameters, only : incar, poscar, pid_stm
+   use element_info, only: angular
    implicit none
    type(incar)  ::  PINPT
    type(poscar) ::  PGEOM
@@ -369,6 +378,10 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    real*8           rshift(3)
    character(*), parameter :: func = 'set_variable_plot_stm'
    character*8      corb(PGEOM%neig)
+   real*8           zeff(PGEOM%neig)
+   real*8           nqnum(PGEOM%neig)
+   integer*4        lqnum(PGEOM%neig)
+   character*2      orb(PGEOM%neig), orb_
    real*8           origin(3,PGEOM%neig)
    real*8           grid_d1, grid_a1(0:PINPT%stm_ngrid(1)-1)
    real*8           grid_d2, grid_a2(0:PINPT%stm_ngrid(2)-1)
@@ -400,9 +413,16 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
                            ( PGEOM%a_coord(2,iatom) + rshift(2) )*a2(:) + &
                            ( PGEOM%a_coord(3,iatom) + rshift(3) )*a3(:)
        corb(iorbital)=trim(PGEOM%c_orbital(iorb,iatom))
+
+       zeff(iorbital) = PGEOM%z_eff_nuc(iorb, iatom)
+       nqnum(iorbital)= PGEOM%n_quantum(iatom)
+       lqnum(iorbital)= PGEOM%l_quantum(iorb,iatom)
+       write(orb(iorbital),'(I0,A)') PGEOM%orb_n_quantum(iorb,iatom), angular(PGEOM%l_quantum(iorb,iatom))
+       !write(orb_,'(I0,A)') PGEOM%orb_n_quantum(iorb,iatom), angular(PGEOM%l_quantum(iorb,iatom))
+       !orb(iorbital) = orb_
+
      enddo
    enddo
-
    if (iorbital .ne. PGEOM%neig) then
      write(6,'(A,A)')'  !WARNING! iorbital is not same as neig!, please check again. ',func
      stop

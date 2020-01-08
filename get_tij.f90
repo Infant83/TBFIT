@@ -1,24 +1,34 @@
-function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init)
+function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
   use parameters, only : pi, rt2, rt3, hopping, incar
+  use get_parameter
   implicit none
   type (hopping)  :: NN_TABLE
   type (incar  )  :: PINPT
   integer*4 i,ii, iscale_mode
+  integer*4 n_nn, i_atom
+  integer*4 i_o, i_s, i_p, i_d, i_ovl 
   real*8   l, m, n, ll, mm, nn, lm, ln, mn, lmp, lmm
   real*8   rij(3),dij, d0
   real*8   tij_sk,tol
-  real*8   e, s,   p,   d
+  real*8   e_(4), s_(4),   p_(4),   d_(4)  ! for NRL SK parameterization
+  real*8   e, s,   p,   d                  ! for normal SK parameterization
   real*8      s_s, p_s, d_s
+  real*8   i_sign, j_sign
   character*8  ci_orb,cj_orb
   character*20 site_index
+  real*8             l_onsite(NN_TABLE%n_nn(NN_TABLE%i_atom(ii)))
   real*8, external:: f_s
   real*8, external:: f_s2
+  real*8, external:: f_s_nrl
   real*8, external:: e_onsite_xx
-  logical  flag_init
+  real*8, external:: e_nrl
+  logical  flag_init, flag_set_overlap
 
-  ! NN_TABLE%sk_set_index(0:6,nn)
-  !    0        1     2    3     4      5     6
-  ! e_onsite  sigma   pi delta sigma_s pi_s delta_s    ! _s indicates scaling factor
+  ! NN_TABLE%sk_set_index(0:6(+6;if use_overlap),nn)
+  !    0        1       2      3       4        5       6
+  ! e_onsite  sigma     pi   delta   sigma_s   pi_s   delta_s    ! _s indicates scaling factor
+  !             1+6     2+6    3+6     4+6      5+6     6+6     
+  !         o_sigma   o_pi o_delta o_sigma_s o_pi_s o_delta_s    ! _s indicates scaling factor, o_ indicates overlap integral
 
   ! NOTE: if param_class = "xx", param_name for onsite_energy should look like below,
   !       e_'orb_name'_'site_index'
@@ -35,14 +45,18 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init)
     return
   endif
 
-  iscale_mode = 1 ! default = 1, see 'f_s' function for the detail.
+  i_ovl = 0
+  if(flag_set_overlap) i_ovl = 6
 
+  iscale_mode= PINPT%slater_koster_type ! default = 1, see 'f_s' function for the detail.
+  i_atom     = NN_TABLE%i_atom(ii)
   rij(1:3)   = NN_TABLE%Rij(1:3,ii)
   dij        = NN_TABLE%Dij(    ii)
   ci_orb     = NN_TABLE%ci_orb( ii)
   cj_orb     = NN_TABLE%cj_orb( ii)
-  site_index = NN_TABLE%site_cindex( NN_TABLE%i_atom(ii) )
-
+   i_sign    = NN_TABLE%i_sign( ii)
+   j_sign    = NN_TABLE%j_sign( ii)
+  site_index = NN_TABLE%site_cindex( i_atom)
   if( NN_TABLE%n_class(ii) .gt. 0 ) then
     l        = rij(1)/dij
     m        = rij(2)/dij
@@ -57,60 +71,85 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init)
     lmm      = ll - mm
   endif
 
-  e   = 0d0
-  s   = 0d0
-  p   = 0d0
-  d   = 0d0
-  s_s = 1d0 !default if not provided
-  p_s = 1d0 !default if not provided
-  d_s = 1d0 !default if not provided
+  if(flag_set_overlap .and. NN_TABLE%n_class(ii)  .eq.                    0    .and.  &
+                            NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)  ) then
+    e  = 1d0
+    if(iscale_mode .gt. 10) e_(1:4)= (/1d0,0d0,0d0,0d0/)
+  else
+    e  = 0d0
+    if(iscale_mode .gt. 10) e_ = 0d0
+  endif
+  s  = 0d0
+  p  = 0d0
+  d  = 0d0
+  s_s= 1d0 !default if not provided
+  p_s= 1d0 !default if not provided
+  d_s= 1d0 !default if not provided
   d0  = NN_TABLE%Dij0(ii)
+  if(iscale_mode .gt. 10 ) then
+    n_nn      = NN_TABLE%n_nn(i_atom)
+  endif
 
   if( NN_TABLE%n_class(ii) .eq. 0 ) then
 
-    if( NN_TABLE%p_class(ii) .eq. 'xx' ) then  
-      ! set user defined onsite energy modifications in 'e_onsite_xx' function
-      e = e_onsite_xx(ci_orb,cj_orb, PINPT, site_index)
-    else
-      ! set onsite energy species by species and orbital by orbital
-      if(NN_TABLE%sk_index_set(0,ii) .gt. 0) then
-        call get_param(PINPT, NN_TABLE%sk_index_set(0,ii), e)
-        
-      endif
-    endif ! set_onsite
+      if( NN_TABLE%p_class(ii) .eq. 'xx' ) then  
+        ! set user defined onsite energy modifications in 'e_onsite_xx' function
+        e = e_onsite_xx(ci_orb,cj_orb, PINPT, site_index)
+
+      else
+        ! set onsite energy species by species and orbital by orbital
+        i_o = NN_TABLE%sk_index_set(0,ii) ! onsite energy parameter index
+        if(i_o .gt. 0 .and. .not. flag_set_overlap) then ! if onsite energy for Hk
+          if(iscale_mode .le. 10) call get_param(PINPT, i_o, 1, e)
+          if(iscale_mode .gt. 10) then 
+            call get_param(PINPT,i_o, (/1:4/), e_(1:4)) ! get onsite energy parameters
+            call get_param(PINPT,NN_TABLE%l_onsite_param_index(NN_TABLE%j_nn(1:n_nn,i_atom)),1, l_onsite(1:n_nn)) ! get l_onsite for each j_nn
+          endif
+        else
+          l_onsite = 0d0
+        endif
+      endif ! set_onsite
 
   elseif(NN_TABLE%n_class(ii) .gt. 0) then
-
-    if(NN_TABLE%sk_index_set(1,ii) .ne. 0) then
-      call get_param(PINPT, NN_TABLE%sk_index_set(1,ii), s)
-    endif
-   
-    if(NN_TABLE%sk_index_set(2,ii) .ne. 0) then
-      call get_param(PINPT, NN_TABLE%sk_index_set(2,ii), p)
-    endif
-   
-    if(NN_TABLE%sk_index_set(3,ii) .ne. 0) then 
-      call get_param(PINPT, NN_TABLE%sk_index_set(3,ii), d)
-    endif
-   
-    if(NN_TABLE%sk_index_set(4,ii) .gt. 0) then
-      call get_param(PINPT, NN_TABLE%sk_index_set(4,ii), s_s)
-    endif
-   
-    if(NN_TABLE%sk_index_set(5,ii) .ne. 0) then 
-      call get_param(PINPT, NN_TABLE%sk_index_set(5,ii), p_s)
-    endif
-   
-    if(NN_TABLE%sk_index_set(6,ii) .ne. 0) then
-      call get_param(PINPT, NN_TABLE%sk_index_set(6,ii), d_s)
-    endif
+      if(iscale_mode .gt. 10) then
+        i_s = NN_TABLE%sk_index_set(1+i_ovl,ii)
+        i_p = NN_TABLE%sk_index_set(2+i_ovl,ii)
+        i_d = NN_TABLE%sk_index_set(3+i_ovl,ii)
+        if( i_s .ne. 0) call get_param(PINPT, i_s, (/1:4/), s_(1:4) ) ! sigma
+        if( i_p .ne. 0) call get_param(PINPT, i_p, (/1:4/), p_(1:4) ) ! pi
+        if( i_d .ne. 0) call get_param(PINPT, i_d, (/1:4/), d_(1:4) ) ! delta
+      else
+        i_s = NN_TABLE%sk_index_set(1+i_ovl,ii)
+        i_p = NN_TABLE%sk_index_set(2+i_ovl,ii)
+        i_d = NN_TABLE%sk_index_set(3+i_ovl,ii)
+        if( i_s .ne. 0) call get_param(PINPT, i_s, 1, s  ) ! sigma
+        if( i_p .ne. 0) call get_param(PINPT, i_p, 1, p  ) ! pi
+        if( i_d .ne. 0) call get_param(PINPT, i_d, 1, d  ) ! delta
+        i_s = NN_TABLE%sk_index_set(4+i_ovl,ii) 
+        i_p = NN_TABLE%sk_index_set(5+i_ovl,ii)
+        i_d = NN_TABLE%sk_index_set(6+i_ovl,ii)
+        if( i_s .ne. 0) call get_param(PINPT, i_s, 1, s_s) ! sigma_scale
+        if( i_p .ne. 0) call get_param(PINPT, i_p, 1, p_s) ! pi_scale
+        if( i_d .ne. 0) call get_param(PINPT, i_d, 1, d_s) ! delta_scale
+      endif
 
   endif !check n_class
 
-  s = s * f_s ( s_s, d0, dij, iscale_mode)
-  p = p * f_s ( p_s, d0, dij, iscale_mode)
-  d = d * f_s ( d_s, d0, dij, iscale_mode)
 
+  if( iscale_mode .gt. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
+    s = f_s_nrl ( s_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
+    p = f_s_nrl ( p_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
+    d = f_s_nrl ( d_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
+
+  elseif(iscale_mode .le. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
+
+    s = s * f_s ( s_s, d0, dij, iscale_mode) * i_sign * j_sign
+    p = p * f_s ( p_s, d0, dij, iscale_mode) * i_sign * j_sign
+    d = d * f_s ( d_s, d0, dij, iscale_mode) * i_sign * j_sign
+
+  endif
+
+!endif
   ! SK-energy integral if nn_class > 0
   if( NN_TABLE%n_class(ii) .ne. 0) then
 sk: select case ( NN_TABLE%p_class(ii) )
@@ -400,16 +439,72 @@ sk: select case ( NN_TABLE%p_class(ii) )
 
   ! onsite energy if nn_class == 0
   elseif( NN_TABLE%n_class(ii) .eq. 0 ) then 
-    if(PINPT%flag_efield .and. (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)) ) then
-      tij_sk = e - dot_product(PINPT%efield(1:3), NN_TABLE%i_coord(1:3,ii) - PINPT%efield_origin_cart(1:3))
-    else
-      tij_sk = e 
+    if(PINPT%flag_efield .and. (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)) ) then ! if E-field
+      if(.not.flag_set_overlap) then
+
+        if(iscale_mode .gt. 10) then
+          if(n_nn .gt. 0) then
+            tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PINPT%l_broaden) &
+                    -dot_product(PINPT%efield(1:3),NN_TABLE%i_coord(1:3,ii)-PINPT%efield_origin_cart(1:3))
+          elseif(n_nn .eq. 0) then
+            tij_sk = e_(1)
+          endif
+        else
+          tij_sk = e - dot_product(PINPT%efield(1:3),NN_TABLE%i_coord(1:3,ii)-PINPT%efield_origin_cart(1:3))
+        endif
+      elseif(flag_set_overlap) then
+        tij_sk = e 
+      endif
+    else ! if not E-field
+      if(iscale_mode .gt. 10) then
+        if(n_nn .gt. 0 .and. .not. flag_set_overlap) then
+          tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PINPT%l_broaden) 
+        elseif(n_nn .eq. 0) then
+          tij_sk = e_(1)
+        endif
+      else
+        tij_sk = e 
+      endif
     endif
+
   endif
 
 return
 endfunction
+function e_nrl(e, R0, R_nn, n_nn, l_onsite, l_broaden)
+   implicit none
+   integer*4    i, n_nn
+   real*8       e(4)
+   real*8       l_onsite(n_nn), l_broaden
+   real*8       R_nn(n_nn), R0(n_nn)
+   real*8       f_cut(n_nn)
+   real*8       e_nrl, rho_at
 
+   ! rho : local atomic density at atom i with additional parameter ldensity
+   rho_at = 0d0
+   f_cut = 1d0/(1d0 + Exp( (R_nn(:) - R0(:))/l_broaden + 5d0 ) )
+   rho_at= sum(Exp(-(l_onsite(:)**2d0) * R_nn(:) ) * f_cut(:))
+
+   e_nrl = e(1) + e(2) * (rho_at**(2d0/3d0)) + &
+                  e(3) * (rho_at**(4d0/3d0)) + &
+                  e(4) * (rho_at**(2d0    ))
+return
+endfunction
+function f_s_nrl(dda, d0, d, mode, l_broaden)
+   implicit none
+   integer*4    mode
+   real*8       f_s_nrl, l_broaden, f_cut
+   real*8       dda(4), d0, d
+   
+!    mode : scaling function
+!     11 = see Ref. PRB 54, 4519 (1996) : Naval Resarch Laboratory (NRL) TB scheme
+   if(mode .eq. 11) then
+     f_cut   = (1d0 + Exp( (d - d0)/l_broaden + 5d0 ) )**-1d0
+     f_s_nrl = ( dda(1) + dda(2) * d + dda(3) * (d**2d0) ) * Exp(-(dda(4)**2d0) * d) * f_cut
+   endif
+
+return
+endfunction
 function f_s(dda_s,d0,d, mode)
    implicit none
    integer*4 mode

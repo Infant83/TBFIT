@@ -1,4 +1,202 @@
 #include "alias.inc"
+subroutine read_energy_vasp(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
+  use parameters
+  use mpi_setup
+  implicit none
+  character*132     fname, fnameu,fnamed
+  character*132    inputline
+  character*40  desc_str,dummy, dummy_(1000)
+  character(*), parameter :: func = 'read_energy'
+  integer*4, parameter :: max_eig = 1000000
+  integer*4        ie, ik, k, i_continue, line_tot
+  integer*4                 size_range
+  integer*4        idummy, ispin, nkp_target, neig_target, nelect, ie_start
+  integer*4        iread_occ
+  integer*4, allocatable :: irange(:),irange_up(:), irange_dn(:), occ(:,:), occ_(:,:)
+
+  type(incar)   :: PINPT
+  type(poscar)  :: PGEOM
+  type(kpoints) :: PKPTS
+  type(energy)  :: EDFT_, EDFT__
+  type(energy)  :: EDFT_all
+  type(energy)  :: EDFT
+  type(weight)  :: PWGHT
+
+  iread_occ=1 ! default ; if LORBIT = 0 and the EIGENVAL does not contain occupation info, 
+              !           set iread_occ = 0 when energy surface extraction (-scf)
+
+  if(PINPT%flag_collinear) then
+    allocate( EDFT%E(PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint) )
+    if(PGEOM%neig*2 .gt. max_eig) then
+      if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+      if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+      stop
+    endif
+  elseif(PINPT%flag_noncollinear) then
+    allocate( EDFT%E(PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint) )
+    if(PGEOM%neig .gt. max_eig) then
+      if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+      if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+      stop
+    endif
+  else
+    allocate( EDFT%E(PGEOM%neig,  PKPTS%nkpoint) )
+    if(PGEOM%neig .gt. max_eig) then
+      if_main write(6,'(A)')'  !WARNING!  NEIG is exceeding predefined max_eig=1000000. Please increase "max_eig"'
+      if_main write(6,'(A,A)')'  !WARNING!  Exit program... ',func
+      stop
+    endif
+  endif
+  fname = trim(PINPT%efilenmu)
+
+  allocate( EDFT_%E(max_eig, PKPTS%nkpoint) )
+  allocate( EDFT__%E(max_eig, PKPTS%nkpoint) )
+  allocate( occ(max_eig, PKPTS%nkpoint) )
+  allocate( occ_(max_eig, PKPTS%nkpoint) )
+  open(pid_energy,file=trim(fname), status='old', iostat=i_continue)
+
+  if_main write(6,*)' '
+  if_main write(6,*)'*- READING TARGET ENERGY FILE: ',trim(fname)
+
+  ie_start=PINPT%itarget_e_start
+  line_tot = 0
+
+  ! reading header for EIGENVAL
+  read(pid_energy,*) idummy, idummy, idummy, ispin
+  do k=1, 4
+    read(pid_energy, *) dummy
+  enddo
+  read(pid_energy,*) nelect, nkp_target, neig_target
+  ! read energy for each k-point
+  do ik=1,nkp_target
+    read(pid_energy,*) dummy
+    do ie = 1, neig_target
+      if( iread_occ .eq. 1) then
+        if(ispin .eq. 2) then
+          read(pid_energy,*) dummy, EDFT__%E(ie, ik), EDFT__%E(ie+neig_target, ik), occ_(ie,ik), occ_(ie+neig_target,ik)
+        else
+          read(pid_energy,*) dummy, EDFT__%E(ie, ik), occ_(ie,ik)
+        endif
+      else
+        if(ispin .eq. 2) then
+          read(pid_energy,*) dummy, EDFT__%E(ie, ik), EDFT__%E(ie+neig_target, ik)
+        else
+          read(pid_energy,*) dummy, EDFT__%E(ie, ik)
+        endif
+      endif
+    enddo
+  enddo
+
+  EDFT__%E = EDFT__%E - PINPT%efile_ef
+
+  if(PINPT%flag_collinear) then
+    if(PWGHT%fband .eq. -9999) PWGHT%fband = PGEOM%neig
+  elseif(PINPT%flag_noncollinear) then
+    if(PWGHT%fband .eq. -9999) PWGHT%fband = PGEOM%neig*2
+  else
+    if(PWGHT%fband .eq. -9999) PWGHT%fband = PGEOM%neig
+  endif
+
+  size_range = size( (/(k, k=PWGHT%iband,PWGHT%fband)/) )
+
+  ! reset according to the initial target
+  if(ispin .eq. 2) then
+    if( (neig_target - PINPT%itarget_e_start + 1) .ge. size_range ) then
+      EDFT_%E(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = EDFT__%E(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      EDFT_%E(1+neig_target-PINPT%itarget_e_start+1: (neig_target-PINPT%itarget_e_start+1)*2,1:nkp_target) = EDFT__%E(1+neig_target:neig_target*2,1:nkp_target)
+      occ(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = occ_(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      occ(1+neig_target-PINPT%itarget_e_start+1: (neig_target-PINPT%itarget_e_start+1)*2,1:nkp_target) = occ_(1+neig_target:neig_target*2,1:nkp_target)
+    else ! if neig_target - PINPT%itarget_e_start + 1 is less than fband - iband + 1
+      idummy = size_range - (neig_target - PINPT%itarget_e_start + 1)
+      EDFT_%E(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = EDFT__%E(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      EDFT_%E(neig_target-PINPT%itarget_e_start+1+1:size_range,1:nkp_target) = 100d0 ! dummy value is added
+      EDFT_%E(size_range + 1: size_range + neig_target-PINPT%itarget_e_start+1,1:nkp_target) = EDFT__%E(1+neig_target:neig_target*2,1:nkp_target)
+      EDFT_%E(size_range + neig_target-PINPT%itarget_e_start+1+1:size_range*2,1:nkp_target) = 100d0
+
+      occ(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target)                            = occ_(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      occ(neig_target-PINPT%itarget_e_start+1+1:size_range,1:nkp_target)                 = 100d0 ! dummy value is added
+      occ(size_range + 1: size_range + neig_target-PINPT%itarget_e_start+1,1:nkp_target) = occ_(1+neig_target:neig_target*2,1:nkp_target)
+      occ(size_range + neig_target-PINPT%itarget_e_start+1+1:size_range*2,1:nkp_target)  = 100d0
+    endif
+  else
+    if( (neig_target - PINPT%itarget_e_start + 1) .ge. size_range ) then
+      EDFT_%E(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = EDFT__%E(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      occ(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = occ_(PINPT%itarget_e_start:neig_target,1:nkp_target)
+    else
+      EDFT_%E(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target) = EDFT__%E(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      EDFT_%E(neig_target-PINPT%itarget_e_start+1+1:size_range,1:nkp_target) = 100d0
+ 
+      occ(1:neig_target-PINPT%itarget_e_start+1,1:nkp_target)            = occ_(PINPT%itarget_e_start:neig_target,1:nkp_target)
+      occ(neig_target-PINPT%itarget_e_start+1+1:size_range,1:nkp_target) = 100d0
+    endif
+  endif
+
+  if(neig_target - PINPT%itarget_e_start + 1 .ge. size_range) then
+    PGEOM%neig_target=neig_target * ispin
+    if_main write(6,'(A,I8)')' N_TARGET:',PGEOM%neig_target
+  else
+    PGEOM%neig_target=size_range * ispin
+    if_main write(6,'(A,I8)')' N_TARGET: (adjusted)',PGEOM%neig_target
+  endif
+
+  allocate( EDFT_all%E(PGEOM%neig_target, nkp_target) )
+
+  if(PINPT%flag_collinear) then
+    allocate( irange_up(size_range) )
+    allocate( irange_dn(size_range) )
+    allocate( irange(size_range*PINPT%ispin) )
+  elseif(PINPT%flag_noncollinear) then
+    allocate( irange(size_range*PINPT%ispin) )
+  else
+    allocate( irange(size_range) )
+  endif
+
+  if(PINPT%flag_collinear) then
+    irange_up = (/(k, k=PWGHT%iband,PWGHT%fband)/)
+    irange_dn = irange_up + PGEOM%neig_target / 2
+    irange = (/irange_up, irange_dn/)
+  elseif(PINPT%flag_noncollinear) then
+    irange = (/(k, k=PWGHT%iband,PWGHT%fband)/)
+  else
+    irange = (/(k, k=PWGHT%iband,PWGHT%fband)/)
+  endif
+
+  if(PINPT%flag_collinear) then
+    if(PINPT%flag_scissor) then
+      EDFT_%E(PINPT%i_scissor:PGEOM%neig,1:PKPTS%nkpoint) = &
+            EDFT_%E(PINPT%i_scissor:PGEOM%neig,1:PKPTS%nkpoint) + PINPT%r_scissor
+      EDFT_%E(PGEOM%neig+PINPT%i_scissor:PGEOM%neig*2,1:PKPTS%nkpoint) = &
+            EDFT_%E(PGEOM%neig+PINPT%i_scissor:PGEOM%neig*2,1:PKPTS%nkpoint) + PINPT%r_scissor
+    endif
+    EDFT%E(1:PGEOM%neig*PINPT%ispin,1:PKPTS%nkpoint) = EDFT_%E(irange,1:PKPTS%nkpoint)
+  elseif(PINPT%flag_noncollinear) then
+    if(PINPT%flag_scissor) then
+      EDFT_%E(PINPT%i_scissor:PGEOM%neig*2,1:PKPTS%nkpoint) = &
+            EDFT_%E(PINPT%i_scissor:PGEOM%neig*2,1:PKPTS%nkpoint) + PINPT%r_scissor
+    endif
+    EDFT%E(1:PGEOM%neig*PINPT%ispin,1:PKPTS%nkpoint) = EDFT_%E(irange,1:PKPTS%nkpoint)
+  else
+    if(PINPT%flag_scissor) then
+      EDFT_%E(PINPT%i_scissor:PGEOM%neig,1:PKPTS%nkpoint) = &
+            EDFT_%E(PINPT%i_scissor:PGEOM%neig,1:PKPTS%nkpoint) + PINPT%r_scissor
+    endif
+    EDFT%E(1:PGEOM%neig,1:PKPTS%nkpoint) = EDFT_%E(irange,1:PKPTS%nkpoint)
+  endif
+
+  EDFT_all%E(1:PGEOM%neig_target,1:PKPTS%nkpoint) = EDFT_%E(1:PGEOM%neig_target,1:PKPTS%nkpoint)
+
+  if_main write(6,*)'*- END READING TARGET ENERGY FILE --------------'
+  if_main write(6,*)' '
+  close(pid_energy)
+! if(PINPT%flag_collinear) close(pid_energy+1)
+  deallocate(EDFT_%E)
+  if(allocated(EDFT__%E)) deallocate(EDFT__%E)
+  if(allocated(occ)) deallocate(occ)
+  if(allocated(occ_)) deallocate(occ_)
+
+return
+endsubroutine
+
 subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   use parameters
   use mpi_setup
@@ -175,6 +373,8 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   else
     irange = (/(k, k=PWGHT%iband,PWGHT%fband)/)
   endif
+
+  EDFT_%E = EDFT_%E - PINPT%efile_ef
 
   if(PINPT%flag_collinear) then
     if(PINPT%flag_scissor) then
@@ -745,7 +945,6 @@ subroutine load_band_structure_V2_bin(E, V2, ne_found, ispin, nspin, nband, nbas
    logical                flag_exit
    character*2            c_mode_
    flag_exit = .false.
-
    ne_found = 0
    if(flag_vector) then
      V2       = 0d0
@@ -811,7 +1010,6 @@ subroutine load_band_structure_V2_bin(E, V2, ne_found, ispin, nspin, nband, nbas
            read(pid) ((ne_found(ik), kpoint_(1:ikmode,ik), (E(ie,ik),ie=1,ne_found(ik)), &
                                        (( V2(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
          elseif(flag_single_) then
-
            read(pid) ((ne_found(ik), kpoint4_(1:ikmode,ik), (E4(ie,ik),ie=1,ne_found(ik)), &
                                        ((V4(im,ie,ik),im=1,nbasis), ie=1,ne_found(ik))),ik=1,nk)
            kpoint_ = kpoint4_

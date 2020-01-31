@@ -76,11 +76,19 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   enddo k_loop
 
 #ifdef MPI
+  if(flag_stat .and. myid .eq. 0) then
+    write(6,'(A)')'  '
+    write(6,'(A,$)')'   Gathering all results to master node 0 ...'
+  endif
   call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
   if(flag_vector) call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
                                    ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
                                    ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
                                    MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only master node keep wave vector information
+  if(flag_stat .and. myid .eq. 0) then
+    write(6,'(A,$)')' done!'
+    write(6,'(A  )')' '
+  endif
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
@@ -130,7 +138,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
       ! if(flag_init) SHm, SHs will be kept during ik-run. (SHs will be modified if flag_slater_koster=.false.)
       call time_check(t1,t0,timer)
       if(.not. PINPT%flag_use_overlap) then
-        call get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+        call         get_hamk_sparse(SHk,      SH0,      SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
       elseif(  PINPT%flag_use_overlap) then
         call get_hamk_sparse_overlap(SHk, SSk, SH0, SS0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
       endif

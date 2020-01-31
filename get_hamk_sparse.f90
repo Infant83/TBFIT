@@ -218,11 +218,11 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
       allocate(SSk%H(SS0%nnz))
       allocate(SSk%J(SS0%nnz))
       allocate(SSk%I(SS0%msize + 1))
-      SHk%H     = SH0%H
-      SHk%I     = SH0%I
-      SHk%J     = SH0%J
-      SHk%nnz   = SH0%nnz
-      SHk%msize = SH0%msize
+      SSk%H     = SS0%H
+      SSk%I     = SS0%I
+      SSk%J     = SS0%J
+      SSk%nnz   = SS0%nnz
+      SSk%msize = SS0%msize
     endif
 
   endif

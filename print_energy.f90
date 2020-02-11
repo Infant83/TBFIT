@@ -204,7 +204,7 @@ subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
    type(poscar) :: PGEOM
    type(kpoints):: PKPTS
    integer*4       ie,is,ik,im,ia
-   integer*4       isum, iatom
+   integer*4       isum, iatom, iorb
    integer*4       nspin, nbasis
    integer*4       nkpoint
    integer*4       proj_natom, proj_atom(maxval(PINPT%proj_natom(1:PINPT%nproj_sum)))
@@ -218,6 +218,8 @@ subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
    complex*16      V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      c_up, c_dn, c_tot
    complex*16      c_sum(PINPT%nband,PKPTS%nkpoint)
+   complex*16      c_sum_orb(PGEOM%max_orb,PINPT%nband,PKPTS%nkpoint)
+   complex*16      c_tot_orb(PGEOM%max_orb)
    character*80    fname_header, fname_header_sum
    character*80    fname, fname_sum
    character*6     kunit_
@@ -253,6 +255,7 @@ subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
 
          if(flag_proj_sum) then
            c_sum = 0d0
+           c_sum_orb = 0d0
            write(fname_header_sum,'(A,I0)')'band_structure_TBA_atom.sum',isum
            call get_fname(fname_header_sum, fname_sum, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
            open(pid_energy+100, file = trim(fname_sum), status = 'unknown')
@@ -306,9 +309,10 @@ subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
 
              write(pid_energy+100, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
              write(pid_energy+100, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)     E(ev), '
-  !          do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
-  !            write(pid_energy+100, '(I9)',ADVANCE='NO')im
-  !          enddo
+            !do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
+             do im=1      , PGEOM%n_orbital(ia) ! note: PROJ_BAND should be summed up with those atoms having same number of basis 
+               write(pid_energy+100, '(I9)',ADVANCE='NO')im
+             enddo
              write(pid_energy+100,'(A)',ADVANCE='YES') '  tot(atom_sum)'
            endif
 
@@ -346,51 +350,42 @@ subroutine print_energy_proj(PKPTS,E,V,PGEOM,PINPT)
              if( ie .le. ne_found(is, ik) ) then
                if(flag_print_orbital) then
                  c_tot = 0d0 !initialize
+                 c_tot_orb = 0d0 ! initialize
+                 iorb=0
            basis:do im=imatrix, imatrix+PGEOM%n_orbital(ia) - 1
+                    iorb=iorb + 1
                    if(PINPT%ispinor .eq. 2) then
                      c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
                      if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
-                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! up - dn : mz
-                       c_tot = c_tot + real( conjg(c_up)*c_up - conjg(c_dn)*c_dn)
+                       c_tot_orb(iorb) = real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! ! up - dn : mz
                      elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mx') then
-                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
-                       c_tot = c_tot + real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) 
+                       c_tot_orb(iorb) = real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! ! up*dn + dn*up : mx
                      elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
-                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
-                       c_tot = c_tot + real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi)
+                       c_tot_orb(iorb) = real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
                      else
-                       write(pid_energy,'(*(F9.4))',ADVANCE='NO') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
-                       c_tot = c_tot + real( conjg(c_up)*c_up + conjg(c_dn)*c_dn)
+                       c_tot_orb(iorb) = real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
                      endif
                    elseif(PINPT%ispinor .eq. 1) then
                      c_up = V(im+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
-                     write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(conjg(c_up)*c_up)
-                     c_tot = c_tot + real(conjg(c_up)*c_up)
-
+                     c_tot_orb(iorb) = real(conjg(c_up)*c_up)
                    endif
+
+                   write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(c_tot_orb(iorb))
+                   c_tot = c_tot + real(c_tot_orb(iorb))
+
                  enddo basis
                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(c_tot)
 
-                 if(flag_proj_sum) c_sum(ie,ik) = c_sum(ie,ik) + c_tot
-                 if(flag_proj_sum .and. iatom .eq. proj_natom) then
-                   write(pid_energy+100,'(*(F9.4))',ADVANCE='YES') real(c_sum(ie, ik))
+                 if(flag_proj_sum) then 
+                   c_sum(ie,ik) = c_sum(ie,ik) + c_tot
+                   c_sum_orb(1:PGEOM%n_orbital(ia),ie,ik) = c_sum_orb(1:PGEOM%n_orbital(ia),ie,ik) + c_tot_orb(1:PGEOM%n_orbital(ia))
                  endif
-  !              if(PINPT%ispinor .eq. 2) then
-  !                c_up = V(im,ie,ik); c_dn = V(im + nbasis,ie,ik)
-  !                if    (PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mz') then
-  !                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up - conjg(c_dn)*c_dn) ! up - dn : mz
-  !                elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'mx') then
-  !                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_dn)*c_up + conjg(c_up)*c_dn) ! up*dn + dn*up : mx
-  !                elseif(PINPT%flag_print_mag .and. PINPT%axis_print_mag .eq. 'my') then
-  !                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real((conjg(c_dn)*c_up - conjg(c_up)*c_dn)*zi) ! (up*dn - dn*up)*i : my
-  !                else
-  !                  write(pid_energy,'(*(F9.4))',ADVANCE='YES') real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! up + dn : total
-  !                endif
-  !              elseif(PINPT%ispinor .eq. 1) then
-  !                c_up = V(nbasis+PGEOM%neig*(is-1),ie+PINPT%nband*(is-1),ik)
-  !                write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(conjg(c_up)*c_up)
-  !              endif
+                 if(flag_proj_sum .and. iatom .eq. proj_natom) then
+                   write(pid_energy+100,'(*(F9.4))',ADVANCE='YES') real(c_sum_orb(1:PGEOM%n_orbital(ia),ie,ik)), real(c_sum(ie, ik))
+                 endif
+
                endif
+
                if(.not.flag_print_orbital) write(pid_energy,*)''
                if(.not.flag_print_orbital .and. flag_proj_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
              elseif(ie .gt. ne_found(is, ik)) then

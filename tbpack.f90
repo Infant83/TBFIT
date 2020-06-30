@@ -637,6 +637,17 @@ subroutine str2logical(string,flag_logical,flag)
 
   return
 endsubroutine
+function int2str(w) result(string)
+  implicit none
+! character(*), intent(out) :: string
+  character*20  string
+  integer*4,    intent(in)  :: w
+
+  write(string,*) w
+
+  return
+endfunction
+
 subroutine str2int(string,w)
   implicit none
   character(*),intent(in) :: string

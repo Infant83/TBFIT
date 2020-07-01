@@ -1,0 +1,177 @@
+#MPI-parallelism will be employed. Running on 1 total cores.
+# TBFIT 2020. Jun. 25. (build Jul 01 2020 10:01:25)
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#! Copyright 2018. Hyun-Jung Kim All rights reserved.!
+#!           (FJZ,  h.kim@fz-juelich.de)             !
+#!           (KIAS, Infant@kias.re.kr)               !
+#!           (angpangmokjang@hanmail.net)            !
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ -------------------------------------------------------------------------
+| Program start on  01 Jul. 2020  12:57:25.525 PM
+| Executed on  iff1522.iff.kfa-juelich.de : NODE =            0
+ -------------------------------------------------------------------------
+
+ ---- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS ---------------------
+ ---- END READING INPUT FROM: COMMAND-LINE ARGUMENTS ---------------------
+
+
+---- READING INPUT FILE: INCAR-TB
+  L_TBFIT: .FALSE.
+ KPT_UNIT: KPOINT UNIT = Angstrom unit (1/A)
+ PARA_FNM:  PARAM_FIT.dat
+ TYPE_HOP:  SLATER_KOSTER
+ GEOM_FNM:  POSCAR-TB
+ KPTS_FNM:  KPOINTS_BAND
+  LSPGLIB: .FALSE.
+   LOCCHG: .TRUE. (read local charge density from GFILE)
+  LNONCOL: .TRUE. (non-collinear = .TRUE.)
+    ISPIN: 2 (noncollinear = .TRUE.)
+  ISPINOR: 2 (noncollinear = .TRUE.)
+    LSORB: .TRUE. (non-collinear = .TRUE. .AND. spin-orbit = .TRUE.)
+  L_ORBIT: .TRUE. | print out projected orbital weight: rh
+                  | with binary format (unformatted)
+ E_WINDOW:  [   -13.00000,    15.00000], [emin:emax] (eV)
+   NE_MAX: 20 (maximum # of states within [emin:emax])
+  GET_BND: .TRUE.
+ REPLT_FILE_FORM: read unformatted (binary) .bin file
+ REPLT_BAND: .TRUE. only with eigenvalues
+  REPLT_DOS: .TRUE.
+ REPLT_LDOS: .TRUE. , Atom_index SET 1 = 1:2
+ REPLT_LDOS: .TRUE. , Atom_index SET 2 = 1
+REPLT_SLDOS: .TRUE. ==> written in TEST.dat
+ REPLT_CELL:     2     2     1
+ REPLT_ORIG:       0.00000000     0.00000000     0.00000000
+ REPLT_RCUT:       1.80000000
+  NN_PAIR:  C-C          R0_max:  1.8000   R0:  1.4145
+  N_PARAM:      21
+  C_PARAM:  e_s_C            -4.82918
+  C_PARAM:  e_px_C            0.04908
+  C_PARAM:  e_py_C            0.04908
+  C_PARAM:  e_pz_C            0.04908
+  C_PARAM:  sss_1_CC          4.59415
+  C_PARAM:  sps_1_CC          4.71312
+  C_PARAM:  pps_1_CC         -4.10463
+  C_PARAM:  ppp_1_CC          2.45364
+  C_PARAM:  sss_2_CC         -0.13499
+  C_PARAM:  sps_2_CC         -0.09369
+  C_PARAM:  pps_2_CC          0.20794
+  C_PARAM:  ppp_2_CC         -0.10023
+  C_PARAM:  sss_3_CC          0.00000
+  C_PARAM:  sps_3_CC          0.00000
+  C_PARAM:  pps_3_CC          0.00000
+  C_PARAM:  ppp_3_CC          0.00000
+  C_PARAM:  stoner_I_s_C      0.00000
+  C_PARAM:  stoner_I_p_C      0.00000
+  C_PARAM:  local_U_p_C       0.00000
+  C_PARAM:  plus_U_p_C        0.00000
+  C_PARAM:  lambda_p_C        0.00000
+
+ *- READING INPUT GEOMETRY FILE: POSCAR-TB
+   SYSTEM:  # Graphene
+  A_SCALE:       1.00000000
+  A_LATT1:       2.45000000     0.00000000     0.00000000
+  A_LATT2:       1.22500000     2.12176224     0.00000000
+  A_LATT3:       0.00000000     0.00000000    15.00000000
+  B_RECI1:       2.56456543    -1.48065254     0.00000000
+  B_RECI2:       0.00000000     2.96130508     0.00000000
+  B_RECI3:       0.00000000     0.00000000     0.41887902
+   N_SPEC:       1
+   N_ATOM:       2
+   SPEC 1:   C        2
+ L_CONSTR:  .TRUE.
+ C_CRDTYP:  DIRECT
+  N_ORBIT:       8
+ ATOM   1:   4  s      px     py     pz
+ SITE_IDX:   c1
+   CHARGE:       0.0000   -1.0000   -1.0000   -1.0000
+   MAGMOM: (Mx,My,Mz)   0.000  0.000  0.000    0.000  0.000  0.000    0.000  0.000  0.000    0.000  0.000  0.000
+ ATOM   2:   4  s      px     py     pz
+ SITE_IDX:   c2
+   CHARGE:       0.0000    1.0000    1.0000    1.0000
+   MAGMOM: (Mx,My,Mz)   0.000  0.000  0.000    0.000  0.000  0.000    0.000  0.000  0.000    0.000  0.000  0.000
+ *- END READING GEOMETRY FILE ---------------------
+
+   N_GRID: (for EIGPLOT)     26    26   150
+
+ *- READING KPOINTS FILE: KPOINTS_BAND
+   K_MODE: Line-mode
+   #N_DIV: (number of ndiv)       1
+    N_DIV:      20
+   K_TYPE: Reciprocal unit
+ K_LINE 1:       0.00000000  0.00000000  0.00000000  G  -->   0.50000000  0.50000000  0.00000000  M
+ K_LINE 2:       0.50000000  0.50000000  0.00000000  M  -->   0.33333333  0.66666667  0.00000000  K
+ K_LINE 3:       0.33333333  0.66666667  0.00000000  K  -->   0.00000000  0.00000000  0.00000000  G
+ K_LINE 4:       0.00000000  0.00000000  0.00000000  G  -->   0.00000000  0.00000000  0.50000000  A
+   N_LINE:       4
+    KINIT=       0.000000 ; KNAME_INIT="{/Symbol G}"
+       K2=       1.480653 ; KNAME_2   ="M"
+       K3=       2.335508 ; KNAME_3   ="K"
+       K4=       4.045218 ; KNAME_4   ="{/Symbol G}"
+     KEND=       4.254657 ; KNAME_END ="A"
+ set xtics (KNAME_INIT KINIT, KNAME_2 K2, KNAME_3 K3, KNAME_4 K4, KNAME_END KEND) nomirror
+  NKPOINT:      80
+ *- END READING KPOINT FILE ---------------------
+
+    !WARN! The NE_MAX (20) of EWINDOW tag is larger than the eigenvalues (NEIG)
+           of the system (16). Hence, we enforce NEMAX = NEIG.
+           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.
+ ---- END READING INPUT FILE ---------------------
+
+
+
+ ** Program run in REPLOT mode
+
+  START REPLOT:  + DOS + LDOS + SLDOS + BAND (eig only) EVALUATION
+
+   LOADING.... band_structure_TBA.bin
+   => EWINDOW [EMIN:EMAX]=[     -13.0000 :      15.0000 ], NE_MAX= 16
+   => C_MODE= rh ; <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
+   TIME for LOADING band_structure_TBA (s):     0.001322
+
+   MEMORY USAGE (Wave vector   ):      0.000 GB
+
+   MEMORY USAGE (DOS(total)    ):      0.000 GB
+   MEMORY USAGE (LDOS(total)   ):      0.000 GB
+   MEMORY USAGE (SLDOS(total)  ):      0.000 GB
+   MEMORY USAGE (Wave vector2  ):      0.000 GB
+
+     STAT KP:      8.750 %
+     STAT KP:     16.250 %
+     STAT KP:     25.000 %
+     STAT KP:     32.500 %
+     STAT KP:     40.000 %
+     STAT KP:     48.750 %
+     STAT KP:     56.250 %
+     STAT KP:     65.000 %
+     STAT KP:     72.500 %
+     STAT KP:     80.000 %
+     STAT KP:     88.750 %
+     STAT KP:     96.250 %
+
+   WRITING.... density of states (DOS): DOS.replot.dat ...
+ Done!
+
+   WRITING.... local density of states (LDOS): LDOS.replot.sum1.dat ...
+ DONE!
+
+   WRITING.... local density of states (LDOS): LDOS.replot.sum2.dat ...
+ DONE!
+
+   WRITING.... spatial local density of states (SLDOS) with energy window integrated: TEST.dat ...
+    write SLDOS ... Done!
+
+   WRITING.... band structure with no : band_structure_TBA.replot_no.dat ...
+ DONE!
+
+  END REPLOT:  + DOS + LDOS + SLDOS + BAND (eig only) EVALUATION :     0.1346 (sec)
+
+
+ -------------------------------------------------------------------------
+| Program ends on  01 Jul. 2020  12:57:25.682 PM
+ -------------------------------------------------------------------------
+
+Time elapsed (total, sec):         0.152
+
+ MPI-parallelism will be finished. Good luck.

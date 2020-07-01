@@ -1,0 +1,125 @@
+# SETUP for GRAPHENE
+  TBFIT  F        #
+  K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+   PFILE  PARAM_FIT.dat # initial sk-parameter will be read from this file
+   IS_SK  .TRUE.   # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
+   GFILE  POSCAR-TB # PRINT_GEOM F  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+#  PRINT_GEOM F
+   KFILE  KPOINTS_BAND     # default: KPOINTS_BAND
+  SPGLIB  .FALSE. # do not popup space group information 
+
+  LOCCHG  .TRUE. 
+  TYPMAG  noncoll   # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+   LSORB  .TRUE.       # set spin orbit interaction with 1st-order perturbation theory
+  LORBIT  .TRUE.   rh  bin4      # wf binary (bin: complex*16 bin4:complex*8) # set orbital decomposed band structure
+#PROJ_BAND    .TRUE.   2
+
+ EWINDOW -13:15 NE_MAX 20
+#ERANGE 2:3      
+ GET_BAND .TRUE. 
+#LORDER .TRUE.
+
+    SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
+        #REPLOT_BAND        .FALSE. wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+         REPLOT_BAND        .TRUE.  no       # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+        #REPLOT_BAND        .FALSE. no   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
+        #REPLOT_PROJ_BAND   .FALSE. 1    # replot projected band structure for given atoms and their sum
+        #REPLOT_PROJ_BAND   .TRUE.  2    # replot projected band structure for given atoms and their sum
+        #REPLOT_PROJ_BAND   .TRUE.  1:2  # replot projected band structure for given atoms and their sum
+        #REPLOT_DIDV        .TRUE. 
+
+         REPLOT_DOS         .TRUE.  
+        #REPLOT_LDOS        .TRUE.  1:32  # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1:2   # following number indicates atom index to be resolved
+         REPLOT_LDOS        .TRUE.  1     # following number indicates atom index to be resolved
+        #REPLOT_SLDOS       .TRUE. 
+        #DOS_EWINDOW   -12.00:12.00   # energy window
+        #NEDOS         1000
+        #SMEARING      1.1            # gaussian smearing. Default = 0.025
+
+         REPLOT_SLDOS  .TRUE.   TEST.dat     # spatial LDOS within EWINDOW
+         REPEAT_CELL   2 2  1  # if REPLOT_SLDOS = .TRUE., cell periodicity for visualization
+         RORIGIN       0 0 0   # shift of origin of atomic coordinates (fractional)
+         BOND_CUT      1.8     # bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+    END  REPLOT              
+
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.8    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+    END  NN_CLASS
+
+#   SET  WEIGHT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+#        KRANGE   :        TBABND :       DFTBND 1:16                        WEIGHT 1
+#        KRANGE   :        TBABND 1:8     DFTBND 1:8                         WEIGHT 7
+#        KRANGE  10:51     TBABND 5:10    DFTBND 5:10                        WEIGHT 27
+#        KRANGE  20:40     TBABND 1:4     DFTBND 1:4                         WEIGHT 50
+#        KRANGE  1:8 53:80 TBABND 3:6     DFTBND 3:6                         WEIGHT 10
+#   END  WEIGHT  # PRINT_ONLY  # following PRINT_ONLY tag make program to write target data and stops
+
+    SET  CONSTRAINT TBPARAM
+        e_px_C = e_pz_C
+        e_py_C = e_pz_C
+    #   s_sss_1_CC >= 0.5   !!!! there is some problem in assigning constraint with >= or <= option
+    #   s_sss_1_CC <= 3.5        need to be check the routine. 2019. Mar. 22. H.-J. Kim
+    END  CONSTRAINT TBPARAM
+
+#   SET  ZAK_PHASE # setup for Zak phase evaluation
+#        ZAK_ERANGE 1:16  # up to occupied states!! (very important)
+#        ZAK_FNAME  ZAK.OUT.dat #output FNAME "name"
+#        ZAK_KPATH    0.0  0 0  1.0   0 0  
+#        ZAK_DIREC    2
+#        ZAK_NKDIV   21 111 # number of division of the k-path (odd number suggested)
+#   END  ZAK_PHASE
+
+#   SET  Z2_INDEX # setup for evaluating topological index
+#        Z2_ERANGE    1:8   # up to occupied states!! (very important)
+#        Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
+#        Z2_NKDIV    31 111  # number of division of the k-path (odd number suggested)
+#        GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
+#   END  Z2
+
+#   SET  PARITY_CHECK # Note: Only meaningful when your system have inversion symmetry
+#        PARITY_KP     0.0 0.0 0.0  G     # Gamma reciprocal unit 
+#        PARITY_KP     0.5 0.0 0.0  M1    # M1    reciprocal unit 
+#        PARITY_KP     0.0 0.5 0.0  M2    # M1    reciprocal unit 
+#        PARITY_KP     0.5 0.5 0.0  M3    # M1    reciprocal unit 
+#        ORIGIN_SHIFT  0.0 0  0           # Origin of the system (direct coord)
+#   END
+
+#   SET  WCC # setup for Wannier charge center evaluation
+#        WCC_ERANGE 1:2  # up to occupied states!! (very important)
+#        WCC_FNAME     Z2.WCC.0.0-B3.dat    #output FNAME "name"
+#        WCC_FNAME_GAP Z2.GAP.0.0-B3.dat #output FNAME "name"
+#        WCC_KPATH   0. 0.00  0.    0.  1.00  0.  # hybrid wcc integration along kx
+#        WCC_KPATH_SHIFT -0.5 -0.5 0.0  # 0.5 shifted along kz
+#        WCC_DIREC    1     # wcc evolution along ky (2) 
+#        WCC_NKDIV   911   151   # number of division of the k-path (odd number suggested)
+#        GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE
+#   END  WCC
+
+  #SET DOS
+  #    GKGRID   10  10    1  # set Monkhorst-Pack grid; if set by GKGRID gamma-centered scheme will be applied
+  #    KSHIFT       0    0     0
+  #    PRINT_KPTS  .TRUE.  IBZKPT-DOS_TB           # print out kpoints information into given kpoint file: default = IBZKPT-TB_DOS
+  #    PRINT_EIG   .FALSE. 1:2 3         # print out eigenstate energy   into given ensurf file: default = ENSURF.EIG.NEIG.dat
+  #    PRINT_UNIT  RECIPROCAL            # kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A); default = RECIPROCAL
+  #    PRINT_LDOS  .TRUE. 1 2
+  #    LDOS_FNAME  LDOS_TB_projected  # header for LDOS file name, atom index will be appended after.
+  #    NEDOS       6000
+  #    SMEARING    0.1          # gaussian smearing. Default = 0.025
+  #    DOS_EWINDOW -12.00:12.00  # energy range
+  #    DOS_RANGE   1:NEIG                # eigenvalue index range. NEIG = N_ORB * ISPINOR
+  #    DOS_SPARSE  .TRUE. 
+  #    DOS_FNAME   DOS_TB_projected.dat  # output file name for DOS calculation
+  #END DOS
+
+
+ ## set ribbon geometry ###################################################################################
+ #  SET  RIBBON
+ #       NSLAB    4   4  1     # multiplication of unitcell along each direction
+ #       VACUUM   0  0 0      # apply vacuum region along each direction 
+ #     # KFILE_R KPOINTS_BAND # KPOINTS file for ribbon band structure
+ #     # PRINT_ONLY_R .TRUE.
+ #  END  RIBBON
+ #########################################################################################################
+

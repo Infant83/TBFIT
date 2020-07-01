@@ -21,23 +21,32 @@
 #                  mkl_spblas.f90 is exist in $(MKLPATH)/include/mkl_spblas.f90
 #                  If this option is activated, you can use EWINDOW tag in
 #                  your input file. See the manual for the details.
-#  -DPSPARSE     : use FEAST_MPI with 3.0 version instead of MKL FEAST_SMP 2.0 version.
+#  -DPSPARSE     : use FEAST_MPI with 4.0 version instead of MKL FEAST_SMP 2.0 version.
 #                  This option is only available if -DMKL_SPARSE is activated
 #                  For the details, please go to http://www.ecs.umass.edu/~polizzi/feast/
+#                  NOTE: not a valid option in the current version. On developing now...
 #  -DSCALAPACK   : use ScaLAPACK library for the eigenvalue parallism 
 #                  !!! WARN !!! do not use in the current version: it is upon
 #                               developing stage now.
 #############################################################################
-#OPTIONS= -fpp -DF08 -DSPGLIB -DMKL_SPARSE #-DSCALAPACK
-OPTIONS= -fpp -DMPI -DF08 -DSPLIB -DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
-F90    = mpif90 $(OPTIONS)
-FFLAG  = -O2 -heap-arrays -nogen-interfaces
+ FC   = mpif90 
+ TBBIN= $(HOME)/bin
+#
+# MAC-INTEL COMPILE
+ OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
+ F90    = $(FC) $(OPTIONS)
+ FFLAG  = -O2 -heap-arrays -nogen-interfaces
+
+# LINUX-gfortran COMPILE
+#OPTIONS= #-DMPI
+#F90    = gfortran-mp-8 $(OPTIONS)
+#FFLAG  = -cpp -O2 -ffree-line-length-256 -fmax-stack-var-size=32768
 
 #OPTIONS= -cpp -DMPI -DF08 -DSPGLIB #-DMKL_SPARSE -DSCALAPACK
 #F90    = mpif90-openmpi-mp $(OPTIONS)
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
 #BIN    = ~/code/bin
-BIN    = ~/code/bin
+BIN    = $(TBBIN)
 #---------------------------------------------------------------------------|
 
 #-----------------------------------
@@ -53,7 +62,8 @@ LAPACK    = -L$(MKLPATH)/lib/ \
             -lmkl_core -liomp5
 BLAS      = 
 INCLUDE   = -I$(MKLPATH)/include
-FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/3.0/lib/x64  -lpfeast_sparse -lpfeast 
+#FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/3.0/lib/x64  -lpfeast_sparse -lpfeast 
+FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64  -lfeast  # MPI version need to be included in the future
 #SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
 SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 #---------------------------------------------------------------------------|
@@ -75,11 +85,11 @@ SPARSE_PARA=$(findstring -DPSPARSE,$(OPTIONS))
 
 MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o 
 TEST   = test.o
-MODULE = $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
-		 parameters.o element_info.o read_incar.o orbital_wavefunction.o \
+MODULE = print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
+		 parameters.o  element_info.o read_incar.o orbital_wavefunction.o \
 		 kronecker_prod.o phase_factor.o do_math.o print_matrix.o \
          sorting.o berry_phase.o sparse_tool.o pikaia_module.o geodesiclm.o kill.o \
-         get_parameter.o
+         get_parameter.o cost_function.o reorder_band.o
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
@@ -87,7 +97,7 @@ WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o pri
 GET    = get_tij.o get_eig.o get_dos.o get_soc.o get_param_class.o \
 		 get_cc_param.o get_berry_curvature.o get_wcc.o get_zak_phase.o \
          get_z2_invariant.o get_parity.o get_symmetry_eig.o get_hamk_sparse.o \
-         get_effective_ham.o e_onsite.o
+         get_effective_ham.o e_onsite.o get_degeneracy.o
 SYMM   = get_symmetry.o 
 SPG_INT= spglib_interface.o
 FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o
@@ -139,8 +149,12 @@ endif
 #-----------------------------------
 #$(BIN)/tbfit: $(OBJECTS) 
 tbfit: $(OBJECTS) 
-	$(F90) -o $@ $^ $(BLAS) $(FEAST_LIB) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
+	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
 	cp tbfit $(BIN)
+
+get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
+	$(F90) -o $@ $^ $(LAPACK)
+	cp get_ldos $(BIN)
 
 #poscar2bs: poscar2bs.o
 #	$(F90) -o $@ $^ 
@@ -156,8 +170,14 @@ all: $(OBJECTS)
 	cp tbfit $(BIN)
 	cp pc2xyz $(BIN)
 
+touch:
+	touch tbfit.f90
+
 clean:
 	rm $(BIN)/tbfit *.o *.mod
 
 clean_pc2xyz:
 	rm $(BIN)/pc2xyz poscar2bs.o
+
+clean_get_ldos:
+	rm get_ldos

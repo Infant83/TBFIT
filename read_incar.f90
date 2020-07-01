@@ -475,7 +475,7 @@ mode: select case ( trim(plot_mode) )
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
                  if(PRPLT%flag_replot_sldos) then
-                   write(message,'(A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
+                   write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
                  elseif(.not. PRPLT%flag_replot_sldos) then
                    write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
                  endif

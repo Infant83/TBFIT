@@ -3,6 +3,7 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
    use parameters
    use mpi_setup
    use kill
+   use print_io
    implicit none
    integer*4         mpierr
    external          get_eig
@@ -24,24 +25,24 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
    integer*4, allocatable :: iparam_free_nrl(:)
    
    if(PINPT%flag_plot_fit) then
-     allocate(ETBA_FIT%E(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
-     allocate(ETBA_FIT%V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+!    allocate(ETBA_FIT%E(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+!    allocate(ETBA_FIT%V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
      flag_wait_plot = .false.
      write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
    endif
 
    if(PINPT%flag_sparse) then
-     if_main write(6,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'
-     if_main write(6,'(A)') '           Please deactivate EWINDOW for the further process.'
-     if_main write(6,'(A)') '           Exit program...'
+     write(message,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'  ; write_msg
+     write(message,'(A)') '           Please deactivate EWINDOW for the further process.'  ; write_msg
+     write(message,'(A)') '           Exit program...'  ; write_msg
      kill_job
    endif
    fnorm_ = 0d0
    flag_conv = .false.
    mxfit = PINPT%mxfit
    if(mxfit .le. 0) then
-     if_main write(6,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'
-     if_main write(6,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'
+     write(message,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'  ; write_msg
+     write(message,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'  ; write_msg
      kill_job
    endif
    ifit = 0
@@ -85,35 +86,40 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
      deallocate(iparam_free)
 
    endif
-   if_main write(6,'( A)')' '
-   if_main write(6,'( A)')' ====================================================='
-   if_main write(6,'(2A)')'   START FITTING PROCEDURE: ', trim(PINPT%ls_type)
-   if_main write(6,'( A)')' ====================================================='
-   if_main write(6,'( A)')' '
+   write(message,'( A)')' '  ; write_msg
+   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'(2A)')'   START FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg
+   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' '  ; write_msg
 
-   if_main write(6,'( A,I0)')'  N_PARAM (free):  ', PINPT%nparam_free
-   if_main write(6,'( A)')' '
+   write(message,'( A,I0)')'  N_PARAM (free):  ', PINPT%nparam_free  ; write_msg
+   write(message,'( A)')' '  ; write_msg
 
    !print target energy to file
    if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, &
-                                     PINPT, 'band_structure_DFT.dat')
+                                     PINPT, 'band_structure_DFT.dat', PINPT%flag_get_band_order)
+
+   !replace WEIGHT info of INCAR with those in PFILE if USE_WEIGHT is activated.
+   if(PINPT%flag_use_weight) then
+     if_main call rewrite_incar(PINPT, PWGHT)
+   endif
 
    !initial parameter
-   if_main call print_param ( PINPT, 0, '  Initial param(i):', .FALSE.)
+  !if_main call print_param ( PINPT, '  Initial param(i):', .FALSE.)
 
    ! fitting parameter
    if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif') then
  fit:do while( ifit .le. mxfit .or. .not. flag_conv)
        ifit = ifit + 1
 
-       if_main write(6,'(A)')' '
-       if_main write(6,'(A,I0,A)')' **START ',ifit,'-th LMDIF run'
-       if_main write(6,'(A)')' '
+       write(message,'(A)')' '  ; write_msg
+       write(message,'(A,I0,A)')' **START ',ifit,'-th LMDIF run'  ; write_msg
+       write(message,'(A)')' '  ; write_msg
 
-       call leasqr_lm ( get_eig, NN_TABLE, EDFT%E, PGEOM%neig, PWGHT, PINPT, PKPTS, fnorm)
+       call leasqr_lm ( get_eig, NN_TABLE, EDFT, PGEOM%neig, PWGHT, PINPT, PKPTS, fnorm)
 
-       if_main write(6,'(A,I0,A)')'           Check constraint: upper and lower bounds'
-       if_main write(6,'(A,I0,A)')'    =========================================================='
+       write(message,'(A,I0,A)')'           Check constraint: upper and lower bounds'  ; write_msg
+       write(message,'(A,I0,A)')'    =========================================================='  ; write_msg
 
        flag_conv = .true.
        ! 1. check parameter constraints 
@@ -134,15 +140,15 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
                    PINPT%param_nrl(i,j) = PINPT%param_const_nrl(3,i,j)
                  endif
                  flag_conv = .false.
-                 if_main write(6,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') < ', &
+                 write(message,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') < ', & 
                                                           PINPT%param_const_nrl(3,i,j),' --> ', &
-                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j)
+                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j) ; write_msg
                elseif(PINPT%param_nrl(i,j) .gt. PINPT%param_const_nrl(2,i,j)) then !upper bound
                  PINPT%param_nrl(i,j) = PINPT%param_const_nrl(2,i,j)
                  flag_conv = .false.
-                 if_main write(6,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') > ', &
+                 write(message,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') > ', & 
                                                           PINPT%param_const_nrl(2,i,j),' --> ', &
-                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j)
+                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j) ; write_msg
                endif
              elseif( k .ge. 1) then ! if same as k-th parameter
                if(PINPT%param_nrl(i,j) .lt. PINPT%param_const_nrl(3,i, k )) then !lower bound
@@ -156,15 +162,15 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
                    PINPT%param_nrl(i,j) = PINPT%param_const_nrl(3,i, k )
                  endif
                  flag_conv = .false.
-                 if_main write(6,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') < ', &
+                 write(message,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') < ', & 
                                                           PINPT%param_const_nrl(3,i,k),' --> ', &
-                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j)
+                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j) ; write_msg
                elseif(PINPT%param_nrl(i,j) .gt. PINPT%param_const_nrl(2,i, k)) then !upper bound
                  PINPT%param_nrl(i,j) = PINPT%param_const_nrl(2,i, k)
                  flag_conv = .false.
-                 if_main write(6,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') > ', &
+                 write(message,'(6x,2A,I0,A,F10.4,3A,I0,A,F10.4)')trim(PINPT%param_name(j)),'(',i,') > ', &  
                                                           PINPT%param_const_nrl(2,i,k),' --> ', &
-                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j)
+                                                          trim(PINPT%param_name(j)),'(',i,') = ',PINPT%param_nrl(i,j) ; write_msg
                endif
              endif
            enddo
@@ -173,49 +179,54 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
              if(PINPT%param(j) .lt. PINPT%param_const(3,j)) then ! lower bound  
                PINPT%param(j) = PINPT%param_const(3,j)
                flag_conv = .false.
-               if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,j),' --> ', &
-                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+               write(message,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,j),' --> ', & 
+                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j) ; write_msg
              elseif(PINPT%param(j) .gt. PINPT%param_const(2,j)) then !upper bound
                PINPT%param(j) = PINPT%param_const(2,j)
                flag_conv = .false.
-               if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,j),' --> ', &
-                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+               write(message,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,j),' --> ', & 
+                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j) ; write_msg
              endif
            elseif(nint(PINPT%param_const(1,j)) .ge. 1) then
              if(PINPT%param(j) .lt. PINPT%param_const(3,nint(PINPT%param_const(1,j)))) then !lower bound
                PINPT%param(j) = PINPT%param_const(3,nint(PINPT%param_const(1,j)))
                flag_conv = .false.
-               if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,nint(PINPT%param_const(1,j))),' --> ', &
-                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+               write(message,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' < ',PINPT%param_const(3,nint(PINPT%param_const(1,j))),' --> ', & 
+                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j) ; write_msg
              elseif(PINPT%param(j) .gt. PINPT%param_const(2,nint(PINPT%param_const(1,j)))) then !upper bound
                PINPT%param(j) = PINPT%param_const(2,nint(PINPT%param_const(1,j)))
                flag_conv = .false.
-               if_main write(6,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,nint(PINPT%param_const(1,j))),' --> ', &
-                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j)
+               write(message,'(6x,2A,F10.4,3A,F10.4)')trim(PINPT%param_name(j)),' > ',PINPT%param_const(2,nint(PINPT%param_const(1,j))),' --> ', & 
+                                                        trim(PINPT%param_name(j)),' = ',PINPT%param(j) ; write_msg
              endif
            endif
          endif
        enddo
 
        if(flag_conv) then
-         if_main write(6,'(A)')'           Check fitness function updates '
-         if_main write(6,'(A)')'    ============================================='
+         write(message,'(A)')'           Check fitness function updates '  ; write_msg
+         write(message,'(A)')'    ============================================='  ; write_msg
          ! 2. check fitness function updates
          fdiff = sqrt((fnorm_ - fnorm(1))**2)/fnorm(1)*100
          if( fdiff .le. PINPT%fdiff) then
            flag_conv = .true. 
-           if_main write(6,'(A,F16.8,A,F16.8)')'  FDIFF(',PINPT%fdiff,')>=', fdiff
+           write(message,'(A,F16.8,A,F16.8)')'  FDIFF(',PINPT%fdiff,')>=', fdiff  ; write_msg
          elseif( (fdiff .gt. PINPT%fdiff ) ) then
            flag_conv = .false.
-           if_main write(6,'(A,F16.8,A,F16.8)')'  FDIFF(',PINPT%fdiff,')<=', fdiff
+           write(message,'(A,F16.8,A,F16.8)')'  FDIFF(',PINPT%fdiff,')<=', fdiff  ; write_msg
          endif
        endif
        fnorm_ = fnorm(1)
  
-       if_main write(6,'(A,I0,A)')'    =========================================================='
-       if_main write(6,'(A)')' '
-       if_main write(6,'(A,I0,A)')' **  END ',ifit,'-th LMDIF run'
-       if_main write(6,'(A)')' '
+       write(message,'(A,I0,A)')'    =========================================================='  ; write_msg
+       write(message,'(A)')' '  ; write_msg
+       write(message,'(A,I0,A)')' **  END ',ifit,'-th LMDIF run'  ; write_msg
+       write(message,'(A)')' '  ; write_msg
+
+       if(PINPT%flag_plot_fit) then
+         if_main call execute_command_line(gnu_command, flag_wait_plot)
+       endif
+
        if(flag_conv .or. ifit .ge. mxfit) exit fit
      enddo fit
 
@@ -223,8 +234,8 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
    elseif(trim(PINPT%ls_type) .eq. 'PIKAIA' .or. trim(PINPT%ls_type) .eq. 'GA' .or. &
           trim(PINPT%ls_type) .eq. 'pikaia' .or. trim(PINPT%ls_type) .eq. 'ga' ) then
      if(PINPT%slater_koster_type .gt. 10) then
-       if_main write(6,'(A)')'    !WARN! Current version does not support to use SK_SCALE_TYPE >= 10 along with LSTYPE=GA or PIKAIYA'
-       if_main write(6,'(A)')'           Please set LSTYPE to LMDIF. The option will be available in the near future. Good luck...'
+       write(message,'(A)')'    !WARN! Current version does not support to use SK_SCALE_TYPE >= 10 along with LSTYPE=GA or PIKAIYA'  ; write_msg
+       write(message,'(A)')'           Please set LSTYPE to LMDIF. The option will be available in the near future. Good luck...'  ; write_msg
        kill_job
      else
        call gen_algo  ( get_eig, NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, EDFT%E, PGEOM%neig, &
@@ -233,13 +244,19 @@ subroutine get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
    endif
    ! print fitted parameters to file
    if(PINPT%flag_print_param) then
-     if_main call print_param (PINPT, 0,PINPT%pfileoutnm, PINPT%flag_print_param)
-     if_main call print_param (PINPT, 0, '   Fitted param(i):', .FALSE.)
-     if_main write(6,'(A,A)')'  Fitted parameters will be written in ',PINPT%pfileoutnm
+     if_main call print_param (PINPT, PINPT%pfileoutnm, PINPT%flag_print_param)
+     if_main call print_param (PINPT,  '   Fitted param(i):', .FALSE.)
+     write(message,'(A,A)')'  Fitted parameters will be written in ',PINPT%pfileoutnm  ; write_msg
    endif
 
-   if(allocated(ETBA_FIT%E)) deallocate(ETBA_FIT%E)
-   if(allocated(ETBA_FIT%V)) deallocate(ETBA_FIT%V)
+   write(message,'( A)')' '  ; write_msg
+   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'(2A)')'   END FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg
+   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' '  ; write_msg
+
+!  if(allocated(ETBA_FIT%E)) deallocate(ETBA_FIT%E)
+!  if(allocated(ETBA_FIT%V)) deallocate(ETBA_FIT%V)
 
 return
 endsubroutine

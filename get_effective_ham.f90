@@ -5,6 +5,7 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    use time
    use do_math
    use print_matrix
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar  ) :: PINPT
@@ -42,6 +43,7 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp) 
 #else
    integer*4     ourjob(1)
+   integer*4     ourjob_disp(0)
    call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
 #endif
 
@@ -70,13 +72,13 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    allocate(ETBA_EFF%V(PGEOM%neig_eff*PINPT%ispin,PGEOM%neig_eff*PINPT%ispin, PKPTS%nkpoint))
 
    if(iband .ne. 1 .and. nband .ne. PGEOM%neig*PINPT%ispinor) then
-     if_main write(6,'(A)')'    !WARN! In the case of "SET EFFECTIVE ", ERANGE tag cannot not be applied.'
+     write(message,'(A)')'    !WARN! In the case of "SET EFFECTIVE ", ERANGE tag cannot not be applied.'  ; write_msg
 !    kill_job
    endif
 
-   if_main write(6,'(A)')' '
-   if_main write(6,'(A)')'    * START: GET EFFECTIVE HAMILTONIAN AND ITS EIGENVALUE '
-   if_main write(6,'(A)')' '
+   write(message,'(A)')' '  ; write_msg
+   write(message,'(A)')'    * START: GET EFFECTIVE HAMILTONIAN AND ITS EIGENVALUE '  ; write_msg
+   write(message,'(A)')' '  ; write_msg
 
    flag_init = .true.
    call time_check(t1,t0,'init')
@@ -108,9 +110,9 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
 
    if_main call print_energy_eff(PKPTS, ETBA_EFF%E, ETBA_EFF%V, PGEOM, PINPT, neig_eff, fname_header)
 
-   if_main write(6,'(A)')' '
-   if_main write(6,'(A)')'    * END: GET EFFECTIVE HAMILTONIAN AND ITS EIGENVALUE '
-   if_main write(6,'(A)')' '
+   write(message,'(A)')' '  ; write_msg
+   write(message,'(A)')'    * END: GET EFFECTIVE HAMILTONIAN AND ITS EIGENVALUE '  ; write_msg
+   write(message,'(A)')' '  ; write_msg
 
    return
 endsubroutine

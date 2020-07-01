@@ -12,6 +12,8 @@ program tbfit
   use mpi_setup
   use time
   use version
+  use reorder_band
+  use print_io
   implicit none
   external  get_eig
   real*8    t_start,t_end
@@ -27,38 +29,57 @@ program tbfit
   type (hopping) :: NN_TABLE    ! table for hopping index
   type (gainp)   :: PKAIA       ! input/control parameters for genetic algorithm
   type (replot)  :: PRPLT
+
+  call parse_log(PINPT)
 #ifdef MPI
-  call mpi_initialize()
-! call test()
+  call mpi_initialize(PINPT%fnamelog)
+#else
+  call open_log(PINPT%fnamelog,myid)
 #endif
-  if_main call version_stamp(t_start)
-          call parse(PINPT, PKPTS)
+
+  call version_stamp(t_start)
+  call parse(PINPT, PKPTS)
   if_test call test()
           call read_input(PINPT,PINPT_DOS,PINPT_BERRY,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE,PKAIA,PRPLT)
-
   if( (.not. PRPLT%flag_replot_dos) .and. (.not. PRPLT%flag_replot_ldos) .and. (.not. PRPLT%flag_replot_sldos) .and. &
       (.not. PRPLT%flag_replot_proj_band) .and. (.not. PRPLT%flag_replot_band) .and. (.not. PRPLT%flag_replot_didv) ) then
     if(PINPT%flag_tbfit) call get_fit(PINPT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA)
     if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature ) then
       call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
       call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
-                   PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., .true.)
-      if(PINPT%flag_print_energy_diff) then
-        if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, EDFT%E, ETBA%V, PGEOM%neig, PINPT, PWGHT) 
-      else
-        if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, PGEOM%neig, PINPT, PWGHT) 
+                   PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase) !, PINPT%flag_get_band_order)
+      if(PINPT%flag_get_band_order .or. PINPT%flag_get_band_order_print_only) then
+         call get_ordered_band(ETBA, PKPTS%nkpoint, PGEOM%neig, PINPT%init_erange, PINPT%nband, PINPT, .false., PWGHT)
       endif
-      if(PINPT%flag_print_proj .and. myid .eq. 0) call print_energy_proj(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
-      if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
-      if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
-      if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
-      if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PKPTS,PGEOM,NN_TABLE) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
+      if(PINPT%flag_print_energy_singlek) then
+        write(message,'(A)')'    !WARN! Band structure information is printed into separate file "band_structure_TBA.kp_*.dat" by request.' ; write_msg
+        write(message,'(A)')'           However, due to some technical things, program will stop at this point. In the future release it will be updated.' ; write_msg
+        write(message,'(A)')'           Program stops...' ; write_msg
+      else
+
+        if(PINPT%flag_print_energy_diff) then
+          if(PINPT%flag_get_band   .and. myid .eq. 0) call print_energy(PKPTS, ETBA%E, EDFT%E, ETBA%V, PGEOM%neig, PINPT, PWGHT, .TRUE.,'') 
+        else
+          if(PINPT%flag_get_band   .and. myid .eq. 0) then 
+            call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, PGEOM%neig, PINPT, PWGHT, .TRUE., '') 
+            if(PINPT%flag_get_band_order) then
+              call print_energy(PKPTS, ETBA%E_ORD, ETBA%E_ORD, ETBA%V_ORD, PGEOM%neig, PINPT, PWGHT, .TRUE., '_ordered' ) 
+            endif
+          endif
+        endif
+
+        if(PINPT%flag_print_proj .and. myid .eq. 0) call print_energy_proj(PKPTS, ETBA%E, ETBA%V, PGEOM, PINPT) 
+        if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
+        if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM,PKPTS, ETBA)
+        if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM,PKPTS, ETBA)
+        if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PKPTS,PGEOM,NN_TABLE) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
+      endif
     endif
 #ifdef MPI
     call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
 
-    ! In these routin, they call "get_eig" to get eigenvalues & eigenvectors 
+    ! In the following routines, they call "get_eig" to get eigenvalues & eigenvectors 
     if(PINPT%flag_get_dos)             call get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
     if(PINPT%flag_get_zak_phase)       call get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
     if(PINPT%flag_get_wcc)             call get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
@@ -74,20 +95,20 @@ program tbfit
 
   endif
 
-! call MPI_Barrier(mpi_comm_earth, mpierr)
-  if_main write(6,*)''
-  if_main write(6,'(A)')' -------------------------------------------------------------------------'
-  if_main call timestamp ('| Program ends on',t_end)
-  if_main write(6,'(A)')' -------------------------------------------------------------------------'
-  if_main write(6,*)''
-  if_main write(6,'(A,F13.3)')'Time elapsed (total, sec): ',t_end - t_start
-  if_main write(6,*)''
-  
+  write(message,*)''  ; write_msg
+  write(message,'(A)')' -------------------------------------------------------------------------' ; write_msg
+  call timestamp ('| Program ends on',t_end)
+  write(message,'(A)')' -------------------------------------------------------------------------' ; write_msg
+  write(message,*)''; write_msg
+  write(message,'(A,F13.3)')'Time elapsed (total, sec): ',t_end - t_start; write_msg
+  write(message,*)''; write_msg
+
   if(allocated(ETBA%E))      deallocate(ETBA%E)
   if(PINPT%flag_get_orbital .and. allocated(ETBA%V) ) deallocate(ETBA%V)
 
 #ifdef MPI
   call mpi_finish()
 #endif
+  call close_log(myid)
   stop
 end program

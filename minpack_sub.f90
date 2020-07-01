@@ -424,6 +424,7 @@ subroutine qrsolv ( n, r, ldr, ipvt, diag, qtb, x, sdiag )
   return
 end
 subroutine infostamp (info, lm_method)
+  use print_io
   implicit none
   integer*4 info
   character ( len = * ) lm_method
@@ -431,27 +432,27 @@ subroutine infostamp (info, lm_method)
   if ( trim(lm_method) == 'lmdif' ) then
 
    if(info .eq. 0) then
-    write(6,'(A)')"  INFO: 0, improper input parameters"
+    write(message,'(A)')"  INFO: 0, improper input parameters"
    elseif(info .eq. 1) then
-    write(6,'(A)')"  INFO: 1, both actual and predicted relative reductions in the sum of squares are at most FTOL."
+    write(message,'(A)')"  INFO: 1, both actual and predicted relative reductions in the sum of squares are at most FTOL."
    elseif(info .eq. 2) then
-    write(6,'(A)')"  INFO: 2, relative error between two consecutive iterates is at most XTOL."
+    write(message,'(A)')"  INFO: 2, relative error between two consecutive iterates is at most XTOL."
    elseif(info .eq. 3) then
-    write(6,'(A)')"  INFO: 3, conditions for INFO = 1 and INFO = 2 both hold. normal ends"
+    write(message,'(A)')"  INFO: 3, conditions for INFO = 1 and INFO = 2 both hold. normal ends"
    elseif(info .eq. 4) then
-    write(6,'(A)')"  INFO: 4, the cosine of the angle between FVEC and any column of the jacobian is at most GTOL in absolute value."
+    write(message,'(A)')"  INFO: 4, the cosine of the angle between FVEC and any column of the jacobian is at most GTOL in absolute value."
    elseif(info .eq. 5) then
-    write(6,'(A)')"  INFO: 5, number of calls to FCN has reached or exceeded MAXFEV."
+    write(message,'(A)')"  INFO: 5, number of calls to FCN has reached or exceeded MAXFEV."
    elseif(info .eq. 6) then
-    write(6,'(A)')"  INFO: 6, FTOL is too small.  No further reduction in the sum of squares is possible."
+    write(message,'(A)')"  INFO: 6, FTOL is too small.  No further reduction in the sum of squares is possible."
    elseif(info .eq. 7) then
-    write(6,'(A)')"  INFO: 7, XTOL is too small.  No further improvement in the approximate solution X is possible."
+    write(message,'(A)')"  INFO: 7, XTOL is too small.  No further improvement in the approximate solution X is possible."
    elseif(info .eq. 8) then
-    write(6,'(A)')"  INFO: 8, GTOL is too small.  FVEC is orthogonal to the columns of the jacobian to machine precision."
+    write(message,'(A)')"  INFO: 8, GTOL is too small.  FVEC is orthogonal to the columns of the jacobian to machine precision."
    elseif(info .lt. 0) then
-    write(6,'(A)')"  INFO: <0, If the user has terminated execution, INFO is set to the (negative) value of IFLAG."
+    write(message,'(A)')"  INFO: <0, If the user has terminated execution, INFO is set to the (negative) value of IFLAG."
    endif
-
+   call write_log(message,3,0)
   endif
 
 end

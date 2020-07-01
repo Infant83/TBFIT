@@ -1,32 +1,38 @@
 #include "alias.inc"
 module memory
+   use print_io
+   use mpi_setup
    implicit none
 
 contains
 
   subroutine report_memory(sizeof_, length, arg_name)
-    integer*8    sizeof_, length
+    integer*8    sizeof_
+    integer*4    length
     character(len=*), optional :: arg_name
 
     if(present(arg_name)) then
-      write(6,'(3A,F10.3,A)')'   MEMORY USAGE (',arg_name,'): ', real(sizeof_)*real(length)/1024d0/1024d0/1024d0,' GB'
+      write(message,'(3A,F10.3,A)')'   MEMORY USAGE (',arg_name,'): ', real(sizeof_)*real(length)/1024d0/1024d0/1024d0,' GB'
     else
-      write(6,'( A,F10.3,A)')'   MEMORY USAGE : ',               real(sizeof_)*real(length)/1024d0 /1024d0 /1024d0,' GB'
+      write(message,'( A,F10.3,A)')'   MEMORY USAGE : ',               real(sizeof_)*real(length)/1024d0 /1024d0 /1024d0,' GB'
     endif
+    write_msg
 
     return
   endsubroutine
 
   subroutine report_memory_total(ispinor, ispin, nspin, neig, nband, nkp, &
-                                 flag_stat, flag_sparse, flag_use_mpi, ncpus)
+                                 flag_stat, flag_sparse, ncpus)
     integer*4   ispinor, ispin, nspin, neig, nband, nkp
     integer*8   size_E, size_V, size_Hk, size_Hm, size_Hs
     integer*4   ncpus, impi
-    logical     flag_stat, flag_sparse, flag_use_mpi
+    logical     flag_stat, flag_sparse
 
+#ifdef MPI
+    impi = 2 ! due to MPI_REDUCE requires additional memory
+#else
     impi = 1 
-
-    if(flag_use_mpi) impi = 2 ! due to MPI_REDUCE requires additional memory
+#endif
 
 !   size_V = neig*ispin  *nband*nspin  * nkp * impi
     size_E =              int8(nband)*int8(nspin)  * int8(nkp) * int8(ncpus)

@@ -98,7 +98,7 @@ subroutine print_matrix_c(H_,msize_row,msize_col, title, iflag, fmt_)
   enddo
   write(6,*)''
  elseif(iflag .eq. 1) then
-  write(fname,'(A,A)')'Matrix.', trim(title)
+  write(fname,'(A,A,A)')'Matrix.', trim(title),'.dat'
   open(pid_matrix,file=fname,status='unknown')
   write(pid_matrix,'(A,A,A)')"  ",trim(title),'= ['
   do i=1,msize_row

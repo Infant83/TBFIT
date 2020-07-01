@@ -113,9 +113,9 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x
-                                    + zi*lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * F * -zi           ! sigma_y
-          H(j,i+neig) = H(j,i+neig) + zi*lambda_rashba *-NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * conjg(F) &        ! sigma_x
-                                    + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * -zi    ! sigma_y 
+                                    + zi*lambda_rashba *(-NN_TABLE%Rij(1,nn))/NN_TABLE%Dij(nn) * F * (-zi)           ! sigma_y
+          H(j,i+neig) = H(j,i+neig) + zi*lambda_rashba *(-NN_TABLE%Rij(2,nn))/NN_TABLE%Dij(nn) * conjg(F) &        ! sigma_x
+                                    + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * (-zi)    ! sigma_y 
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
 
@@ -162,9 +162,9 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x
-                                    + zi*lambda_rashba *-NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * F * -zi           ! sigma_y
-          H(j,i+neig) = H(j,i+neig) + zi*lambda_rashba *-NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * conjg(F) &        ! sigma_x
-                                    + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * -zi    ! sigma_y 
+                                    + zi*lambda_rashba *(-NN_TABLE%Rij(1,nn))/NN_TABLE%Dij(nn) * F * (-zi)           ! sigma_y
+          H(j,i+neig) = H(j,i+neig) + zi*lambda_rashba *(-NN_TABLE%Rij(2,nn))/NN_TABLE%Dij(nn) * conjg(F) &        ! sigma_x
+                                    + zi*lambda_rashba * NN_TABLE%Rij(1,nn)/NN_TABLE%Dij(nn) * conjg(F) * (-zi)    ! sigma_y 
           H(j+neig,i) = conjg(H(i,j+neig))
           H(i+neig,j) = conjg(H(j,i+neig))
         endif

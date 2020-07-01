@@ -4,6 +4,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    use mpi_setup
    use time
    use memory
+   use print_io
    implicit none
    type(hopping)           :: NN_TABLE
    type(dos    )           :: PINPT_DOS
@@ -38,8 +39,13 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    character*40               fname_header
    real*8                     time1, time2, time3, time4
    logical                    flag_sparse, flag_exit_dsum
+   logical                    flag_order
    integer*4                  feast_nemax_save
+#ifdef PSPARSE
+   integer*4                  feast_fpm_save(64)
+#else
    integer*4                  feast_fpm_save(128)
+#endif
    integer*4, allocatable  :: feast_ne_save(:,:)
    real*8                     feast_emin_save, feast_emax_save
 #ifdef MPI                  
@@ -56,8 +62,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    call cpu_time(time1)
 #endif
 
-   if_main write(6,*)''
-   if_main write(6,'(A)')'START: DOS EVALUATION'
+   write(message,*)''  ; write_msg
+   write(message,'(A)')'START: DOS EVALUATION'  ; write_msg
 
    neig    = PGEOM%neig
    ispin   = PINPT%ispin
@@ -76,6 +82,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    sigma   = PINPT_DOS%dos_smearing
    iband   = PINPT_DOS%dos_iband
    fband   = PINPT_DOS%dos_fband 
+
+   flag_order = PINPT%flag_get_band_order
 
    iadd       = 10 ; iaddk = 8  ; inck = 1
 
@@ -108,9 +116,9 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      PINPT%feast_nemax = nband
 
      if(PINPT%feast_nemax .gt. neig * ispinor) then
-       if_main write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'
-       if_main write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
-       if_main write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+       write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'  ; write_msg
+       write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'  ; write_msg
+       write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'  ; write_msg
        PINPT%feast_nemax = PINPT%nband
      endif
    elseif(.not. PINPT_DOS%dos_flag_sparse) then
@@ -155,7 +163,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    endif
 
    call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, &
-                PINPT%flag_get_orbital, flag_sparse, .true., .true.)
+                PINPT%flag_get_orbital, flag_sparse, .true., .true.) !, flag_order)
 
    if(flag_sparse) then
      allocate(ne_found(PINPT%nspin, nkpoint))
@@ -171,7 +179,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
 
    ! main routine for DOS evaluation
 !kp:do ik = 1 + myid, nkpoint, nprocs
- if_main write(6,'(A)')' ... calculating DOS ...'
+ write(message,'(A)')' ... calculating DOS ...'  ; write_msg
  if_main call time_check(time4,time3,'init')
  if(PINPT_DOS%dos_flag_print_ldos) then
    if_main call report_memory(int8(size(ldos_tot)) * nprocs * 2, 8, 'LDOS(total)   ')
@@ -187,10 +195,10 @@ kp:do ik = 1,  nkpoint
 #endif
      endif
      if(nkpoint .lt. 10) then
-       if_main write(6,'(A,I0,A,I0)')  '         STAT KP: ', ik,'/',nkpoint
+       write(message,'(A,I0,A,I0)')  '         STAT KP: ', ik,'/',nkpoint  ; write_msg
      else
        if( ik/real(nkpoint)*100d0 .ge. real(iaddk*inck) ) then
-         if_main write(6,'(A,F10.3,A)')'         STAT KP: ', ik/real(nkpoint)*100d0, ' %'
+         write(message,'(A,F10.3,A)')'         STAT KP: ', ik/real(nkpoint)*100d0, ' %'  ; write_msg
          inck = inck + 1
        endif
      endif
@@ -199,12 +207,11 @@ kp:do ik = 1,  nkpoint
  eig:do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
        if(nkpoint .lt. 10) then
          if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
-           if_main write(6,'(A,F10.3,A)')'            STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'
+           write(message,'(A,F10.3,A)')'            STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'  ; write_msg
            inc = inc + 1
          endif
        endif
 
-!    if_main write(6,'(A,F10.4)')"    STAT EN", ie / real(nediv) * 100
     sp:do is = 1, nspin
     dsum:do i = 1, ne_found(is,ik) ! init_e, fina_e
 !          dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) * dkv
@@ -246,7 +253,7 @@ kp:do ik = 1,  nkpoint
    endif
 #endif
    if_main call time_check(time4,time3)
-   if_main write(6,'(A,F10.4,A)')' ... calculating DOS ... DONE  : ',time4, ' (sec)'
+   write(message,'(A,F10.4,A)')' ... calculating DOS ... DONE  : ',time4, ' (sec)'  ; write_msg
 
 
    ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
@@ -298,7 +305,7 @@ kp:do ik = 1,  nkpoint
 #else
    call cpu_time(time2)
 #endif
-   if_main  write(6,'(A,F12.3)')'END: DOS EVALUATION. TIME ELAPSED (s) =',time2-time1
+   write(message,'(A,F12.3)')'END: DOS EVALUATION. TIME ELAPSED (s) =',time2-time1  ; write_msg
 
 return
 endsubroutine
@@ -339,7 +346,7 @@ subroutine get_ensurf_fname_header(i, fname_header)
    implicit none
    integer*4    i
    character*40 format_string
-   character*80 fname_header
+   character*40 fname_header
 
    call get_ensurf_fname_format(i, format_string)
 

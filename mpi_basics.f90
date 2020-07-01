@@ -1,6 +1,8 @@
 module mpi_basics
    implicit none
+#ifdef MPI
    include 'mpif.h'
+#endif
    logical :: flag_use_mpi
    integer :: npar
    integer :: kpar

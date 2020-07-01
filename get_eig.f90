@@ -1,9 +1,11 @@
 #include "alias.inc"
-subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vector, flag_sparse, flag_stat, flag_phase)
+subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vector, flag_sparse, flag_stat, flag_phase) !, flag_order)
   use parameters, only: hopping, incar, energy, spmat
   use mpi_setup
   use time
   use memory
+  use reorder_band
+  use print_io
 ! use print_matrix
   implicit none
   type (hopping) :: NN_TABLE
@@ -24,6 +26,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   character*100 stat
   real*8     t0, t1
   character*4 timer
+  logical    flag_order                       ! if .true. eigenvalues will be re-ordered according to the overlap integral between neighbor eigenstates
   logical    flag_phase, flag_init, flag_sparse
   logical    flag_sparse_SHm, flag_sparse_SHs ! if .false. sparse Hamiltonian SHm(collinear magnetic) and SHs(SOC) will not
                                               ! be added up and constructed along with the k_loop due to the total number 
@@ -31,18 +34,24 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   integer*4  feast_ne(PINPT%nspin, nkp)
   integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
 
-  if(flag_stat .and. myid .eq. 0) write(6,'(A)') 'START: BAND STRUCTURE EVALUATION'
+  if(flag_stat) then
+    write(message,'(A)') '  ' ; write_msg
+    write(message,'(A)') 'START: BAND STRUCTURE EVALUATION' ; write_msg
+  endif
   timer = 'init'
-
   call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
   call report_job_distribution(flag_stat, ourjob)
 
   call initialize_all (EE, neig, nband, nkp, ourjob(myid+1), PINPT, flag_vector, flag_sparse, flag_stat, &
                        ii, iadd, stat, t1, t0, flag_init)
   if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
-                                   flag_stat, flag_sparse, flag_use_mpi, nprocs)
-  if(flag_stat .and. myid .eq. 0) write(6,'(A)'             ) ' '
-  if(flag_stat .and. myid .eq. 0) write(6,'(A)',ADVANCE='NO') '   STATUS: '
+                                   flag_stat, flag_sparse, nprocs)
+  if(flag_stat) then 
+    write(message,'(A)'             ) ' ' ; write_msg
+    write(message,'(A)') '   STATUS: ' 
+    call write_log(trim(message), 1, myid)
+    call write_log(trim(message),22, myid)
+  endif
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
     my_ik = ik - sum(ourjob(1:myid))
     if(flag_sparse) then
@@ -63,37 +72,44 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
       
 #else
 
-      if_main write(6,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'
-      if_main write(6,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'
+      write(message,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
+      write(message,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'  ; write_msg
       kill_job
 #endif
     elseif(.not.flag_sparse) then
       call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), EE%V(:,:,my_ik), PINPT, NN_TABLE, kp(:,ik), &
-                             neig, iband, nband, flag_vector, flag_init, flag_phase)
+                             neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
     endif
 
     if(flag_stat .and. myid .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
+    if(PINPT%flag_print_energy_singlek ) call print_energy_singlek(EE%E(:,ik), EE%V(:,:,my_ik), &
+                                                                   neig, ik, kp(:,ik), &
+                                                                   PINPT)
   enddo k_loop
 
 #ifdef MPI
   if(flag_stat .and. myid .eq. 0) then
-    write(6,'(A)')'  '
-    write(6,'(A,$)')'   Gathering all results to master node 0 ...'
+    write(message,'(A)')'  ' ; write_msg
+    write(message,'(A)')'   Gathering all results to master node 0 ...' 
+    call write_log(trim(message), 23, myid)
   endif
   call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
-  if(flag_vector) call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
-                                   ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                                   ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
-                                   MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only master node keep wave vector information
-  if(flag_stat .and. myid .eq. 0) then
-    write(6,'(A,$)')' done!'
-    write(6,'(A  )')' '
+  if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) &
+                       call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
+                       ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                       ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                       MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only master node keep wave vector information
+  if(flag_stat) then
+    write(message,'(A)')'  done!' ; write_msg
+    write(message,'(A  )')' ' ; write_msg
   endif
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
     call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
     PINPT%feast_ne = feast_ne
-    if(flag_stat .and. myid .eq. 0) write(6,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne)
+    if(flag_stat) then
+      write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
+    endif
   endif
 #endif
 #else
@@ -101,7 +117,10 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 #endif
 
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
-  if(flag_stat .and. myid .eq. 0) write(6,'(A)')'END: BAND STRUCTURE EVALUATION'
+
+  if(flag_stat) then
+    write(message,'(A)')'END: BAND STRUCTURE EVALUATION' ; write_msg
+  endif
 
 return
 endsubroutine
@@ -114,6 +133,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
   use mpi_setup
   use sparse_tool
   use time
+  use print_io
   implicit none
   type(hopping) :: NN_TABLE
   type(incar  ) :: PINPT
@@ -145,7 +165,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
       call time_check(t1,t0) 
 
       if(timer .eq. 'init' .and. myid .eq. 0) then 
-        write(6,'(A,F10.4,A)')'   TIME for SPARSE MATRIX CONSTRUCTION: ',t1, ' (sec)'
+        write(message,'(A,F10.4,A)')'   TIME for SPARSE MATRIX CONSTRUCTION: ',t1, ' (sec)' ; write_msg
         timer = 'off'
       else
         timer = 'off'
@@ -184,7 +204,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, NN_TABLE, kp, neig, &
 return
 endsubroutine
 #endif
-subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nband, flag_vector, flag_init, flag_phase)
+subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
   use parameters, only : incar, hopping, pauli_0
   use kronecker_prod, only: kproduct
   use mpi_setup
@@ -196,6 +216,7 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
   type (incar  ) :: PINPT
   integer*4  neig, iband, nband
   integer*4  nkpoint, is, ie,fe, im, fm
+  integer*4  ik
   real*8     kp(3)
   real*8     E(nband*PINPT%nspin)                      ! will store all the energy eigenvalue for each spin
   complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)     ! will store all the spin block at once in the first dimension
@@ -207,12 +228,18 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, PINPT, NN_TABLE, kp, neig, iband, nban
   logical    flag_vector, flag_init, flag_phase
   real*8     t1, t0
   real*8     E_(4)
+  character*20,external ::   int2str
+
   ! This routine calculates all the eigenvalues within [iband:iband+nband-1] using Hamiltonian Hk with dense matrix format.
    E_ = 0d0
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) Hm, Hs will be kept during ik-run. (Hs will be modified if flag_slater_koster=.false.)
          call get_hamk_dense(Hk, H0, Hm, Hs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase) 
-! call print_matrix_c(Hk,neig*2, neig*2, 'Hk',1, 'F8.3')
+         if(PINPT%flag_print_hamk) then
+           call print_matrix_c(Hk,neig*PINPT%ispinor, neig*PINPT%ispinor, &
+                              'Hk_K'//trim(ADJUSTL(int2str(ik)))//'_SP'//trim(ADJUSTL(int2str(is))),1, 'F10.5')
+         endif
+! call print_matrix_c(Hk,neig  , neig  , 'Hk',1, 'F8.3')
 
          if(PINPT%flag_use_overlap .and. is .eq. 1) then
            call set_ham0(S0, kp, PINPT, neig, NN_TABLE, F_IJ, flag_phase, .true.) ! .true. : flag_set_overlap
@@ -266,7 +293,7 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
     PINPT%feast_fpm(2) = 4  ! The number of contour points N_e (see the description of FEAST algorithm
                             ! Ref: E. Polizzi, Phys. Rev. B 79, 115112 (2009) 
     PINPT%feast_fpm(3) = 11 ! Error trace double precisiion stopping criteria e ( e = 10^-feast_fpm(3) )
-    PINPT%feast_fpm(4) = 3  ! Maximum number of Extended Eigensolver refinement loops allowed. 
+    PINPT%feast_fpm(4) = 50 ! Maximum number of Extended Eigensolver refinement loops allowed. 
                             ! If no convergence is reached within fpm(4) refinement loops, 
                             ! Extended Eigensolver routines return info=2.
     PINPT%feast_fpm(5) = 0  ! User initial subspace. If fpm(5)=0 then Extended Eigensolver routines generate
@@ -296,6 +323,7 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   use parameters, only : energy, spmat, incar
   use mpi_setup
   use time
+  use print_io
   implicit none
   type(energy) :: EE
   type(spmat ) :: SHm, SHs
@@ -304,9 +332,9 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   real*8     t1, t0
 
   call time_check(t1, t0)
-  if(flag_stat .and. myid .eq. 0) then
-    write(6,*)' '
-    write(6,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1
+  if(flag_stat) then
+    write(message,*)' ' ; write_msg
+    write(message,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1 ; write_msg
   endif
   if(allocated(EE%E)) deallocate(EE%E)
   if(allocated(EE%V)) deallocate(EE%V)
@@ -800,16 +828,25 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    allocate(ETBA%E(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
    allocate(ETBA%V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
 
+   if(PINPT%flag_get_band_order) then
+    !allocate(ETBA%O(PINPT%nband*PINPT%nspin, PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%IDX(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%E_ORD(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%V_ORD(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+   endif
+
 return
 endsubroutine
+
 subroutine initialize_eig_status(ii, iadd, stat, nkpoint)
    use mpi_setup
+   use print_io
    implicit none
    character*100 stat
    integer*4     iadd, ii, nkpoint
   
    stat = '****************************************************************************************************'
-   if(myid .eq. 0) write(6,'(A)')stat
+   write(message,'(A)')stat ; write_msg
    if(nkpoint .le. 25) then
      iadd=10
      ii = 1
@@ -821,41 +858,32 @@ return
 endsubroutine
 subroutine print_eig_status(ik, ii, iadd, ourjob)
    use mpi_setup
+   use print_io
    implicit none
    integer*4 ik, ii, iadd
    integer*4 ourjob(nprocs)
 
    if( floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) .ge. real(iadd*ii) ) then
      if( floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) .ge. 100) then
-       if_main write(6,'(I0,A,$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0),' Done!'
+       write(6,'(I0,A,$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0),' Done!'
+       write(message,'(I0,A)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0),' Done!'
+       call write_log("            "//trim(message), 1, myid)
      else
-       if_main write(6,'(I0," ",$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0)
+       if(ik .gt. 1) then
+         write(6,'(I0," ",$)') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0)
+         write(message,'(I3," ")') floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0)
+         call write_log("            "//trim(message), 1 , myid)
+       else
+         write(6,'(4x, I0," ",$)')floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) 
+         write(message,'(I3," ")')floor((ik-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0) 
+         call write_log("            "//trim(message), 1 , myid)
+       endif
      endif
      ii = ii + 1
    endif
 
    return
 endsubroutine
-
-!subroutine print_eig_status(ik, ii, iadd, stat, nkpoint, flag_stat)
-!  use mpi_setup
-!  implicit none
-!  character*100   stat
-!  integer*4       ik, ii, iadd, nkpoint
-!  real*8          percent
-!  logical         flag_stat
-
-!  if(.not.flag_stat) return
-!  if(myid .ne. 0) return
-
-!  percent =  ik / real(nkpoint) * 100d0
-!  if( floor(percent) .ge. real(iadd*ii) ) then
-!    if_main write(6,'(A,I3)')stat(1:iadd*ii),floor(percent)
-!    ii = ii + 1
-!  endif
-
-!return
-!endsubroutine
 
 subroutine get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint, is, neig, flag_phase)
    use parameters, only: hopping, incar
@@ -884,13 +912,14 @@ endsubroutine
 
 subroutine stop_get_eig(msize, nband)
    use mpi_setup
+   use print_io
    implicit none
    integer*4    msize, nband
 
-   if_main write(6,'(A)')        '    !WARN! Check NERANGE! NBAND should be less equal to matrix size MSIZE (NBAND <= MSIZE = N_ORBIT*ISPINOR),' 
-   if_main write(6,'(A)')        '           where ISPINOR = 2/1 if LSORB = .TRUE./.FALSE. and N_ORBIT = total number of orbitals.' 
-   if_main write(6,'(A,I0,A,I0)')'           MSIZE = ',msize, ' , NBAND = FINA_E - INIT_E + 1 = ',nband
-   if_main write(6,'(A)')        '           Exit program...'
+   write(message,'(A)')        '    !WARN! Check NERANGE! NBAND should be less equal to matrix size MSIZE (NBAND <= MSIZE = N_ORBIT*ISPINOR),'   ; write_msg
+   write(message,'(A)')        '           where ISPINOR = 2/1 if LSORB = .TRUE./.FALSE. and N_ORBIT = total number of orbitals.'   ; write_msg
+   write(message,'(A,I0,A,I0)')'           MSIZE = ',msize, ' , NBAND = FINA_E - INIT_E + 1 = ',nband  ; write_msg
+   write(message,'(A)')        '           Exit program...'  ; write_msg
    stop
 
 return

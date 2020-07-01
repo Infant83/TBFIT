@@ -5,6 +5,7 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    use phase_factor
    use mpi_setup
    use kronecker_prod, only: kproduct
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -15,8 +16,8 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    real*8           time1, time2
    integer*4        mpierr
 
-   if_main write(6,*)''
-   if_main write(6,'(A)')'START: BERRYCURVATURE' 
+   write(message,*)''  ; write_msg
+   write(message,'(A)')'START: BERRYCURVATURE'   ; write_msg
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
@@ -24,14 +25,14 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 #endif
 
    if(PINPT%flag_erange) then
-     if_main write(6,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'
-     if_main write(6,'(A)')'           with ERANGE tag. Please comment out ERANGE -> #ERANGE and re-run'
-     if_main write(6,'(A)')'           Exit program...'
+     write(message,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'  ; write_msg
+     write(message,'(A)')'           with ERANGE tag. Please comment out ERANGE -> #ERANGE and re-run'  ; write_msg
+     write(message,'(A)')'           Exit program...'  ; write_msg
      kill_job
    elseif(PINPT%flag_sparse) then
-     if_main write(6,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'
-     if_main write(6,'(A)')'           with EWINDOW tag. Please comment out EWINDOW -> #EWINDOW and re-run'
-     if_main write(6,'(A)')'           Exit program...'
+     write(message,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'  ; write_msg
+     write(message,'(A)')'           with EWINDOW tag. Please comment out EWINDOW -> #EWINDOW and re-run'  ; write_msg
+     write(message,'(A)')'           Exit program...'  ; write_msg
      kill_job
    endif
 
@@ -48,7 +49,7 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 #else
    call cpu_time(time2)
 #endif
-   if_main write(6,'(A,F12.3)')'END: BERRYCURVATURE. TIME ELAPSED (s) =',time2-time1
+   write(message,'(A,F12.3)')'END: BERRYCURVATURE. TIME ELAPSED (s) =',time2-time1  ; write_msg
 
    return
 endsubroutine
@@ -63,6 +64,7 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    use mpi_setup
    use kronecker_prod, only: kproduct
    use memory
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -94,7 +96,7 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 #else
    integer*4        ourjob(1)
    integer*4        ourjob_disp(0)
-   call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
    call report_job_distribution(.true., ourjob)
 #endif
 
@@ -129,9 +131,9 @@ sp:do is = 1, PINPT%nspin
        call get_velocity_matrix(PINPT, NN_TABLE, kpoint(:,ik), neig, dyH, dyF_IJ, flag_phase)
        call get_omega(omega(:,:,is,ik), ETBA%E(ieig:feig,ik), V(ieig:feig,ieig:feig,my_ik), dxH, dyH, dzH, msize)
        if(PINPT%flag_collinear) then
-         if_main write(6,'(A,F10.3,A)')'  STATUS: ',real(my_ik)/real(ourjob(myid+1))*100d0,' %'
+         write(message,'(A,F10.3,A)')'  STATUS: ',real(my_ik)/real(ourjob(myid+1))*100d0,' %'  ; write_msg
        elseif(.not. PINPT%flag_collinear) then
-         if_main write(6,'(A,F10.3,A,I0)')'  STATUS: ',real(my_ik)/real(ourjob(myid+1))*100d0,' % ; SPIN: ',is
+         write(message,'(A,F10.3,A,I0)')'  STATUS: ',real(my_ik)/real(ourjob(myid+1))*100d0,' % ; SPIN: ',is  ; write_msg
        endif
      enddo kp
    enddo sp
@@ -159,6 +161,7 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    use phase_factor
    use mpi_setup
    use kronecker_prod, only: kproduct
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -175,12 +178,11 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    neig   = PGEOM%neig     ; ispinor = PINPT%ispinor
    msize  = neig * ispinor 
 
-!  write(6,*)"XXXX", PINPT_BERRY%bc_nkdiv
 !  call set_kpath_plane(PINPT_BERRY%bc_kpoint(:,:,:,ip,ix), PINPT_BERRY%z2_kpoint_reci(:,:,:,ip,ix), kpath, nkdiv, nkpath, z2_axis(ix), shift(ip), PGEOM)
 
 !  if(PKPTS%flag_klinemode) then
-!    if_main write(6,*)'  WARN: BERRY CURVATURE EVALUATION WITH ALONG WITH THE METHOD OF "RESTA"'
-!    if_main write(6,*)'        CANNOT BE RUN WITH "KLINE_MODE". PLEASE CHECK YOUR "KFILE"'
+!    write(message,*)'  WARN: BERRY CURVATURE EVALUATION WITH ALONG WITH THE METHOD OF "RESTA"'  ; write_msg
+!    write(message,*)'        CANNOT BE RUN WITH "KLINE_MODE". PLEASE CHECK YOUR "KFILE"'  ; write_msg
 !  endif
 
 #ifdef MPI
@@ -192,9 +194,9 @@ subroutine get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 
 !  call set_berry_loop(kp_init, loop_mode, loop_axis)
 
-   if_main write(6,*)"    ! WARNING : Current version does not support Berry curvature calculation"
-   if_main write(6,*)"              : based on Fukui's method. We are planning it for the next release. "
-   if_main write(6,*)"              : If you are interested in develop this routine please contact H.-J. Kim (Infant@kias.re.kr)"
+   write(message,*)"    ! WARNING : Current version does not support Berry curvature calculation"  ; write_msg
+   write(message,*)"              : based on Fukui's method. We are planning it for the next release. "  ; write_msg
+   write(message,*)"              : If you are interested in develop this routine please contact H.-J. Kim (Infant@kias.re.kr)"  ; write_msg
    kill_job
 
    return

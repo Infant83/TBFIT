@@ -1,3 +1,4 @@
+#include "alias.inc"
 subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
    use parameters, only : poscar
    real*8      r0  ! reference distance
@@ -107,9 +108,11 @@ return
 endsubroutine
 subroutine get_onsite_param_index(ionsite_param_index, PINPT, ci_orb, cj_orb, c_atom)
    use parameters, only : incar
+   use print_io
+   use mpi_setup
    implicit none
    type(incar) :: PINPT
-   integer*4   i, lio, ljo, la
+   integer*4   i, lio, ljo, la, mpierr
    integer*4   ionsite_param_index
    character*8  ci_orb, cj_orb, c_atom
    character*20 ee_name
@@ -125,8 +128,8 @@ subroutine get_onsite_param_index(ionsite_param_index, PINPT, ci_orb, cj_orb, c_
    endif
 
    if ( ionsite_param_index .eq. -1) then
-     write(6,'(A,A,A)')'    !WARNING! Onsite energy for ', adjustl(trim(ee_name)), &
-                       ' is not asigned. Please check "SET TBPARAM" tag. Exit...'
+     write(message,'(A,A,A)')'    !WARNING! Onsite energy for ', adjustl(trim(ee_name)), &
+                       ' is not asigned. Please check "SET TBPARAM" tag. Exit...' ; write_msg
      stop
    endif
    
@@ -380,7 +383,8 @@ subroutine get_param_name_index(PINPT, param_class, param_type, nn_class, ci_ato
    integer*4      param_index
    character(*),intent(in) ::    ci_atom, cj_atom
    character*2    param_class
-   character*8    param_type
+!  character*8    param_type
+   character(*),intent(in) ::    param_type
    character*40   param_name
    logical        flag_scale, flag_use_overlap
 
@@ -432,83 +436,3 @@ subroutine get_param_index(PINPT, param_name, param_index)
 
 return
 endsubroutine
-
-!module get_parameter
-! use mpi_setup
-
-! contains
-!   elemental subroutine get_param_temp(PINPT, param_index, isub, param)
-!      use parameters, only: incar
-!      implicit none
-!      type(incar), intent(in) :: PINPT
-!      integer*4,   intent(in) :: param_index, isub
-!      integer*4                  k
-!      real*8,      intent(out):: param
-
-!      if(param_index .ne. 0) then
-!        if(PINPT%slater_koster_type .gt. 10) then
-!          k = nint(PINPT%param_const_nrl(4,1, param_index))
-!          if(k .ge. 1) then 
-!            param = PINPT%param_const_nrl(5,isub,param_index)
-!          else
-!            param = PINPT%param_nrl(isub,param_index)
-!          endif
-!        else
-!          k = nint(PINPT%param_const(4, param_index))
-!          if(k .ge. 1) then
-!            param = PINPT%param_const(5,param_index)
-!          else
-!            param = PINPT%param(param_index)
-!          endif
-!        endif   
-
-!      else
-!        param = 0d0 
-!      endif       
-
-!   return
-!   endsubroutine
-!endmodule
-!   subroutine get_param_nrl(PINPT, param_index, param_nrl)
-!      use parameters, only : incar
-!      implicit none
-!      type(incar), intent(in):: PINPT
-!      integer*4,   intent(in) :: param_index
-!      integer*4      k, nsub
-!      real*8         param_nrl(PINPT%param_nsub(param_index))
-!
-!      if(param_index .ne. 0) then
-!        ! get parameter value with given parameter index
-!        k = nint(PINPT%param_const_nrl(4, 1, param_index ))
-!        nsub = PINPT%param_nsub(param_index)
-!        if( k .ge. 1 ) then
-!          param_nrl(1:nsub) = PINPT%param_const_nrl(5,1:nsub, param_index ) ! set constraint condition: if fixed
-!        else
-!          param_nrl(1:nsub) = PINPT%param_nrl(1:nsub, param_index )
-!        endif
-!      elseif(param_index .eq. 0) then
-!        param_nrl = 0.d0
-!      endif
-!   return
-!   endsubroutine
-!   subroutine get_param(PINPT, param_index, param)
-!      use parameters, only : incar
-!      implicit none
-!      type(incar) :: PINPT
-!      integer*4      param_index
-!      real*8         param
-!
-!      if(param_index .ne. 0) then
-!        ! get parameter value with given parameter index
-!        if(  nint(PINPT%param_const(4, param_index )) .ge. 1 ) then
-!          param = PINPT%param_const(5, param_index ) ! set constraint condition: if fixed
-!        else
-!          param = PINPT%param( param_index )
-!        endif
-!
-!      elseif(param_index .eq. 0) then
-!        param = 0.d0
-!      endif
-!
-!   return
-!   endsubroutine

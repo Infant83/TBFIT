@@ -6,6 +6,7 @@ subroutine get_symmetry_info(PGEOM)
    use mpi_setup
    use do_math
    use iso_c_binding, only:  c_char, c_int, c_double, c_ptr, c_f_pointer
+   use print_io
    implicit none
    type (poscar)       :: PGEOM       ! parameters for geometry info
    type(SpglibDataset) :: dset
@@ -27,11 +28,11 @@ subroutine get_symmetry_info(PGEOM)
 
    wyckoff_symbol(1:26)=alphabet
 
-   if_main  write(6,'(A)')' '
-   if_main  write(6,'(A)')'  :--------------------------:'
-   if_main  write(6,'(A)')'  : SPACE GROUP INFORMATIONS :'
-   if_main  write(6,'(A)')'  :----------------------------------------------------------------------------------------------:'
-   if_main  write(6,'(A)')' '
+   write(message,'(A)')' '  ; write_msg
+   write(message,'(A)')'  :--------------------------:'  ; write_msg
+   write(message,'(A)')'  : SPACE GROUP INFORMATIONS :'  ; write_msg
+   write(message,'(A)')'  :----------------------------------------------------------------------------------------------:'  ; write_msg
+   write(message,'(A)')' '  ; write_msg
 
    dset = spg_get_dataset(transpose(PGEOM%a_latt), PGEOM%a_coord, &
                           PGEOM%spec, PGEOM%n_atom, onsite_tolerance)
@@ -93,7 +94,9 @@ subroutine get_symmetry_info(PGEOM)
    enddo
 
    if (PGEOM%spg_space_group .eq. 0) then
-     if_main stop "  Space group could not be found. Exit..."
+     if_main_then
+       write(message,'(A)') "  Space group could not be found. Exit..."  ; write_msg
+     if_main_end
    else
      PGEOM%spg_schoenflies = ' '
      i_dummy = spg_get_schoenflies(PGEOM%spg_schoenflies, transpose(PGEOM%a_latt), &
@@ -102,15 +105,15 @@ subroutine get_symmetry_info(PGEOM)
 
    if_main_then
    ! write general information
-   write(6,'(A,A )'   )'   - Crystal system             : ', trim(PGEOM%spg_crystal_system)
-   write(6,'(A,I3)'   )'   - Space group number         : ', PGEOM%spg_space_group
-   write(6,'(A,A )'   )'   - Crystal choice             : ', trim(PGEOM%spg_choice)
-   write(6,'(A,A)'    )'   - International short symbol : ', trim(PGEOM%spg_international)
-!  write(6,'(A,A)'    )'   - Point group symbol         : ', trim(PGEOM%spg_point_group)
-!  write(6,'(A,A)'    )'   - Schoenflies symbol         : ', trim(PGEOM%spg_schoenflies)
-   write(6,'(3A,I3,A)')'   - Hall symbol [number]       : ', trim(PGEOM%spg_hall_symbol), &
-                                                        ' [', PGEOM%spg_hall_number,']'
-   write(6,'(A)'      )'   '
+   write(message,'(A,A )'   )'   - Crystal system             : ', trim(PGEOM%spg_crystal_system)  ; write_msg
+   write(message,'(A,I3)'   )'   - Space group number         : ', PGEOM%spg_space_group  ; write_msg
+   write(message,'(A,A )'   )'   - Crystal choice             : ', trim(PGEOM%spg_choice)  ; write_msg
+   write(message,'(A,A)'    )'   - International short symbol : ', trim(PGEOM%spg_international)  ; write_msg
+!  write(message,'(A,A)'    )'   - Point group symbol         : ', trim(PGEOM%spg_point_group)  ; write_msg
+!  write(message,'(A,A)'    )'   - Schoenflies symbol         : ', trim(PGEOM%spg_schoenflies)  ; write_msg
+   write(message,'(3A,I3,A)')'   - Hall symbol [number]       : ', trim(PGEOM%spg_hall_symbol), & 
+                                                        ' [', PGEOM%spg_hall_number,']' ; write_msg
+   write(message,'(A)'      )'   '  ; write_msg
 
    ! write Wyckoff symbol and equivalent atoms
    ! Note: The Wyckoff symbol is determined using "Coordinates" in the Wyckoff position data set,
@@ -120,80 +123,75 @@ subroutine get_symmetry_info(PGEOM)
    !       function of SPGLIB library.
    !       The details can be found in following reference: https://arxiv.org/pdf/1808.01590.pdf
    !        [Ref] A. Togo and I. Tanaka, "Spglib: a software library for crystal symmetry search", arXiv.1808.01590 (2018)
-   write(6,'(A       )')"    :--------------* Original lattice vector A --------------------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A,3F15.8)')"    :   Ai = [Ai1,Ai2,Ai3]         [A11 A12 A13] ",PGEOM%a_latt(:,1)
-   write(6,'(A,3F15.8)')"   -:   Ai'= transpose(Ai)  => A = [A21 A22 A23]=",PGEOM%a_latt(:,2)
-   write(6,'(A,3F15.8)')"    : =>A' = [A1',A2',A3']         [A31 A32 A33] ",PGEOM%a_latt(:,3)
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------* Primitive lattice vector B -------------------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A,3F15.8)')"    :   Bi = [Bi1,Bi2,Bi3]         [B11 B12 B13] ",PGEOM%spg_a_latt_primitive(:,1)
-   write(6,'(A,3F15.8)')"   -:   Bi'= transpose(Bi)  => B = [B21 B22 B23]=",PGEOM%spg_a_latt_primitive(:,2)
-   write(6,'(A,3F15.8)')"    : =>B' = [B1',B2',B3']         [B31 B32 B33] ",PGEOM%spg_a_latt_primitive(:,3)
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------* Transformation matrix P ----------------------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A,3F15.8)')"    :  B'*P = A' or P'*B = A       [P11 P12 P13] ",PGEOM%spg_transformation_matrix(:,1)
-   write(6,'(A,3F15.8)')"   -:  or A'*inv(P) = B'    => P = [P21 P22 P23]=",PGEOM%spg_transformation_matrix(:,2)
-   write(6,'(A,3F15.8)')"    :  or inv(P')*A = B            [P31 P32 P33] ",PGEOM%spg_transformation_matrix(:,3)
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------* Origin shift O -------------------------------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A,3F15.8)')"   -: O = Origin_A-Origin_B => O = [O1  O2  O3 ]=",PGEOM%spg_origin_shift(:)
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------* Coordinate transformaton by P and O ----------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :    Rs = atomic position w.r.t. primitive lattice vector (with origin shift)"  
-   write(6,'(A       )')"   -:    R  = atomic position w.r.t. current (A) lattice vector "
-   write(6,'(A       )')"    :    Rs'= P * R' + O'   "
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------* Wyckoff symbol (Ws) and Equivalent atom (Eqv.) -----------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A)'       )"    : ATOM Eqv.   : W :            R (input geom)           :           Rs (primitive geom)       "
-   write(6,'(A       )')"   -: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -:" 
+   write(message,'(A       )')"    :--------------* Original lattice vector A --------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A,3F15.8)')"    :   Ai = [Ai1,Ai2,Ai3]         [A11 A12 A13] ",PGEOM%a_latt(:,1)  ; write_msg
+   write(message,'(A,3F15.8)')"   -:   Ai'= transpose(Ai)  => A = [A21 A22 A23]=",PGEOM%a_latt(:,2)  ; write_msg
+   write(message,'(A,3F15.8)')"    : =>A' = [A1',A2',A3']         [A31 A32 A33] ",PGEOM%a_latt(:,3)  ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------* Primitive lattice vector B -------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A,3F15.8)')"    :   Bi = [Bi1,Bi2,Bi3]         [B11 B12 B13] ",PGEOM%spg_a_latt_primitive(:,1)  ; write_msg
+   write(message,'(A,3F15.8)')"   -:   Bi'= transpose(Bi)  => B = [B21 B22 B23]=",PGEOM%spg_a_latt_primitive(:,2)  ; write_msg
+   write(message,'(A,3F15.8)')"    : =>B' = [B1',B2',B3']         [B31 B32 B33] ",PGEOM%spg_a_latt_primitive(:,3)  ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------* Transformation matrix P ----------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A,3F15.8)')"    :  B'*P = A' or P'*B = A       [P11 P12 P13] ",PGEOM%spg_transformation_matrix(:,1)  ; write_msg
+   write(message,'(A,3F15.8)')"   -:  or A'*inv(P) = B'    => P = [P21 P22 P23]=",PGEOM%spg_transformation_matrix(:,2)  ; write_msg
+   write(message,'(A,3F15.8)')"    :  or inv(P')*A = B            [P31 P32 P33] ",PGEOM%spg_transformation_matrix(:,3)  ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------* Origin shift O -------------------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A,3F15.8)')"   -: O = Origin_A-Origin_B => O = [O1  O2  O3 ]=",PGEOM%spg_origin_shift(:)  ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------* Coordinate transformaton by P and O ----------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :    Rs = atomic position w.r.t. primitive lattice vector (with origin shift)"    ; write_msg
+   write(message,'(A       )')"   -:    R  = atomic position w.r.t. current (A) lattice vector "  ; write_msg
+   write(message,'(A       )')"    :    Rs'= P * R' + O'   "  ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------* Wyckoff symbol (Ws) and Equivalent atom (Eqv.) -----------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A)'       )"    : ATOM Eqv.   : W :            R (input geom)           :           Rs (primitive geom)       "  ; write_msg
+   write(message,'(A       )')"   -: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -:"   ; write_msg
    write(fmt,'(A)')"(A,I5,1x,A,I5,1x,A,A,A,3F12.8,A,3F12.8)"
    do i = 1, PGEOM%n_atom
-     write(6,fmt)"    :", i,'=',PGEOM%spg_equivalent_atoms(i)+1, ': ', &
-                          wyckoff_symbol(PGEOM%spg_wyckoffs(i)+1:PGEOM%spg_wyckoffs(i)+1), &
-                    ' :', PGEOM%a_coord(:,i),' :', PGEOM%spg_a_coord_primitive(:,i)
+     write(message,fmt)"    :", i,'=',PGEOM%spg_equivalent_atoms(i)+1, ': ', wyckoff_symbol(PGEOM%spg_wyckoffs(i)+1:PGEOM%spg_wyckoffs(i)+1), ' :', PGEOM%a_coord(:,i),' :', PGEOM%spg_a_coord_primitive(:,i)  ; write_msg
    enddo
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------------------------------------------------------------------------------------:" 
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------------------------------------------------------------------------------------:"   ; write_msg
 
    ! write symmetry operations 
-   write(6,'(A)'       )'    '
-   write(6,'(A       )')"    :--------------* Symmetry operations {W|T} --------------------------------------------------:" 
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A,I3)'    )"    :  Total number of symmetry operation (nsym) = ",PGEOM%spg_n_operations                        
-   write(6,'(A)'       )"    :                                                                                            :"
-   write(6,'(A       )')"    :--------------------------------------------------------------------------------------------:" 
-   write(6,'(A)'       )'    '
+   write(message,'(A)'       )'    '  ; write_msg
+   write(message,'(A       )')"    :--------------* Symmetry operations {W|T} --------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A,I3)'    )"    :  Total number of symmetry operation (nsym) = ",PGEOM%spg_n_operations                          ; write_msg
+   write(message,'(A)'       )"    :                                                                                            :"  ; write_msg
+   write(message,'(A       )')"    :--------------------------------------------------------------------------------------------:"   ; write_msg
+   write(message,'(A)'       )'    '  ; write_msg
    if_main_end
    do isym = 1, PGEOM%spg_n_operations
-     if_main write(6,'(A,I3,3(A,I3)  )')'       - operation # ',isym, ' : det(W) = ',PGEOM%spg_det_W(isym), &
-                                                           ' , tr(W) = ', PGEOM%spg_tr_W(isym), &
-                                                           ' => type(W) = ', PGEOM%spg_type_W(isym)
+     write(message,'(A,I3,3(A,I3)  )')'       - operation # ',isym, ' : det(W) = ',PGEOM%spg_det_W(isym), ' , tr(W) = ', PGEOM%spg_tr_W(isym), ' => type(W) = ', PGEOM%spg_type_W(isym)  ; write_msg
                                                       ! /* Look-up table */
                                                       ! /* Operation   -6 -4 -3 -2 -1  1  2  3  4  6 */
                                                       ! /* Trace     -  2 -1  0  1 -3  3 -1  0  1  2 */
                                                       ! /* Determinant -1 -1 -1 -1 -1  1  1  1  1  1 */
-     if_main write(6,97)PGEOM%spg_rotations(:,1,isym), mod(PGEOM%spg_translations(1,isym)+10d0,1d0)
-     if_main write(6,98)PGEOM%spg_rotations(:,2,isym), mod(PGEOM%spg_translations(2,isym)+10d0,1d0)
-     if_main write(6,99)PGEOM%spg_rotations(:,3,isym), mod(PGEOM%spg_translations(3,isym)+10d0,1d0)
+     write(message,97)PGEOM%spg_rotations(:,1,isym), mod(PGEOM%spg_translations(1,isym)+10d0,1d0)  ; write_msg
+     write(message,98)PGEOM%spg_rotations(:,2,isym), mod(PGEOM%spg_translations(2,isym)+10d0,1d0)  ; write_msg
+     write(message,99)PGEOM%spg_rotations(:,3,isym), mod(PGEOM%spg_translations(3,isym)+10d0,1d0)  ; write_msg
 
      call get_operated_coord(PGEOM%spg_rotations(:,:,isym), PGEOM%spg_translations(:,isym), &
                              PGEOM%a_coord, PGEOM%spg_a_coord_operated(:,:,isym), &
                              PGEOM%spg_n_operations, PGEOM%n_atom)
      if_main_then
      do i = 1, PGEOM%n_atom
-       write(6,'(A,I5,A,3F10.5,A,3F10.5)')"           atom",i,':',mod(PGEOM%a_coord(:,i)+10d0,1d0), &
-                                                           ' -> ',PGEOM%spg_a_coord_operated(:,i,isym)
+       write(message,'(A,I5,A,3F10.5,A,3F10.5)')"           atom",i,':',mod(PGEOM%a_coord(:,i)+10d0,1d0), ' -> ',PGEOM%spg_a_coord_operated(:,i,isym)  ; write_msg
      enddo
      if_main_end
    enddo
-   if_main write(6,'(A       )')"    :--------------------------------------------------------------------------------------------:" 
-   if_main write(6,'(A)')' '
+   write(message,'(A       )')"    :--------------------------------------------------------------------------------------------:"   ; write_msg
+   write(message,'(A)')' '  ; write_msg
 
 
 97 format('           [',I3,1x,I3,1x,I3,']   [x]','   [',F8.4,']')

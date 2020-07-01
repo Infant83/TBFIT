@@ -6,6 +6,7 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    use phase_factor
    use kronecker_prod, only: kproduct
    use print_matrix
+   use print_io
    implicit none
    type (incar)   :: PINPT       ! parameters for input arguments
    type (berry)   :: PINPT_BERRY ! parameters for berry phase related quantity calculation
@@ -56,8 +57,8 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    flag_phase_shift = .false.
    flag_print_ham = PINPT_BERRY%flag_print_hamiltonian_symmetry
 
-   if_main write(6,*)' '
-   if_main write(6,'(A)')'START: SYMMETRY EIGENVALUE CALCULATION'
+   write(message,*)' ' ; write_msg
+   write(message,'(A)')'START: SYMMETRY EIGENVALUE CALCULATION' ; write_msg
 
    ! GET SYMMETRY OPERATOR S_OP
    call set_symmetry_operator(S_OP, R, origin, theta, PGEOM, PINPT)
@@ -65,11 +66,13 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(S_OP, neig*ispinor, neig*ispinor, 'S_OP', 0, 'F6.3')
 
 sp:do is = 1, nspin
-     if(nspin .eq. 2 .and. myid .eq. 0) write(6,'(3A)')'     SPIN',spin(is),':'
+     if(nspin .eq. 2) then 
+       write(message,'(3A)')'     SPIN',spin(is),':' ; write_msg
+     endif
 
   kp:do ik = 1, nkp
-       if_main write(6,'(A)')' '
-       if_main write(6,'(A,I3,1x,A10,A,3F10.5)')'       KPT',ik,kpoint_name(ik),' : ',kpoint_reci(:,ik)
+       write(message,'(A)')' ' ; write_msg
+       write(message,'(A,I3,1x,A10,A,3F10.5)')'       KPT',ik,kpoint_name(ik),' : ',kpoint_reci(:,ik) ; write_msg
  
        ! GET HAMILTONIAN HK
        call get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase) ; V = Hk
@@ -95,18 +98,13 @@ sp:do is = 1, nspin
        if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(S_ij, neig*ispinor, neig*ispinor, 'Sij ', 0, 'F6.3')
        
        if_main_then
-         if(nspin .eq. 2) write(6,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|S|n,',trim(spin(is)),'> (symmetry)'
-         if(nspin .eq. 1) write(6,'( A)')'                   E(n,k)      <n|S|n> (symmetry_eig)'
-       ! do i = 1, neig*ispinor
-       !    write(6,'(A,I5,A,F10.5,*(3x,F7.4,A,F7.4,A))')'      E(n=',i,')', E(i) , real(S_ij(i,i)),' + ',aimag(S_ij(i,i)),'i'
-       !   if(i .eq. PINPT_BERRY%noccupied) then
-       !     write(6,'(A)')'     ------------- occupied level --------------------'
-       !   endif
-       ! enddo
+         if(nspin .eq. 2) write(message,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|S|n,',trim(spin(is)),'> (symmetry)'
+         if(nspin .eq. 1) write(message,'( A)')'                   E(n,k)      <n|S|n> (symmetry_eig)'
+         write_msg
          do i = 1, neig*ispinor
-            write(6,'(A,I5,A,F10.5,*(3x,F7.4,A,F7.4,A))')'      E(n=',i,')', E(i) , real(S_eig(i)),' + ',aimag(S_eig(i)),'i'
+            write(message,'(A,I5,A,F10.5,*(3x,F7.4,A,F7.4,A))')'      E(n=',i,')', E(i) , real(S_eig(i)),' + ',aimag(S_eig(i)),'i' ; write_msg
            if(i .eq. PINPT_BERRY%noccupied) then
-             write(6,'(A)')'     ------------- occupied level --------------------'
+             write(message,'(A)')'     ------------- occupied level --------------------' ; write_msg
            endif
          enddo
 
@@ -116,8 +114,8 @@ sp:do is = 1, nspin
   
    enddo sp
  
-   if_main write(6,*)' '
-   if_main write(6,'(A)')'  END: SYMMETRY EIGENVALUE CALCULATION'
+   write(message,*)' ' ; write_msg
+   write(message,'(A)')'  END: SYMMETRY EIGENVALUE CALCULATION' ; write_msg
 
    return
 endsubroutine

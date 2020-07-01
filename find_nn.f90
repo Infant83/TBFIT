@@ -4,6 +4,7 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    use mpi_setup
    use time
    use memory
+   use print_io
    implicit none
    type (poscar)  :: PGEOM
    type (incar)   :: PINPT
@@ -119,8 +120,8 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    a2=PGEOM%a_latt(1:3,2)
    a3=PGEOM%a_latt(1:3,3)
 
-   if(myid .eq. 0) write(6,*)' '
-   if(myid .eq. 0) write(6,*)'*- START SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'
+   write(message,*)' ' ; write_msg
+   write(message,*)'*- START SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS' ; write_msg
    call time_check(t1,t0,'init')
 
    max_x = PINPT%nn_max(1)
@@ -368,9 +369,9 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
 
    NN_TABLE%n_neighbor = nn
    if (nn .gt. max_nn) then
-     if(myid .eq. 0) write(6,'(A,I8,A,A)')'  !WARN! Total number of Neighbor pair is exeed MAX_NN=100*N_ATOM*MAX_ORB=',max_nn, &
-                          ' Exit... Please recompile with larger MAX_NN', func 
-     stop
+     write(message,'(A,I8,A,A)')'  !WARN! Total number of Neighbor pair is exeed MAX_NN=100*N_ATOM*MAX_ORB=',max_nn, &
+                          ' Exit... Please recompile with larger MAX_NN', func  ; write_msg
+     kill_job
    endif
 
 
@@ -547,15 +548,15 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
    deallocate( NN_TABLE_dummy%plus_U_param_index )
 #endif
 
-   if(myid .eq. 0) write(6,'(A,I8)')'  N_NEIGH:',NN_TABLE%n_neighbor
+   write(message,'(A,I8)')'  N_NEIGH:',NN_TABLE%n_neighbor ; write_msg
    size_NN_TABLE=sizeof(NN_TABLE)
-   if(myid .eq. 0) call report_memory(int8(size_NN_TABLE), 1, 'NN_TABLE')
+   if_main call report_memory(int8(size_NN_TABLE), 1, 'NN_TABLE')
 
    call time_check(t1,t0,'end')
-   if(myid .eq. 0) write(6,'(A,F12.6)')"  TIME for FINDING NEIGBOR PAIRS (s)", t1
-   if(myid .eq. 0) write(6,*)' '
-   if(myid .eq. 0) write(6,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS' 
-   if(myid .eq. 0) write(6,*)' '
+   write(message,'(A,F12.6)')"  TIME for FINDING NEIGBOR PAIRS (s)", t1 ; write_msg
+   write(message,*)' ' ; write_msg
+   write(message,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'  ; write_msg
+   write(message,*)' ' ; write_msg
 
 return
 endsubroutine
@@ -648,10 +649,11 @@ endsubroutine
 subroutine print_nn_table(NN_TABLE, PINPT)
  use parameters, only : hopping, incar, pid_nntable
  use mpi_setup
+ use print_io
  implicit none
  type (hopping) :: NN_TABLE
  type (incar  ) :: PINPT
- integer*4  ii, i, i_check
+ integer*4  ii, i, i_check, mpierr
  logical    flag_soc, flag_slater_koster, flag_local_charge, flag_plus_U, flag_collinear
  real*8     tij_sk
  external   tij_sk
@@ -706,10 +708,6 @@ subroutine print_nn_table(NN_TABLE, PINPT)
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
                                          NN_TABLE%p_class(ii), NN_TABLE%sk_index_set(0:6,ii), NN_TABLE%n_class(ii), NN_TABLE%tij(ii), &
                                          NN_TABLE%soc_param_index(ii)
-!if(ii .eq. 95) then
-!write(6,*)"XZZZ TIJ", NN_TABLE%tij(ii)
-! stop
-!endif
      elseif(.not. flag_slater_koster) then
        write(pid_nntable,96,ADVANCE='no')NN_TABLE%i_atom(ii)  , NN_TABLE%j_atom(ii), NN_TABLE%Rij(1:3,ii), NN_TABLE%Dij(ii), NN_TABLE%Dij0(ii), &
                                          NN_TABLE%i_matrix(ii), NN_TABLE%ci_orb(ii), NN_TABLE%j_matrix(ii), NN_TABLE%cj_orb(ii),&
@@ -777,16 +775,16 @@ subroutine print_nn_table(NN_TABLE, PINPT)
        if(NN_TABLE%sk_index_set(i,ii) .eq. 0) i_check = i_check + 1
      enddo
      if (i_check .eq. 0) then
-       if(myid .eq. 0) write(6,'(A)')'  !WARNING! SK-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii)
-       stop
+       write(message,'(A)')'  !WARNING! SK-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msg
+       kill_job
      endif
    elseif(.not. flag_slater_koster) then
      do i = 0, 3
        if(NN_TABLE%cc_index_set(i,ii) .eq. 0) i_check = i_check + 1
      enddo
      if (i_check .eq. 0) then
-       if(myid .eq. 0) write(6,'(A)')'  !WARNING! CC-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii)
-       stop
+       write(message,'(A)')'  !WARNING! CC-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msg
+       kill_job
      endif
    endif
  enddo

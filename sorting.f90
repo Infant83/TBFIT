@@ -1,5 +1,7 @@
+#include "alias.inc"
 module sorting
-
+   use print_io
+   use mpi_setup
 contains
 subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
    implicit none
@@ -197,8 +199,8 @@ subroutine get_sort_index(isort_index, target_variable, target_dimension, nvaria
    enddo
 
   call cpu_time(t2)
-  write(6,'(A,F12.4)')"  TIME SORT: ", t2 - t1
-
+  write(message,'(A,F12.4)')"  TIME SORT: ", t2 - t1 ; write_msg
+  
    return
 endsubroutine
 

@@ -4,6 +4,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    use mpi_setup
    use time
    use memory
+   use print_io
    implicit none
    type(incar  )            :: PINPT
    type(poscar )            :: PGEOM
@@ -56,10 +57,10 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    if(PKPTS%flag_klinemode) kmode = 'line'
    if(PKPTS%flag_kgridmode) kmode = 'grid'
 
-   if_main write(6,*)''
-   if_main write(6,*)''
-   if_main write(6,'(A)')' ** Program run in REPLOT mode '
-   if_main write(6,*)''
+   write(message,*)''  ; write_msg
+   write(message,*)''  ; write_msg
+   write(message,'(A)')' ** Program run in REPLOT mode '  ; write_msg
+   write(message,*)''  ; write_msg
    cjob = ' '
    if(flag_replot_dos)      write(cjob,'(A,A)') trim(cjob), ' + DOS'
    if(flag_replot_ldos)     write(cjob,'(A,A)') trim(cjob), ' + LDOS'
@@ -80,8 +81,8 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
      enddo
    endif
 
-   if_main write(6,'(A,A,A)')'  START REPLOT: ',trim(cjob),' EVALUATION'
-   if_main write(6,*)''
+   write(message,'(A,A,A)')'  START REPLOT: ',trim(cjob),' EVALUATION'  ; write_msg
+   write(message,*)''  ; write_msg
 
    nspin                 = PINPT%nspin
    nbasis                = PGEOM%neig
@@ -111,9 +112,9 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
    endif
 
    if(nband .ne. PINPT%nband) then
-     write(6,'(A)')'    ! ERROR: nband read from band structure file is differ from the setup PINPT%nband. This discrepancy may'
-     write(6,'(A)')'           : be originated from NE_MAX tag of your band structure that has been calculated under EWINDOW'
-     write(6,'(A)')'           : tag which uses sparse matrix solver. Exit program...'
+     write(message,'(A)')'    ! ERROR: nband read from band structure file is differ from the setup PINPT%nband. This discrepancy may' ; write_msg
+     write(message,'(A)')'           : be originated from NE_MAX tag of your band structure that has been calculated under EWINDOW' ; write_msg
+     write(message,'(A)')'           : tag which uses sparse matrix solver. Exit program...' ; write_msg
      kill_job
    endif
 
@@ -134,10 +135,10 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
        do i = 1, PRPLT%replot_nband
          c_mode_ = c_mode_print(i)
          if(c_mode_(1:1) .eq. 'm' .or. c_mode_(1:1) .eq. 'w') then
-           if_main write(6,'(A)') '    ! WARN: reading with C_MODE:"rh" is not available since you have '
-           if_main write(6,'(3A)')'            requested to replot ', c_mode_print(i), ' in your REPLOT_BAND tag' 
-           if_main write(6,'(A)') '            which requires to read band_structure_TBA file with wavefunction "wf" information.'
-           if_main write(6,'(A)') '      Exit program... '
+           write(message,'(A)') '    ! WARN: reading with C_MODE:"rh" is not available since you have '  ; write_msg
+           write(message,'(3A)')'            requested to replot ', c_mode_print(i), ' in your REPLOT_BAND tag'   ; write_msg
+           write(message,'(A)') '            which requires to read band_structure_TBA file with wavefunction "wf" information.'  ; write_msg
+           write(message,'(A)') '      Exit program... '  ; write_msg
            kill_job
          endif
        enddo
@@ -196,20 +197,20 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
        if_main call print_replot_energy(PKPTS, E, V, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
                                              ispinor, nband, nspin, ispin, nbasis, &
                                              flag_erange, flag_vector, flag_sparse, &
-                                             init_erange, fina_erange, c_mode_print)
+                                             init_erange, fina_erange) !, c_mode_print)
      elseif(.not. flag_wf) then
        if_main call print_replot_energy_V2(PKPTS, E, V2, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
                                              ispinor, nband, nspin, ispin, nbasis, &
                                              flag_erange, flag_vector, flag_sparse, &
-                                             init_erange, fina_erange, c_mode_print)
+                                             init_erange, fina_erange) !, c_mode_print)
      endif
    endif
 
 
    if_main call time_check(time2,time1)
-   if_main write(6,*)''
-   if_main write(6,'(3A,F10.4,A)')'  END REPLOT: ',trim(cjob),' EVALUATION : ',time2, ' (sec)'
-   if_main write(6,*)''
+   write(message,*)''  ; write_msg
+   write(message,'(3A,F10.4,A)')'  END REPLOT: ',trim(cjob),' EVALUATION : ',time2, ' (sec)'  ; write_msg
+   write(message,*)''  ; write_msg
 
 
 !  if(allocated(V)) deallocate(V)
@@ -223,6 +224,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    use parameters, only : incar, poscar, replot
    use mpi_setup
    use memory
+   use print_io
    implicit none
    type(incar  )            :: PINPT
    type(poscar )            :: PGEOM
@@ -287,7 +289,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    allocate(PRPLT%replot_dos_ntot(nspin,0:nediv))
    PRPLT%replot_dos_ntot = 0d0
          replot_dos_ntot = 0d0 
-   if_main write(6,*)''
+   write(message,*)''  ; write_msg
    if_main call report_memory(int8(size(replot_dos_tot))*2*nprocs, 8, 'DOS(total)    ')
 
    if(flag_replot_ldos) then
@@ -316,13 +318,13 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      flag_para_band = .true.
    endif
 
-   if_main write(6,*)''
+   write(message,*)''  ; write_msg
    do ik = 1, nkp
      if(nkp .lt. 10) then
-       if_main write(6,'(A,I0,A,I0)')  '     STAT KP: ', ik,'/',nkp
+       write(message,'(A,I0,A,I0)')  '     STAT KP: ', ik,'/',nkp  ; write_msg
      else
        if( ik/real(nkp)*100d0 .ge. real(iaddk*inck) ) then
-         if_main write(6,'(A,F10.3,A)')'     STAT KP: ', ik/real(nkp)*100d0, ' %'
+         write(message,'(A,F10.3,A)')'     STAT KP: ', ik/real(nkp)*100d0, ' %'  ; write_msg
          inck = inck + 1
        endif
      endif
@@ -351,12 +353,12 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
        if(nkp .lt. 10) then
          if(.not. flag_para_band) then
            if( (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0 .ge. real(iadd*inc) ) then
-             if_main write(6,'(A,F10.3,A)')'    STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'
+             write(message,'(A,F10.3,A)')'    STAT EN: ', (ie-sum(ourjob(1:myid)))/real(ourjob(myid+1))*100d0, ' %'  ; write_msg
              inc = inc + 1
            endif
          elseif(flag_para_band) then
            if( (ie-(ie_init - 1)      )/real(ie_fina       )*100d0 .ge. real(iadd*inc) ) then
-             if_main write(6,'(A,F10.3,A)')'    STAT EN: ', (ie- (ie_init - 1)     )/real( ie_fina      )*100d0, ' %'
+             write(message,'(A,F10.3,A)')'    STAT EN: ', (ie- (ie_init - 1)     )/real( ie_fina      )*100d0, ' %'  ; write_msg
              inc = inc + 1
            endif
          endif
@@ -418,13 +420,13 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    enddo
    if(flag_replot_dos) then
      if_main call print_replot_dos(PRPLT, PINPT)   
-     if_main write(6,'(A)')' Done!'
+     write(message,'(A)')' Done!'  ; write_msg
    endif
    if(flag_replot_ldos) then
      call MPI_ALLREDUCE(replot_ldos_tot, PRPLT%replot_ldos_tot, size(replot_ldos_tot), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
      call print_replot_ldos(PRPLT, PINPT, PGEOM)
      ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
-!    if_main write(6,'(A)')' Done!' 
+!    write(message,'(A)')' Done!'   ; write_msg
    endif
    if(flag_replot_sldos .or. flag_replot_didv) then
      call MPI_REDUCE(replot_sldos_sum, PRPLT%replot_sldos_sum, size(replot_sldos_sum), MPI_REAL8, MPI_SUM, 0, mpi_comm_earth, mpierr)
@@ -438,7 +440,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      endif
      call MPI_BCAST(coord_cart, size(coord_cart), MPI_REAL8, 0, mpi_comm_earth, mpierr)
      call print_bond(PRPLT, PINPT, PGEOM, coord_cart)
-!    if_main write(6,'(A)')' Done!'
+!    write(message,'(A)')' Done!'  ; write_msg
 
    endif
 
@@ -451,13 +453,11 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    enddo
    if(flag_replot_dos) then
      call print_replot_dos(PRPLT, PINPT)
-     write(6,'(A)')'    write DOS ... Done!'
+     write(message,'(A)')'    write DOS ... Done!' ; write_msg
    endif
    if(flag_replot_ldos) then
      PRPLT%replot_ldos_tot = replot_ldos_tot
      call print_replot_ldos(PRPLT, PINPT, PGEOM)
-     ! this(below) line has been mute since ending report "DONE" is already stated elsewhere.
-!    write(6,'(A)')'    write LDOS ... Done!'
    endif
    if(flag_replot_sldos .or. flag_replot_didv) then
      PRPLT%replot_sldos_sum = replot_sldos_sum
@@ -470,7 +470,6 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
        call print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
      endif
      call print_bond(PRPLT, PINPT, PGEOM, coord_cart)
-!    write(6,'(A)')'    write SLDOS ... Done!'
    endif
 
 #endif
@@ -482,6 +481,8 @@ endsubroutine
 
 subroutine print_replot_dos(PRPLT, PINPT)
   use parameters, only : replot, pid_dos, incar
+  use print_io
+  use mpi_setup
   implicit none
   type(replot) :: PRPLT 
   type(incar)  :: PINPT
@@ -489,13 +490,12 @@ subroutine print_replot_dos(PRPLT, PINPT)
   real*8          e_range(PRPLT%replot_dos_nediv)
   character*40    filenm
   logical         flag_collinear
-
   filenm = 'DOS.replot.dat'
   e_range = PRPLT%replot_dos_erange
 
   open(pid_dos, file=trim(filenm), status = 'unknown')
-  write(6,'(A)')' '
-  write(6,'(3A)',ADVANCE='no')'   WRITING.... density of states (DOS): ',trim(filenm),' ... '
+  write(message,'(A)')' ' ; write_msg
+  write(message,'(3A)')'   WRITING.... density of states (DOS): ',trim(filenm),' ... ' ;write_msg
 
   write(pid_dos,'(A,I8,A,F16.8)')'# NDIV = ',PRPLT%replot_dos_nediv,' dE=',e_range(2)-e_range(1)
   if(.not.PINPT%flag_collinear) then
@@ -516,9 +516,10 @@ subroutine print_replot_dos(PRPLT, PINPT)
 return
 endsubroutine
 subroutine print_replot_energy(PKPTS,E,V,PGEOM,PRPLT, ne_found, emin, emax, ispinor, nband, nspin, ispin, nbasis, &
-                                    flag_erange, flag_vector, flag_sparse, init_erange, fina_erange, c_mode)
+                                    flag_erange, flag_vector, flag_sparse, init_erange, fina_erange) !, c_mode)
    use parameters, only: pid_energy, incar, poscar, kpoints, replot, zi
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -582,8 +583,8 @@ spin:do is = 1, nspin
        write(fname_header,'(2A)')'band_structure_TBA.replot_',trim(c_mode)
        call get_fname(fname_header, fname, is, flag_collinear, flag_noncollinear)
        open(pid_energy, file=trim(fname), status = 'unknown')
-       write(6,'(A)')' '
-       write(6,'(5A)',ADVANCE='no')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... '
+       write(message,'(A)')' ' ; write_msg
+       write(message,'(5A)')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... ' ; write_msg
 
        if(trim(c_mode) .eq. 'rh') then
          write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), &
@@ -712,7 +713,7 @@ spin:do is = 1, nspin
          write(pid_energy,*)''
        enddo eig
        close(pid_energy)
-       write(6,'(A)',ADVANCE='YES')' DONE!'
+       write(message,'(A)')' DONE!' ; write_msg
      enddo spin
    enddo nb
 
@@ -723,6 +724,7 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
                                     flag_erange, flag_vector, flag_sparse, init_erange, fina_erange, c_mode)
    use parameters, only: pid_energy, incar, poscar, kpoints, replot, zi
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -787,8 +789,8 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
            c_sum = 0d0
            write(fname_header_sum,'(A,I0)')'band_structure_TBA_atom.sum',isum
            call get_fname(fname_header_sum, fname_sum, is, flag_collinear, flag_noncollinear)
-           write(6,'(A)')' '
-           write(6,'(3A)',ADVANCE='no')'   WRITING.... projected band structure: ',trim(fname_sum),' ... '
+           write(message,'(A)')' ' ; write_msg
+           write(message,'(3A)')'   WRITING.... projected band structure: ',trim(fname_sum),' ... ' ; write_msg
            open(pid_energy+100, file = trim(fname_sum), status = 'unknown')
            if(flag_sparse) then
              write(pid_energy+100, '(A,2(F10.4,A))')'# The EWINDOW mode: energy window [EMIN:EMAX]=[', &
@@ -797,7 +799,7 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
                write(pid_energy+100, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
              enddo
            endif
-           write(pid_energy+100, '(A, *(I0,1x))'),'#  ATOM_INDEX to be sum up: ', proj_atom(1:proj_natom)
+           write(pid_energy+100, '(A, *(I0,1x))') '#  ATOM_INDEX to be sum up: ', proj_atom(1:proj_natom)
          endif
 
      atom:do iatom = 1, proj_natom
@@ -878,9 +880,6 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
                    if(ispinor .eq. 2) then
                      c_up = V2(im,ie,ik)
                      write(pid_energy,'(*(F9.4))',ADVANCE='NO') c_up
- !if(ie .eq. 161 .and. ik .eq. 46 ) then
- !  write(6,*)"XXXX ", ia, ik, ie, c_up
- !endif
                      c_tot = c_tot + c_up
                    elseif(ispinor .eq. 1) then
 !                    c_up = V(im+PGEOM%neig*(is-1),ie+nband*(is-1),ik)
@@ -914,7 +913,7 @@ subroutine print_replot_energy_proj(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax
          close(pid_energy)
        enddo atom
        if(iatom-1 .eq. proj_natom .and. flag_proj_sum) close(pid_energy+100)
-       write(6,'(A)',ADVANCE='YES')' DONE!'
+       write(message,'(A)')' DONE!' ; write_msg
      enddo spin
 
    enddo
@@ -925,6 +924,7 @@ endsubroutine
 subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
    use parameters, only: replot, pid_ldos, incar, poscar
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -966,7 +966,7 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
 
         write(filenm_sum,'(A,I0,A)')'LDOS.replot.sum',isum,'.dat'
         if_main open(pid_ldos, file=trim(filenm_sum), status = 'unknown') 
-        if_main write(pid_ldos,'(A, *(I0,1x))'),'# ATOM_INDEX to be sum up: ', ldos_atom(1:ldos_natom)
+        if_main write(pid_ldos,'(A, *(I0,1x))')'# ATOM_INDEX to be sum up: ', ldos_atom(1:ldos_natom)
         if_main write(pid_ldos,'(A,I8,A,F16.8)')'# NDIV = ',PRPLT%replot_dos_nediv,' dE=',e_range(2)-e_range(1)
         if(.not. PINPT%flag_collinear) then ! orbital information would not be stored since each atom would have different orbital sets in general
           if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)        dos_total           nelect'
@@ -974,8 +974,8 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
           if_main write(pid_ldos,'(A)',ADVANCE='YES')          '#    energy (ev)     dos_total-up     dos_total-dn           nelect-up        nelect-dn'
         endif
 
-        if_main write(6,'(A)')' '
-        if_main write(6,'(3A)',ADVANCE='no')'   WRITING.... local density of states (LDOS): ',trim(filenm_sum),' ... '
+        write(message,'(A)')' '  ; write_msg
+        write(message,'(3A)')'   WRITING.... local density of states (LDOS): ',trim(filenm_sum),' ... '  ; write_msg
         
         call mpi_job_distribution_chain(ldos_natom, ourjob, ourjob_disp)
    atom:do ia = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
@@ -1038,7 +1038,7 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
         enddo
 
         if_main close(pid_ldos) 
-        if_main write(6,'(A)',ADVANCE='YES')' DONE!'
+        write(message,'(A)')' DONE!'  ; write_msg
       enddo sum1
 
    return
@@ -1047,6 +1047,7 @@ endsubroutine
 subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
    use parameters, only: replot, pid_ldos, incar, poscar
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -1062,12 +1063,12 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
    real*8          coord(3), coord_cart(3,PGEOM%n_atom), T(3,3), de
    logical         flag_sum
    integer*4       mypid_ldos, mpierr
-#ifdef MPI
+!#ifdef MPI
    integer*4       ourjob(nprocs)
    integer*4       ourjob_disp(0:nprocs-1)
-#else
+!#else
 
-#endif
+!#endif
    e_range = PRPLT%replot_dos_erange
 
    nx = PRPLT%replot_sldos_cell(1)
@@ -1110,8 +1111,8 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
    if(flag_sum) then
      filenm = trim(PRPLT%replot_sldos_fname)
      if_main open(pid_ldos, file=trim(filenm), status = 'unknown')
-     if_main write(6,'(A)')' '
-     if_main write(6,'(3A)',ADVANCE='no')'   WRITING.... spatial local density of states (SLDOS) with energy window integrated: ',trim(filenm),' ... '
+     write(message,'(A)')' '  ; write_msg
+     write(message,'(3A)')'   WRITING.... spatial local density of states (SLDOS) with energy window integrated: ',trim(filenm),' ... '  ; write_msg
 
      if_main write(pid_ldos,'(A,2(F16.8,A))')'# Integrated spatial local density of states : EWINDOW = [',PRPLT%replot_dos_emin,':',PRPLT%replot_dos_emax,']'
      if_main write(pid_ldos,'(A,I0)'        )'# NATOM = ',PGEOM%n_atom
@@ -1140,11 +1141,11 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
          enddo
        enddo
      enddo
-     if_main write(6,'(A)')'    write SLDOS ... Done!'
+     write(message,'(A)')'    write SLDOS ... Done!'  ; write_msg
      if_main close(pid_ldos)
    elseif(.not. flag_sum) then
-     if_main write(6,'(A)')' '
-     if_main write(6,'(3A)',ADVANCE='no')'   WRITING.... spatial local density of states (SLDOS .or. dI/dV) within energy window : ./didv/',trim(PRPLT%replot_didv_fname),'.??? ...'
+     write(message,'(A)')' '  ; write_msg
+     write(message,'(3A)')'   WRITING.... spatial local density of states (SLDOS .or. dI/dV) within energy window : ./didv/',trim(PRPLT%replot_didv_fname),'.??? ...'  ; write_msg
      call system('mkdir -p ./didv')
 
      call mpi_job_distribution_chain(PRPLT%replot_dos_nediv, ourjob, ourjob_disp)
@@ -1192,7 +1193,7 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
 #ifdef MPI
      call MPI_BARRIER(mpi_comm_earth, mpierr)
 #endif
-     if_main write(6,'(A)')'    write dI/dV ... Done!'
+     write(message,'(A)')'    write dI/dV ... Done!'  ; write_msg
    endif
 
 
@@ -1202,6 +1203,7 @@ endsubroutine
 subroutine print_bond(PRPLT, PINPT, PGEOM, coord_cart)
    use parameters, only: replot, pid_ldos, incar, poscar, onsite_tolerance
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -1312,6 +1314,7 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
                              flag_erange, init_erange, fina_erange, c_mode, flag_formatted)
    use parameters, only : pid_energy
    use mpi_setup
+   use print_io
    implicit none
    integer*4              pid
    integer*4              nspin
@@ -1351,13 +1354,13 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
        if(flag_exist) then 
          inquire(file=trim(fnamed),exist=flag_exist)
          if(.not. flag_exist) then
-           if_main write(6,'(3A)')'   !ERROR file: ', trim(fnamed),' does not exist!!'
-           if_main write(6,'(A)') '    Exit program... : check_band_header'
+           write(message,'(3A)')'   !ERROR file: ', trim(fnamed),' does not exist!!'  ; write_msg
+           write(message,'(A)') '    Exit program... : check_band_header'  ; write_msg
            kill_job
          endif
        elseif(.not. flag_exist) then
-         if_main write(6,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'
-         if_main write(6,'(A)') '    Exit program... : check_band_header'
+         write(message,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'  ; write_msg
+         write(message,'(A)') '    Exit program... : check_band_header'  ; write_msg
          kill_job
        endif
        
@@ -1368,13 +1371,13 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
        if(flag_exist) then
          inquire(file=trim(fnamed),exist=flag_exist)
          if(.not. flag_exist) then
-           if_main write(6,'(3A)')'   !ERROR file: ', trim(fnamed),' does not exist!!'
-           if_main write(6,'(A)') '    Exit program... : check_band_header'
+           write(message,'(3A)')'   !ERROR file: ', trim(fnamed),' does not exist!!'  ; write_msg
+           write(message,'(A)') '    Exit program... : check_band_header'  ; write_msg
            kill_job
          endif
        elseif(.not. flag_exist) then
-         if_main write(6,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'
-         if_main write(6,'(A)') '    Exit program... : check_band_header'
+         write(message,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'  ; write_msg
+         write(message,'(A)') '    Exit program... : check_band_header'  ; write_msg
          kill_job
        endif
 
@@ -1388,8 +1391,8 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
        inquire(file=trim(fnameu),exist=flag_exist)
      endif
      if(.not. flag_exist) then
-       if_main write(6,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'
-       if_main write(6,'(A)') '    Exit program... : check_band_header'
+       write(message,'(3A)')'   !ERROR file: ', trim(fnameu),' does not exist!!'  ; write_msg
+       write(message,'(A)') '    Exit program... : check_band_header'  ; write_msg
        kill_job
      endif
    endif
@@ -1397,15 +1400,15 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
 
    ! it is sufficient to check with is = 1 case only.
    if(nspin .eq. 1) then
-     if_main write(6,'(2A)')'   LOADING.... ', trim(fnameu)
+     write(message,'(2A)')'   LOADING.... ', trim(fnameu)  ; write_msg
    elseif(nspin .eq. 2) then
-     if_main write(6,'(3A)')'   LOADING.... ', trim(fnameu), ' and ', trim(fnamed)
+     write(message,'(3A)')'   LOADING.... ', trim(fnameu), ' and ', trim(fnamed)  ; write_msg
    endif
 
    open(pid, file=trim(fnameu), form=trim(form_), status='old', iostat=i_continue)
    if(i_continue .ne. 0) then
-     write(6,'(2A)')'  !!! ERROR IN READING ', trim(fnameu)
-     write(6,'(A)')'      Exit program... : check_band_header '
+     write(message,'(2A)')'  !!! ERROR IN READING ', trim(fnameu) ; write_msg
+     write(message,'(A)')'      Exit program... : check_band_header ' ; write_msg
      kill_job
    endif
 
@@ -1423,7 +1426,7 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
            call str2real(c_emax,emax)
            call strip_off(trim(inputline), c_nemax,'NE_MAX=',' ',5)
            call str2int(c_nemax, nemax)
-           if_main write(6,'(A,2(F12.4,A),I0)')'   => EWINDOW [EMIN:EMAX]=[ ',emin,' : ',emax,' ], NE_MAX= ',nemax
+           write(message,'(A,2(F12.4,A),I0)')'   => EWINDOW [EMIN:EMAX]=[ ',emin,' : ',emax,' ], NE_MAX= ',nemax  ; write_msg
          endif
        elseif(index(inputline, 'ERANGE') .ge. 1) then
          flag_erange = .true.
@@ -1433,22 +1436,22 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
            call str2int(c_emin, init_erange)
            call str2int(c_emax, fina_erange)
            nemax = fina_erange - init_erange + 1
-           if_main write(6,'(A,I0,A,I0,A,I0)')'   => ERANGE=[ ',init_erange,' : ',fina_erange,' ], NERANGE= ',nemax
+           write(message,'(A,I0,A,I0,A,I0)')'   => ERANGE=[ ',init_erange,' : ',fina_erange,' ], NERANGE= ',nemax  ; write_msg
          endif
        elseif(index(inputline, 'LORBIT=') .ge. 1) then
          call strip_off(trim(inputline), c_mode, 'LORBIT=[',']',1)
          if(trim(c_mode) .eq. 'rh') then
            flag_wf = .false.
            flag_vector = .true.
-           if_main write(6,'(A,I0,A,I0,A,I0)')'   => C_MODE= rh ; <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j'
+           write(message,'(A,I0,A,I0,A,I0)')'   => C_MODE= rh ; <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j'  ; write_msg
          elseif(trim(c_mode) .eq. 'wf') then
            flag_wf = .true.
            flag_vector = .true.
-           if_main write(6,'(A,I0,A,I0,A,I0)')'   => C_MODE= wf ; wavefunction coefficent will be read.'
+           write(message,'(A,I0,A,I0,A,I0)')'   => C_MODE= wf ; wavefunction coefficent will be read.'  ; write_msg
          else
            flag_wf = .false.
            flag_vector = .false.
-           if_main write(6,'(A,I0,A,I0,A,I0)')'   => C_MODE= no ; only read eigenvalues.'
+           write(message,'(A,I0,A,I0,A,I0)')'   => C_MODE= no ; only read eigenvalues.'  ; write_msg
          endif
        else
          flag_go = .true.
@@ -1462,10 +1465,10 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
      if(flag_erange) then
        read(pid) flag_erange, init_erange, fina_erange
        nemax = fina_erange - init_erange + 1
-       if_main write(6,'(A,I0,A,I0,A,I0)')'   => ERANGE=[ ',init_erange,' : ',fina_erange,' ], NERANGE= ',nemax  
+       write(message,'(A,I0,A,I0,A,I0)')'   => ERANGE=[ ',init_erange,' : ',fina_erange,' ], NERANGE= ',nemax    ; write_msg
        if(nemax .ne. nband_) then 
-         write(6,'(3A)')'         !ERROR in reading ',trim(fnameu),' : nemax .ne. nband_ '
-         write(6,'(A)') '          Exit program...'
+         write(message,'(3A)')'         !ERROR in reading ',trim(fnameu),' : nemax .ne. nband_ ' ; write_msg
+         write(message,'(A)') '          Exit program...' ; write_msg
          kill_job
        endif
      else
@@ -1474,27 +1477,26 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
      if(flag_sparse) then
        read(pid) flag_sparse, emin, emax, nemax
        if(nemax .ne. nband_) then
-         write(6,'(3A)')'         !ERROR in reading ',trim(fnameu),' : nemax .ne. nband_ '
-         write(6,'(A)') '          Exit program...'
+         write(message,'(3A)')'         !ERROR in reading ',trim(fnameu),' : nemax .ne. nband_ ' ; write_msg
+         write(message,'(A)') '          Exit program...' ; write_msg
          kill_job
        endif
-       if_main write(6,'(A,2(F12.4,A),I0)')'   => EWINDOW [EMIN:EMAX]=[ ',emin,' : ',emax,' ], NE_MAX= ',nemax
+       write(message,'(A,2(F12.4,A),I0)')'   => EWINDOW [EMIN:EMAX]=[ ',emin,' : ',emax,' ], NE_MAX= ',nemax  ; write_msg
      else
        read(pid) flag_sparse ! .FALSE.
      endif
 
      if(c_mode .eq. 'wf') then
        flag_wf = .true.  ! current version only support reading band_....bin file with wavefuction information is written.
-       if_main write(6,'(A)')'   => C_MODE= wf ; wavefunction coefficent will be read.'
+       write(message,'(A)')'   => C_MODE= wf ; wavefunction coefficent will be read.'  ; write_msg
      elseif(c_mode .eq. 'rh') then
        flag_wf = .false.
-       if_main write(6,'(A)')'   => C_MODE= rh ; <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j'
+       write(message,'(A)')'   => C_MODE= rh ; <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j'  ; write_msg
      elseif(c_mode .eq. 'no') then
        flag_wf = .false. ! current version only support reading band_....bin file with wavefuction information is written.
-       if_main write(6,'(A)')'   => C_MODE= no ; only read eigenvalues.'
+       write(message,'(A)')'   => C_MODE= no ; only read eigenvalues.'  ; write_msg
      else
-       if_main write(6,'(5A)')'    !ERROR in reading ',trim(fnameu),' : cannot recognize C_MODE=',c_mode, &
-                                          ' in current version. Exit program...'
+       write(message,'(5A)')'    !ERROR in reading ',trim(fnameu),' : cannot recognize C_MODE=',c_mode, ' in current version. Exit program...' ; write_msg
        kill_job
      endif
    endif
@@ -1503,12 +1505,12 @@ subroutine check_band_header(flag_vector, flag_wf, flag_sparse, nemax, emin, ema
 
    if(flag_vector .and. trim(c_mode) .eq. 'no') then 
      if(nspin .eq. 2) then
-       if_main write(6,'(4A)')'    !ERROR in reading ',trim(fnameu), ' and ', trim(fnamed)
+       write(message,'(4A)')'    !ERROR in reading ',trim(fnameu), ' and ', trim(fnamed)  ; write_msg
      elseif(nspin .eq. 1) then
-       if_main write(6,'(2A)')'    !ERROR in reading ',trim(fnameu)
+       write(message,'(2A)')'    !ERROR in reading ',trim(fnameu)  ; write_msg
      endif
-     if_main write(6,'(A)') '     cannot read orbital information from avove files. Check again...'
-     if_main write(6,'(A)') '     Exit program...'
+     write(message,'(A)') '     cannot read orbital information from avove files. Check again...'  ; write_msg
+     write(message,'(A)') '     Exit program...'  ; write_msg
      kill_job
    endif
 
@@ -1550,9 +1552,10 @@ subroutine V_to_V2(V, V2, ispin, nspin, nbasis, nband, nkp)
    return
 endsubroutine
 subroutine print_replot_energy_V2(PKPTS,E,V2,PGEOM,PRPLT, ne_found, emin, emax, ispinor, nband, nspin, ispin, nbasis, &
-                                    flag_erange, flag_vector, flag_sparse, init_erange, fina_erange, c_mode)
+                                    flag_erange, flag_vector, flag_sparse, init_erange, fina_erange) !, c_mode)
    use parameters, only: pid_energy, incar, poscar, kpoints, replot, zi
    use mpi_setup
+   use print_io
    implicit none
    type(replot) :: PRPLT
    type(incar)  :: PINPT
@@ -1621,8 +1624,8 @@ nb:do ib = 1, PRPLT%replot_nband
          write(fname_header,'(2A)')'band_structure_TBA.replot_',trim(c_mode)
          call get_fname(fname_header, fname, is, flag_collinear, flag_noncollinear)
          open(pid_energy, file=trim(fname), status = 'unknown')
-         write(6,'(A)')' '
-         write(6,'(5A)',ADVANCE='no')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... '
+         write(message,'(A)')' ' ; write_msg
+         write(message,'(5A)')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... ' ; write_msg
 
          if(trim(c_mode) .eq. 'rh') then
            write(pid_energy,'(3A)')'#   MODE LORBIT=[ ',trim(c_mode), &
@@ -1714,7 +1717,7 @@ nb:do ib = 1, PRPLT%replot_nband
            write(pid_energy,*)''
          enddo eig
          close(pid_energy)
-         write(6,'(A)',ADVANCE='YES')' DONE!'
+         write(message,'(A)')' DONE!' ; write_msg
        enddo spin
 
      elseif(PRPLT%flag_replot_write_unformatted(ib)) then
@@ -1740,9 +1743,8 @@ nb:do ib = 1, PRPLT%replot_nband
 
          ! write header
          open(pid_energy, file=trim(fname), form='unformatted', status='unknown')
-         write(6,'(A)')' '
-         write(6,'(5A)',ADVANCE='no')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... '
-
+         write(message,'(A)')' ' ; write_msg
+         write(message,'(5A)')'   WRITING.... band structure with ',trim(c_mode),' : ', trim(fname),' ... ' ; write_msg
          write(pid_energy) ikmode, flag_print_orbital, PRPLT%flag_replot_print_single(ib), flag_erange, &
                            flag_sparse, nbasis, nkpoint, nband, &
                            ispin, nspin, ispinor, trim(c_mode)
@@ -1761,47 +1763,71 @@ nb:do ib = 1, PRPLT%replot_nband
            if(flag_print_orbital) then
              if(ispinor .eq. 2) then
                if(c_mode .eq. 'wf') then
-                 write(6,'(A)')'   ! ERROR: cannot write wavefunction information from "rh". Please check your REPLOT_BAND tag...'
+                 write(message,'(A)')'   ! ERROR: cannot write wavefunction information from "rh". Please check your REPLOT_BAND tag...' ; write_msg
                  stop
                elseif(c_mode .eq. 'rh') then
                  if(.not.PRPLT%flag_replot_print_single(ib)) then
-                   write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), &
-                                      (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
-                                    (( V2(im,ie,ik) ,im=1,nbasis), &
-                                                              ie=1,ne_found(is,ik))), &
-                                                              ik=1,nkpoint)
+                  !write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), (( V2(im,ie,ik) ,im=1,nbasis), ie=1,ne_found(is,ik))), ik=1,nkpoint)
+                   do ik = 1, nkpoint
+                     write(pid_energy) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
+                     do ie = 1, ne_found(is,ik)
+                       do im = 1, nbasis
+                         write(pid_energy) V2(im,ie,ik)
+                       enddo
+                     enddo
+                   enddo
                  elseif(PRPLT%flag_replot_print_single(ib)) then
-                   write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), &
-                                      (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
-                                    (( real(V2(im,ie,ik),kind=4) ,im=1,nbasis), &
-                                                              ie=1,ne_found(is,ik))), &
-                                                              ik=1,nkpoint)
+                  !write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), (( real(V2(im,ie,ik),kind=4) ,im=1,nbasis), ie=1,ne_found(is,ik))),ik=1,nkpoint)
+                   do ik = 1, nkpoint
+                     write(pid_energy) ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik))
+                     do ie = 1, ne_found(is,ik)
+                       do im = 1, nbasis
+                         write(pid_energy) real(V2(im,ie,ik),kind=4)
+                       enddo
+                     enddo
+                   enddo
                  endif
                endif
              elseif(ispinor .eq. 1) then
                if(c_mode .eq. 'wf') then
-                 write(6,'(A)')'   ! ERROR: cannot write wavefunction information from "rh". Please check your REPLOT_BAND tag...'
+                 write(message,'(A)')'   ! ERROR: cannot write wavefunction information from "rh". Please check your REPLOT_BAND tag...' ; write_msg
                  stop
                elseif(c_mode .eq. 'rh') then
                  if(.not.PRPLT%flag_replot_print_single(ib)) then
-                   write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), &
-                                               (( V2(im,ie+PINPT%nband*(is-1),ik) ,im=1+nbasis*(is-1),nbasis*is), &
-                                                             ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
-                                                             ik=1,nkpoint)
+                  !write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik)), (( V2(im,ie+PINPT%nband*(is-1),ik) ,im=1+nbasis*(is-1),nbasis*is), ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), ik=1,nkpoint)
+                   do ik = 1, nkpoint
+                     write(pid_energy) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
+                     do ie = 1+nband*(is-1),nband*(is-1)+ne_found(is,ik)
+                       do im = 1+nbasis*(is-1),nbasis*is
+                         write(pid_energy) V2(im,ie+PINPT%nband*(is-1),ik)
+                       enddo
+                     enddo
+                   enddo
+
                  elseif(PRPLT%flag_replot_print_single(ib)) then
-                   write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), &
-                                               ((  real(V2(im,ie+PINPT%nband*(is-1),ik),kind=4) ,im=1+nbasis*(is-1),nbasis*is), &
-                                                             ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), &
-                                                             ik=1,nkpoint)
+                  !write(pid_energy) ((ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik)), ((  real(V2(im,ie+PINPT%nband*(is-1),ik),kind=4) ,im=1+nbasis*(is-1),nbasis*is), ie=1+nband*(is-1),nband*(is-1)+ne_found(is,ik))), ik=1,nkpoint)
+                   do ik = 1, nkpoint
+                     write(pid_energy) ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik))
+                     do ie = 1+nband*(is-1),nband*(is-1)+ne_found(is,ik)
+                       do im = 1+nbasis*(is-1),nbasis*is
+                         write(pid_energy) real(V2(im,ie+PINPT%nband*(is-1),ik),kind=4)
+                       enddo
+                     enddo
+                   enddo
+
                  endif
                endif
              endif
            else
-             write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))),ik=1,nkpoint)
+            !write(pid_energy) ((ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))),ik=1,nkpoint)
+             do ik = 1, nkpoint
+               write(pid_energy) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
+             enddo
+
            endif
 
          close(pid_energy)
-         write(6,'(A)',ADVANCE='YES')' DONE!'
+         write(message,'(A)')' DONE!' ; write_msg
        enddo spinb
        
 

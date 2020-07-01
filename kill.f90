@@ -1,6 +1,7 @@
 #include "alias.inc"
 module kill
   use mpi_setup
+  use print_io
   implicit none
 
   contains
@@ -27,14 +28,15 @@ module kill
 
         if_main call execute_command_line('\rm -f KILLFIT')
 
-        if_main call print_param (PINPT, 0,PINPT%pfileoutnm, PINPT%flag_print_param)
-        if_main write(6,'(A)') ' ' 
-        if_main write(6,'(A)') ' Termination of job is requested by providing KILLFIT file.'
-        if_main write(6,'(2A)') ' The latest updates of PARAMETERS will be written in ', &
-                               trim(PINPT%pfileoutnm)
-        if_main write(6,'(A)') ' Kill the job now...'
-        if_main write(6,'(A)') ' ' 
+        if_main call print_param (PINPT, PINPT%pfileoutnm, PINPT%flag_print_param)
+        write(message,'(A)') ' '  ; write_msg
+        write(message,'(A)') ' Termination of job is requested by providing KILLFIT file.' ; write_msg
+        write(message,'(2A)') ' The latest updates of PARAMETERS will be written in ', trim(PINPT%pfileoutnm) ; write_msg
+        write(message,'(A)') ' Kill the job now...' ; write_msg
+        write(message,'(A)') ' '  ; write_msg
+
         kill_job
+
       endif
       return
     endsubroutine

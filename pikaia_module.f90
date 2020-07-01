@@ -948,8 +948,6 @@
 !           ig,nnew,me%pmut,fitns(ifit(me%np)),&
 !           fitns(ifit(me%np-1)),fitns(ifit(me%np/2))
 !       write(output_unit,'(A)')' ITER=',ig,
-!write(6,*)"CCCCC", ig, nnew, me%pmut
-stop
         do k=1,me%n
             write(output_unit,'(22X,3I10)') &
                     nint(ndpwr*oldph(k,ifit(me%np))),&

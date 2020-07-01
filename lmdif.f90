@@ -1,18 +1,19 @@
 #include "alias.inc"
-subroutine leasqr_lm (get_eig, NN_TABLE, E_DFT, neig, PWGHT, PINPT, PKPTS, fnorm)
+subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, neig, PWGHT, PINPT, PKPTS, fnorm)
   use parameters
   use mpi_setup
+  use print_io
   implicit none
   type (incar)           :: PINPT 
   type (hopping)         :: NN_TABLE
   type (weight)          :: PWGHT
   type (kpoints)         :: PKPTS
+  type (energy)          :: EDFT
   integer*4                 nkpoint, neig, iband, nband, info, maxfev
   integer*4                 nparam, nparam_free, mpierr
   integer*4                 ldjac, imode
   integer*4                 i, j, k, ii
   real*8                    epsfcn,factor, tol, xtol, ftol, gtol, kpoint(3,PKPTS%nkpoint)
-  real*8                    E_DFT(neig*PINPT%ispin,PKPTS%nkpoint)
   external                  get_eig
   logical                   flag_write_info
   real*8                    fnorm(2) ! fnorm(1) fnorm of last step, fnorm(2) delta fnorm of last step
@@ -40,47 +41,47 @@ subroutine leasqr_lm (get_eig, NN_TABLE, E_DFT, neig, PWGHT, PINPT, PKPTS, fnorm
   endif
 
   if( PINPT%ls_type == 'LMDIF' ) then
-   if_main write(6,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'
+   write(message,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'  ; write_msg
     if ( nparam_free <= 0 ) then
-      if_main write(6,*)'    !!!! WARN !!!! nparam_free (total number of free parameters) <= 0'
-      if_main write(6,*)'                   Check parameter settings. Exit program.'
+      write(message,*)'    !!!! WARN !!!! nparam_free (total number of free parameters) <= 0'  ; write_msg
+      write(message,*)'                   Check parameter settings. Exit program.'  ; write_msg
       kill_job
     elseif(nkpoint * nband * PINPT%nspin < nparam_free ) then 
-      if_main write(6,*)'    !!!! WARN !!!! number of kpoints * number of eigenvalues <= number of free parameters'
-      if_main write(6,*)'                   => Increase kpoints, and try again. Exit program.'
+      write(message,*)'    !!!! WARN !!!! number of kpoints * number of eigenvalues <= number of free parameters'  ; write_msg
+      write(message,*)'                   => Increase kpoints, and try again. Exit program.'  ; write_msg
       kill_job
     endif
     factor = 100.0D+00
     maxfev = PINPT%miter * ( nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.000D+00
     flag_write_info = .true.
-    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, E_DFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
+    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, EDFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
                ftol, xtol, gtol, fnorm(1),fnorm(2), maxfev, epsfcn, factor, info, flag_write_info)
    if_main  call infostamp(info,PINPT%ls_type)
-   if_main write(6,*)" End: fitting procedures"
+   write(message,*)" End: fitting procedures"  ; write_msg
 
   elseif( PINPT%ls_type == 'GA' ) then
     if ( nparam_free <= 0 ) then
-      if_main write(6,*)'    !!!! WARN !!!! nparam_free (number of free parameters) <= 0'
-      if_main write(6,*)'                   Check parameter settings. Exit program.'
+      write(message,*)'    !!!! WARN !!!! nparam_free (number of free parameters) <= 0'  ; write_msg
+      write(message,*)'                   Check parameter settings. Exit program.'  ; write_msg
       kill_job
     elseif(nkpoint * nband * PINPT%nspin < nparam_free ) then
-      if_main write(6,*)'    !!!! WARN !!!! number of kpoints * number of eigenvalues <= number of free parameters'
-      if_main write(6,*)'                   => Increase kpoints, and try again. Exit program.'
+      write(message,*)'    !!!! WARN !!!! number of kpoints * number of eigenvalues <= number of free parameters'  ; write_msg
+      write(message,*)'                   => Increase kpoints, and try again. Exit program.'  ; write_msg
       kill_job
     endif
     factor = 100.0D+00
     maxfev = PINPT%miter * ( nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
     flag_write_info = .false. 
-    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, E_DFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
+    call lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, EDFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
                ftol, xtol, gtol, fnorm(1),fnorm(2), maxfev, epsfcn, factor, info, flag_write_info)
 
   endif
 
   return
 endsubroutine
-subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, E_DFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
+subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS, EDFT, nparam, nparam_free, neig, iband, nband, PWGHT, &
                  ftol, xtol, gtol, fnorm,fnorm2, maxfev, epsfcn, factor, info, flag_write_info)
 !*****************************************************************************80
 !
@@ -106,26 +107,28 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
 !    Original FORTRAN77 version by Jorge More, Burton Garbow, Kenneth Hillstrom.
 !    FORTRAN90 version by John Burkardt.
 !
+!    Jorge More, Burton Garbow, Kenneth Hillstrom,
+!    User Guide for MINPACK-1,
+!    Technical Report ANL-80-74,
+!    Argonne National Laboratory, 1980.
+!
 !  Modified: by Hyun-Jung Kim (KIAS, Infant@kias.re.kr)
 !    14 December 2017
 !    Modified for the TBFIT purpose.
 !    The original source code can be found in: https://people.sc.fsu.edu/~jburkardt/f_src/minpack/minpack.html
 !  Reference:
 !
-!    Jorge More, Burton Garbow, Kenneth Hillstrom,
-!    User Guide for MINPACK-1,
-!    Technical Report ANL-80-74,
-!    Argonne National Laboratory, 1980.
-!
-
   use parameters
+  use cost_function
   use mpi_setup
   use kill
+  use reorder_band
+  use print_io
   implicit none
   type(incar)   :: PINPT
   type(weight)  :: PWGHT
   type(hopping) :: NN_TABLE
-  type(energy)  :: ETBA_FIT
+  type(energy)  :: ETBA_FIT, EDFT
   type(kpoints) :: PKPTS
   integer*4     nkpoint,neig,iband,nband
   integer*4     nparam ! number of parameters (differ from PINPT%nparam if slater_koster_type > 10)
@@ -139,9 +142,8 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   real*8        actred,delta,diag(nparam_free),dirder,enorm,epsfcn,epsmch,factor
   real*8        fjac(ldjac, nparam_free)
   real*8        fvec(ldjac)
+  real*8        dvec(ldjac)
   real*8        wa4(ldjac)
-  real*8        E_DFT(neig*PINPT%ispin,nkpoint),E_TBA(nband*PINPT%nspin,nkpoint)
-  complex*16    V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
   real*8        fnorm,fnorm1,fnorm2,fnorm_, ftol,gnorm,gtol,par
   real*8        pnorm,prered,qtf(nparam_free),ratio,sum2,temp,temp1,temp2,xnorm,xtol
   real*8        wa1(nparam_free),wa2(nparam_free),wa3(nparam_free)
@@ -153,17 +155,28 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   integer*4     i_dummy
   character*132 gnu_command
   logical       flag_wait_plot
+  logical       flag_fit_degeneracy, flag_order, flag_order_weight
   integer*4     mpierr
 
-  if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
-    allocate(ETBA_FIT%E(PINPT%nband*PINPT%nspin, nkpoint))
-    allocate(ETBA_FIT%V(neig*PINPT%ispin,PINPT%nband*PINPT%nspin, nkpoint))
 
+  flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
+  flag_get_orbital    = ((.not. PWGHT%flag_weight_default_orb) .or. flag_order)
+  flag_fit_degeneracy = PINPT%flag_fit_degeneracy
+  flag_order_weight   = .false. ! experimental feature
+
+  ! ETBA_FIT: this variable is temporal and used only in this routine 
+  allocate(ETBA_FIT%E(nband*PINPT%nspin, nkpoint))
+  allocate(ETBA_FIT%V(neig*PINPT%ispin,PINPT%nband*PINPT%nspin, nkpoint))
+  if(flag_order) then
+    allocate(ETBA_FIT%E_ORD(nband*PINPT%nspin, nkpoint))
+    allocate(ETBA_FIT%V_ORD(neig*PINPT%ispin,PINPT%nband*PINPT%nspin, nkpoint))
+    allocate(ETBA_FIT%IDX(nband*PINPT%nspin, nkpoint))
+  endif
+  if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
     flag_wait_plot = .false.
     write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
   endif
 
-  flag_get_orbital = (.not. PWGHT%flag_weight_default_orb)
 
   fnorm_ = 0d0
   i_dummy = 0
@@ -171,15 +184,16 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   info = 0 ; nfev = 0
   
   if (ftol < 0.0D+00 .or. xtol < 0.0D+00 .or. gtol < 0.0D+00 .or. maxfev <= 0) go to 300
-
 !  Evaluate the function at the starting point and calculate its norm.
-  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V,  &
-               neig, iband, nband, flag_get_orbital, .false., .false., .true.)
-  if(.not. flag_get_orbital) then
-    call get_fvec2(fvec, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-  else
-    call get_fvec2(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-  endif
+  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V,  &
+               neig, iband, nband, flag_get_orbital, .false., .false., PINPT%flag_phase) !, flag_order)
+! Evaluate degeneracy information for DFT band : in the beginning
+  if(flag_fit_degeneracy) call get_degeneracy(EDFT%E, EDFT%D, neig*PINPT%ispin, nkpoint, PINPT)
+! Evaluate degeneracy information for DFT band : after calling get_eig
+  if(flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin,nkpoint, PINPT)
+
+  if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
+  call get_cost_function(fvec  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
 
@@ -187,19 +201,20 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   iter = 1 ; par = 0.0D+00
 
   if(flag_write_info) then
-    if_main write(6,'(A)')' '
-    if_main write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
+    write(message,'(A)')' '  ; write_msg
+    write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
   endif
 
 30 continue   !  Beginning of the outer loop.
 !  Calculate the jacobian matrix.
-  call fdjac2 ( get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec, E_DFT, nparam_free, &
-                neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)
+  if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
+  call fdjac2 ( get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec, ETBA_FIT, EDFT, nparam_free, &
+                neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital,PKPTS)
+
   nfev = nfev + nparam_free
 
 !  Compute the QR factorization of the jacobian.
   call qrfac ( ldjac, nparam_free, fjac, ipvt, wa1, wa2 )
-
 !  On the first iteration, scale according to the norms of the columns of the initial jacobian.
      if ( iter == 1 ) then
        do j = 1, PINPT%nparam_free
@@ -214,6 +229,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
        do j = 1, nparam_free
          if ( wa2(j) == 0.0D+00 ) diag(j) = 1.0D+00
        enddo
+
 !  On the first iteration, calculate the norm of the scaled X
 !  and initialize the step bound DELTA.
        do j = 1, PINPT%nparam_free
@@ -284,7 +300,6 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
         enddo
         wa3(1:nparam_free) = diag(1:nparam_free) * wa1(1:nparam_free)
         pnorm = enorm (nparam_free, wa3)
-
 !  On the first iteration, adjust the initial step bound.
         if ( iter == 1 ) delta = min (delta, pnorm)
 
@@ -295,7 +310,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
             wa2_temp(i:i+nsub-1) = PINPT%param_nrl(1:nsub,PINPT%iparam_free(j))  ! store temp
             PINPT%param_nrl(1:nsub,PINPT%iparam_free(j)) = wa2(i:i+nsub-1)       ! update param
           enddo
-          call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, iband, nband, flag_get_orbital, .false., .false., .true.)
+          call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V, neig, iband, nband, flag_get_orbital, .false., .false., PINPT%flag_phase)
           do j = 1, PINPT%nparam_free
             nsub = PINPT%param_nsub(PINPT%iparam_free(j)) ; i = PINPT%iparam_free_nrl(j)
             PINPT%param_nrl(1:nsub,PINPT%iparam_free(j)) = wa2_temp(i:i+nsub-1) ! restore param
@@ -303,17 +318,17 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
         else
           wa2_temp(1:nparam_free) = PINPT%param(PINPT%iparam_free) ! store temp
           PINPT%param(PINPT%iparam_free) = wa2(1:nparam_free)      ! update param
-          call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, iband, nband, flag_get_orbital, .false., .false., .true.)
+          call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V, neig, iband, nband, flag_get_orbital, .false., .false., PINPT%flag_phase)
           PINPT%param(PINPT%iparam_free) = wa2_temp(1:nparam_free) ! restore param
         endif
 
-        if(.not. flag_get_orbital) then
-          call get_fvec2(wa4, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-        else
-          call get_fvec2(wa4, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-        endif
+        if(flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin, nkpoint, PINPT)
+        if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
+        call get_cost_function(wa4  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
+
+!if_main write(6,'(A, I6,I6, 2(F20.10))')"VVV ", iter, nfev, sum(wa4), fnorm1
 
 !  Compute the scaled actual reduction.
         if ( 0.1D+00 * fnorm1 < fnorm ) then
@@ -337,6 +352,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
 !  Compute the ratio of the actual to the predicted reduction.
         ratio = 0.0D+00
         if ( prered /= 0.0D+00 ) ratio = actred / prered
+
 
 !  Update the step bound.
         if ( ratio <= 0.25D+00 ) then
@@ -373,19 +389,24 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
           iter = iter + 1
           if(flag_write_info) then
             fnorm2 = abs(fnorm_ - fnorm)/fnorm ! delta fnorm
-            if_main write(6,'(A)')' '
-            if_main write(6,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm
+            write(message,'(A)')' '  ; write_msg
+            write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
             if_main write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
-            if_main call print_param(PINPT,0,pfileoutnm_temp,.TRUE.)
+            if_main call print_param(PINPT,pfileoutnm_temp,.TRUE.)
             fnorm_ = fnorm ! fnorm of previous step
 
             if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
               call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V, &
-                                     neig, PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, .false., .false., .true.)
-              if_main call print_energy(PKPTS, ETBA_FIT%E, E_DFT, ETBA_FIT%V, neig, PINPT, PWGHT)
-              if(PINPT%flag_plot_fit) then
-                if_main call execute_command_line(gnu_command, flag_wait_plot)
+                                     neig, PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, .false., .false., PINPT%flag_phase)
+              if(PINPT%flag_get_band_order) then 
+                call get_ordered_band(ETBA_FIT, nkpoint, neig, PINPT%init_erange, PINPT%nband, PINPT, flag_order_weight, PWGHT) 
+                if_main call print_energy(PKPTS, ETBA_FIT%E_ORD, ETBA_FIT%E_ORD, ETBA_FIT%V_ORD, neig, PINPT, PWGHT, PINPT%flag_plot_fit,'_ordered')
               endif
+              if_main call print_energy(PKPTS, ETBA_FIT%E, ETBA_FIT%E, ETBA_FIT%V, neig, PINPT, PWGHT, PINPT%flag_plot_fit,'')
+              
+             !if(PINPT%flag_plot_fit) then
+             !  if_main call execute_command_line(gnu_command, flag_wait_plot)
+             !endif
             endif
 
           endif
@@ -422,42 +443,42 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
     if(flag_write_info) then
       if_main_then
         if(info .eq. 1) then
-          write(6,*)' '
-          write(6,101)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, ratio <= 2 :',' actred=',actred, &
+          write(message,*)' '  ; write_msg
+          write(message,101)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, ratio <= 2 :',' actred=',actred, &
                                                                                                        ' prered=',prered, &
-                                                                                                       ' ratio=',ratio
+                                                                                                       ' ratio=',ratio  ; write_msg
         elseif(info .eq. 2) then
-          write(6,*)' '
-          write(6,102)"  Termination INFO=",info,' , condition: delta <= xtol*xnorm :',' delta=',delta, &
-                                                                                       ' xtol*xnorm=',xtol*xnorm
+          write(message,*)' '  ; write_msg
+          write(message,102)"  Termination INFO=",info,' , condition: delta <= xtol*xnorm :',' delta=',delta, &
+                                                                                       ' xtol*xnorm=',xtol*xnorm  ; write_msg
         elseif(info .eq. 3) then
-          write(6,*)' '
-          write(6,103)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, delta<=xtol*xnorm :',' actred=',actred, &
+          write(message,*)' '  ; write_msg
+          write(message,103)"  Termination INFO=",info,' , condition: |actred|,prered <= ftol, delta<=xtol*xnorm :',' actred=',actred, &
                                                                                                               ' prered=',prered, &
                                                                                                               ' delta=',delta, &
-                                                                                                              ' xtol*xnorm=',xtol*xnorm
+                                                                                                              ' xtol*xnorm=',xtol*xnorm  ; write_msg
         elseif(info .eq. 5) then
-          write(6,*)' '
-          write(6,104)"  Termination INFO=",info,' , condition: miter*(nparam_free+1) <= nfev :',' miter=',PINPT%miter, &
+          write(message,*)' '  ; write_msg
+          write(message,104)"  Termination INFO=",info,' , condition: maxfev(=miter*(nparam_free+1)) <= nfev :',' miter=',PINPT%miter, & 
                                                                                             ' nparam_free=',nparam_free, &
-                                                                                            ' nfev=',nfev
+                                                                                            ' nfev=',nfev ; write_msg
         elseif(info .eq. 6) then
-          write(6,*)' '
-          write(6,105)"  Termination INFO=",info,' , condition: |actred|,prered <= epsmch, ratio <= 2 :',' actred=',actred, & 
+          write(message,*)' '  ; write_msg
+          write(message,105)"  Termination INFO=",info,' , condition: |actred|,prered <= epsmch, ratio <= 2 :',' actred=',actred, &  
                                                                                                          ' prered=',prered, &
                                                                                                          ' epsmch=',epsmch, &
-                                                                                                         ' ratio=',ratio
+                                                                                                         ' ratio=',ratio ; write_msg
         elseif(info .eq. 7) then
-          write(6,*)' '
-          write(6,106)"  Termination INFO=",info,' , condition: delta <= epsmch*xnorm :',' delta=',delta, &
-                                                                                         ' epsmch*xnorm=',epsmch*xnorm
+          write(message,*)' '  ; write_msg
+          write(message,106)"  Termination INFO=",info,' , condition: delta <= epsmch*xnorm :',' delta=',delta, &  
+                                                                                         ' epsmch*xnorm=',epsmch*xnorm; write_msg
         elseif(info .eq. 4) then
-          write(6,*)' '
-          write(6,107)"  Termination INFO=",info,' , condition: gnorm <= epsmch :',' gnorm=',gnorm, &
-                                                                                   ' epsmch=',epsmch
+          write(message,*)' '  ; write_msg
+          write(message,107)"  Termination INFO=",info,' , condition: gnorm <= epsmch :',' gnorm=',gnorm, &  
+                                                                                   ' epsmch=',epsmch; write_msg
         else
-          write(6,*)' '
-          write(6,108)"  Termination INFO=",info
+          write(message,*)' '  ; write_msg
+          write(message,108)"  Termination INFO=",info  ; write_msg
         endif
       if_main_end 
     endif
@@ -476,9 +497,9 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
     else
       call update_param( PINPT )
     endif
-    if(flag_write_info) then
-      if_main call print_param (PINPT, 0, '  Fitted param(i):', .FALSE.)
-    endif
+   !if(flag_write_info) then
+   !  if_main call print_param (PINPT, '  Fitted param(i):', .FALSE.)
+   !endif
 
   return
 endsubroutine
@@ -514,8 +535,8 @@ subroutine param_nrl_to_param(param_nrl,param_nsub, iparam_free_nrl, nparam_tot,
 
   return
 endsubroutine
-subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec, E_DFT, nparam_free, &
-                   neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital)
+subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec, ETBA_FIT, EDFT, nparam_free, &
+                   neig, iband, nband, PWGHT, fjac, epsfcn, flag_get_orbital,PKPTS)
 
 !*****************************************************************************80
 !
@@ -551,60 +572,78 @@ subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec
 !    Argonne National Laboratory, 1980.
 !
   use parameters
+  use cost_function
   use mpi_setup
+  use reorder_band
   implicit none
   type (incar  ) :: PINPT
   type (hopping) :: NN_TABLE
   type (weight)  :: PWGHT
+  type (energy)  :: ETBA_FIT, EDFT
+  type (kpoints) :: PKPTS
   integer*4  nkpoint,neig,iband,nband
   integer*4  i,j,ii, nparam_free
   integer*4  ldjac, imode
   real*8     eps,epsfcn,epsmch,h,temp,fjac(ldjac,nparam_free)
   real*8     wa(ldjac), fvec(ldjac)
-  real*8     E_TBA(nband*PINPT%nspin,nkpoint),E_DFT(neig*PINPT%ispin,nkpoint),kpoint(3,nkpoint)
-  complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
-  logical    flag_get_orbital
+  real*8     kpoint(3,nkpoint)
+  logical    flag_get_orbital, flag_order_weight, flag_order
   external   get_eig
+  character*20, external  :: int2str
+
+  flag_order_weight   = .false.
+  flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
 
   if(PINPT%slater_koster_type .gt. 10) ii = 0
   epsmch = epsilon(epsmch)
   eps = sqrt( max(epsfcn,epsmch) )
-  do j = 1, PINPT%nparam_free
-    if(PINPT%slater_koster_type .gt. 10) then
-      do i = 1, PINPT%param_nsub(PINPT%iparam_free(j))
-        ! update param with h added, original param will be saved to temp, and calculate wa
-        temp = PINPT%param_nrl(i,PINPT%iparam_free(j))
-        h = eps*abs(temp)
-        if (h == 0.0D+00 ) h=eps
-        PINPT%param_nrl(i,PINPT%iparam_free(j)) = temp+h
-        call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, &
-                     iband, nband, flag_get_orbital, .false., .false., .true.)
-        if(.not. flag_get_orbital) then
-          call get_fvec2(wa, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-        else
-          call get_fvec2(wa, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-        endif
-        ! restore param from temp, and calculate derivation fjac from wa and fvec
-        PINPT%param_nrl(i,PINPT%iparam_free(j)) = temp
-        ii = ii + 1
-        fjac(:,ii) = ( wa(:) - fvec(:) ) / h
-      enddo
-    else
+  if(PINPT%slater_koster_type .gt. 10) then
+    do j = 1, PINPT%nparam_free
+        do i = 1, PINPT%param_nsub(PINPT%iparam_free(j))
+          ! update param with h added, original param will be saved to temp, and calculate wa
+          temp = PINPT%param_nrl(i,PINPT%iparam_free(j))
+          h = eps*abs(temp)
+          if (h == 0.0D+00 ) h=eps
+          PINPT%param_nrl(i,PINPT%iparam_free(j)) = temp+h
+          call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V, neig, &
+                       iband, nband, flag_get_orbital, .false., .false., PINPT%flag_phase)
+  
+          if(PINPT%flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin, nkpoint, PINPT)
+  
+          if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
+          call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+          ! restore param from temp, and calculate derivation fjac from wa and fvec
+          PINPT%param_nrl(i,PINPT%iparam_free(j)) = temp
+          ii = ii + 1
+          fjac(:,ii) = ( wa(:) - fvec(:) ) / h
+        enddo
+     enddo
+  else
+!write(6,'(A,F9.4, *(I3))')"KKK ", sum(wa), 0,     ETBA_FIT%IDX(1:11,5)
+    do j = 1, PINPT%nparam_free
       temp = PINPT%param(PINPT%iparam_free(j))
       h = eps*abs(temp)
       if (h == 0.0D+00 ) h=eps
       PINPT%param(PINPT%iparam_free(j)) = temp+h
-      call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, &
+      call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, ETBA_FIT%E, ETBA_FIT%V, neig, &
                    iband, nband, flag_get_orbital, .false., .false., .true.)
-      if(.not. flag_get_orbital) then
-        call get_fvec2(wa, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-      else
-        call get_fvec2(wa, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-      endif
+      if(PINPT%flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin, nkpoint, PINPT)
+
+      !if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
+      if(flag_order) call update_order(ETBA_FIT%IDX, ETBA_FIT%E, ETBA_FIT%E_ORD, nkpoint, nband, PINPT)
+      call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+
+!do ii = 1, 10
+!write(6,'(A,F9.4, *(I3))')"KKK ", sum(wa), j,     ETBA_FIT%IDX(1:11,5)
+!call print_energy(PKPTS, ETBA_FIT%E_ORD, ETBA_FIT%E_ORD, ETBA_FIT%V_ORD, neig, PINPT, PWGHT, .true., '_'//adjustl(trim(int2str(j))))
+!enddo
       PINPT%param(PINPT%iparam_free(j)) = temp
       fjac(:,j) = ( wa(:) - fvec(:) ) / h
-    endif
-  enddo
-
+!write(6,'(A, 72(F19.4), I3     )')"ZZZ ", fjac(:,j), j
+!write(6,'(A, I3, 72(F19.12)  )')"ZZZ ", j, h
+!write(6,'(A, I3, 72(F19.8)  )')"JJJ ", j, temp+h
+    enddo
+  endif
+!stop
   return
 endsubroutine

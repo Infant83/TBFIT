@@ -250,13 +250,13 @@ ENDIF
 ! End slave part.
 !------------------------------------------------------------------------------------------
 
-OPEN(17,file='differences.dat')
+OPEN(27,file='differences.dat')
 
 IF(myrow.EQ.0.AND.mycol.EQ.0) THEN
-!OPEN(17,file='differences.dat')
+!OPEN(27,file='differences.dat')
  DO i1=1,N
   diff = SUM(ABS(MATMUL(H,Z(:,i1)) - W(i1)*(Z(:,i1))))
- WRITE(17,101) 'difference = ', diff
+ WRITE(27,101) 'difference = ', diff
 END DO
  
     ! changed H to A and E to W

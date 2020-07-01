@@ -1,4 +1,7 @@
+#include "alias.inc"
 module do_math
+   use mpi_setup
+   use print_io
 
 #ifdef F08
    interface matprod
@@ -6,10 +9,94 @@ module do_math
      module procedure :: matproduct_real
      module procedure :: matproduct_complex_normal
      module procedure :: matproduct_real_normal
+     module procedure :: matproduct_real_general
+     module procedure :: matproduct_real_general_x1
+     module procedure :: matproduct_complex_general
    end interface
 #endif
 
 contains
+function matproduct_real_general_x1(M,K, JOBA, A, K_, JOBB, B) result(C)
+   implicit none
+   integer*4   M, K
+   integer*4   K_,N
+   real*8      alpha, beta
+   character*1 JOBA, JOBB
+   real*8,intent(in) :: A( M,  K), B( K_)
+   real*8      C( M)
+   character(*), parameter :: func = 'matproduct_real_general'
+
+   ! computes alpha * A * B + beta * C = C
+   alpha = 1d0
+   beta  = 0d0
+!  JOBA(or B) = 'N' or 'n',  op( A ) = A.
+!  JOBA(or B) = 'T' or 't',  op( A ) = A**T.
+!  JOBA(or B) = 'C' or 'c',  op( A ) = A**H.
+
+   if( K .ne. K_) then
+     write(message, '(A,A)')' got an error from function: ',func  ; write_msg
+     write(message, '(A,I3,A,I3)')'  K .ne. K_:  K=', K, ' K_=',K_  ; write_msg
+     stop
+   endif
+
+   call DGEMM(JOBA, JOBB, M, 1, K, alpha, A, M, B, K, beta, C, M)
+
+   return
+endfunction
+
+function matproduct_real_general(M,K, JOBA, A, K_, N, JOBB, B) result(C)
+   implicit none
+   integer*4   M, K
+   integer*4   K_,N 
+   real*8      alpha, beta
+   character*1 JOBA, JOBB
+   real*8      A( M,  K), B( K_,  N)
+   real*8      C( M,  N)
+   character(*), parameter :: func = 'matproduct_real_general'
+  
+   ! computes alpha * A * B + beta * C = C
+   alpha = 1d0
+   beta  = 0d0
+!  JOBA(or B) = 'N' or 'n',  op( A ) = A.
+!  JOBA(or B) = 'T' or 't',  op( A ) = A**T.
+!  JOBA(or B) = 'C' or 'c',  op( A ) = A**H.
+
+   if( K .ne. K_) then
+     write(message, '(A,A)')' got an error from function: ',func  ; write_msg
+     write(message, '(A,I3,A,I3)')'  K .ne. K_:  K=', K, ' K_=',K_  ; write_msg
+     stop
+   endif
+
+   call DGEMM(JOBA, JOBB, M, N, K, alpha, A, M, B, K, beta, C, M)
+
+   return
+endfunction
+
+function matproduct_complex_general(M,K, JOBA, A, K_, N, JOBB, B) result(C)
+   implicit none
+   integer*4   M, K
+   integer*4   K_,N
+   complex*16  alpha, beta
+   complex*16  A( M,  K), B( K_,  N)
+   complex*16  C( M,  N)
+   character*1 JOBA, JOBB
+   character(*), parameter :: func = 'matproduct_real_general'
+
+   ! computes alpha * A * B + beta * C = C
+   alpha = 1d0
+   beta  = 0d0
+
+   if( K .ne. K_) then
+     write(message, '(A,A)')' got an error from function: ',func  ; write_msg
+     write(message, '(A,I3,A,I3)')'  K .ne. K_:  K=', K, ' K_=',K_  ; write_msg
+     stop
+   endif
+
+   call DGEMM(JOBA, JOBB, M, N, K, alpha, A, M, B, K, beta, C, M)
+
+   return
+endfunction
+
 
 function matproduct_real(msize, JOBA, A, JOBB, B) result(C)
    implicit none
@@ -81,6 +168,22 @@ function matproduct_complex_normal(msize,A,B) result(C)
    beta  = 0d0
    call ZGEMM('N', 'N', msize, msize, msize, alpha , &
                A, msize, B, msize, beta , C, msize)
+
+   return
+endfunction
+
+! generate diagonal msize x msize identity matrix
+function diagonal(msize) result(A)
+   implicit none
+   integer*4,intent(in) :: msize
+   integer*4               i
+   real*8                  A(msize,msize)
+
+   A = 0d0
+
+   do i = 1, msize
+    A(i,i) = 1d0
+   enddo
 
    return
 endfunction
@@ -161,13 +264,13 @@ subroutine get_svd(M, U, WT, msize)
        deallocate(work)
        allocate(work(lwork))
     else
-       write(6, '(A,A)')' got an error from function: ',func
+       write(message, '(A,A)')' got an error from function: ',func  ; write_msg
        stop
     endif
 
     CALL ZGESVD( 'A', 'A', msize, msize, M, msize, S, U, msize, WT, msize, work, lwork, rwork, iflag)
     if (iflag .ne. 0) then
-       write(6, '(A,A)')' got an error from function: ',func
+       write(message, '(A,A)')' got an error from function: ',func  ; write_msg
        stop
     endif
 
@@ -212,7 +315,7 @@ subroutine cal_gen_eig_hermitian(H, S, msize, E, flag_get_orbital)
       deallocate(work)
       allocate(work(lwork))
    else
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
 
@@ -261,7 +364,7 @@ subroutine cal_eig_hermitian(H, msize, E, flag_get_orbital)
       deallocate(work)
       allocate(work(lwork))
    else
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
 
@@ -328,7 +431,7 @@ subroutine cal_gen_eig_hermitianx(H,S,msize,iband,nband,E,V,flag_get_orbital)
       deallocate(work)
       allocate(work(lwork))
    else
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
    if(flag_get_orbital) JOBZ='V'
@@ -434,7 +537,7 @@ subroutine cal_eig_hermitianx(H,msize,iband,nband,E,V,flag_get_orbital)
       deallocate(work)
       allocate(work(lwork))
    else
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
    if(flag_get_orbital) JOBZ='V'
@@ -504,7 +607,7 @@ endsubroutine
 !                work, lwork, rwork, lrwork, iwork, liwork, &
 !                ifail, iclustr, gap, iflag)
 !   if(nband_found .ne. nband) then
-!     write(6,'(A)') ' got an error from function: (nband .ne. nband_found)', func
+!     write(message,'(A)') ' got an error from function: (nband .ne. nband_found)', func  ; write_msg
 !     stop
 !   endif
 
@@ -686,82 +789,82 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
 
       ! Error messages. Program will be stop.
       case(202)
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=202,   Problem with size of the system "msize"'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=202,   Problem with size of the system "msize"'  ; write_msg
         stop
       case(201)                    
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=201,   Problem with size of subspace   "ne_guess"'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=201,   Problem with size of subspace   "ne_guess"'  ; write_msg
         stop
       case(200)                    
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=200,   Problem with "emin", "emax"'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=200,   Problem with "emin", "emax"'  ; write_msg
         stop
       case(100:199)
         idummy = iflag - 100
-        write(6,'(A,I0,A,I0,A     )')'   !ERROR! feast_scsrev: IFLAG= 100+',idummy,', Problem with ',idummy,'-th value'
-        write(6,'(A,I0,A)'          )'           of the input FEAST parameter (i.e. fpm(',idummy,'))'
+        write(message,'(A,I0,A,I0,A     )')'   !ERROR! feast_scsrev: IFLAG= 100+',idummy,', Problem with ',idummy,'-th value'  ; write_msg
+        write(message,'(A,I0,A)'          )'           of the input FEAST parameter (i.e. fpm(',idummy,'))'  ; write_msg
         stop
 
       ! Warning messages. Program will be continue.
       case(6  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=6  ,   FEAST converges but subspace is not bi-orthogonal'
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=6  ,   FEAST converges but subspace is not bi-orthogonal'  ; write_msg
         flag_success = .true.
       case(5  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=5  ,   Only stochastic estimation of #eigenvalues'
-        write(6,'(A)'               )'                                      returned fpm(14)=2'
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=5  ,   Only stochastic estimation of #eigenvalues'  ; write_msg
+        write(message,'(A)'               )'                                      returned fpm(14)=2'  ; write_msg
         flag_success = .true.
       case(4  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=4  ,   Only the subspace has been returned using fpm(14)=1'
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=4  ,   Only the subspace has been returned using fpm(14)=1'  ; write_msg
         flag_success = .true.
       case(3  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_GUESS" is too small'
-        write(6,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'
-        write(6,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'
-        write(6,'(A)'               )'                                      Please increase NE_GUESS.'
-        write(6,'(A,I0)'            )'                                      NE_FOUND = ', ne_found
-        write(6,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess
-        write(6,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.2*NE_MAX)'
-        write(6,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.2*nemax)
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_GUESS" is too small'  ; write_msg
+        write(message,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'  ; write_msg
+        write(message,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'  ; write_msg
+        write(message,'(A)'               )'                                      Please increase NE_GUESS.'  ; write_msg
+        write(message,'(A,I0)'            )'                                      NE_FOUND = ', ne_found  ; write_msg
+        write(message,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess  ; write_msg
+        write(message,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.2*NE_MAX)'  ; write_msg
+        write(message,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.2*nemax)  ; write_msg
         ne_guess = ne_guess + ceiling(0.1*nemax)
         flag_success = .false.
         iter = iter + 1
       case(2  )                    
-        write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'
-        write(6,'(A, I0, I0)'       )'           -> increase refinement loops from ', fpm(4), fpm(4) + 10
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'  ; write_msg
+        write(message,'(A, I0,A, I0)'     )'           -> increase refinement loops from ', fpm(4),' to ', fpm(4) + 10  ; write_msg
         fpm(4) = fpm(4) + 10
         flag_success = .false.
         iter = iter + 1
       case(1  )                    
-!       write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'
-!       write(6,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'
+!       write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval:'  ; write_msg
+!       write(message,'(2(A,F10.5),A)'    )'                                      [EMIN:EMAX] = [',emin,':',emax,']'  ; write_msg
         flag_success = .true. 
       ! Sucessful exit
       case(0  )                    
         flag_success = .true.
-!       write(6,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval'
+!       write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=1  ,   No Eigenvalues found in the search interval'  ; write_msg
       
       ! Error messages. Program will be stop.
       case(-1 )                    
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-1 ,   Internal error for allocation memory'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-1 ,   Internal error for allocation memory'  ; write_msg
         stop
       case(-2 )                    
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-2 ,   Internal error of the inner system solver in'
-        write(6,'(A)'               )'                                      FEAST predefinded interfaces'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-2 ,   Internal error of the inner system solver in'  ; write_msg
+        write(message,'(A)'               )'                                      FEAST predefinded interfaces'  ; write_msg
         stop
       case(-3 )                    
-        write(6,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-3 ,   Internal error of the reduced eigenvalue solver'
-        write(6,'(A)'               )'                                      Possible cause for Hermitian problem:'
-        write(6,'(A)'               )'                                          -->  matrix H may not be positive definite'
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-3 ,   Internal error of the reduced eigenvalue solver'  ; write_msg
+        write(message,'(A)'               )'                                      Possible cause for Hermitian problem:'  ; write_msg
+        write(message,'(A)'               )'                                          -->  matrix H may not be positive definite'  ; write_msg
         stop
       case(-120:-101 )                    
         idummy = (iflag + 100) * -1
-        write(6,'(A,I2,A,I0,A)'     )'   !ERROR! feast_scsrev: IFLAG=-(100+',idummy,'),  Problem with the ',idummy,'-th argument'
-        write(6,'(A,A)'             )'                                           of the FEAST interface:',trim(argument(idummy))
+        write(message,'(A,I2,A,I0,A)'     )'   !ERROR! feast_scsrev: IFLAG=-(100+',idummy,'),  Problem with the ',idummy,'-th argument'  ; write_msg
+        write(message,'(A,A)'             )'                                           of the FEAST interface:',trim(argument(idummy))  ; write_msg
         stop
     end select
 
     if(.not. flag_success .and. iter .gt. max_iter) then
-        write(6,'(A          )'     )'   !ERROR! feast_scsrev: Calculation has not been successfully finished until "max_iter".'
-        write(6,'(A          )'     )'           Please increase "max_iter" parameter of your source code or check your input again.'
-        write(6,'(A          )'     )'           Exit program...'
+        write(message,'(A          )'     )'   !ERROR! feast_scsrev: Calculation has not been successfully finished until "max_iter".'  ; write_msg
+        write(message,'(A          )'     )'           Please increase "max_iter" parameter of your source code or check your input again.'  ; write_msg
+        write(message,'(A          )'     )'           Exit program...'  ; write_msg
         stop
     endif
 
@@ -802,13 +905,13 @@ subroutine cal_eig_nonsymm(H, msize, E)
       deallocate(work)
       allocate(work(lwork))
    else
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
 
    call  ZGEEV( 'N', 'N', msize, H, msize, E, VL, msize, VR, msize, work, lwork, rwork, iflag )
    if (iflag .ne. 0) then
-      write(6, '(A,A)')' got an error from function: ',func
+      write(message, '(A,A)')' got an error from function: ',func  ; write_msg
       stop
    endif
 
@@ -967,6 +1070,31 @@ function angle(a,b,c) result (theta)
    theta = acos ( dot_product(ba,cb)/ ( enorm(3,ba) * enorm(3,cb) ) ) * 180d0 / pi
 
    return 
+endfunction
+
+function degen(E) result(D)
+   implicit none
+   integer*4   n
+   real*8, dimension(:), intent(in) :: E
+   real*8, dimension(3,size(E))     :: D
+!  real*8, dimension(  size(E))     :: delta_above
+!  real*8, dimension(  size(E))     :: delta_below
+
+   n                  = size(E)
+   D                  = 0d0
+
+   ! delta_above
+   D(2,1:n-1)         = E(2:n  ) - E(1:n-1)
+   D(2,  n  )         = 1d0
+
+   ! delta_below
+   D(3,2:n  )         = D(2,1:n-1)
+   D(3,1    )         = 1d0
+ 
+   ! delta_below * delta_above
+   D(1, :   )         = D(2,:) * D(3,:)
+
+   return
 endfunction
 
 endmodule

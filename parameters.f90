@@ -41,6 +41,7 @@ module parameters
   integer*4,  public, parameter   :: max_dummy       = 9999999 !! maximun number of dummy index for arbitral purpose   
   integer*4,  public, parameter   :: max_dummy2      = 1000    !! maximun number of dummy index for arbitral purpose   
   integer*4,  public, parameter   :: max_nsym        = 1000000 !! maximun number of symmetry operation for SPGLIB
+! integer*4,  public, parameter   :: pid_log         = 17 
   integer*4,  public, parameter   :: pid_energy      = 30 
   integer*4,  public, parameter   :: pid_nntable     = 33
   integer*4,  public, parameter   :: pid_incar       = 78
@@ -57,8 +58,9 @@ module parameters
   integer*4,  public, parameter   :: pid_wcc         = 102 ! pid_wcc + 1 = pid_gap
   integer*4,  public, parameter   :: pid_geom        = 177 
   integer*4,  public, parameter   :: pid_geom_ribbon = 178
-
+  
   type incar !PINPT
+       character*40                  fnamelog       ! log file name, default = TBFIT.log
        logical                       flag_get_band  ! default = .true.
        logical                       flag_spglib    ! default = .true. ! write space group information
        logical                       flag_tbfit_parse, flag_tbfit_parse_
@@ -67,6 +69,7 @@ module parameters
        logical                       flag_pfile_index ! whether put numbering in PARAM_FIT.dat after fitting
        logical                       flag_use_overlap ! whether setup overlap hamiltonian 
                                                       ! (need overlap integral parameters in PARAM_FIT.dat file in priori)
+       logical                       flag_fit_degeneracy ! fitting is helped by fitting degeneracy as well.
        logical                       flag_miter_parse, flag_mxfit_parse
        logical                       flag_lorbit_parse, flag_proj_parse
        logical                       flag_parse
@@ -75,6 +78,8 @@ module parameters
        logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
        logical                       flag_write_unformatted ! default = .false.
        logical                       flag_report_geom
+   
+       logical                       flag_phase  ! default = .true.  ! apply phase factor to atomic orbital
 
        real*8                        ptol
        real*8                        ftol
@@ -131,13 +136,18 @@ module parameters
        character*132                 efilenmu,efilenmd  ! target energy file (spin up & dn)
        character*132                 nnfilenm           ! hopping integral file name (default = hopping.dat)     
        character*16                  efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
+       character*8                   kline_type         ! VASP, FLEUR
        real*8                        efile_ef           ! fermi level for efile (energy shift: energy - efile_ef will be applied when reading efile)
        integer*4                     itarget_e_start    ! from which energy level TBFIT read as target energy from target file?
        integer*4                     nn_max(3) ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
+       logical                       flag_use_weight    ! if true use "weight" information written in PFILE and 
+                                                        ! replace it with SET WEIGHT info of INCAR-TB file after fitting procedures
 
-       integer*4                     nweight, npenalty_orb
+       integer*4                     nweight, npenalty_orb, ndegenw
        character*132, allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
        character*132, allocatable :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
+       character*132, allocatable :: strip_kp_deg(:), strip_tb_deg(:), strip_df_deg(:), strip_wt_deg(:)
+       real*8                        degen_tol          ! tolerance for checking degeneracy between bands
 
        ! plot_eig mode
        logical                       flag_plot_eigen_state  !default : .false.
@@ -179,10 +189,18 @@ module parameters
        logical                       flag_erange
        integer*4                     init_erange, fina_erange  ! ie:fe
        integer*4                     nband ! nonmag: ie:fe, collinear: ie:fe for up or dn, non-collinear: ie:fe
+                                           ! = PGEOM%neig*PINPT%ispinor  (if .not. PINPT%flag_erange, default)
+                                           ! = PINPT%feast_nemax (if EWINDOW tag is on and nemax is smaller than PGEOM%neig*PINPT%ispinor)
+                                           ! = PINPT%fina_erange - PINPT%init_erange + 1 ( if PINPT%flag_erange)
+
        logical                       flag_sparse ! if EWINDOW tag has been set up, flag_sparse is forced to be .true.
        integer*4                     feast_nemax ! maximum number of eigenvalues (=nband_guess)
        real*8                        feast_emin, feast_emax ! energy window [emin:emax] for FEAST algorithm
-       integer*4                     feast_fpm(128) ! FEAST parameters
+#ifdef PSPARSE
+       integer*4                     feast_fpm(64)  ! FEAST parameters set by original feastinit
+#else
+       integer*4                     feast_fpm(128) ! FEAST parameters set by MKL extended eigensolver feast support routine
+#endif
        integer*4,    allocatable  :: feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
        integer*4                     feast_neguess  ! initial guess for the number of states to be found in interval
 
@@ -214,10 +232,21 @@ module parameters
 
        logical                       flag_plot_fit
        character*132                 filenm_gnuplot
+
+       integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
+       integer*4                     max_len_strip_ob, max_len_strip_st
+
+       logical                       flag_print_energy_singlek
+       logical                       flag_print_hamk
+
+       logical                       flag_get_band_order   ! flag whether perform band re-ordering by calculating overlap integral
+       logical                       flag_get_band_order_print_only ! if true, band re-order will not be performed in the fitting routines
+       real*8                        band_order_overlap_cutoff ! cutoff of overlap integral to perform eigenvalue swap : sqrt(2)/2 by default
   endtype incar
 
   type poscar !PGEOM
        integer*4                     neig       ! either neig_up and neig_dn, total number of atomic orbitals (somewhat confusing with eigenvalues..)
+                                                ! = sum(PGEOM%n_orbital(1:PGEOM%n_atom)) (defined in read_poscar)
        integer*4                     neig_total ! neig_up + neig_dn
        integer*4                     neig_target
        integer*4                     nbasis  ! normally neig = nbasis
@@ -287,7 +316,9 @@ module parameters
 
   type kpoints !PKPTS
        integer*4                     nkpoint,nline
+       integer*4                     n_ndiv
        integer*4,   allocatable   :: ndiv(:)
+       integer*4                     kreduce ! Should be 1 if kline_type is not FLEUR, in the current version.
        real*8,      allocatable   :: kpoint(:,:),kline(:,:)
        real*8,      allocatable   :: kpoint_reci(:,:)
        real*8                        k_shift(3)
@@ -301,12 +332,25 @@ module parameters
   type energy !EDFT / ETBA / ETBA_DOS
        real*8,      allocatable   :: E(:,:)   !E(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2)
        complex*16,  allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) order is same as E above
+       real*8,      allocatable   :: D(:,:,:)   !D(3,neig*ispin,nkpoint) Information for degeneracy is stored.
+                                                !D(1,:,:) -> degeneracy D_above * D_below 
+                                                !D(2,:,:) -> degeneracy D_above = E_n+1 - E_n  (exception, E_neig = 1)
+                                                !D(3,:,:) -> degeneracy D_below = E_n   - E_n-1(exception, E_1    = 1)
+!      real*8,      allocatable   :: O(:,:,:) ! O(n,m,k) = abs ( <psi_nk|psi_mk+1> )
+       integer*4,   allocatable   :: IDX(:,:) ! band index after band re-ordering (valid if LORDER = .TRUE.)
+       real*8,      allocatable   :: E_ORD(:,:) ! re-ordered band
+       complex*16,  allocatable   :: V_ORD(:,:,:) ! re-ordered eigenvector
   endtype energy
 
   type weight !PWGHT
-       integer*4                     nweight, iband, fband
-       integer*4                     npenalty_orb
+       integer*4                     iband, fband
+       integer*4                     nweight      ! number of           weight  (WEIGHT)  strip in "SET WEIGHT" tag
+       integer*4                     ndegenw      ! number of dgeneracy weight  (DEGENW)  strip in "SET WEIGHT" tag
+       integer*4                     npenalty_orb ! number of orbital   penalty (PENALTY) strip in "SET WEIGHT" tag
+!      integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
+!      integer*4                     max_len_strip_ob, max_len_strip_st
        real*8,      allocatable   :: WT(:,:)
+       real*8,      allocatable   :: DEGENERACY_WT(:,:)
        real*8,      allocatable   :: PENALTY_ORB(:,:,:)
        logical                       flag_weight_default
        logical                       flag_weight_default_orb

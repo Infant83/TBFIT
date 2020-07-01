@@ -239,7 +239,7 @@ module element_info
   ! l_qnumb( 2 , index_Si) = 3
   ! l_qnumb( 3 , index_Si) = 0
   ! l_qnumb( 4 , index_Si) = 0
-  integer*4,   dimension(4, 112)            :: l_qnumb = &
+  integer*4,   dimension(4, 112) :: l_qnumb = reshape( &
            ! s p d f
        (/    1,0,0,0       ,&
              1,0,0,0       ,&
@@ -352,7 +352,7 @@ module element_info
              0,0,0,0       ,&
              0,0,0,0       ,&
              0,0,0,0       ,&
-             0,0,0,0       /)
+             0,0,0,0       /), (/4,112/) )
 
  character*1,parameter ::  angular(4)=(/'s','p','d','f'/)
 

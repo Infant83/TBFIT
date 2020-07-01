@@ -148,7 +148,7 @@ subroutine kproduct_pauli_z_sparse(A,IA,JA,na_scr,na,B,IB,JB)
  ! Array index IA, and JA is also transformed into corresponding IB and JB
 
  B(1:na_scr) = A
- B(na_scr+1:na_scr*2) = A * -1d0
+ B(na_scr+1:na_scr*2) = A * (-1d0)
 
  IB(1:na) = IA(1:na)
  IB(na+1:na*2) = IA(1:na) + na_scr

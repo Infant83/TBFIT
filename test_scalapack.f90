@@ -2,6 +2,7 @@
 subroutine test()
 #ifdef SCALAPACK
    use mpi_setup
+   use print_io
    implicit none
       integer*4          mpierr
       integer*4          IA, JA, I, J, K
@@ -37,7 +38,7 @@ subroutine test()
         if(COMM_ASIA%mycoord(1) .eq. I) then
           call BLACS_GRIDINIT(COMM_ASIA%mpi_comm, 'R', 1, npcol)
           call BLACS_GRIDINFO(COMM_ASIA%mpi_comm, nprow, npcol, MY_ROW, MY_COL)
-          write(6,'(4(A,I0))')"XXX MYID:",myid, ' COMM:', COMM_ASIA%mpi_comm, ' MY_ROW:', MY_ROW, ' MY_COL:', MY_COL
+          write(message,'(4(A,I0))')"XXX MYID:",myid, ' COMM:', COMM_ASIA%mpi_comm, ' MY_ROW:', MY_ROW, ' MY_COL:', MY_COL ; write_msg_all
         endif
       enddo
     
@@ -91,7 +92,7 @@ subroutine test()
                  work, lwork, rwork, lrwork, iwork, liwork, &
                  ifail, iclustr, gap, iflag)
     if(nband_found .ne. nband) then
-      write(6,'(A)') ' got an error from function: (nband .ne. nband_found)', func
+      write(message,'(A)') ' got an error from function: (nband .ne. nband_found)', func ; write_msg_all
       stop
     endif
 
@@ -118,10 +119,8 @@ implicit none
 integer*4 CONTEXT_, mpierr, CONTEXT
 
 !     call MPI_COMM_CREATE(COMM_EARTH%mpi_comm, COMM_ASIA%mpi_comm, CONTEXT_, mpierr)
-!       write(6,*)"KKKK ", myid, CONTEXT_, COMM_EARTH%dims(2)
       if(COMM_EARTH%mycoord(2) .eq. 1) then
         call BLACS_GRIDINIT( COMM_ASIA%mpi_comm, 'Row', 1, COMM_EARTH%dims(2))
-        write(6,*)"GGGG ", myid, CONTEXT
       endif
 
 kill_job

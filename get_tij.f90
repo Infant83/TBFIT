@@ -1,6 +1,9 @@
+#include "alias.inc"
 function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
   use parameters, only : pi, rt2, rt3, hopping, incar
   use get_parameter
+  use print_io
+  use mpi_setup
   implicit none
   type (hopping)  :: NN_TABLE
   type (incar  )  :: PINPT
@@ -102,8 +105,12 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
         if(i_o .gt. 0 .and. .not. flag_set_overlap) then ! if onsite energy for Hk
           if(iscale_mode .le. 10) call get_param(PINPT, i_o, 1, e)
           if(iscale_mode .gt. 10) then 
-            call get_param(PINPT,i_o, (/1:4/), e_(1:4)) ! get onsite energy parameters
-            call get_param(PINPT,NN_TABLE%l_onsite_param_index(NN_TABLE%j_nn(1:n_nn,i_atom)),1, l_onsite(1:n_nn)) ! get l_onsite for each j_nn
+            do i = 1, 4
+              call get_param(PINPT,i_o, i, e_(i)) ! get onsite energy parameters
+            enddo
+            do i = 1, n_nn
+              call get_param(PINPT,NN_TABLE%l_onsite_param_index(NN_TABLE%j_nn(i,i_atom)),1, l_onsite(i)) ! get l_onsite for each j_nn
+            enddo
           endif
         else
           l_onsite = 0d0
@@ -115,9 +122,21 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
         i_s = NN_TABLE%sk_index_set(1+i_ovl,ii)
         i_p = NN_TABLE%sk_index_set(2+i_ovl,ii)
         i_d = NN_TABLE%sk_index_set(3+i_ovl,ii)
-        if( i_s .ne. 0) call get_param(PINPT, i_s, (/1:4/), s_(1:4) ) ! sigma
-        if( i_p .ne. 0) call get_param(PINPT, i_p, (/1:4/), p_(1:4) ) ! pi
-        if( i_d .ne. 0) call get_param(PINPT, i_d, (/1:4/), d_(1:4) ) ! delta
+        if( i_s .ne. 0) then
+          do i = 1, 4
+            call get_param(PINPT, i_s, i , s_(i) ) ! sigma
+          enddo
+        endif
+        if( i_p .ne. 0) then
+          do i = 1, 4
+            call get_param(PINPT, i_p, i, p_(i) ) ! pi
+          enddo
+        endif
+        if( i_d .ne. 0) then 
+          do i = 1, 4
+            call get_param(PINPT, i_d, i, d_(i) ) ! delta
+          enddo
+        endif
       else
         i_s = NN_TABLE%sk_index_set(1+i_ovl,ii)
         i_p = NN_TABLE%sk_index_set(2+i_ovl,ii)
@@ -158,9 +177,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
         if    (ci_orb(1:1) .eq. 's' .and. cj_orb(1:1) .eq. 's') then
           tij_sk = s
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -187,9 +206,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
           tij_sk = mn*(s - p)
      
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
   
@@ -250,9 +269,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
           tij_sk = 3d0*lm*nn*s + lm*(1d0-4d0*nn)*p + lm*(nn-1d0)*d
 
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -276,9 +295,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
           tij_sk =-n*s
 
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -304,9 +323,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
           tij_sk = 2d0*sin(pi/3d0)*mn*s
 
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -387,9 +406,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
           tij_sk =-2d0*sin(pi/3d0)*nn*m*s - m*(1d0-2d0*nn)*p
 
         else
-          write(6,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -429,9 +448,9 @@ sk: select case ( NN_TABLE%p_class(ii) )
                +1.d0/3.d0 *       ( 3d0*lm*nn*s + lm*(1d0-4d0*nn)*p + lm*(nn-1d0)*d )
 
         else
-          write(6,'(A)')' !WARNING! SK_C energy integral is not properly defined or orbital name is improper.'
-          write(6,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb)
-          write(6,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...'
+          write(message,'(A)')' !WARNING! SK_C energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
           stop
         endif
 
@@ -499,7 +518,7 @@ function f_s_nrl(dda, d0, d, mode, l_broaden)
 !    mode : scaling function
 !     11 = see Ref. PRB 54, 4519 (1996) : Naval Resarch Laboratory (NRL) TB scheme
    if(mode .eq. 11) then
-     f_cut   = (1d0 + Exp( (d - d0)/l_broaden + 5d0 ) )**-1d0
+     f_cut   = (1d0 + Exp( (d - d0)/l_broaden + 5d0 ) )**(-1d0)
      f_s_nrl = ( dda(1) + dda(2) * d + dda(3) * (d**2d0) ) * Exp(-(dda(4)**2d0) * d) * f_cut
    endif
 
@@ -518,7 +537,9 @@ function f_s(dda_s,d0,d, mode)
 !    f_s=exp( -(d/d0)^(SFACTOR(1)) )
 !  3 = see PRB 51.16772 (1995): for s-p or p-p interaction of Silicon or Germanium crystal
 !    f_s=(d0/d)^(SFACTOR(1))
-!  4 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
+!  4 = see PRB 93.241407 (2016)
+!    f_s=exp( (d0-d) * SFACTOR(1) )
+!  5 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
 !      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c
 !    f_s=(d0/d)^(SFACTOR(1))*exp(SFACTOR(1)*( -(d/SFACTOR(2))^(SFACTOR(3)) + -(d0/SFACTOR(2))^(SFACTOR(3)) ))
 
@@ -529,7 +550,9 @@ function f_s(dda_s,d0,d, mode)
      f_s = Exp( -(d/d0)**dda_s )
    elseif(mode .eq. 3) then
      f_s = (d0/d)**(dda_s)
-!  elseif(mode .eq. 4)
+   elseif(mode .eq. 4) then
+     f_s = Exp( (d0 - d)*dda_s )
+!  elseif(mode .eq. 5)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
    endif
 return

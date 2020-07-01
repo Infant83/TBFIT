@@ -4,6 +4,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   use read_incar
   use berry_phase
   use mpi_setup
+  use print_io
   implicit none
 ! integer*4, parameter :: max_dummy = 9999999
   integer*4     mpierr
@@ -44,6 +45,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
   i_dummy = 9999
   PINPT%flag_get_band=.true.
+  PINPT%flag_get_band_order=.false.
+  PINPT%flag_get_band_order_print_only =.false.
   PINPT%flag_erange=.false.
   if(.not. PINPT%flag_parse .and. .not. PINPT%flag_pfile) PINPT%flag_pfile=.false.
   PINPT%flag_pincar=.false.
@@ -61,12 +64,16 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_default_rorigin= .true.
   PINPT%flag_print_orbital=.false.
   PINPT%flag_print_single=.false. 
+  PINPT%flag_print_energy_singlek=.false. 
+  PINPT%flag_phase = .true.
+  PINPT%flag_fit_degeneracy = .false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
   if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
   if(.not. PINPT%flag_proj_parse)   PINPT%flag_print_proj=.false.
   PINPT%itarget_e_start = 1 ! default
   PINPT%nproj_sum = 0
   PINPT%flag_pfile_index=.false.
+  PINPT%flag_use_weight = .false.  ! whether read weight factor for fit from PFILE or not
   PINPT%flag_use_overlap=.false.
   PINPT%flag_set_param_const=.false.
   PINPT%flag_get_dos=.false.
@@ -99,6 +106,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_write_unformatted=.false.
   PINPT%efile_type = 'user'
   PINPT%efile_ef   = 0d0
+  PINPT%kline_type = 'vasp' ! default. 'vasp' or 'fleur'
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -140,8 +148,15 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PWGHT%iband = 1
   PWGHT%fband = -9999
   PWGHT%nweight = 0
+  PINPT%max_len_strip_kp = 0
+  PINPT%max_len_strip_tb = 0
+  PINPT%max_len_strip_df = 0
+  PINPT%max_len_strip_ob = 0
+  PINPT%max_len_strip_st = 0
   PINPT%nweight = 0
   PKPTS%kunit = 'A' !default 'A' : angstrom or 'R' : reciprocal unit is available
+  PKPTS%kreduce = 1 ! default
+  PKPTS%n_ndiv = 1 ! default
 
   PINPT%flag_report_geom = .true.
 
@@ -177,8 +192,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PRPLT%replot_sldos_fname= 'SLDOS.replot.dat'
   PRPLT%replot_didv_fname = 'DIDV.replot.dat'
 
-  if(myid .eq. 0) write(6,*)' '
-  if(myid .eq. 0) write(6,*)'---- READING INPUT FILE: ',trim(fname)
+  call write_log(' ',3,myid)
+  call write_log('---- READING INPUT FILE: '//trim(fname),3,myid)
   open (pid_incar, FILE=fname,iostat=i_continue)
   linecount = 0; PINPT%nparam= 0; PINPT%nparam_const = 0
 
@@ -186,7 +201,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
         read(pid_incar,'(A)',iostat=i_continue) inputline
         if(i_continue<0) exit               ! end of file reached
         if(i_continue>0) then 
-         if(myid .eq. 0) write(6,*)'Unknown error reading file:',trim(fname),func
+         call write_log('Unknown error reading file:'//trim(fname)//' '//trim(func),3,myid)
         endif
         linecount = linecount + 1
         ! check INPUT tag
@@ -215,6 +230,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             if(.not. PINPT%flag_kfile_parse) then
               call set_kpoint_file(PINPT, flag_kfile_ribbon, inputline)
             endif
+          case('KREDUCE')
+            read(inputline,*,iostat=i_continue) desc_str, PKPTS%kreduce
+   
           !load hopping file?
           case('LOAD_HOP', 'LOAD_TIJ', 'LOAD_NNTABLE')
             call set_load_nntable(PINPT, inputline, desc_str)
@@ -229,7 +247,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           !read TB-parameter file from PFILE
           case('PFILE')
-           call set_tbparam_file(PINPT, param_const, param_const_nrl, inputline)
+           call set_tbparam_file(PINPT, PWGHT, param_const, param_const_nrl, inputline)
 
           !hopping type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
           case('IS_SK', 'SLATER_KOSTER')
@@ -245,7 +263,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
 #ifdef SPGLIB
           !if(myid .eq. 0) write fitted TB-parameter to POFILE
-          case('SPGLIB', 'SPG_LIB')
+          case('SPGLIB', 'SPG_LIB', 'LSPGLIB')
            call set_spglib_write(PINPT, inputline,desc_str)
 #endif
 
@@ -270,7 +288,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             call set_target_file(PINPT, flag_read_energy, inputline, desc_str)
           case('EFILE_EF')
             read(inputline,*,iostat=i_continue) desc_str, PINPT%efile_ef
-            if_main write(6,'(A,F12.5)')'  EDFT_EF:  ', PINPT%efile_ef
+            write(message,'(A,F12.5)')'  EDFT_EF:  ', PINPT%efile_ef ; write_msg
 
           case('PLOTFIT')
             if(nitems(inputline) -1 .eq. 1) then
@@ -280,6 +298,19 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             endif
           case('PRTDIFF')
             read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
+
+          case('PRTSEPK')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_singlek
+
+          case('PRTHAMK')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_hamk
+
+          case('LPHASE')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
+            write(message,'(A,L)')' LPHASE: ',PINPT%flag_phase ; write_msg
+
+          case('LORDER')
+            call set_band_order(PINPT, inputline)
 
           !initial energy of the target band
           case('IBAND','FBAND')
@@ -321,7 +352,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
               call set_constraint(PINPT, desc_str)
            
             !set weight for the fitting
-            elseif(trim(desc_str) .eq. 'WEIGHT') then
+            elseif(trim(desc_str) .eq. 'WEIGHT' .and. .not. PINPT%flag_use_weight) then
+             !call check_word_from_file('USE_WEIGHT','INCAR-TB',idummy)
               call set_weight_factor(PINPT, PWGHT, desc_str)
            
             !set onsite_tolerance : distance within this range will be regared as onsite
@@ -397,42 +429,43 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
 
   if( PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if_main write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     write(message,'(A,I8)')'  N_PARAM:',PINPT%nparam ; write_msg
+
      if(PINPT%slater_koster_type .gt. 10) then
-       if_main write(6,'(A)') '         : NRL TB scheme is applied in parameterization'
-       if_main write(6,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden
+       write(message,'(A)') '         : NRL TB scheme is applied in parameterization'            ; write_msg 
+       write(message,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden ; write_msg
+
      endif
      do i=1,PINPT%nparam
        if(PINPT%slater_koster_type .gt. 10) then
-         if_main write(6,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i)
+         write(message,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i) ; write_msg
+         
        else
-         if_main write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+         write(message,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i) ; write_msg
        endif
      enddo
   elseif( PINPT%flag_tbfit .and. .not. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if_main write(6,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!'
+     write(message,'(A,I8)')'  !WARN! TBFIT has set, however the TB-parameter is not provided. Check!!' ; write_msg
      kill_job
   elseif( .not. PINPT%flag_tbfit .and. (PINPT%flag_pfile .or. PINPT%flag_pincar) ) then
-     if_main write(6,'(A,I8)')'  N_PARAM:',PINPT%nparam
+     write(message,'(A,I8)')'  N_PARAM:',PINPT%nparam ; write_msg
      if(PINPT%slater_koster_type .gt. 10) then
-       if_main write(6,'(A)') '         : NRL TB scheme is applied in parameterization'
-       if_main write(6,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden
+       write(message,'(A)') '         : NRL TB scheme is applied in parameterization' ; write_msg
+       write(message,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PINPT%l_broaden ; write_msg
      endif
      do i=1,PINPT%nparam
        if(PINPT%slater_koster_type .gt. 10) then
-         if_main write(6,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i)
+         write(message,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PINPT%param_name(i),PINPT%param_nrl(1:PINPT%param_nsub(i),i) ; write_msg
        else
-         if_main write(6,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i)
+         write(message,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PINPT%param_name(i),PINPT%param(i) ; write_msg
        endif
      enddo
   endif
 
   if (linecount == 0) then
-    if_main write(6,*)'Attention - empty input file: INCAR-TB ',func
+    write(message,*)'Attention - empty input file: INCAR-TB ',func ; write_msg
   endif
   close(pid_incar)
-
-
 
   !read inputfiles defined in INCAR-TB: GEOMETRY, KPOINTS, TARGET_ENERGY...
   inquire(file=PINPT%gfilenm,exist=flag_gfile_exist)
@@ -440,7 +473,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   if(flag_read_energy .and. PINPT%flag_tbfit) then
     if(PINPT%flag_collinear .and. PINPT%efile_type .eq. 'user') then
       if(len_trim(PINPT%efilenmu) .eq. 0 .or. len_trim(PINPT%efilenmd) .eq. 0) then
-        if(myid .eq. 0) write(6,'(A)')'  !WARN!  EFILE has not been set properly. Check EFILE or EFILEU, EFILED. Exit program.'
+        write(message,'(A)')'  !WARN!  EFILE has not been set properly. Check EFILE or EFILEU, EFILED. Exit program.' ; write_msg
         kill_job
       endif
       inquire(file=PINPT%efilenmu,exist=flag_efileu_exist)
@@ -487,16 +520,16 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
       if(PINPT%flag_load_nntable .and. .not. PINPT%flag_tbfit .and. .not. PINPT%flag_use_overlap) then
        call load_nn_table(NN_TABLE, PINPT)
       elseif(PINPT%flag_load_nntable .and. (PINPT%flag_tbfit .or. PINPT%flag_use_overlap) ) then
-       if_main write(6,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure or '
-       if_main write(6,'(A)')'         with overlap matrix constructions, i.e., using overlap integrals.'
-       if_main write(6,'(A)')'         Please turn off LOAD_HOP or TBFIT option or do not use overlap integrals in'
-       if_main write(6,'(A)')'         your PARAM_FIT.dat file. Exit..'
+       write(message,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure or '    ; write_msg  
+       write(message,'(A)')'         with overlap matrix constructions, i.e., using overlap integrals.'               ; write_msg  
+       write(message,'(A)')'         Please turn off LOAD_HOP or TBFIT option or do not use overlap integrals in'     ; write_msg 
+       write(message,'(A)')'         your PARAM_FIT.dat file. Exit..'                                                 ; write_msg
        kill_job
       endif
     endif
 
   elseif(.not. flag_gfile_exist) then
-    if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%gfilenm),' does not exist!! Exit...'
+    write(message,'(A,A,A)')'  !WARN! ',trim(PINPT%gfilenm),' does not exist!! Exit...' ; write_msg
     kill_job
   endif
 
@@ -507,9 +540,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%ngrid(1) = PINPT%ngrid(1) + mod(PINPT%ngrid(1),2)
     PINPT%ngrid(2) = PINPT%ngrid(2) + mod(PINPT%ngrid(2),2)
     PINPT%ngrid(3) = PINPT%ngrid(3) + mod(PINPT%ngrid(3),2)
-    if(myid .eq. 0) write(6,'(A,3(I6))')'   N_GRID: (for EIGPLOT) ',PINPT%ngrid(1:3)
+    write(message,'(A,3(I6))')'   N_GRID: (for EIGPLOT) ',PINPT%ngrid(1:3) ; write_msg
   else
-    if(myid .eq. 0) write(6,'(A,3(I6))')'   N_GRID: (for EIGPLOT) ',PINPT%ngrid(1:3)  
+    write(message,'(A,3(I6))')'   N_GRID: (for EIGPLOT) ',PINPT%ngrid(1:3)  ; write_msg
   endif
   if(PINPT%flag_default_stm_ngrid .and. PINPT%flag_plot_stm_image) then
     PINPT%stm_ngrid(1) = nint(enorm(3, PGEOM%a_latt(:,1)) / 0.1d0)
@@ -518,9 +551,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     PINPT%stm_ngrid(1) = PINPT%stm_ngrid(1) + mod(PINPT%stm_ngrid(1),2)
     PINPT%stm_ngrid(2) = PINPT%stm_ngrid(2) + mod(PINPT%stm_ngrid(2),2)
     PINPT%stm_ngrid(3) = PINPT%stm_ngrid(3) + mod(PINPT%stm_ngrid(3),2)
-    if(myid .eq. 0) write(6,'(A,3(I6))')'   N_GRID: (for STMPLOT) ',PINPT%stm_ngrid(1:3)
+    write(message,'(A,3(I6))')'   N_GRID: (for STMPLOT) ',PINPT%stm_ngrid(1:3) ; write_msg
   elseif(.not. PINPT%flag_default_stm_ngrid .and. PINPT%flag_plot_stm_image) then
-    if(myid .eq. 0) write(6,'(A,3(I6))')'   N_GRID: (for STMPLOT) ',PINPT%stm_ngrid(1:3)
+    write(message,'(A,3(I6))')'   N_GRID: (for STMPLOT) ',PINPT%stm_ngrid(1:3) ; write_msg
   endif
 
   if(PINPT%flag_default_rorigin) then
@@ -534,7 +567,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
       PINPT_DOS%dos_ldos_atom(i) = i
     enddo
     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
-    if_main write(6,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom
+    write(message,'(A,I0)')' DOS_LDOS: .TRUE. , Atom_index = 1:',PGEOM%n_atom ; write_msg
   endif
   ! setup atom index for projected band if not allocated
   if(PINPT%flag_print_proj_sum) then
@@ -564,7 +597,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     call read_kpoint(PINPT%kfilenm,PKPTS,PGEOM,PINPT)
   elseif( (.not. flag_kfile_exist .and. PINPT%flag_get_band) .or. &
           (.not. flag_kfile_exist .and. PINPT%flag_get_berry_curvature) ) then
-    if_main write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%kfilenm),' does not exist!! Exit...'
+    write(message,'(A,A,A)')'  !WARN! ',trim(PINPT%kfilenm),' does not exist!! Exit...' ; write_msg
     kill_job
   endif
 
@@ -590,6 +623,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PWGHT%flag_weight_default) then
       allocate(PWGHT%WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
       PWGHT%WT(:,:)=0.00001d0 !initialize
+      if(PINPT%flag_fit_degeneracy) allocate(PWGHT%DEGENERACY_WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
+      if(PINPT%flag_fit_degeneracy) PWGHT%DEGENERACY_WT(:,:)=0d0       !initialize
+
 
       if(PINPT%efile_type .eq. 'vasp') then
         call read_energy_vasp(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
@@ -597,37 +633,66 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
         call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
       endif
 
+      if(PINPT%flag_fit_degeneracy) then
+        call get_degeneracy(EDFT%E, EDFT%D, PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint, PINPT)
+        do i=1, PWGHT%ndegenw
+          PINPT%max_len_strip_kp =max(len_trim(PINPT%strip_kp_deg(i)), PINPT%max_len_strip_kp)
+          PINPT%max_len_strip_tb =max(len_trim(PINPT%strip_tb_deg(i)), PINPT%max_len_strip_tb)
+          PINPT%max_len_strip_df =max(len_trim(PINPT%strip_df_deg(i)), PINPT%max_len_strip_df)
+          call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PINPT%strip_kp_deg(i), PINPT%strip_tb_deg(i), &
+                          PINPT%strip_df_deg(i), PINPT%strip_wt_deg(i), PWGHT%DEGENERACY_WT, 2)
+        enddo
+      endif
       if(PINPT%flag_print_only_target ) then
         if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
-                                  'band_structure_DFT.dat')
-        if_main  write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
-        if_main  write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
+                                  'band_structure_DFT.dat',PINPT%flag_get_band_order)
+        write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'         ; write_msg
+        write(message,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'  ; write_msg
         kill_job
       endif
 
     elseif(.not. PWGHT%flag_weight_default) then
       allocate(PWGHT%WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
+      if(PINPT%flag_fit_degeneracy) allocate( PWGHT%DEGENERACY_WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint) )
 
       if(PINPT%efile_type .eq. 'vasp') then
         call read_energy_vasp(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
       else
         call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
       endif
+
       PWGHT%WT(:,:)=0.00001d0 !initialize
+      if(PINPT%flag_fit_degeneracy) PWGHT%DEGENERACY_WT(:,:)=0d0       !initialize
 
       do i=1, PWGHT%nweight
+        PINPT%max_len_strip_kp =max(len_trim(PINPT%strip_kp(i)), PINPT%max_len_strip_kp)
+        PINPT%max_len_strip_tb =max(len_trim(PINPT%strip_tb(i)), PINPT%max_len_strip_tb)
+        PINPT%max_len_strip_df =max(len_trim(PINPT%strip_df(i)), PINPT%max_len_strip_df)
         call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PINPT%strip_kp(i), PINPT%strip_tb(i), &
-                        PINPT%strip_df(i), PINPT%strip_wt(i))
+                        PINPT%strip_df(i), PINPT%strip_wt(i), PWGHT%WT, 1)
       enddo
+
+      if(PINPT%flag_fit_degeneracy) then
+      ! get degeneracy information for DFT target
+        call get_degeneracy(EDFT%E, EDFT%D, PGEOM%neig*PINPT%ispin, PKPTS%nkpoint, PINPT)
+        do i=1, PWGHT%ndegenw
+          PINPT%max_len_strip_kp =max(len_trim(PINPT%strip_kp_deg(i)), PINPT%max_len_strip_kp)
+          PINPT%max_len_strip_tb =max(len_trim(PINPT%strip_tb_deg(i)), PINPT%max_len_strip_tb)
+          PINPT%max_len_strip_df =max(len_trim(PINPT%strip_df_deg(i)), PINPT%max_len_strip_df)
+          call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PINPT%strip_kp_deg(i), PINPT%strip_tb_deg(i), &
+                          PINPT%strip_df_deg(i), PINPT%strip_wt_deg(i), PWGHT%DEGENERACY_WT, 2)
+        enddo
+      endif
+
       ! normalize weight so that their sum to be 1
       !PWGHT%WT = PWGHT%WT / sum(PWGHT%WT)
 
       if(PINPT%flag_print_only_target ) then
         if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
-                                         'band_structure_DFT.dat')
+                                         'band_structure_DFT.dat',PINPT%flag_get_band_order)
 
-        if_main write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'
-        if_main write(6,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'
+        write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'        ; write_msg
+        write(message,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..' ; write_msg
         kill_job
       endif
 
@@ -640,18 +705,23 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
       allocate(PWGHT%PENALTY_ORB(PGEOM%neig*PINPT%ispin,PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
       PWGHT%PENALTY_ORB(:,:,:) = 0.d0 ! initialize
       do i = 1, PWGHT%npenalty_orb
-!write(6,*)"XXX ", i
+        PINPT%max_len_strip_kp =max(len_trim(PINPT%strip_kp_orb(i)), PINPT%max_len_strip_kp)
+        PINPT%max_len_strip_tb =max(len_trim(PINPT%strip_tb_orb(i)), PINPT%max_len_strip_tb)
+        PINPT%max_len_strip_ob =max(len_trim(PINPT%strip_pen_orb(i)),PINPT%max_len_strip_ob)
+        PINPT%max_len_strip_st =max(len_trim(PINPT%strip_site(i)),   PINPT%max_len_strip_st)
         call set_penalty_orb(NN_TABLE, PINPT, PGEOM, PKPTS, PWGHT, PINPT%strip_kp_orb(i), PINPT%strip_tb_orb(i), &
                              PINPT%strip_orb(i), PINPT%strip_site(i), PINPT%strip_pen_orb(i) )
       enddo
     endif
-!stop
+    
+
   elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist .and. flag_read_energy) then
-    if(myid .eq. 0) write(6,'(A,A,A)')'  !WARN! ',trim(PINPT%efilenmu),' does not exist!! Exit...'
+    write(message,'(A,A,A)')'  !WARN! ',trim(PINPT%efilenmu),' does not exist!! Exit...' ; write_msg
     kill_job
 
   elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist .and. .not. flag_read_energy) then
-    if(myid .eq. 0) write(6,'(A)')'  !WARN! TBFIT=.true. but the target data (EFILE) does not specified. Exit...'
+    write(message,'(A)')'  !WARN! TBFIT=.true. but the target data (EFILE) does not specified. Exit...' ; write_msg
+
     kill_job
   endif
 
@@ -687,9 +757,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
         PINPT%fina_erange = PGEOM%neig*PINPT%ispinor
       elseif(PINPT%feast_nemax .ge. 1) then
         if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
-          if_main write(6,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'
-          if_main write(6,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'
-          if_main write(6,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'
+          write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'   ; write_msg
+          write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'           ; write_msg
+          write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'     ; write_msg
           PINPT%nband = PGEOM%neig * PINPT%ispinor
           PINPT%feast_nemax = PINPT%nband
         else
@@ -703,8 +773,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
 
   if(PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
-    if_main write(6,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'
-    if_main write(6,'(A)')'           Exit program...'
+    write(message,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'  ; write_msg
+    write(message,'(A)')'           Exit program...' ; write_msg
     kill_job
   elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
     if(.not. (PRPLT%flag_replot_dos .or. PRPLT%flag_replot_ldos .or. PRPLT%flag_replot_sldos .or. PRPLT%flag_replot_didv)) then
@@ -737,14 +807,127 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   endif
 
   if(.not. PINPT%flag_slater_koster .and. PINPT%flag_use_overlap) then
-    if_main write(6,'(A)')'    !WARN! Construction of overlap matrix is only available within Slakter-Koster method turned on.'
-    if_main write(6,'(A)')'           Set "USE_OVERLAP .FALSE." in your PARAM_FIT.dat file or set "IS_SK .TRUE." and prepare '
-    if_main write(6,'(A)')'           proper parameter set for overlap integrals, for example, o_pps_1_CC, o_sps_1_CC, and etc., to proceed'
-    if_main write(6,'(A)')'           Exit program...'
+    write(message,'(A)')'    !WARN! Construction of overlap matrix is only available within Slakter-Koster method turned on.'              ; write_msg
+    write(message,'(A)')'           Set "USE_OVERLAP .FALSE." in your PARAM_FIT.dat file or set "IS_SK .TRUE." and prepare '    ; write_msg
+    write(message,'(A)')'           proper parameter set for overlap integrals, for example, o_pps_1_CC, o_sps_1_CC, and etc., to proceed' ; write_msg
+    write(message,'(A)')'           Exit program...' ; write_msg
     kill_job
   endif
 
-  if(myid .eq. 0) write(6,*)'---- END READING INPUT FILE ---------------------'
-  if(myid .eq. 0) write(6,*)' '
+  write(message, *)'---- END READING INPUT FILE ---------------------' ; write_msg
+  write(message, *)' ' ; write_msg
+return
+endsubroutine
+
+subroutine rewrite_incar(PINPT, PWGHT)
+   use parameters, only : incar, weight, pid_incar
+   type(incar  ) :: PINPT
+   type(weight ) :: PWGHT
+   integer*4        pid_incar_temp
+   integer*4        i_continue, i_continue_
+   integer*4        l0, i
+   character*256    inputline
+   character*256    inputline_temp
+   character*40     desc_str
+   character*40     fm_wt, fm_ob
+   character*20,external ::   int2str
+   character*132    gnu_command
+   logical          flag_written_weight
+
+   i_continue = 0
+   i_continue_= 0
+   flag_written_weight = .false. 
+
+   write(fm_wt,'( "(A11,A",A,",A9,A",A,",A9,A",A,",A9,A10)" )') trim(ADJUSTL(int2str(PINPT%max_len_strip_kp))),&
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_tb))),&
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_df)))
+   if( PINPT%max_len_strip_ob .gt. 1)then
+     write(fm_ob,'( "(A11,A",A,",A9,A",A,",A9,A",A,",A9,A",A,",A9,A10)" )') &
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_kp))),&
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_tb))),&
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_ob))),&
+                                                              trim(ADJUSTL(int2str(PINPT%max_len_strip_st)))
+   else
+     write(fm_ob,'( "(A11,A10",",A9,A10",",A9,A10",",A9,A10",",A9,A10)" )')
+   endif
+
+   pid_incar_temp = pid_incar + 10
+   open(pid_incar, file='INCAR-TB', status = 'unknown')
+   open(pid_incar_temp, file='__INCAR-TB', status = 'unknown')
+    
+   do while (i_continue .ge. 0)
+     read(pid_incar, '(A)',iostat=i_continue) inputline
+     if(i_continue .lt. 0) exit
+     if(index(inputline,'WEIGHT') .gt. 1 .and. index(inputline,'SET') .ge. 1 .and. &
+        index(inputline,'WEIGHT') .gt. index(inputline,'SET') .and.  &
+        index(adjustl(trim(inputline)),'#') .ne. 1) then 
+ 
+        write(pid_incar_temp,'(A)')trim(inputline)
+
+        ! insert weight info of PFILE to INCAR-TB
+        write(pid_incar_temp,'(3A)')' #  Weight info of PFILE(',trim(PINPT%pfilenm),') is written upon the USE_WEIGHT request'
+        if(PINPT%nweight .ge. 1) then
+          do i = 1, PINPT%nweight
+            write(pid_incar_temp,fm_wt)'    KRANGE ',trim(PINPT%strip_kp(i)), '  TBABND ',trim(PINPT%strip_tb(i)), &
+                                       '  DFTBND ',trim(PINPT%strip_df(i)), '  WEIGHT ',trim(PINPT%strip_wt(i))
+          enddo
+        endif
+        if(PINPT%npenalty_orb .ge. 1) then
+          do i = 1, PINPT%npenalty_orb
+            write(pid_incar_temp,fm_ob)'    KRANGE ',trim(PINPT%strip_kp_orb(i)), '  TBABND ',trim(PINPT%strip_tb_orb(i)), &
+                                       '  ORBT_I ',trim(PINPT%strip_orb(i)),    '  SITE_I ',trim(PINPT%strip_site(i)), &
+                                       '  PENALTY ',trim(PINPT%strip_pen_orb(i))
+          enddo
+        endif
+  
+        write(pid_incar_temp,'(A)')' '
+        write(pid_incar_temp,'(A)')' # The existing weight information was commented out.'
+        i_continue_ = 0
+        do while (i_continue_ .ge. 0) 
+          read(pid_incar,'(A)',iostat=i_continue) inputline
+          read(inputline, *,iostat=i_continue_) desc_str
+          if(trim(desc_str) .eq. 'END') then 
+            i_continue_ = -1
+            write(pid_incar_temp,'(A)')trim(inputline)
+            flag_written_weight = .true.
+          elseif(trim(desc_str) .eq. 'KRANGE') then
+            i_continue_ =  0
+            write(pid_incar_temp,'(2A)')' # ',trim(inputline)
+          endif
+        enddo
+     else
+       write(pid_incar_temp,'(A)')trim(inputline)
+     endif
+   enddo
+   
+   if(.not. flag_written_weight) then
+     write(pid_incar_temp,'(A)')' '
+     write(pid_incar_temp,'(A)')'    SET  WEIGHT'
+     ! insert weight info of PFILE to INCAR-TB
+     write(pid_incar_temp,'(3A)')' #  Weight info of PFILE(',trim(PINPT%pfilenm),') is written upon the USE_WEIGHT request'
+     if(PINPT%nweight .ge. 1) then
+       do i = 1, PINPT%nweight
+         write(pid_incar_temp,fm_wt)'    KRANGE ',trim(PINPT%strip_kp(i)), '  TBABND ',trim(PINPT%strip_tb(i)), &
+                                    '  DFTBND ',trim(PINPT%strip_df(i)), '  WEIGHT ',trim(PINPT%strip_wt(i))
+       enddo
+     endif
+     if(PINPT%npenalty_orb .ge. 1) then
+       do i = 1, PINPT%npenalty_orb
+         write(pid_incar_temp,fm_ob)'    KRANGE ',trim(PINPT%strip_kp_orb(i)), '  TBABND ',trim(PINPT%strip_tb_orb(i)), &
+                                    '  ORBT_I ',trim(PINPT%strip_orb(i)),    '  SITE_I ',trim(PINPT%strip_site(i)), &
+                                    '  PENALTY ',trim(PINPT%strip_pen_orb(i))
+       enddo
+     endif
+     write(pid_incar_temp,'(A)')'    END  WEIGHT'
+   endif
+
+   close(pid_incar)
+   close(pid_incar_temp)
+
+   write(gnu_command, '(A)')'yes | cp INCAR-TB INCAR-TB_pristine' 
+   call execute_command_line(gnu_command, .false.)
+   write(gnu_command, '(A)')'yes | mv -f __INCAR-TB INCAR-TB' 
+   call execute_command_line(gnu_command, .false.)
+
 return
 endsubroutine

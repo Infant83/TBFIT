@@ -5,6 +5,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    use mpi_setup
    use time
    use memory
+   use print_io
    implicit none
    type (incar)   :: PINPT
    type (poscar)  :: PGEOM
@@ -41,11 +42,11 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    character*2   orb(PGEOM%neig)
 
    timer = 'init'
-   spin_index_c(1) = 'up'
+   spin_index_c(1) = 'up' 
    spin_index_c(2) = 'dn'
 
-   if_main write(6,*)' '
-   if_main write(6,'(A)')' *- START PLOTTING: INTEGRATED CHARGE DENSITY (STM MODE)'
+   write(message,*)' ' ; write_msg
+   write(message,'(A)')' *- START PLOTTING: INTEGRATED CHARGE DENSITY (STM MODE)' ; write_msg
    call time_check(t1,t0,timer)
    
    call set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi, &
@@ -159,10 +160,9 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
      enddo stm
 
    call time_check(t1,t0)
-   if_main write(6,*)' '
-   if_main write(6,'(A,F10.4,A)')'   TIME for STM PLOT : ',t1, ' (sec)'
-   if_main write(6,'(A)')'*- END PLOTTING: STM PLOT'
-
+   write(message,*)' ' ; write_msg
+   write(message,'(A,F10.4,A)')'   TIME for STM PLOT : ',t1, ' (sec)' ; write_msg
+   write(message,'(A)')'*- END PLOTTING: STM PLOT' ; write_msg
    return
 endsubroutine
 
@@ -231,6 +231,8 @@ endsubroutine
 
 subroutine print_CHGCAR_stm_head(PINPT, PGEOM, pid_stm_up, pid_stm_dn, istm)
    use parameters, only : incar, poscar
+   use print_io
+   use mpi_setup
    implicit none
    type(incar) :: PINPT
    type(poscar):: PGEOM
@@ -249,7 +251,7 @@ subroutine print_CHGCAR_stm_head(PINPT, PGEOM, pid_stm_up, pid_stm_dn, istm)
          write(c_extension_up, '(A,I2,A)') '-STM-',istm,trim(c_up)
  if_nsp2 write(c_extension_dn, '(A,I2,A)') '-STM-',istm,trim(c_dn)
        elseif(istm .ge. 100) then
-         write(6,*)" !!! TOO MANY STM PLOT REQUESTED !!! NMAX STM = 99"
+         write(message,*)" !!! TOO MANY STM PLOT REQUESTED !!! NMAX STM = 99" ; write_msg
          stop
        endif
  
@@ -367,6 +369,8 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
                                  a1, a2, a3, origin, corb, grid_a1, grid_a2, grid_a3, zeff, nqnum, lqnum, orb)
    use parameters, only : incar, poscar, pid_stm
    use element_info, only: angular
+   use print_io
+   use mpi_setup
    implicit none
    type(incar)  ::  PINPT
    type(poscar) ::  PGEOM
@@ -424,7 +428,7 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
      enddo
    enddo
    if (iorbital .ne. PGEOM%neig) then
-     write(6,'(A,A)')'  !WARNING! iorbital is not same as neig!, please check again. ',func
+     write(message,'(A,A)')'  !WARNING! iorbital is not same as neig!, please check again. ',func ; write_msg
      stop
    endif
 
@@ -440,19 +444,23 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
 endsubroutine
 
 subroutine print_kpoint_index_info_header(stm_neig, nspin, is, ikk, kpoint_reci)
+   use mpi_setup
+   use print_io
    implicit none
    integer*4   nspin, is, ikk
    integer*4   stm_neig(nspin)
    real*8      kpoint_reci(3)
 
    if( (sum(stm_neig(:)) .ge. 1) .and. is .eq. 1) then
-     write(6,'(A,I5,A,3F9.4,A)')"   * K-POINT INDEX :",ikk,' (',kpoint_reci(:),') (reciprocal unit)'
-   endif
+     write(message,'(A,I5,A,3F9.4,A)')"   * K-POINT INDEX :",ikk,' (',kpoint_reci(:),') (reciprocal unit)' ; write_msg
+    endif
 
    return
 endsubroutine
 
 subroutine print_band_index_info_header(stm_neig,stm_erange,nspin, is, nband)
+   use mpi_setup
+   use print_io
    implicit none
    integer*4   nspin, is, nband 
    integer*4   stm_neig(nspin), stm_erange(nband,nspin)
@@ -460,10 +468,11 @@ subroutine print_band_index_info_header(stm_neig,stm_erange,nspin, is, nband)
    if( stm_neig(is) .ge. 1 ) then
 
      if(nspin .eq. 2) then
-       if(is .eq. 1) write(6,'(A,3x,9999I5)')"     -- BAND INDEX : (SPIN-UP)",stm_erange(1:stm_neig(is),is)
-       if(is .eq. 2) write(6,'(A,3x,9999I5)')"     -- BAND INDEX : (SPIN-DN)",stm_erange(1:stm_neig(is),is)
+       if(is .eq. 1) write(message,'(A,3x,9999I5)')"     -- BAND INDEX : (SPIN-UP)",stm_erange(1:stm_neig(is),is)
+       if(is .eq. 2) write(message,'(A,3x,9999I5)')"     -- BAND INDEX : (SPIN-DN)",stm_erange(1:stm_neig(is),is)
+       write_msg
      else
-       write(6,'(A,3x,9999I5)')"     -- BAND INDEX : ",stm_erange(1:stm_neig(is),is)
+       write(message,'(A,3x,9999I5)')"     -- BAND INDEX : ",stm_erange(1:stm_neig(is),is) ; write_msg
      endif
 
    endif

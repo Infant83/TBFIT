@@ -12,6 +12,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
   use MKL_SPBLAS
 #endif
   use time
+  use print_io
   implicit none
   type (incar  ) :: PINPT
   type (hopping) :: NN_TABLE
@@ -108,9 +109,9 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
       if(.not. PINPT%flag_slater_koster) then
         !set up k-dependent SOC in the case of 'cc' orbitals
         call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
-!       if_main write(6,'(A)')'    !WARN! Current version does not support Sparse Matrix '
-!       if_main write(6,'(A)')'           for non-Slater-Koster type Hamiltonian'
-!       if_main write(6,'(A)')'           Exit program...'
+!       write(message,'(A)')'    !WARN! Current version does not support Sparse Matrix '  ; write_msg
+!       write(message,'(A)')'           for non-Slater-Koster type Hamiltonian'  ; write_msg
+!       write(message,'(A)')'           Exit program...'  ; write_msg
 !       kill_job
       endif
 
@@ -242,6 +243,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   use MKL_SPBLAS
 #endif
   use time
+  use print_io
   implicit none
   type (incar  ) :: PINPT
   type (hopping) :: NN_TABLE
@@ -311,9 +313,9 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
       if(.not. PINPT%flag_slater_koster) then 
         !set up k-dependent SOC in the case of 'cc' orbitals
         call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
-!       if_main write(6,'(A)')'    !WARN! Current version does not support Sparse Matrix '
-!       if_main write(6,'(A)')'           for non-Slater-Koster type Hamiltonian'
-!       if_main write(6,'(A)')'           Exit program...'
+!       write(message,'(A)')'    !WARN! Current version does not support Sparse Matrix '  ; write_msg
+!       write(message,'(A)')'           for non-Slater-Koster type Hamiltonian'  ; write_msg
+!       write(message,'(A)')'           Exit program...'  ; write_msg
 !       kill_job
       endif
       
@@ -410,6 +412,7 @@ subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, neig, NN_TABLE, flag
   use phase_factor
   use mpi_setup
   use sparse_tool
+  use print_io
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
@@ -508,8 +511,8 @@ nn_:do nn=1,NN_TABLE%n_neighbor
         IJ(mm) = real(I(mm)) + real(J(mm)) * zi
 
         if(mm .gt. NN_TABLE%n_neighbor*2) then
-          if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*2.'
-          if_main write(6,'(A)')'           Please check "set_ham0_sparse" routine. Exit program...'
+          write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*2.'  ; write_msg
+          write(message,'(A)')'           Please check "set_ham0_sparse" routine. Exit program...'  ; write_msg
           stop
         endif
       endif
@@ -519,8 +522,8 @@ nn_:do nn=1,NN_TABLE%n_neighbor
   enddo nn_
 
   if(mm .eq. 0) then
-    if_main write(6,'(A)')'    !WARN! No non-zero element is found in preparing Hamiltonian H0.'
-    if_main write(6,'(A)')'           Please check your system, input file etc. Exit program...'
+    write(message,'(A)')'    !WARN! No non-zero element is found in preparing Hamiltonian H0.'  ; write_msg
+    write(message,'(A)')'           Please check your system, input file etc. Exit program...'  ; write_msg
     stop
   endif
 
@@ -556,6 +559,7 @@ subroutine set_ham0_sparse(SH0, kpoint, PINPT, neig, NN_TABLE, flag_phase)
   use phase_factor
   use mpi_setup
   use sparse_tool
+  use print_io
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
@@ -641,8 +645,8 @@ nn_:do nn=1,NN_TABLE%n_neighbor
         IJ(mm) = real(I(mm)) + real(J(mm)) * zi
 
         if(mm .gt. NN_TABLE%n_neighbor*2) then
-          if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*2.'
-          if_main write(6,'(A)')'           Please check "set_ham0_sparse" routine. Exit program...'
+          write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*2.'  ; write_msg
+          write(message,'(A)')'           Please check "set_ham0_sparse" routine. Exit program...'  ; write_msg
           stop
         endif
       endif
@@ -652,8 +656,8 @@ nn_:do nn=1,NN_TABLE%n_neighbor
   enddo nn_
 
   if(mm .eq. 0) then
-    if_main write(6,'(A)')'    !WARN! No non-zero element is found in preparing Hamiltonian H0.'
-    if_main write(6,'(A)')'           Please check your system, input file etc. Exit program...'
+    write(message,'(A)')'    !WARN! No non-zero element is found in preparing Hamiltonian H0.'  ; write_msg
+    write(message,'(A)')'           Please check your system, input file etc. Exit program...'  ; write_msg
     stop
   endif
 
@@ -678,6 +682,7 @@ subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
   use parameters, only : zi, hopping, incar, spmat, eta
   use mpi_setup
   use sparse_tool
+  use print_io
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
@@ -720,8 +725,8 @@ subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
             IJ(mm) = real(I(mm))
 
             if(mm .gt. NN_TABLE%n_neighbor*4) then
-              if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
-              if_main write(6,'(A)')'           Please check "set_ham_mag_sparse" routine. Exit program...'
+              write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'  ; write_msg
+              write(message,'(A)')'           Please check "set_ham_mag_sparse" routine. Exit program...'  ; write_msg
               stop
             endif
           endif
@@ -774,8 +779,8 @@ nn_nc:do nn = 1, neig
              IJ(mm) = real(I(mm)) + zi * real(J(mm))
            
             if(mm .gt. NN_TABLE%n_neighbor*4) then
-              if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
-              if_main write(6,'(A)')'           Please check "set_ham_mag_sparse" routine. Exit program...'
+              write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'  ; write_msg
+              write(message,'(A)')'           Please check "set_ham_mag_sparse" routine. Exit program...'  ; write_msg
               stop
             endif
           endif
@@ -814,6 +819,7 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
   use mpi_setup
   use phase_factor
   use get_parameter
+  use print_io
 #ifdef MKL_SPARSE
   use MKL_SPBLAS
 #endif
@@ -893,8 +899,8 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
              Hz(mm) = conjg(Tij_z)
 
             if(mm .gt. NN_TABLE%n_neighbor*4) then
-              if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
-              if_main write(6,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'
+              write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'  ; write_msg
+              write(message,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'  ; write_msg
               stop
             endif
           endif
@@ -1087,6 +1093,7 @@ endsubroutine
 subroutine save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, n_neighbor)
    use parameters, only: zi, eta
    use mpi_setup
+   use print_io
    implicit none
    complex*16   Tij_x, Tij_y, Tij_z
    complex*16   Hx(n_neighbor*2), Hy(n_neighbor*2), Hz(n_neighbor*2), IJ(n_neighbor*2)
@@ -1130,8 +1137,8 @@ subroutine save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, I
       IJ(mm) = real(I(mm)) + real(J(mm)) * zi
 
      if(mm .gt. n_neighbor*4) then
-       if_main write(6,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'
-       if_main write(6,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'
+       write(message,'(A)')'    !WARN! Number of non-zero element NNZ > n_neighbor*4.'  ; write_msg
+       write(message,'(A)')'           Please check "set_ham_soc_sparse" routine. Exit program...'  ; write_msg
        kill_job
      endif
    else

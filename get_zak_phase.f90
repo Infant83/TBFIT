@@ -3,6 +3,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2
    use berry_phase
    use mpi_setup
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -21,7 +22,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    real*8           zak_phase(PINPT%nspin,PINPT_BERRY%zak_nkpath)
    real*8           zak_phase_(PINPT%nspin,PINPT_BERRY%zak_nkpath)
    real*8           kpoint(3,PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkpath)
-   logical          flag_phase, flag_sparse
+   logical          flag_phase, flag_sparse, flag_order
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
@@ -40,6 +41,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #ifdef MPI
    zak_phase_= 0d0
 #endif
+   flag_order= .false. ! it should not be .true.
 
 !  NOTE: MPI parallelism need to be improved, and the memory handling as well.
 
@@ -53,19 +55,19 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    kpoint = PINPT_BERRY%zak_kpoint
    iband  = erange(1)
 
-   if_main write(6,*)''
-   if_main write(6,'(A)')'START: ZAK PHASE EVALUATION'
-   if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_zak_range))
+   write(message,*)'' ; write_msg
+   write(message,'(A)')'START: ZAK PHASE EVALUATION' ; write_msg
+   write(message,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_zak_range)) ; write_msg
 
    do ikpath = 1, nkpath
-     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true.,flag_sparse, .false., flag_phase)
+     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true.,flag_sparse, .false., flag_phase) !, flag_order)
      call set_periodic_gauge(V, G1, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      call get_berry_phase(zak_phase(:,ikpath), kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #else
      call get_berry_phase_det(zak_phase(:,ikpath), kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
-     if_main write(6,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath
+     write(message,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath ; write_msg
    enddo
 
 #ifdef MPI 
@@ -80,7 +82,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
      do ikpath = 1, nkpath-1
        PINPT_BERRY%polarization(is) = PINPT_BERRY%polarization(is) + PINPT_BERRY%zak_phase(is,ikpath) / (nkpath-1)
      enddo
-     if_main write(6,*)" POLARIZATION:", PINPT_BERRY%polarization(is) * area(G1,G2)
+     write(message,*)" POLARIZATION:", PINPT_BERRY%polarization(is) * area(G1,G2) ; write_msg
    enddo
 
 #ifdef MPI
@@ -88,7 +90,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #else
    call cpu_time(time2)
 #endif
-   if_main write(6,'(A,F12.3)')'END: ZAK PHASE EVALUATION. TIME ELAPSED (s) =',time2-time1
+   write(message,'(A,F12.3)')'END: ZAK PHASE EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
 
    return
 endsubroutine

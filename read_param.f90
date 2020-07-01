@@ -1,9 +1,12 @@
 #include "alias.inc"
-subroutine read_param(PINPT, param_const, param_const_nrl)
-   use parameters, only : incar, max_nparam, pid_param
+subroutine read_param(PINPT, PWGHT, param_const, param_const_nrl)
+   use parameters, only : incar, weight, max_nparam, pid_param
+   use read_incar, only : set_weight_factor
    use mpi_setup
+   use print_io
    implicit none
    type(incar ) :: PINPT
+   type(weight) :: PWGHT
    character(*), parameter :: func = 'read_param'
    integer*4       nitems
    integer*4       i, i_dummy, i_dummy2
@@ -18,10 +21,24 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
    external        nitems, flag_number
    integer*4       mpierr
 
+   ! start reading "weight" for fitting if PINPT%flag_use_weight
+   if(PINPT%flag_use_weight) then
+     open(pid_param,FILE=PINPT%pfilenm,status='old',iostat=i_continue)
+     if(i_continue .ne. 0) then
+        write(message,'(A,A,A)')'Unknown error opening file:',trim(PINPT%pfilenm),func ; write_msg
+        kill_job
+     else
+        PINPT%flag_pfile=.true.
+     endif
+     dummy = 'WEIGHT'
+     call set_weight_factor(PINPT, PWGHT, dummy)
+     close(pid_param)
+   endif
+
    ! start reading basic information
    open(pid_param,FILE=PINPT%pfilenm,status='old',iostat=i_continue)
    if(i_continue .ne. 0) then
-      if_main write(6,'(A,A,A)')'Unknown error opening file:',trim(PINPT%pfilenm),func
+      write(message,'(A,A,A)')'Unknown error opening file:',trim(PINPT%pfilenm),func ; write_msg
       kill_job
    else
       PINPT%flag_pfile=.true.
@@ -34,7 +51,9 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
    do
      read(pid_param,'(A)',iostat=i_continue) inputline
      if(i_continue<0) exit               ! end of file reached
-     if(i_continue>0) write(6,*)'Unknown error reading file:',trim(PINPT%pfilenm),func
+     if(i_continue>0) then
+       write(message,*)'Unknown error reading file:',trim(PINPT%pfilenm),func ; write_msg
+     endif
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
@@ -48,7 +67,7 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
    if( i .ne. 0) then
      PINPT%nparam = i
    elseif ( i .eq. 0 ) then
-     if_main write(6,'(A,A,A)')'Error in reading ',trim(PINPT%pfilenm),' file. Empty file'
+     write(message,'(A,A,A)')'Error in reading ',trim(PINPT%pfilenm),' file. Empty file' ; write_msg
      kill_job
    endif
 
@@ -78,7 +97,9 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
    do
      read(pid_param,'(A)',iostat=i_continue) inputline
      if(i_continue<0) exit               ! end of file reached
-     if(i_continue>0) write(6,*)'Unknown error reading file:',trim(PINPT%pfilenm),func
+     if(i_continue>0) then 
+       write(message,*)'Unknown error reading file:',trim(PINPT%pfilenm),func ; write_msg
+     endif
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
@@ -130,12 +151,12 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
          endif
          dummy2= trim(dummy2)
          if(.not.flag_number(dummy2)) then
-           if_main write(6,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msg
            kill_job
          endif
          dummy = trim(dummy)
          if(flag_number(dummy)) then 
-           if_main write(6,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
+           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msg
            kill_job
          endif
          call str2real(dummy2, r_dummy)
@@ -192,12 +213,12 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
              endif
              dummy2= trim(dummy2)
              if(.not.flag_number(dummy2)) then
-               if_main write(6,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE."
+               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
                kill_job
              endif
              dummy = trim(dummy)
              if(flag_number(dummy)) then
-               if_main write(6,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE."
+               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
                kill_job
              endif
              call str2real(dummy2, r_dummy)
@@ -211,16 +232,16 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
            endif
 
          else
-           if_main write(6,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   
-           if_main write(6,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments"
-           if_main write(6,'(A)') "           has been asigned."
+           write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."    ; write_msg
+           write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
+           write(message,'(A)') "           has been asigned." ; write_msg
            kill_job
          endif
 
        else
-         if_main write(6,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   
-         if_main write(6,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments"
-         if_main write(6,'(A)') "           has been asigned."
+         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   ; write_msg
+         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
+         write(message,'(A)') "           has been asigned." ; write_msg
          kill_job
        endif
 
@@ -282,12 +303,12 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
          call set_scale_default(param_const(3,i), PINPT%param_name(i))
          dummy2= trim(dummy2)
          if(.not.flag_number(dummy2)) then 
-           if_main write(6,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE."
+           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
            kill_job
          endif
          dummy = trim(dummy)
          if(flag_number(dummy)) then
-           if_main write(6,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE."
+           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
            kill_job
          endif
          call str2real(dummy2, r_dummy)
@@ -300,9 +321,9 @@ subroutine read_param(PINPT, param_const, param_const_nrl)
          endif
 
        elseif( i_dummy .ge. 4) then
-         if_main write(6,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   
-         if_main write(6,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments"
-         if_main write(6,'(A)') "           has been asigned."
+         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE." ; write_msg
+         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
+         write(message,'(A)') "           has been asigned." ; write_msg
          kill_job
        endif
        param_name = trim(PINPT%param_name(i))
@@ -352,6 +373,7 @@ endsubroutine
 subroutine set_param_const(PINPT,PGEOM)
    use parameters, only : incar, poscar
    use mpi_setup
+   use print_io
    implicit none
    integer*4     i, ii, i_a, i_b
    integer*4     j
@@ -425,7 +447,7 @@ subroutine set_param_const(PINPT,PGEOM)
          enddo
          cycle
        else
-         if(myid .eq. 0) write(6,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...'
+         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msg
          kill_job
        endif
      enddo
@@ -485,7 +507,7 @@ subroutine set_param_const(PINPT,PGEOM)
          enddo
          cycle
        else
-         if(myid .eq. 0) write(6,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...'
+         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msg
          kill_job
        endif
      enddo

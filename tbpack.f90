@@ -21,7 +21,7 @@ subroutine get_fvec2(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, 
   integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1), sumk, sumk1, my_i
   real*8     de2(nband)
   ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
-  ! imode : 2, if ldjac > nparam
+  ! imode : 2, if ldjac > nparam -> usual cases
 
   if(imode .eq. 1) then
     if(PWGHT%flag_weight_default_orb) then
@@ -130,9 +130,10 @@ subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, 
   endif
 return
 endsubroutine
-subroutine get_kpath(PKPTS, PGEOM, kunit)
+subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
   use parameters, only : kpoints, poscar
   use mpi_setup
+  use print_io
   implicit none
   type(kpoints) :: PKPTS
   type(poscar)  :: PGEOM
@@ -140,7 +141,8 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
   real*8           dk(3),dk_(3), dk_reci(3)
   real*8           kdist, enorm
   real*8, allocatable :: PK(:,:), PK_reci(:,:)
-  integer*4        i,ii,ik,iline,ndivk
+  integer*4        i,ii,ik,iline,ndivk, iline_
+  integer*4        idiv_mode
   character*1      kunit
   external         enorm
   a1=PGEOM%a_latt(1:3,1)
@@ -150,8 +152,15 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
 
   ! k-line mode
   if(PKPTS%flag_klinemode) then
-    ndivk=PKPTS%ndiv(1)
-    PKPTS%nkpoint = ndivk * PKPTS%nline
+    if(idiv_mode .eq. 1) then
+      ndivk=PKPTS%ndiv(1)
+      PKPTS%nkpoint = ndivk * PKPTS%nline
+    elseif(idiv_mode .eq. 2) then
+      ndivk=PKPTS%ndiv(1)
+      PKPTS%nkpoint = ndivk * PKPTS%nline + 1
+    elseif(idiv_mode .eq. 3) then
+      PKPTS%nkpoint = sum( PKPTS%ndiv(:) )
+    endif
     allocate( PK(3,PKPTS%nline*2) )
     allocate( PK_reci(3,PKPTS%nline*2) )
     allocate( PKPTS%kpoint(3,PKPTS%nkpoint) )
@@ -167,40 +176,53 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
     ii=0
     kdist = 0.0
     if(trim(PKPTS%k_name(1)) .eq. "G" .or. trim(PKPTS%k_name(1)) .eq. 'g') then
-      if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol \G}','"'
+      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol G}','"'  ; write_msg
     else
-      if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'
+      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'  ; write_msg
     endif
+    iline_ = 0
     do iline=1,PKPTS%nline*2, 2
-      dk_(:)= ( PKPTS%kline(:,iline + 1) - PKPTS%kline(:,iline) ) / (ndivk-1)
+      if(idiv_mode .eq. 1) then
+        dk_(:)= ( PKPTS%kline(:,iline + 1) - PKPTS%kline(:,iline) ) / real(ndivk-1)
+      elseif(idiv_mode .eq. 2) then
+        dk_(:)= ( PKPTS%kline(:,iline + 1) - PKPTS%kline(:,iline) ) / real(ndivk)
+      elseif(idiv_mode .eq. 3) then
+        iline_ = iline_ + 1
+        ndivk = PKPTS%ndiv(iline_)
+        dk_(:)= ( PKPTS%kline(:,iline + 1) - PKPTS%kline(:,iline) ) / real(ndivk-1)
+      endif
       dk(1:3)=dk_(1) * b1(1:3) + dk_(2) * b2(1:3) + dk_(3) * b3(1:3)
       dk_reci(1:3)=dk_(1:3)
 
       if(iline .ge. 1 .and. iline .ne. PKPTS%nline*2-1) then
-        kdist= kdist + enorm(3,dk) * (ndivk-1)
+        if(idiv_mode .eq. 1 .or. idiv_mode .eq. 3) then
+          kdist= kdist + enorm(3,dk) * real(ndivk-1)
+        elseif(idiv_mode .eq. 2) then
+          kdist= kdist + enorm(3,dk) * real(ndivk)
+        endif
         if( (iline-1)/2 + 2 .lt. 10) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            if_main write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
-                                                  ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"','{/Symbol \G}','"'
+            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"','{/Symbol G}','"'  ; write_msg
           else
-            if_main write(6,'(A,I1,A,4x,F10.6,2A,I1,4A)'),'       K',(iline-1)/2 + 2,'= ',kdist, &
-                                                  ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"',trim(PKPTS%k_name(iline+1)),'"'
+            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
           endif
         elseif(iline .lt. 100) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            if_main write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
-                                                  ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"','{/Symbol \G}','"'
+            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"','{/Symbol G}','"'  ; write_msg
           else
-            if_main write(6,'(A,I2,A,4x,F10.6,2A,I2,4A)'),'      K',(iline-1)/2 + 2,'= ',kdist, &
-                                                  ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"',trim(PKPTS%k_name(iline+1)),'"'
+            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
           endif
         endif
       elseif(iline .ge. 1 .and. iline .eq. PKPTS%nline*2-1) then
-        kdist=kdist + enorm(3,dk) * (ndivk-1)
+        if(idiv_mode .eq. 1 .or. idiv_mode .eq. 3) then
+          kdist=kdist + enorm(3,dk) * real(ndivk-1)
+        elseif(idiv_mode .eq. 2) then
+          kdist=kdist + enorm(3,dk) * real(ndivk)
+        endif
         if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-          if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol \G}','"'
+          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol G}','"'  ; write_msg
         else
-          if_main write(6,'(A,A,4x,F10.6,2A,4A)'),'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'
+          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
         endif
       endif
 
@@ -209,21 +231,28 @@ subroutine get_kpath(PKPTS, PGEOM, kunit)
         PKPTS%kpoint(1:3, ii ) = PK(1:3,iline) + dk(1:3)*(ik-1)
         PKPTS%kpoint_reci(1:3, ii ) = PK_reci(1:3,iline) + dk_reci(1:3)*(ik-1)
       enddo    
+      if (idiv_mode .eq. 2 .and. iline .eq. PKPTS%nline*2-1) then
+        ii=ii + 1
+        PKPTS%kpoint(1:3, ii ) = PK(1:3,iline) + dk(1:3)*ndivk
+        PKPTS%kpoint_reci(1:3, ii ) = PK_reci(1:3,iline) + dk_reci(1:3)*ndivk
+      endif
     enddo
-  
+
     do iline=1, PKPTS%nline
       if(iline .eq. 1) then
-        if_main write(6,'(A)',advance='no')' set xtics (KNAME_INIT KINIT,'
+        write(message,'(A)')' set xtics (KNAME_INIT KINIT,' 
       elseif(iline .ge. 2 .and. iline .lt. PKPTS%nline) then
-        if_main write(6,'(A,i0,A,i0,A)',advance='no')' KNAME_',iline,' K',iline,','
+        write(message,'(2A,i0,A,i0,A)')trim(message),' KNAME_',iline,' K',iline,','
       endif
 
       if(iline .eq. PKPTS%nline .and. iline .eq. 1) then
-        if_main write(6,'(A)',advance='yes')' KNAME_END KEND) nomirror'
+        write(message,'(2A)')trim(message), ' KNAME_END KEND) nomirror'
       elseif(iline .eq. PKPTS%nline .and. iline .gt. 1) then
-        if_main write(6,'(A,i0,A,i0,A)',advance='yes')' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
+        write(message,'(2A,i0,A,i0,A)')trim(message),' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
       endif
     enddo
+    write_msg
+
   ! k-grid mode
   elseif(PKPTS%flag_kgridmode) then
 
@@ -410,14 +439,17 @@ return
 endsubroutine
 subroutine get_window(init,fina,inputline,desc_str)
   use mpi_setup
+  use print_io
   implicit none
   integer*4      nitems, i_dummy, mpierr
   external       nitems
-  character*132  inputline, dummy
+  character*132  inputline, dummy, dummy_
   character*40   desc_str, dummy1, dummy2
   real*8         init,fina
 
   call strip_off(inputline, dummy, ' ', '#',0) ! cut off unnecessary comments
+! call strip_off(dummy, dummy_, ' ', '!', 0) ! cut off unecessary comments   
+! dummy_ = dummy 
   if(index(dummy, trim(desc_str)) .ge. 1) then
     inputline = dummy
   endif
@@ -431,24 +463,65 @@ subroutine get_window(init,fina,inputline,desc_str)
     call str2real(dummy1, fina)
   elseif(index(dummy,':') .eq. 0) then
     if(nitems(dummy) .ne. 2) then
-      if_main write(6,'(A)')'    !WARN! Number of items to be read is not equal to 2 in the EWINDOW'
-      if_main write(6,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '
-      if_main write(6,'(A)')'           or                       INIT_E FINA_E (ex, -2 2) '
-      if_main write(6,'(A)')'           Exit program...'
+      write(message,'(A)')'    !WARN! Number of items to be read is not equal to 2 in the EWINDOW'  ; write_msg
+      write(message,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '  ; write_msg
+      write(message,'(A)')'           or                       INIT_E FINA_E (ex, -2 2) '  ; write_msg
+      write(message,'(A)')'           Exit program...'  ; write_msg
       kill_job
     elseif(nitems(dummy) .eq. 2) then
       read(dummy,*) init, fina
     endif
   elseif(index(dummy,':') .eq. 1) then
-      if_main write(6,'(A)')'    !WARN! INIT_ENERGY and FINAL_ENERGY has not been declaired properly.'
-      if_main write(6,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '
-      if_main write(6,'(A)')'           Exit program...'
+      write(message,'(A)')'    !WARN! INIT_ENERGY and FINAL_ENERGY has not been declaired properly.'  ; write_msg
+      write(message,'(A)')'           The correct syntax is -> INIT_E:FINA_E (ex, -2:2) '  ; write_msg
+      write(message,'(A)')'           Exit program...'  ; write_msg
       kill_job
   endif
 
 return
 endsubroutine
+subroutine take_comment(string, strip)
+! comment off from the "string" and return as "strip".
+! take out comment mark only and return remaining part
+   implicit none
+   logical blank
+   character(*) string, strip
+   integer*4    l0, init
 
+   init = -1
+   strip = ''
+   l0 = len_trim(string)
+
+   init = index(string,'#',.FALSE.)
+   if(init .eq. 0) then
+     strip = string
+   elseif(init .ge. 1) then
+     strip = string(init+1:l0)
+   endif
+
+return
+endsubroutine
+subroutine comment_off(string, strip) 
+! comment off from the "string" and return as "strip".
+! take out comment mark only and return remaining part
+   implicit none
+   logical blank
+   character(*) string, strip
+   integer*4    l0, init
+    
+   init = -1
+   strip = ''
+   l0 = len_trim(string)
+
+   init = index(string,'#',.FALSE.)
+   if(init .eq. 0) then
+     strip = string
+   elseif(init .ge. 1) then
+     strip = string(1:init-1)
+   endif
+
+return 
+endsubroutine
 subroutine strip_off (string, strip, strip_a, strip_b, mode)
 !strip   : strip to be extract out of string
 !strip_a : strip_index a   
@@ -595,6 +668,7 @@ subroutine check_empty(inputline,linecount,i,flag_skip)
 
 return
 endsubroutine
+! check number of items in "string" except comments # or !
 function nitems(string)
   implicit none
   logical blank
@@ -604,7 +678,7 @@ function nitems(string)
   l=len_trim(string)
   blank = .true.
   do i=1,l
-   if(string(i:i) .eq. '#') exit
+   if(string(i:i) .eq. '#' .or. string(i:i) .eq. '!') exit
 
    if (blank .and. string(i:i) .ne. ' ' ) then
      blank=.false.
@@ -647,7 +721,15 @@ function int2str(w) result(string)
 
   return
 endfunction
+!subroutine int2str(w,string)
+! implicit none
+! character(*), intent(out) :: string
+! integer*4,    intent(in)  :: w
 
+! write(string,*) w
+
+! return
+!endsubroutine
 subroutine str2int(string,w)
   implicit none
   character(*),intent(in) :: string
@@ -659,6 +741,7 @@ return
 end subroutine
 subroutine str2real(string,w)
   use mpi_setup
+  use print_io
   implicit none
   character(*),intent(in) :: string
   real*8,intent(out)   :: w
@@ -667,7 +750,7 @@ subroutine str2real(string,w)
   read(string,*,iostat=i_number) w
 
   if(i_number .ne. 0) then
-    if_main write(6,'(A)')' !!!! Error !!! "string" cannot be stored in "real" value. str2real. Exit.'
+    write(message,'(A)')' !!!! Error !!! "string" cannot be stored in "real" value. str2real. Exit.'  ; write_msg
     kill_job
   endif
 

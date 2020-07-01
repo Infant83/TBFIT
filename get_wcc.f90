@@ -3,6 +3,7 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2
    use berry_phase
    use mpi_setup
+   use print_io
    implicit none
    type(hopping) :: NN_TABLE
    type(incar)   :: PINPT
@@ -27,7 +28,8 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #endif
    real*8           kpoint(3,PINPT_BERRY%wcc_nkdiv,PINPT_BERRY%wcc_nkpath)
    logical          flag_phase
-   logical          flag_sparse, flag_get_chern, flag_get_chern_spin
+   logical          flag_sparse, flag_get_chern, flag_get_chern_spin, flag_order
+
 
 #ifdef MPI
    if_main time1 = MPI_Wtime()
@@ -35,10 +37,9 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    call cpu_time(time1)
 #endif
 
-   if_main write(6,*)''
-   if_main write(6,'(A)')'START: WCC EVALUATION'
-   if_main write(6,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_wcc_range))
-
+   write(message,*)'' ; write_msg
+   write(message,'(A)')'START: WCC EVALUATION' ; write_msg
+   write(message,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_wcc_range)) ; write_msg
    ! NOTE : The range of WCC will be [0:1] with the unit of lattice vector. 
    !        To get polarization of i direction, you can multiply lattice parameter a_i of i-direction
    !        and electric charge e. See Section II-B of PRB 95, 075146 (2017) for the details.
@@ -59,6 +60,7 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #ifdef MPI
    wcc_= 0d0
 #endif
+   flag_order = .false. ! it should not be .true.
 
    nkdiv  = PINPT_BERRY%wcc_nkdiv
    nkpath = PINPT_BERRY%wcc_nkpath
@@ -70,14 +72,14 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    iband  = erange(1)
 
    do ikpath = 1,  nkpath
-     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase)
+     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase, flag_order)
      if_main call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      if_main call get_berry_phase(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #else
      if_main call get_berry_phase_svd(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
 #endif
-     if_main write(6,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath
+     write(message,'(A,I0,A,I0)')"  STATUS: ",ikpath,' / ',nkpath ; write_msg
    enddo
 
 #ifdef MPI
@@ -115,8 +117,10 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    call cpu_time(time2)
 #endif
    if_main_then
-      if(.not. flag_get_chern) write(6,'(A,I1)')'  Z2 INDEX     =   ',z2_index(:)
-      write(6,'(A,F12.3)')'END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1
+      if(.not. flag_get_chern) then 
+        write(message,'(A,I1)')'  Z2 INDEX     =   ',z2_index(:) ; write_msg
+      endif
+      write(message,'(A,F12.3)')'END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
    if_main_end
    return
 endsubroutine

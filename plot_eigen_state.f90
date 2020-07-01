@@ -5,6 +5,7 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    use mpi_setup
    use time
    use memory
+   use print_io
    implicit none
    type (incar)   :: PINPT
    type (poscar)  :: PGEOM   
@@ -45,11 +46,10 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    call write_info_plot_eig(PINPT)
 
 en:do ie = 1, PINPT%n_eig_print
-     if_main write(6,'(A,I5)')          "   *EIGEN STATE No. : ",PINPT%i_eig_print(ie)
-     if_main write(6,'(A)',ADVANCE='no')"   *    K-POINT No. : "
+     write(message,'(A,I5)')            "   *EIGEN STATE No. : ",PINPT%i_eig_print(ie)  ; write_msg
      iee = PINPT%i_eig_print(ie) - PINPT%init_erange + 1
  kp: do ik = 1, PINPT%n_kpt_print
-       if_main write(6,'(I5)',ADVANCE='no')PINPT%i_kpt_print(ik)
+       write(message,'(A,*(I5))'       )"    **  K-POINT No. : ",PINPT%i_kpt_print(ik)  ; write_msg
        ikk = PINPT%i_kpt_print(ik)    
 
 #ifdef MPI
@@ -61,26 +61,26 @@ en:do ie = 1, PINPT%n_eig_print
        call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
 #else
        if(PINPT%nspin .eq. 1) then
-         V=ETBA%V(:,iee,ikk)
+         V(:,1)=ETBA%V(:,iee,ikk)
        elseif(PINPT%nspin .eq. 2) then
-         V=ETBA%V(:,(/iee,iee+nband/),ikk)
+         V(:,:)=ETBA%V(:,(/iee,iee+PINPT%nband/),ikk)
        endif
 #endif
 
        call print_PARCHG_head(PINPT, PGEOM, ik, ie, pid_chg_up, pid_chg_dn, flag_exist_up, flag_exist_dn)
        if(.not. flag_exist_up .and. .not. flag_exist_dn) then
-         if_main write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " has not been found"
-         if_main write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
-         if_main write(6,'(A)')         "             No result will be written for this K-POINT. Skip.."
+         write(message,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " has not been found"  ; write_msg
+         write(message,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "  ; write_msg
+         write(message,'(A)')         "             No result will be written for this K-POINT. Skip.."  ; write_msg
          cycle kp
        elseif(.not. flag_exist_up .and. flag_exist_dn) then
-         if_main write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-up has not been found"
-         if_main write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
-         if_main write(6,'(A)')         "             Only spin-dn result will be written for this K-POINT. "
+         write(message,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-up has not been found"  ; write_msg
+         write(message,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "  ; write_msg
+         write(message,'(A)')         "             Only spin-dn result will be written for this K-POINT. "  ; write_msg
        elseif(flag_exist_up .and. .not. flag_exist_dn) then
-         if_main write(6,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-dn has not been found"
-         if_main write(6,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "
-         if_main write(6,'(A)')         "             Only spin-up result will be written for this K-POINT. "
+         write(message,'(A)')         "      !WARN! Eigen state No.", PINPT%i_eig_print(ie), " for spin-dn has not been found"  ; write_msg
+         write(message,'(A)')         "             at this K-POINT within [EMIN:EMAX] specified in your EWINDOW tag. "  ; write_msg
+         write(message,'(A)')         "             Only spin-up result will be written for this K-POINT. "  ; write_msg
        endif
        call initialize_psi_r(psi_r_up,psi_r_dn, ngrid,PINPT%ispin, flag_exist_up, flag_exist_dn)
 
@@ -92,7 +92,7 @@ cell_x:do ix = -1,1
   grid_y:do i2=0,ng2-1
   grid_x:do i1=0,ng1-1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
-           call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
+           call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, PINPT%ngrid, a1, a2, a3, i1,i2,i3)
            call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction, zeff, nqnum, lqnum, orb)
            call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
                           flag_exist_up, flag_exist_dn)
@@ -108,16 +108,16 @@ cell_x:do ix = -1,1
                                    flag_exist_up, flag_exist_dn)
 
      enddo kp
-     if_main write(6,'(A)',ADVANCE='yes')" "
+!    write(message,'(A)',ADVANCE='yes')" "  ; write_msg
    enddo en
 
    call time_check(t1,t0)
-   if_main write(6,*)' '
-   if_main write(6,'(A,F10.4,A)')'   TIME for EIGENSTATE PLOT : ',t1, ' (sec)'
+   write(message,*)' '  ; write_msg
+   write(message,'(A,F10.4,A)')'   TIME for EIGENSTATE PLOT : ',t1, ' (sec)'  ; write_msg
    if(PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')' *- END WRITING: EIGENSTATE WAVEFUNCTION'
+     write(message,'(A)')' *- END WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
    elseif(.not. PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')' *- END WRITING: EIGENSTATE CHARGE DENSITY'
+     write(message,'(A)')' *- END WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
    endif
 
 
@@ -451,6 +451,7 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    use parameters, only : incar, poscar, pid_chg
    use element_info, only : angular
    use mpi_setup
+   use print_io
    implicit none
    type(incar)  ::  PINPT
    type(poscar) ::  PGEOM
@@ -471,11 +472,11 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    real*8           grid_d2, grid_a2(0:PINPT%ngrid(2)-1)
    real*8           grid_d3, grid_a3(0:PINPT%ngrid(3)-1)
 
-   write(6,*)' '
+   write(message,*)' '  ; write_msg
    if(PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')' *- START WRITING: EIGENSTATE WAVEFUNCTION'
+     write(message,'(A)')' *- START WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
    elseif(.not. PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')' *- START WRITING: EIGENSTATE CHARGE DENSITY'
+     write(message,'(A)')' *- START WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
    endif
    neig   = PGEOM%neig
    ngrid  = PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3)
@@ -515,7 +516,7 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    enddo
 
    if (iorbital .ne. PGEOM%neig) then
-     if_main write(6,'(A,A)')'  !WARNING! iorbital is not same as neig!, please check again. ',func
+     write(message,'(A,A)')'  !WARNING! iorbital is not same as neig!, please check again. ',func  ; write_msg
      kill_job
    endif
 
@@ -533,20 +534,21 @@ endsubroutine
 subroutine write_info_plot_eig(PINPT)
    use parameters, only : incar
    use mpi_setup
+   use print_io
    implicit none
    type(incar)  ::  PINPT
 
    if(PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')      "  PLOT MODE: WAV_PLOT= .TRUE."
-     if_main write(6,'(A)')      "             The real and imaginary part of wavefunction will be plotted in "
-     if_main write(6,'(A)')      "             separate file with '-real' and '-imag' extension, respectively."
-     if_main write(6,'(A,*(I5))')"             Selected band index: ", PINPT%i_eig_print(1:PINPT%n_eig_print)
-     if_main write(6,'(A,*(I5))')"             Selected   k-points: ", PINPT%i_kpt_print(1:PINPT%n_kpt_print)
+     write(message,'(A)')      "  PLOT MODE: WAV_PLOT= .TRUE."  ; write_msg
+     write(message,'(A)')      "             The real and imaginary part of wavefunction will be plotted in "  ; write_msg
+     write(message,'(A)')      "             separate file with '-real' and '-imag' extension, respectively."  ; write_msg
+     write(message,'(A,*(I5))')"             Selected band index: ", PINPT%i_eig_print(1:PINPT%n_eig_print)  ; write_msg
+     write(message,'(A,*(I5))')"             Selected   k-points: ", PINPT%i_kpt_print(1:PINPT%n_kpt_print)  ; write_msg
    elseif(.not.PINPT%flag_plot_wavefunction) then
-     if_main write(6,'(A)')      "  PLOT MODE: CHG_PLOT= .TRUE."
-     if_main write(6,'(A)')      "             The charge density plot is requested."
-     if_main write(6,'(A,*(I5))')"             Selected band index: ", PINPT%i_eig_print(1:PINPT%n_eig_print)
-     if_main write(6,'(A,*(I5))')"             Selected   k-points: ", PINPT%i_kpt_print(1:PINPT%n_kpt_print)
+     write(message,'(A)')      "  PLOT MODE: CHG_PLOT= .TRUE."  ; write_msg
+     write(message,'(A)')      "             The charge density plot is requested."  ; write_msg
+     write(message,'(A,*(I5))')"             Selected band index: ", PINPT%i_eig_print(1:PINPT%n_eig_print)  ; write_msg
+     write(message,'(A,*(I5))')"             Selected   k-points: ", PINPT%i_kpt_print(1:PINPT%n_kpt_print)  ; write_msg
    endif
 
    return

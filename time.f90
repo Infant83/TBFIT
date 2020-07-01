@@ -1,4 +1,6 @@
+#include "alias.inc"
 module time
+   use print_io
 contains
 
   subroutine time_check(time_elapsed, time_old, init)
@@ -47,6 +49,7 @@ subroutine timestamp (time_step,t)
 !  Modified: 18 May 2013
 !  Author: John Burkardt
 !  Parameters: None
+  use mpi_setup
   implicit none
   character ( len = 8 ) ampm
   integer*4 d
@@ -95,8 +98,10 @@ subroutine timestamp (time_step,t)
     end if
   end if
 
-  write ( *, '(a,2x,i2.2,1x,a,1x,i4,2x,i2,a1,i2.2,a1,i2.2,a1,i3.3,1x,a)' ) &
+  write (message, '(a,2x,i2.2,1x,a,1x,i4,2x,i2,a1,i2.2,a1,i2.2,a1,i3.3,1x,a)' ) &
     trim(time_step), d, trim ( month(m) ), y, h, ':', n, ':', s, '.', mm, trim ( ampm )
+  call write_log(message,3,myid)
+
     call cpu_time(t)
   return
 endsubroutine

@@ -6,6 +6,7 @@ module sparse_tool
 #ifdef MKL_SPARSE
    use ISO_C_BINDING
    use MKL_SPBLAS
+   use print_io
 
    interface
    function MKL_SPARSE_Z_EXPORT_CSR_CF(source,indexing,rows,cols,rows_start,rows_end,col_indx,values) &
@@ -136,9 +137,8 @@ contains
     character(*) func_name 
 
     if(istat .ne. SPARSE_STATUS_SUCCESS) then
-      write(6,'(2A)')  '    !WARN! ERROR OCCURED IN MKL_SPARSE ROUTINES: ', trim(func_name)
-      write(6,'(A,I0)')'           ISTAT = ', istat 
-!     if(istat .gt. 1) stop
+      write(message,'(2A)')  '    !WARN! ERROR OCCURED IN MKL_SPARSE ROUTINES: ', trim(func_name)  ; write_msg
+      write(message,'(A,I0)')'           ISTAT = ', istat   ; write_msg
       stop
     endif
 
@@ -178,13 +178,13 @@ subroutine print_sparse(CSR, sname)
    character(*), optional, intent(in) :: sname
 
    if(present(sname)) then
-     write(6,'(2A)')' Sparse Matrix: ', trim(sname)
+     write(message,'(2A)')' Sparse Matrix: ', trim(sname)  ; write_msg
    endif
 
-   write(6,'(A,*(F4.0,"+i",F4.0))')'VALUES=',CSR%H
-   write(6,'(A,*(I4))')'I=',CSR%I
-   write(6,'(A,*(I4))')'J=',CSR%J
-   write(6,'(A,I4)')'NNZ=',CSR%I(size(CSR%I))-1
+   write(message,'(A,*(F4.0,"+i",F4.0))')'VALUES=',CSR%H  ; write_msg
+   write(message,'(A,*(I4))')'I=',CSR%I  ; write_msg
+   write(message,'(A,*(I4))')'J=',CSR%J  ; write_msg
+   write(message,'(A,I4)')'NNZ=',CSR%I(size(CSR%I))-1  ; write_msg
 
 return
 endsubroutine
@@ -199,13 +199,13 @@ subroutine print_sparse_3(A, I, J, nnz, msize, sname)
    character(*), optional, intent(in) :: sname
 
    if(present(sname)) then
-     write(6,'(2A)')' Sparse Matrix: ', trim(sname)
+     write(message,'(2A)')' Sparse Matrix: ', trim(sname)  ; write_msg
    endif
 
-   write(6,'(A,*(F3.0,"+i",F3.0))')'VALUES=',A
-   write(6,'(A,*(I3))')'I=',I
-   write(6,'(A,*(I3))')'J=',J
-   write(6,'(A,I3)')'NNZ=',I(size(I))-1
+   write(message,'(A,*(F3.0,"+i",F3.0))')'VALUES=',A  ; write_msg
+   write(message,'(A,*(I3))')'I=',I  ; write_msg
+   write(message,'(A,*(I3))')'J=',J  ; write_msg
+   write(message,'(A,I3)')'NNZ=',I(size(I))-1  ; write_msg
 
 return
 endsubroutine
@@ -221,14 +221,14 @@ subroutine print_sparse_4(A, B, E, J, nnz, msize, sname)
    character(*), optional, intent(in) :: sname
 
    if(present(sname)) then
-     write(6,'(2A)')' Sparse Matrix: ', trim(sname)
+     write(message,'(2A)')' Sparse Matrix: ', trim(sname)  ; write_msg
    endif
 
-   write(6,'(A,*(F3.0,"+i",F3.0))')'VALUES=',A
-   write(6,'(A,*(I3))')'B=',B
-   write(6,'(A,*(I3))')'E=',E
-   write(6,'(A,*(I3))')'J=',J
-   write(6,'(A,I3)')'NNZ=',E(size(E))-1
+   write(message,'(A,*(F3.0,"+i",F3.0))')'VALUES=',A  ; write_msg
+   write(message,'(A,*(I3))')'B=',B  ; write_msg
+   write(message,'(A,*(I3))')'E=',E  ; write_msg
+   write(message,'(A,*(I3))')'J=',J  ; write_msg
+   write(message,'(A,I3)')'NNZ=',E(size(E))-1  ; write_msg
 
 return
 endsubroutine

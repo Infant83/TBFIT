@@ -1,6 +1,6 @@
 #include "alias.inc"
 module mpi_setup
-
+   use print_io
 #ifdef MPI
    use mpi_basics
 #if SCALAPACK 
@@ -40,13 +40,14 @@ module mpi_setup
 
 !!!!!!! start if_def MPI
 #ifdef MPI
-   subroutine mpi_initialize()
+   subroutine mpi_initialize(fnamelog)
      implicit none
      integer*4  mpierr
 #ifdef SCALAPACK
      integer*4  CONTEXT
 #endif
-    
+     character*40 fnamelog
+
      call MPI_INIT(mpierr)
 
      flag_use_mpi = .false.
@@ -69,10 +70,10 @@ module mpi_setup
      mpi_comm_earth = MPI_COMM_WORLD
      call get_my_task()
 
-     if(flag_use_mpi .and. myid .eq. 0) then
-       write(6,'(A,I0,A)') " MPI-parallelism will be employed. Running on ", &
-                           nprocs," total cores."
-     endif
+     call open_log(fnamelog, myid)
+
+     write(message,'(A,I0,A)')"#MPI-parallelism will be employed. Running on ", nprocs," total cores." 
+     call write_log(message,3,myid)
 
 #ifdef SCALAPACK
      call mpi_division()
@@ -110,8 +111,7 @@ module mpi_setup
 
      call mpi_divide(COMM_EARTH, COMM_ASIA)
 
-     if_main write(6,'(A,2(I0,A))')' Each k-point on ', COMM_ASIA%nprocs, &
-                                   ' cores, ',COMM_EARTh%npar,' groups.'
+     write(message,'(A,2(I0,A))')' Each k-point on ', COMM_ASIA%nprocs, ' cores, ',COMM_EARTh%npar,' groups.' ; write_msg
      return
    endsubroutine
 
@@ -122,19 +122,21 @@ module mpi_setup
 
      call MPI_COMM_RANK(COMM%mpi_comm, COMM%myid, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
-       write(6,'(A)')' Error in MPI_COMM_RANK : mpi_init_comm'
+       write(message,'(A)')' Error in MPI_COMM_RANK : mpi_init_comm' ; write_msg
        kill_job
      endif
      call MPI_COMM_SIZE(COMM%mpi_comm, COMM%nprocs, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
-       write(6,'(A)')' Error in MPI_COMM_SIZE : mpi_init_comm'
+       write(message,'(A)')' Error in MPI_COMM_SIZE : mpi_init_comm' ; write_msg
+
        kill_job
      endif
 
      call MPI_BARRIER(COMM%mpi_comm, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
-       write(6,'(A)')' Error in MPI_BARRIER : mpi_init_comm'
+       write(message,'(A)')' Error in MPI_BARRIER : mpi_init_comm' ; write_msg
        kill_job
+
      endif
 
      return
@@ -165,8 +167,7 @@ module mpi_setup
                         MPI_INTEGER4, COMM_EARTH%mpi_comm, mpierr)
 
      if(mpierr .ne. 0) then
-       if_main write(6,'(A,I0,A)')' ERROR ALLGATHER in "proc_map" (error code= ', &
-                                  mpierr,' )'
+       write(message,'(A,I0,A)')' ERROR ALLGATHER in "proc_map" (error code= ', mpierr,' )' ; write_msg
      endif
 
      k = 1
@@ -177,13 +178,6 @@ module mpi_setup
        enddo
      enddo
 
-!    do j = 1, npcol
-!      k
-!      do i = 1, nprow
-!        imap(i,j) = id_blacs(k)
-!      enddo
-!    enddo
-
      call MPI_BARRIER(COMM_EARTH%mpi_comm, mpierr)
      call BLACS_GRIDEXIT(CONTEXT_)
 
@@ -191,8 +185,6 @@ module mpi_setup
      CONTEXT = COMM_EARTH%mpi_comm
      call BLACS_GRIDMAP( CONTEXT, imap, nprow, nprow, npcol)
      call BLACS_GRIDINFO( CONTEXT, nprow, npcol, myrow, mycol)
-!write(6,*)"XXX ",myid, CONTEXT, myrow, mycol
-!kill_job
      return
    endsubroutine
 
@@ -205,7 +197,7 @@ module mpi_setup
      type(mpicomm) :: COMM_EARTH, COMM_MARS, COMM_ASIA
 
      if(COMM_EARTH%npar > COMM_EARTH%nprocs) then 
-       if_main write(6,'(A)')' Error in mpi_divide: NPAR >= NPROCS'
+       write(message, '(A)')' Error in mpi_divide: NPAR >= NPROCS' ; write_msg
        kill_job
      endif
 
@@ -217,10 +209,8 @@ module mpi_setup
      COMM_EARTH%dims(2) = COMM_EARTH%nprocs / COMM_EARTH%npar
 
      if(COMM_EARTH%dims(1) * COMM_EARTH%dims(2) .ne. COMM_EARTH%nprocs) then
-       if_main write(6,'(A,I0,A,I0)') &
-                 " mpi_divide: can't subdivide ",COMM_EARTH%nprocs,' cpus by ', COMM_EARTH%npar
-       if_main write(6,'(A,A,I0,A,I0,A)')' Please check your NPAR setting. Exit...', &
-                                   ' DIM(1:2)= (',COMM_EARTH%dims(1),',', COMM_EARTH%dims(2),')'
+       write(message,'(A,I0,A,I0)') " mpi_divide: can't subdivide ",COMM_EARTH%nprocs,' cpus by ', COMM_EARTH%npar    ; write_msg
+       write(message,'(A,A,I0,A,I0,A)')' Please check your NPAR setting. Exit...', ' DIM(1:2)= (',COMM_EARTH%dims(1),',', COMM_EARTH%dims(2),')' ; write_msg
        kill_job
      endif
      call MPI_CART_CREATE(COMM_EARTH%mpi_comm, ndims,(/COMM_EARTH%dims(1), COMM_EARTH%dims(2)/), &
@@ -241,8 +231,6 @@ module mpi_setup
      call mpi_init_comm(COMM_ASIA) ! generate ASIA%myid, ASIA%nprocs
      COMM_ASIA%dims = COMM_EARTH%dims
      COMM_ASIA%mycoord = COMM_EARTH%mycoord
-!    write(6,*)"XXX ", COMM_ASIA%myid
-!    kill_job
      return
    endsubroutine
 
@@ -266,7 +254,7 @@ module mpi_setup
          read(pid, '(A)', iostat=i_continue) inputline
          if(i_continue < 0) exit
          if(i_continue > 0) then
-           write(6,*)'Unknown error reading file: mpi_division'
+           write(message,'Unknown error reading file: mpi_division' ; write_msg_all
            flag_fail = .true. ; exit
          endif
 
@@ -303,8 +291,8 @@ module mpi_setup
      call MPI_COMM_RANK(mpi_comm_earth, myid, mpierr)
 
      if (mpierr.ne.MPI_SUCCESS) then
-       write(6,'(1X,A)') "* get_my_task() failed"
-       write(6,'(1X,A)') "* Exiting..."
+       write(message,'(1X,A)') "* get_my_task() failed"  ; write_msg_all
+       write(message,'(1X,A)') "* Exiting..."  ; write_msg_all
        stop
      endif
    endsubroutine
@@ -317,8 +305,8 @@ module mpi_setup
      call MPI_GET_PROCESSOR_NAME(name, length, mpierr)
 
      if(mpierr .ne. MPI_SUCCESS) then
-       write(6,'(1X,A)') "* get_my_processor() failed"
-       write(6,'(1X,A)') "* Exiting..."
+       write(message,'(1X,A)') "* get_my_processor() failed" ; write_msg_all
+       write(message,'(1X,A)') "* Exiting..." ; write_msg_all
        stop
      endif
    endsubroutine
@@ -326,8 +314,7 @@ module mpi_setup
    subroutine mpi_finish()
      integer*4  mpierr
 
-     if_main write(6,'(A)') ' MPI-parallelism will be finished. Good luck.'
-
+     write(message,'(A)') ' MPI-parallelism will be finished. Good luck.' ; write_msg
      call MPI_FINALIZE(mpierr)
      stop
    endsubroutine 
@@ -392,25 +379,53 @@ module mpi_setup
 
 subroutine report_job_distribution(flag_stat, ourjob, jobname)
    implicit none
-   integer*4    mpierr
+   integer*4    mpierr, i
    integer*4    ourjob(nprocs)
    logical      flag_stat
-   character(*), optional, intent(in) :: jobname
+   character(len=80), optional, intent(in) :: jobname
 
 
    if(flag_stat) then
      if(present(jobname)) then
-       if_main write(6,'(A,A)')               '       JOB DISTRUBUTION for ',trim(jobname),' :'
+       write(message,'(A,A)')               '       JOB DISTRUBUTION for ',trim(jobname),' :' ; write_msg
      else
-       if_main write(6,'(A)')                 '       JOB DISTRUBUTION :'
+       write(message,'(A)')                 '       JOB DISTRUBUTION :' ; write_msg
      endif
-     call MPI_BARRIER(mpi_comm_earth, mpierr)
-             write(6,'(A,I0,A,I0,A)')         '       ->cpuid(',myid,'): ', ourjob(myid+1),' k-points'
-     call MPI_BARRIER(mpi_comm_earth, mpierr)
+
+     write(message,'(A,I0,A,I0,A)')         '       -> cpuid( ',myid,' ): ', ourjob(myid+1),' k-points'
+#ifdef MPI
+     call MPI_GATHER(message, 2048, MPI_CHARACTER, message_pack, 2048, MPI_CHARACTER, 0, mpi_comm_earth, mpierr)
+#else
+     message_pack(1) = message
+#endif
+     do i = 1, nprocs
+       call write_log(trim(message_pack(i)), 3, myid)
+     enddo
+
    endif
 
    return
 endsubroutine
 
+subroutine report_hostname()
+   implicit none
+   character(len=80) :: myhost
+   integer*4            i, mpierr, len_host
+   character*80         hosts(nprocs), hosts_
+   character*20, external::int2str
 
+   call HOSTNM(myhost)   
+
+#ifdef MPI
+   call MPI_GATHER(myhost, 80, MPI_CHARACTER, hosts, 80, MPI_CHARACTER, 0, mpi_comm_earth, mpierr)
+#else
+   hosts(1) = myhost  
+#endif
+
+   do i = 1, nprocs
+     call write_log('| Executed on  '//trim(myhost)//' : NODE = '//trim(int2str(i-1)),3,myid)
+   enddo
+
+   return
+endsubroutine
 endmodule

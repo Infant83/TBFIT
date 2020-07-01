@@ -2,12 +2,13 @@
 !minor Modified by Hyun-Jung Kim. Dept. of Physics Hanyang Univ.2013,5,1 : radi_R added, bounding box added
 !include shift option, by Hyun-Jung Kim, KIAS 2018.04.09 : shift_nx, shift_ny, shift_nz
 !last update : 2018.05.16 by KHJ
+!last update : 2020.04.21 by KHJ
 
 program poscar2bs
   implicit none
   integer,parameter::matom=129024
   integer,parameter::mtype=16
-  character(len=80)::title,fname,atom_name
+  character(len=80)::title,fname,atom_name, title_
   integer::nx,ny,nz, ishift
   real*8   shift_nx,shift_ny,shift_nz
   character(len=132)::line, desc_str
@@ -31,12 +32,17 @@ program poscar2bs
   real(8),dimension(0:mtype)::radi_R
   real(8),dimension(3,mtype)::color
   real(8),dimension(3)::bcolor
+  real(8)             ::bcolor_type, radi_R_min, radi_RR
   integer::idum, pid_atoms, pid_geom
   real(8)::x_min,x_max,y_min,y_max,z_min,z_max,c_min,c_max
+
+  integer  nitems
+  external nitems
 
   ishift = 0
   pid_atoms = 77
   pid_geom  = 78
+  bcolor_type=0.0 ! default
 
   ! read atoms.d header info.
   open(pid_atoms,file='atoms.d',status='old',form='formatted')
@@ -128,7 +134,13 @@ program poscar2bs
   do i=1,ntype
    read(pid_atoms,*)idum,aname(i),radius(i),color(:,i),radi_R(i)
   end do
-  read(pid_atoms,*)radius(0),bcolor(1:3) !bond width
+  read(pid_atoms,'(A)')title ; backspace(pid_atoms)
+  call take_before_comment(title,title_) ; title = title_
+  if(nitems(title) .eq. 4) then
+    read(pid_atoms,*)radius(0),bcolor(1:3)              !bond width
+  elseif(nitems(title) .eq. 5) then
+    read(pid_atoms,*)radius(0),bcolor(1:3), bcolor_type !bond width
+  endif
   read(pid_atoms,*)ibound                !bounding box factor: 0(off), 1(on)
   if((ibound .gt. 0) .AND. (ibound .lt. 4))then
   read(pid_atoms,*)c_min,c_max
@@ -206,13 +218,32 @@ program poscar2bs
   do itype=1,ntype
     do i=itype,ntype
       !write(*,'("bonds ",2a6," 0.0 3.0 0.1 1.0 1.0 1.0")')aname(itype),aname(i)
+      if(bcolor_type .gt. 0.0d0) then
+        bcolor(1:3) = (color(:,itype) + color(:,i)) * 0.5d0
+        radi_R_min = min(radi_R(itype)*0.30d0, radi_R(i)*0.30d0) ! minimum radius of atom ball
+        if( radius(0) .gt. radi_R_min) then  ! if radi_R_min is narrower then cylinder radii
+          radi_RR = radi_R_min               !    set cylinder radii as radi_R_min
+        else                                 ! if radi_R_min is wider than cylinder radii
+          radi_RR = radius(0)                !    use cylinder radii
+        endif
+      else
+        radi_R_min = min(radi_R(itype)*0.30d0, radi_R(i)*0.30d0) ! minimum radius of atom ball
+        if( radius(0) .gt. radi_R_min) then  ! if radi_R_min is narrower then cylinder radii
+          radi_RR = radi_R_min               !    set cylinder radii as radi_R_min
+        else                                 ! if radi_R_min is wider than cylinder radii
+          radi_RR = radius(0)                !    use cylinder radii
+        endif
+      endif
+
       write(*,'("bonds ",2a6," 0.0 ",2(f9.5,1x),3(f8.4,1x))')&
        aname(itype),aname(i),(radius(itype)+radius(i)),& 
-       radius(0),bcolor(1:3)
+       radi_RR,bcolor(1:3)
+!      radius(0),bcolor(1:3)
       !0.5d0*(color(:,itype)+color(:,i))
       write(9,'("bonds ",2a6," 0.0 ",2(f9.5,1x),3(f8.4,1x))')&
        aname(itype),aname(i),(radius(itype)+radius(i)),&
-       radius(0),bcolor(1:3)
+       radi_RR,bcolor(1:3)
+!      radius(0),bcolor(1:3)
     end do
   end do
 contains
@@ -252,3 +283,46 @@ subroutine gettoken(line,lline,column,tend)
   return
 end subroutine gettoken
 ! vim:shiftwidth=2:smarttab:autoindent:expandtab
+
+function nitems(string)
+  implicit none
+  logical blank
+  integer*4 nitems,l,i
+  character(*),intent(in) :: string
+  nitems=0
+  l=len_trim(string)
+  blank = .true.
+  do i=1,l
+   if(string(i:i) .eq. '#' .or. string(i:i) .eq. '!') exit
+
+   if (blank .and. string(i:i) .ne. ' ' ) then
+     blank=.false.
+     nitems=nitems + 1
+   elseif( .not. blank .and. string(i:i) .eq. ' ') then
+     blank=.true.
+   endif
+  enddo
+  return
+endfunction
+
+subroutine take_before_comment(string, strip)
+! comment off from the "string" and return as "strip".
+   implicit none
+   logical blank
+   character(*) string, strip
+   integer*4    l0, init
+
+   init = -1
+   strip = ''
+   l0 = len_trim(string)
+
+   init = index(string,'#',.FALSE.)
+   if(init .eq. 0) then
+     strip = string
+   elseif(init .ge. 1) then
+     strip = string(1:init-1)
+   endif
+
+return
+endsubroutine
+

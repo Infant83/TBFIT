@@ -3,6 +3,7 @@ subroutine set_ribbon_geom(PINPT)
    use parameters 
    use mpi_setup
    use do_math, only : inv
+   use print_io
    implicit none
    integer*4                 i,i_continue, linecount
    integer*4                 ispec, nspec, natom_spec(100),n_atom_unit, iatom, ld
@@ -25,7 +26,7 @@ subroutine set_ribbon_geom(PINPT)
 
    filenm_unitcell = PINPT%gfilenm 
    write(filenm_ribbon,*)trim(filenm_unitcell),'-ribbon'
-   if_main write(6,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)
+   write(message,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)  ; write_msg
    PINPT%gfilenm = filenm_ribbon
    linecount = 0
 
@@ -37,7 +38,9 @@ subroutine set_ribbon_geom(PINPT)
    do 
      read(pid_geom,'(A)',iostat=i_continue) inputline
      if(i_continue<0) exit               ! end of file reached
-     if(i_continue>0) write(6,*)'Unknown error reading file:',trim(filenm_unitcell),func
+     if(i_continue>0) then
+       write(message,*)'Unknown error reading file:',trim(filenm_unitcell),func ; write_msg
+     endif
      linecount = linecount + 1
      call check_comment(inputline,linecount,i,flag_skip) ; if (flag_skip ) cycle
 
@@ -198,9 +201,9 @@ subroutine set_ribbon_geom(PINPT)
    close(pid_geom_ribbon)
 
    if(PINPT%flag_print_only_ribbon_geom) then
-     if_main write(6,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'
-     if_main write(6,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'
-     if_main write(6,'(A,A,A)')'  !WARN! Exit program...'
+     write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'  ; write_msg
+     write(message,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'  ; write_msg
+     write(message,'(A,A,A)')'  !WARN! Exit program...'  ; write_msg
      kill_job
    endif
 return

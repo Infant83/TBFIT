@@ -3,6 +3,7 @@ module berry_phase
    use do_math
    use mpi_setup
    use sorting
+   use print_io
 
 #ifdef F08
    interface get_berry_phase
@@ -359,9 +360,9 @@ subroutine get_chern_number(chern, polarization, wcc, nspin, nkpath, nerange_tot
    enddo
 
    if(nspin .eq. 2) then
-     if_main write(6,'(A,2I3)')'  Chern number (up, dn) = ',nint(chern(:))
+     write(message,'(A,2I3)')'  Chern number (up, dn) = ',nint(chern(:)) ; write_msg
    elseif(nspin .eq. 1) then
-     if_main write(6,'(A,I3)')'  Chern number = ',nint(chern(1))
+     write(message,'(A,I3)')'  Chern number = ',nint(chern(1)) ; write_msg
    endif
 
    return
@@ -433,7 +434,7 @@ subroutine find_largest_gap(largest_gap, clock_direct, z2_index, wcc, nspin, nkp
      elseif(z2_index(is) .eq.  1) then
        z2_index(is) = 0
      else
-       write(6,*)'  !WARN! Z2 index is not well defined. stop anyway..'
+       write(message,*)'  !WARN! Z2 index is not well defined. stop anyway..' ; write_msg
        stop
      endif
    enddo

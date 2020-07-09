@@ -19,7 +19,7 @@
  GET_BAND .TRUE. 
 #LORDER .TRUE.
 
-    SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+  UNSET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
          FILE_FORMAT         bin         # format of 'band_structure_TBA' bin: formatted | ascii or dat: formatted (default)
         #REPLOT_BAND        .FALSE. wf   # convert band_structure_TBA.bin to band_structure_TBA.replot.dat
          REPLOT_BAND        .TRUE.  no       # convert band_structure_TBA.bin to band_structure_TBA.replot.dat

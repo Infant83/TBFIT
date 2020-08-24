@@ -8,14 +8,16 @@ subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
    integer*4    nvariable
    integer*4    i, j, k, itemp
    integer*4    isort_index(nvariable)
-   real*8       target_variable(nvariable)
+   real*8,intent(in) :: target_variable(nvariable)
    real*8       target_variable_(nvariable)
    real*8       temp
    character*10 sort_mode
 
-   isort_index(1:nvariable) = (/(k, k=1,nvariable)/)
+  !isort_index(1:nvariable) = (/(k, k=1,nvariable)/)
+   do k = 1, nvariable
+     isort_index(k) = k
+   enddo
    target_variable_ = target_variable
-
    select case (sort_mode(1:3))
 
      case('inc','asc')

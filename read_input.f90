@@ -20,6 +20,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   character*132 strip_zak_range
   real*8        enorm
   real*8        param_const(5,max_nparam), param_const_nrl(5,4,max_nparam)
+  real*8        nelect(2)
   character(*), parameter :: func = 'read_input'
   character*40  fname
   logical       flag_kfile_exist, flag_gfile_exist, flag_read_energy, flag_number
@@ -38,6 +39,8 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   type(gainp)   :: PKAIA
   type(replot)  :: PRPLT
 
+  nelect = -1d0
+
   if(.not. PINPT%flag_inputcard_fname_parse) then 
     fname   = 'INCAR-TB'
   elseif(PINPT%flag_inputcard_fname_parse) then
@@ -54,7 +57,11 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%flag_plot_fit=.false.
   PINPT%flag_print_energy_diff = .false.
   PINPT%filenm_gnuplot = 'gnuBAND-TB.gpi' ! default
-  PINPT%flag_print_only_target=.false.
+! if(.not. PINPT%flag_print_only_target) then
+!   PINPT%flag_print_only_target=.false.
+! else
+!   PINPT%flag_print_only_target=.false.
+! endif
   PINPT%flag_print_param=.false.
   PINPT%flag_plot_stm_image = .false.
   PINPT%flag_plot_eigen_state=.false.
@@ -107,6 +114,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
   PINPT%efile_type = 'user'
   PINPT%efile_ef   = 0d0
   PINPT%kline_type = 'vasp' ! default. 'vasp' or 'fleur'
+  PINPT%electronic_temperature = 11.60452251451435653502 ! electronic temp T; default, so that k_B * T = 0.001 eV
+  PINPT%nelect = 0d0 ! default = 0
+  PINPT%flag_get_total_energy = .false.
 #ifdef SPGLIB
   PINPT%flag_spglib = .true.
 #endif
@@ -296,6 +306,7 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
             else
               read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit, PINPT%filenm_gnuplot
             endif
+
           case('PRTDIFF')
             read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
 
@@ -307,10 +318,27 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
           case('LPHASE')
             read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
-            write(message,'(A,L)')' LPHASE: ',PINPT%flag_phase ; write_msg
+            write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msg
 
           case('LORDER')
             call set_band_order(PINPT, inputline)
+
+
+          !## TOTAL ENERGY RELATED TAGS ###########################################################
+          case('LTOTEN')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_get_total_energy
+
+          case('ELTEMP')
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%electronic_temperature
+
+!         case('SMEARING')
+!           read(inputline,*,iostat=i_continue) desc_str, PINPT%dos_smearing
+
+          case('NELECT')
+            read(inputline,*,iostat=i_continue) desc_str, nelect(:)
+            if(nelect(2) .lt. 0d0) nelect(2) = nelect(1)
+
+          !#######################################################################################
 
           !initial energy of the target band
           case('IBAND','FBAND')
@@ -419,6 +447,42 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
         end select
       enddo line
 
+  if(PINPT%flag_get_total_energy) then
+    if(PINPT%nspin .eq. 2) then
+      allocate(PINPT%nelect(2))
+      PINPT%nelect = nelect
+      write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
+      write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
+      write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+
+      if(nelect(1) .lt. 0d0) then
+        write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
+        write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+        kill_job
+       !write(message,'(A)')'           The NELECT will be evaluated based on the current parameters and Fermi level (E_F) which is set to E_F=0' ; write_msg
+      else
+        write(message,'(A,F12.5)')'   NELECT: (up)', PINPT%nelect(1) ; write_msg
+        write(message,'(A,F12.5)')'   NELECT: (dn)', PINPT%nelect(2) ; write_msg
+      endif
+    else
+      allocate(PINPT%nelect(1))
+      PINPT%nelect = nelect(1)
+      write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
+      write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
+      write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+      if(nelect(1) .lt. 0d0) then
+        write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
+        write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+        kill_job
+       !write(message,'(A)')'           The NELECT will be evaluated based on the current parameters and Fermi level (E_F) which is set to E_F=0' ; write_msg
+      else
+        write(message,'(A,F12.5)')'   NELECT: ', PINPT%nelect(1) ; write_msg
+      endif
+    endif
+  else
+    write(message,'(A)')'  L_TOTEN: .FALSE.' ; write_msg
+  endif
+
   if(PINPT%flag_tbfit_parse) then
     PINPT%flag_tbfit = PINPT%flag_tbfit_parse_
   endif
@@ -488,11 +552,14 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
     if(PINPT%flag_set_ribbon) call set_ribbon_geom(PINPT)
     call read_poscar(PINPT, PGEOM, NN_TABLE)
 
+    !set equivalent atom if defined in CONSTRAINT set
+    call set_equiv_atom(PINPT, PGEOM)
+
     !set parameter constraint
     allocate( PINPT%param_const(5,PINPT%nparam) )
-
     !initialize
-     PINPT%param_const(1,:) =param_const(1,1:PINPT%nparam)  ! if gt 0, param is same as i-th parameter 
+     PINPT%param_const(:,0) = 0d0 ! this value should be zero
+     PINPT%param_const(1,:) =param_const(1,1:PINPT%nparam)  ! if gt 0 and it is "i", param is same as i-th parameter 
      PINPT%param_const(2,:) =param_const(2,1:PINPT%nparam)  ! default upper bound 
      PINPT%param_const(3,:) =param_const(3,1:PINPT%nparam)  ! default lower bound
      PINPT%param_const(4,:) =param_const(4,1:PINPT%nparam)  ! if set to 1; fix 
@@ -500,7 +567,9 @@ subroutine read_input(PINPT, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, 
 
     if(PINPT%slater_koster_type .gt. 10) then
       allocate( PINPT%param_const_nrl(5,4,PINPT%nparam) )
-      PINPT%param_const_nrl(1,:,:) =param_const_nrl(1,:,1:PINPT%nparam)  ! if gt 0, param is same as i-th parameter 
+      !initialize
+      PINPT%param_const_nrl(:,:,0) = 0d0 ! this value should be zero
+      PINPT%param_const_nrl(1,:,:) =param_const_nrl(1,:,1:PINPT%nparam)  ! if gt 0 and it is "i", param is same as i-th parameter 
       PINPT%param_const_nrl(2,:,:) =param_const_nrl(2,:,1:PINPT%nparam)  ! default upper bound 
       PINPT%param_const_nrl(3,:,:) =param_const_nrl(3,:,1:PINPT%nparam)  ! default lower bound
       PINPT%param_const_nrl(4,:,:) =param_const_nrl(4,:,1:PINPT%nparam)  ! if set to 1; fix 

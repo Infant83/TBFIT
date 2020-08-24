@@ -275,7 +275,7 @@ sk: select case ( NN_TABLE%p_class(ii) )
           stop
         endif
 
-      case ('sp')
+      case ('sp', 'ps')
         if    (ci_orb(1:1) .eq. 's' .and. cj_orb(1:2) .eq. 'px') then
           tij_sk = l*s
 
@@ -301,7 +301,7 @@ sk: select case ( NN_TABLE%p_class(ii) )
           stop
         endif
 
-      case ('sd')
+      case ('sd', 'ds')
         if    ( (ci_orb(1:1) .eq. 's'   .and. cj_orb(1:3) .eq. 'dz2') .or. &
                 (ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:1) .eq.  's' ) ) then
           tij_sk = (nn-0.5d0*lmp)*s
@@ -329,7 +329,7 @@ sk: select case ( NN_TABLE%p_class(ii) )
           stop
         endif
 
-      case ('pd')
+      case ('pd', 'dp')
         if    (ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dz2' ) then
           tij_sk = l*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*l*nn*p
         elseif(ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:2) .eq. 'px'  ) then
@@ -551,7 +551,8 @@ function f_s(dda_s,d0,d, mode)
    elseif(mode .eq. 3) then
      f_s = (d0/d)**(dda_s)
    elseif(mode .eq. 4) then
-     f_s = Exp( (d0 - d)*dda_s )
+    !f_s = Exp( (d0 - d)*dda_s )
+     f_s = Exp( -abs(dda_s) * (d - d0) )
 !  elseif(mode .eq. 5)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
    endif

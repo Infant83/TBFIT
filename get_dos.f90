@@ -5,6 +5,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    use time
    use memory
    use print_io
+   use do_math, only : fgauss
    implicit none
    type(hopping)           :: NN_TABLE
    type(dos    )           :: PINPT_DOS
@@ -34,8 +35,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    real*8                     rho
    real*8                     a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
    real*8                     b2xb3(3),bzvol,dkv
-   real*8                     fgauss
-   external                   fgauss  
+!  real*8                     fgauss
+!  external                   fgauss  
    character*40               fname_header
    real*8                     time1, time2, time3, time4
    logical                    flag_sparse, flag_exit_dsum
@@ -310,19 +311,19 @@ kp:do ik = 1,  nkpoint
 return
 endsubroutine
 
-function fgauss(sigma, x)
-   use parameters, only : pi, pi2
-   implicit none
-   real*8   sigma,sigma2
-   real*8   x,xx
-   real*8   fgauss
-   xx = x**2
-   sigma2 = sigma**2
+!function fgauss(sigma, x)
+!   use parameters, only : pi, pi2
+!   implicit none
+!   real*8   sigma,sigma2
+!   real*8   x,xx
+!   real*8   fgauss
+!   xx = x**2
+!   sigma2 = sigma**2
+!
+!   fgauss= exp(-0.5d0*xx/sigma2)/(sigma*sqrt(pi2))
 
-   fgauss= exp(-0.5d0*xx/sigma2)/(sigma*sqrt(pi2))
-
-return
-end function
+!return
+!end function
 subroutine get_ensurf_fname_format(i, format_string)
    implicit none
    integer*4    i

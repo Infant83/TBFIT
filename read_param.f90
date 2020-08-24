@@ -76,7 +76,10 @@ subroutine read_param(PINPT, PWGHT, param_const, param_const_nrl)
    allocate( PINPT%param(PINPT%nparam) )
    allocate( PINPT%param_name(PINPT%nparam) )
    allocate( PINPT%param_nsub(PINPT%nparam))
+   
+   PINPT%param(0:PINPT%nparam  ) = 0d0
 
+   param_const(:,0             ) = 0d0
    param_const(1,1:PINPT%nparam) = 0d0  ! is equal to..    !initialize no matter param_const_ is already provided (PFILE is considered in priori)
    param_const(2,1:PINPT%nparam) = 20d0 ! default upper bound
    param_const(3,1:PINPT%nparam) =-20d0 ! default lower bound
@@ -85,6 +88,10 @@ subroutine read_param(PINPT, PWGHT, param_const, param_const_nrl)
    
    if(PINPT%slater_koster_type .gt. 10) then
      allocate( PINPT%param_nrl(PINPT%param_nsub_max,PINPT%nparam) )
+
+     PINPT%param_nrl(:,  0             ) = 0d0
+
+     param_const_nrl(:,:,0             ) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
      param_const_nrl(1,:,1:PINPT%nparam) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
      param_const_nrl(2,:,1:PINPT%nparam) = 1112900d0 ! default upper bound
      param_const_nrl(3,:,1:PINPT%nparam) =-1112900d0 ! default lower bound

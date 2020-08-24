@@ -142,6 +142,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   real*8        actred,delta,diag(nparam_free),dirder,enorm,epsfcn,epsmch,factor
   real*8        fjac(ldjac, nparam_free)
   real*8        fvec(ldjac)
+  real*8        fvec_plain(ldjac)
   real*8        dvec(ldjac)
   real*8        wa4(ldjac)
   real*8        fnorm,fnorm1,fnorm2,fnorm_, ftol,gnorm,gtol,par
@@ -193,7 +194,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
   if(flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin,nkpoint, PINPT)
 
   if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
-  call get_cost_function(fvec  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+  call get_cost_function(fvec  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order, fvec_plain)
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
 
@@ -202,7 +203,8 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
 
   if(flag_write_info) then
     write(message,'(A)')' '  ; write_msg
-    write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
+   !write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
+    write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm, ', (EDFT-ETBA) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
 
 30 continue   !  Beginning of the outer loop.
@@ -324,7 +326,7 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
 
         if(flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin, nkpoint, PINPT)
         if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
-        call get_cost_function(wa4  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+        call get_cost_function(wa4  , ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order, fvec_plain)
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
 
@@ -390,7 +392,8 @@ subroutine lmdif(get_eig, NN_TABLE, kpoint, nkpoint, ldjac, imode, PINPT, PKPTS,
           if(flag_write_info) then
             fnorm2 = abs(fnorm_ - fnorm)/fnorm ! delta fnorm
             write(message,'(A)')' '  ; write_msg
-            write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
+           !write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm  ; write_msg
+            write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm, ', (EDFT-ETBA) = ', enorm ( ldjac , fvec_plain )   ; write_msg
             if_main write(pfileoutnm_temp,'(A,A)')trim(PINPT%pfileoutnm),'_temp'
             if_main call print_param(PINPT,pfileoutnm_temp,.TRUE.)
             fnorm_ = fnorm ! fnorm of previous step
@@ -586,6 +589,7 @@ subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec
   integer*4  ldjac, imode
   real*8     eps,epsfcn,epsmch,h,temp,fjac(ldjac,nparam_free)
   real*8     wa(ldjac), fvec(ldjac)
+  real*8                fvec_plain(ldjac)
   real*8     kpoint(3,nkpoint)
   logical    flag_get_orbital, flag_order_weight, flag_order
   external   get_eig
@@ -611,7 +615,7 @@ subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec
           if(PINPT%flag_fit_degeneracy) call get_degeneracy(ETBA_FIT%E, ETBA_FIT%D, nband*PINPT%nspin, nkpoint, PINPT)
   
           if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
-          call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+          call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order, fvec_plain)
           ! restore param from temp, and calculate derivation fjac from wa and fvec
           PINPT%param_nrl(i,PINPT%iparam_free(j)) = temp
           ii = ii + 1
@@ -631,7 +635,7 @@ subroutine fdjac2 (get_eig, NN_TABLE, ldjac, imode, kpoint, nkpoint, PINPT, fvec
 
       !if(flag_order) call get_ordered_band(ETBA_FIT, nkpoint, neig, iband, nband, PINPT, flag_order_weight, PWGHT) 
       if(flag_order) call update_order(ETBA_FIT%IDX, ETBA_FIT%E, ETBA_FIT%E_ORD, nkpoint, nband, PINPT)
-      call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order)
+      call get_cost_function(wa, ETBA_FIT, EDFT, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode, flag_order, fvec_plain)
 
 !do ii = 1, 10
 !write(6,'(A,F9.4, *(I3))')"KKK ", sum(wa), j,     ETBA_FIT%IDX(1:11,5)

@@ -80,22 +80,34 @@ subroutine get_param_class(PGEOM,iorb,jorb,iatom,jatom,param_class)
 
      case('ss')
        param_class = 'ss'
-     case('sp', 'ps')
+     case('sp'      )
        param_class = 'sp'
-     case('sd', 'ds')
+     case('ps'      )
+       param_class = 'ps'
+     case('sd'      )
        param_class = 'sd'
-     case('sf', 'fs')
+     case('ds'      )
+       param_class = 'ds'
+     case('sf'      )
        param_class = 'sf'
+     case('fs'      )
+       param_class = 'fs'
      case('pp')
        param_class = 'pp'
-     case('pd', 'dp')
+     case('pd'      )
        param_class = 'pd'
-     case('pf', 'fp')
+     case('dp'      )
+       param_class = 'dp'
+     case('pf'      )
        param_class = 'pf'
+     case('fp'      )
+       param_class = 'fp'
      case('dd')
        param_class = 'dd'
-     case('df', 'fd')
+     case('df'      )
        param_class = 'df'
+     case('fd'      )
+       param_class = 'fd'
      case('ff')
        param_class = 'ff'
      case('cc')
@@ -106,6 +118,15 @@ subroutine get_param_class(PGEOM,iorb,jorb,iatom,jatom,param_class)
  
 return
 endsubroutine
+function param_class_rev(param_class)
+   implicit none
+   character*2  param_class
+   character*2  param_class_rev
+
+   param_class_rev=param_class(1:1)//param_class(2:2)
+
+   return
+endfunction
 subroutine get_onsite_param_index(ionsite_param_index, PINPT, ci_orb, cj_orb, c_atom)
    use parameters, only : incar
    use print_io
@@ -135,24 +156,33 @@ subroutine get_onsite_param_index(ionsite_param_index, PINPT, ci_orb, cj_orb, c_
    
 return
 endsubroutine
+!subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
+!                           index_sigma_scale,index_pi_scale,index_delta_scale, &
+!                           PINPT, param_class, nn_class, &
+!                           ci_atom, cj_atom, i_atom, j_atom, &
+!                           ci_site, cj_site, flag_use_site_cindex, flag_use_overlap)
 subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
                             index_sigma_scale,index_pi_scale,index_delta_scale, &
-                            PINPT, param_class, nn_class, ci_atom, cj_atom, i_atom, j_atom, &
+                            PINPT, param_class, nn_class, &
+                            PGEOM, i_atom, j_atom, &
                             ci_site, cj_site, flag_use_site_cindex, flag_use_overlap)
-   use parameters, only : incar
+   use parameters, only : incar, poscar
    implicit none
-   type(incar) :: PINPT
+   type(incar)             ::  PINPT
+   type(poscar)            ::  PGEOM 
    integer*4                   nn_class
+   integer*4                   imode
    integer*4                   i, lia, lja, lp
-   integer*4                   i_atom, j_atom !species order as defined in GFILE
+   integer*4                   i_atom, j_atom ! atom number as appeared in GFILE
    integer*4                   index_sigma,index_pi,index_delta
    integer*4                   index_sigma_scale,index_pi_scale,index_delta_scale
    character*16                cij_pair
    character*2                 param_class
-   character*8, intent(in) ::  ci_atom , cj_atom
+  !character*8, intent(in) ::  ci_atom , cj_atom
+   character*8                 ci_atom , cj_atom
    character*20,intent(in) ::  ci_site , cj_site 
    character*28            ::  ci_atom_, cj_atom_
-   logical      flag_scale, flag_use_site_cindex, flag_use_overlap
+   logical      flag_scale, flag_use_site_cindex, flag_use_overlap, flag_equiv
 
    ! initialize  
    index_sigma       =  0
@@ -161,18 +191,52 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    index_sigma_scale =  0
    index_pi_scale    =  0
    index_delta_scale =  0
+   flag_equiv        =  .false.
+   imode             =  0
+   ci_atom           =  PGEOM%c_spec(PGEOM%spec(i_atom))
+   cj_atom           =  PGEOM%c_spec(PGEOM%spec(j_atom))
+   if( PGEOM%spec_equiv(i_atom) .eq. PGEOM%spec_equiv(j_atom)) flag_equiv = .true.
+
+   if( .not. flag_equiv ) then
+ lp1:do i=1,PGEOM%n_orbital(i_atom)
+       if(param_class(1:1) .eq. PGEOM%c_orbital(i,i_atom)(1:1)) then
+         imode = imode + 1
+         exit lp1 ! exit loop if find orbital 1 in atom i
+       endif
+     enddo lp1
+ lp2:do i=1,PGEOM%n_orbital(i_atom)
+       if(param_class(2:2) .eq. PGEOM%c_orbital(i,i_atom)(1:1)) then
+         imode = imode + 1
+         exit lp2 ! exit loop if find orbital 2 in atom i
+       endif
+     enddo lp2
+ lp3:do i=1,PGEOM%n_orbital(j_atom)
+       if(param_class(1:1) .eq. PGEOM%c_orbital(i,i_atom)(1:1)) then
+         imode = imode + 1
+         exit lp3 ! exit loop if find orbital 1 in atom j
+       endif
+     enddo lp3
+ lp4:do i=1,PGEOM%n_orbital(j_atom)
+       if(param_class(2:2) .eq. PGEOM%c_orbital(i,j_atom)(1:1)) then
+         imode = imode + 1
+         exit lp4 ! exit loop if find orbital 2 in atom j
+       endif
+     enddo lp4
+   else
+     imode = 0
+   endif
 
    if(.not.flag_use_site_cindex) then
 
      flag_scale = .false.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma      , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi         , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta      , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma      , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi         , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta      , flag_use_overlap, imode)
 
      flag_scale = .true. 
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale, flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom, cj_atom, flag_scale, index_sigma_scale, flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom, cj_atom, flag_scale, index_pi_scale   , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom, cj_atom, flag_scale, index_delta_scale, flag_use_overlap, imode)
 
    elseif(flag_use_site_cindex) then
 
@@ -180,14 +244,14 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
      write(cj_atom_,'(A,A)')trim(cj_atom),trim(cj_site)
 
      flag_scale = .false.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma      , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi         , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta      , flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma      , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi         , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta      , flag_use_overlap, imode)
 
      flag_scale = .true.
-     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma_scale, flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi_scale   , flag_use_overlap)
-     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta_scale, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'sigma', nn_class, ci_atom_, cj_atom_, flag_scale, index_sigma_scale, flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'pi'   , nn_class, ci_atom_, cj_atom_, flag_scale, index_pi_scale   , flag_use_overlap, imode)
+     call get_param_name_index(PINPT, param_class, 'delta', nn_class, ci_atom_, cj_atom_, flag_scale, index_delta_scale, flag_use_overlap, imode)
 
    endif
 
@@ -374,28 +438,48 @@ return
 endsubroutine
 
 subroutine get_param_name_index(PINPT, param_class, param_type, nn_class, ci_atom, cj_atom, &
-                                flag_scale, param_index, flag_use_overlap)
+                                flag_scale, param_index, flag_use_overlap, imode)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT
    integer*4      i_atempt
+   integer*4      imode
    integer*4      nn_class
    integer*4      param_index
    character(*),intent(in) ::    ci_atom, cj_atom
    character*2    param_class
-!  character*8    param_type
+   character*2    param_class_
    character(*),intent(in) ::    param_type
    character*40   param_name
    logical        flag_scale, flag_use_overlap
 
-loop:do i_atempt = 0, 1
-       if(i_atempt .eq. 0) call get_param_name(param_name, param_class, trim(param_type), nn_class, &
-                                               ci_atom, cj_atom, flag_scale, flag_use_overlap)
-       if(i_atempt .eq. 1) call get_param_name(param_name, param_class, trim(param_type), nn_class, &
-                                               cj_atom, ci_atom, flag_scale, flag_use_overlap)
+   if(imode .ne. 4) then
+
+loop1:do i_atempt = 0, 1
+       if(i_atempt .eq. 0) call get_param_name(param_name, param_class, trim(param_type), nn_class, ci_atom, cj_atom, flag_scale, flag_use_overlap)
+       if(i_atempt .eq. 1) call get_param_name(param_name, param_class, trim(param_type), nn_class, cj_atom, ci_atom, flag_scale, flag_use_overlap)
        call get_param_index(PINPT, param_name, param_index)
-       if(param_index .gt. 0) exit loop 
-     enddo loop
+       if(param_index .gt. 0) exit loop1 
+     enddo loop1
+
+     if(param_index .eq. 0) then
+       param_class_ = param_class(2:2)//param_class(1:1)
+ loop2:do i_atempt = 0, 1
+         if(i_atempt .eq. 0) call get_param_name(param_name, param_class_, trim(param_type), nn_class, ci_atom, cj_atom, flag_scale, flag_use_overlap)
+         if(i_atempt .eq. 1) call get_param_name(param_name, param_class_, trim(param_type), nn_class, cj_atom, ci_atom, flag_scale, flag_use_overlap)
+         call get_param_index(PINPT, param_name, param_index)
+         if(param_index .gt. 0) exit loop2
+       enddo loop2
+     endif
+   elseif(imode .eq. 4) then
+     call get_param_name(param_name, param_class, trim(param_type), nn_class, ci_atom, cj_atom, flag_scale, flag_use_overlap)
+     call get_param_index(PINPT, param_name, param_index)
+     if(param_index .gt. 0) return
+     param_class_ = param_class(2:2)//param_class(1:1)
+     call get_param_name(param_name, param_class_, trim(param_type), nn_class, cj_atom, ci_atom, flag_scale, flag_use_overlap)
+     call get_param_index(PINPT, param_name, param_index)
+   endif
+
    return
 endsubroutine
 subroutine get_param_index(PINPT, param_name, param_index)

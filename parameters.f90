@@ -231,6 +231,7 @@ module parameters
        logical                       flag_print_proj_sum
 
        logical                       flag_plot_fit
+       logical                       flag_plot
        character*132                 filenm_gnuplot
 
        integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
@@ -242,6 +243,11 @@ module parameters
        logical                       flag_get_band_order   ! flag whether perform band re-ordering by calculating overlap integral
        logical                       flag_get_band_order_print_only ! if true, band re-order will not be performed in the fitting routines
        real*8                        band_order_overlap_cutoff ! cutoff of overlap integral to perform eigenvalue swap : sqrt(2)/2 by default
+
+       logical                       flag_get_total_energy 
+       real*8                        electronic_temperature ! Temperature, default = 0 (K)
+!      real*8                        dos_smearing           ! Broadening factor kT in Fermi-Dirac distribution function ! default = 0.001 eV
+       real*8,      allocatable   :: nelect(:)              ! number of total electrons in the system  (nspin, for up & dn if nspin=2)
   endtype incar
 
   type poscar !PGEOM
@@ -256,7 +262,8 @@ module parameters
        integer*4,   allocatable   :: i_spec(:) ! number of atoms per each species (1:n_spec)
        character*8, allocatable   :: c_spec(:) ! character of species for each species (1:n_spec)
        character*20,allocatable   :: site_cindex(:)  ! site indicator. NOTE: same as site_cindex of NN_TABLE 
-       integer*4,   allocatable   :: spec(:)   ! species information for each atom (1:n_atom). The order of appearance in the POSCAR
+       integer*4,   allocatable   :: spec(:)        ! species information for each atom (1:n_atom). The order of appearance in the POSCAR
+       integer*4,   allocatable   :: spec_equiv(:)  ! species information specifying equivalent atom species
        real*8,      allocatable   :: a_coord(:,:) ! atomic  coordinate (1:3, 1:n_atom) (direct, fractional)
        real*8,      allocatable   :: a_coord_cart(:,:) ! atomic  coordinate (1:3, 1:n_atom) (cartesian)
        real*8,      allocatable   :: o_coord(:,:) ! orbital coordinate (1:3, 1:neig) (direct, fractional)
@@ -340,6 +347,11 @@ module parameters
        integer*4,   allocatable   :: IDX(:,:) ! band index after band re-ordering (valid if LORDER = .TRUE.)
        real*8,      allocatable   :: E_ORD(:,:) ! re-ordered band
        complex*16,  allocatable   :: V_ORD(:,:,:) ! re-ordered eigenvector
+
+       real*8,      allocatable   :: E_BAND(:)  ! band  energy of the system for each spin (nspin) 
+       real*8,      allocatable   :: E_TOT(:)   ! total energy of the system for each spin (nspin)
+       real*8,      allocatable   :: F_OCC(:,:) ! Fermi-dirac occupation function (ispin*nband, nkp)
+       real*8                        E_F        ! Fermi level
   endtype energy
 
   type weight !PWGHT

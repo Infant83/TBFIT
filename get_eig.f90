@@ -36,8 +36,9 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
 
   if(flag_stat) then
     write(message,'(A)') '  ' ; write_msg
-    write(message,'(A)') 'START: BAND STRUCTURE EVALUATION' ; write_msg
+    write(message,'(A)') ' ---- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
   endif
+
   timer = 'init'
   call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
   call report_job_distribution(flag_stat, ourjob)
@@ -119,7 +120,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, E, V, neig, iband, nband, flag_vect
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
 
   if(flag_stat) then
-    write(message,'(A)')'END: BAND STRUCTURE EVALUATION' ; write_msg
+    write(message,'(A)')' ---- END: BAND STRUCTURE EVALUATION -----------' ; write_msg
   endif
 
 return
@@ -334,7 +335,7 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   call time_check(t1, t0)
   if(flag_stat) then
     write(message,*)' ' ; write_msg
-    write(message,'(A,F12.6)')"TIME for EIGENVALUE SOLVE (s)", t1 ; write_msg
+    write(message,'(A,F12.6)')"   TIME for EIGENVALUE SOLVE (s)", t1 ; write_msg
   endif
   if(allocated(EE%E)) deallocate(EE%E)
   if(allocated(EE%V)) deallocate(EE%V)
@@ -519,6 +520,7 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase, flag_set_
       endif
     endif
     if(.not. flag_set_overlap) then
+
       if(i .eq. j .and. NN_TABLE%Dij(nn) <= tol) then
         if(PINPT%slater_koster_type .gt. 10) then
           if(nint(PINPT%param_const_nrl(4,1,NN_TABLE%local_U_param_index(i))) .ge. 1) then
@@ -531,6 +533,7 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase, flag_set_
             H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(i)))
           else
             H(i,j) = H(i,j) + Eij + NN_TABLE%local_charge(i)*PINPT%param((NN_TABLE%local_U_param_index(i)))
+
           endif
         endif
 
@@ -551,7 +554,6 @@ subroutine set_ham0(H, kpoint, PINPT, neig, NN_TABLE, FIJ, flag_phase, flag_set_
         H(j,i) = H(j,i) + conjg(Eij)
       endif
     endif
-
   enddo
 
 return
@@ -820,6 +822,9 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    type (poscar)  :: PGEOM       ! parameters for geometry info
    type (kpoints) :: PKPTS       ! parameters for kpoints
    ! nband : number of eigenvalues to be stored for each spin
+   !         = PGEOM%neig*PINPT%ispinor  (if .not. PINPT%flag_erange, default)
+   !         = PINPT%feast_nemax (if EWINDOW tag is on and nemax is smaller than PGEOM%neig*PINPT%ispinor)
+   !         = PINPT%fina_erange - PINPT%init_erange + 1 ( if PINPT%flag_erange)
    ! neig  : number of orbital basis
    ! nspin : 2 for collinear 1 for non-collinear
    ! ispin : 2 for collinear 2 for non-collinear
@@ -835,6 +840,12 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
      allocate(ETBA%V_ORD(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
    endif
 
+   if(PINPT%flag_get_total_energy) then
+     allocate(ETBA%F_OCC(PINPT%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%E_BAND(PINPT%nspin))
+     allocate(ETBA%E_TOT (PINPT%nspin))
+    !allocate(PINPT%nelect(PINPT%nspin))
+   endif
 return
 endsubroutine
 
@@ -845,7 +856,7 @@ subroutine initialize_eig_status(ii, iadd, stat, nkpoint)
    character*100 stat
    integer*4     iadd, ii, nkpoint
   
-   stat = '****************************************************************************************************'
+   stat = '   ******************************************'
    write(message,'(A)')stat ; write_msg
    if(nkpoint .le. 25) then
      iadd=10

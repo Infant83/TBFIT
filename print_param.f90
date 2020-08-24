@@ -2,11 +2,13 @@ subroutine print_param (PINPT, title, flag_print_param)
   use parameters, only : incar
   use print_io
   implicit none
-  integer*4 i,j,k,pid_param_new
-  integer*4 nsub, im
+  type (incar)       :: PINPT
+  integer*4             i,j,k,pid_param_new
+  integer*4             nsub, im, i_fix
   character ( len = * ) title
+  character ( len = 40) param_name
+  real*8                param(PINPT%param_nsub_max)
   logical flag_print_param
-  type (incar)   :: PINPT
   character*40   fm_wt, fm_ob
   character*20,external ::   int2str
   write(fm_wt,'( "(A9,A",A,",A9,A",A,",A9,A",A,",A9,A10)" )') trim(ADJUSTL(int2str(PINPT%max_len_strip_kp))),&
@@ -85,81 +87,9 @@ subroutine print_param (PINPT, title, flag_print_param)
   im=im+1; write(message_pack(im), '(A)') ' '
 
   do i = 1, PINPT%nparam
-    if(PINPT%slater_koster_type .gt. 10) then
-      k = nint(PINPT%param_const_nrl(1,1,i))
-      nsub = PINPT%param_nsub(i)
-      if( k .eq. 0) then ! if do not have pair
-        if( nint(PINPT%param_const_nrl(4,1,i)) .eq. 1) then ! if fixed
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,*(2x,F20.8))') trim(PINPT%param_name(i)), PINPT%param_const_nrl(5,1:nsub,i)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  Fixed'
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,*(2x,F20.8))') i, trim(PINPT%param_name(i)), PINPT%param_const_nrl(5,1:nsub,i)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  Fixed'
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,*(2x,F20.8))') trim(PINPT%param_name(i)), PINPT%param_nrl(1:nsub,i)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  '
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,*(2x,F20.8))') i, trim(PINPT%param_name(i)), PINPT%param_nrl(1:nsub,i)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  '
-          endif
-        endif
-      elseif( k .ge. 1) then
-        if( nint( PINPT%param_const_nrl(4,1,k) ) .eq. 1) then
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,*(2x,F20.8))') trim(PINPT%param_name(i)), PINPT%param_const_nrl(5,1:nsub,k)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  Fixed'
-
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,*(2x,F20.8))') i, trim(PINPT%param_name(i)), PINPT%param_const_nrl(5,1:nsub,k)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  Fixed'
-
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,*(2x,F20.8))') trim(PINPT%param_name(i)), PINPT%param_nrl(1:nsub,k)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  '
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,*(2x,F20.8))') i, trim(PINPT%param_name(i)), PINPT%param_nrl(1:nsub,k)
-                     write(message_pack(im), '(2A)')trim(message_pack(im)),'  '
-          endif
-        endif
-      endif
-
-    else ! if not NRL type hopping 
-
-      if( nint(PINPT%param_const(1,i)) .eq. 0) then ! if do not have pair
-        if( nint(PINPT%param_const(4,i)) .eq. 1) then ! if fixed
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param_const(5,i), '  Fixed'
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param(i),'  '
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param(i),'  '
-          endif
-        endif
-      elseif( nint(PINPT%param_const(1,i)) .ge. 1) then
-        if( nint( PINPT%param_const( 4,nint(PINPT%param_const(1,i)) ) ) .eq. 1) then
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param_const(5,nint(PINPT%param_const(1,i))),'  Fixed'
-          endif
-        else
-          if( .not. PINPT%flag_pfile_index) then
-            im=im+1; write(message_pack(im), '(2x,A20,2x,F16.8,A)' ) trim(PINPT%param_name(i)), PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
-          else
-            im=im+1; write(message_pack(im), '(i6, 2x,A20,2x,F16.8,A)' ) i, trim(PINPT%param_name(i)), PINPT%param( nint(PINPT%param_const(1,i)) ),'  '
-          endif
-        endif
-      endif
-    endif
+    call param_select(PINPT, i, i_fix, param_name, param, nsub)
+    call set_print_message(  i, i_fix, param_name, param, nsub, PINPT%flag_pfile_index, message)
+    im=im+1 ; message_pack(im) = message
   enddo
 
   if(.not. flag_print_param) then 
@@ -171,11 +101,130 @@ subroutine print_param (PINPT, title, flag_print_param)
     if(.not. flag_print_param) then 
       call write_log(trim(message_pack(i)), 3, 0)
     elseif(flag_print_param) then
-      write(pid_param_new,'(A)')trim(message_pack(i))
+      write(pid_param_new,'(A)')trim(message_pack(i))//'  '
     endif
   enddo
 
   if(flag_print_param) close(pid_param_new)
 
+return
+endsubroutine
+
+subroutine param_select (PINPT, i, i_fix, param_name, param, nsub)
+
+   use parameters, only : incar
+   implicit none
+   type (incar)   :: PINPT
+   real*8            param(PINPT%param_nsub_max)
+   character*40      param_name
+   integer*4         k, i, nsub
+   integer*4         i_fix
+   character*80      fmt
+   character*2048    msg
+
+    if(PINPT%slater_koster_type .gt. 10) then
+      k = nint(PINPT%param_const_nrl(1,1,i))
+      nsub = PINPT%param_nsub(i)
+      param_name = trim(PINPT%param_name(i))
+      if( k .eq. 0) then ! if do not have pair
+        i_fix = nint(PINPT%param_const_nrl(4,1,i))
+        if( i_fix .eq. 1) then ! if fixed
+          param      = PINPT%param_const_nrl(5,1:nsub,i)
+        else
+          param      = PINPT%param_nrl(1:nsub,i)
+        endif
+      elseif( k .ge. 1) then
+        i_fix = nint( PINPT%param_const_nrl(4,1,k) )  ! if fixed
+        if( nint( PINPT%param_const_nrl(4,1,k) ) .eq. 1) then
+          param      = PINPT%param_const_nrl(5,1:nsub,k)
+        else
+          param      = PINPT%param_nrl(1:nsub,k)
+        endif
+      endif
+    else ! if not NRL type hopping
+      k = nint(PINPT%param_const(1,i)) ! ! if do not have pair
+      nsub = 1
+      param_name = trim(PINPT%param_name(i))
+      if( k .eq. 0) then ! if do not have pair
+        i_fix = nint(PINPT%param_const(4,i))
+        if( i_fix .eq. 1) then ! if fixed
+          param      = PINPT%param_const(5,i)
+        else
+          param      = PINPT%param(i)
+        endif
+      elseif( k .ge. 1) then ! if have pair
+        i_fix = nint(PINPT%param_const(4,k))
+        if( i_fix .eq. 1) then
+          param      = PINPT%param_const(5,k)
+        else
+          param      = PINPT%param( nint(PINPT%param_const(1,i)) )
+        endif
+      endif
+    endif
+
+    ! applying constraint that monotonic decrease rule
+    if(param_name(1:2) .eq. 's_' .and. PINPT%slater_koster_type .eq. 4) param = abs(param)
+
+return
+endsubroutine
+
+subroutine set_print_param_format(fmt, nsub, flag_index)
+   implicit none
+   character*80  fmt
+   character*10  fmt_
+   character*6   c_index
+   character*11  c_param
+   character*3   c_fix  
+   logical       flag_index
+   integer*4     nsub
+
+   if(flag_index) then
+     c_index = 'i6,2x,'
+   else
+     c_index = '   2x,'
+   endif
+    
+   if(nsub .lt. 1) then
+     c_param = '*(2x,F20.8)'
+   else
+     c_param = '  2x,F20.8 '
+   endif
+
+   write(fmt, '(5A)')'(',trim(c_index),' A20, ', c_param, ' ,A)'
+
+return
+endsubroutine
+
+subroutine set_print_message(i, i_fix, param_name, param, nsub, flag_index, msg)
+
+   implicit none
+   integer*4      i, i_fix, nsub
+   logical        flag_index, flag_fix
+   character*80   fmt
+   character*40   param_name
+   real*8         param(nsub)
+   character*2048 msg 
+
+   if(i_fix .eq. 1) then
+     flag_fix = .true.
+   else
+     flag_fix = .false.
+   endif
+
+   call set_print_param_format(fmt, nsub, flag_index)
+
+   if(flag_index) then
+     if(flag_fix) then
+       write(msg, fmt) i, trim(param_name), param(1:nsub), '       Fixed'
+     else
+       write(msg, fmt) i, trim(param_name), param(1:nsub), '       '
+     endif 
+   else
+     if(flag_fix) then
+       write(msg, fmt)    trim(param_name), param(1:nsub), '       Fixed'
+     else
+       write(msg, fmt)    trim(param_name), param(1:nsub), '       '
+     endif
+  endif
 return
 endsubroutine

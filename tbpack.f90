@@ -852,3 +852,25 @@ FUNCTION str2lowcase( string )
     IF ( n /= 0 ) str2lowcase(i:i) = LOWER_CASE(n:n) 
   END DO 
 END FUNCTION str2lowcase
+
+! return index of original 2D array from reshaped 1D array index from 2D array
+!function idx2Di(idx1D, ni) result(i)
+!   implicit none
+!   integer*4    i, ni
+!   integer*4    idx1D
+!   
+!   i = floor( real(idx1D)/real(ni) ) + 1
+!!  j = mod( idx1D, ni )
+!return
+!endfunction
+!function idx2Dj(idx1D, ni) result(j)
+!  implicit none
+!  integer*4    j, ni 
+!  integer*4    idx1D
+
+!!  i = floor( real(idx1D)/real(ni) ) + 1
+!  j = mod( idx1D, ni )
+!return
+!endfunction
+
+

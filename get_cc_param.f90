@@ -5,6 +5,7 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
    type(hopping) :: NN_TABLE
    integer*4        nn_class
    integer*4        i, lia, lja, lp, ii
+   integer*4        imode
    integer*4        index_custom
    real*8           rij(3), dij, d0
    character*8      ci_atom, cj_atom
@@ -27,6 +28,7 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
    ! initialize
    index_custom = 0  !initialize to zero
    flag_use_overlap = .false. ! set false by default in the current version.
+   imode      = 0
 
    flag_scale = .false.
 
@@ -38,59 +40,59 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
    ! number as the 'parameter_index' 
    if(ci_orb(1:3) .eq. 'cp1' .and. cj_orb(1:3) .eq. 'cp1') then ! nn_hopping parameter set for Bi/Si110 distinguished by 'cp1' orbital name
      if    ( (dij .gt. 11.5) .and. (dij .lt. 11.7) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-x hoping
-       call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      elseif( (dij .gt. 10.8) .and. (dij .lt. 11.1) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-y hoping
-       call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      ! H2
      elseif( (dij .gt.  8.5) .and. (dij .lt.  8.7) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-a hoping
-       call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  7.3) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-b hoping
-       call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      ! H3
      elseif( (dij .gt.  9.3) .and. (dij .lt.  9.6) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-c hoping
-       call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  6.5) .and. (dij .lt.  6.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-d hoping
-       call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      endif
 
    elseif(ci_orb(1:3) .eq. 'cp2' .and. cj_orb(1:3) .eq. 'cp2') then ! nn_hopping parameter set for Bi/Ge110 distinguished by 'cp2' orbital name
      if    ( (dij .gt. 11.9) .and. (dij .lt. 12.3) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-x hoping
-       call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'x', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt. 11.2) .and. (dij .lt. 11.5) .and. (ci_atom(1:lia) .eq. cj_atom(1:lja)) ) then  ! AA-y hoping
-       call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'y', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      ! H2
      elseif( (dij .gt.  8.7) .and. (dij .lt.  9.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-a hoping
-       call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'a', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  7.7) .and. (dij .lt.  7.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-b hoping
-       call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'b', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      ! H3
      elseif( (dij .gt.  9.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-c hoping
-       call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'c', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  6.8) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! AB-d hoping
-       call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'd', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      endif
    endif
 
   ! H2/H3 interface
    if(ci_orb(1:3) .eq. 'cp2' .and. cj_orb(1:3) .eq. 'cp2' .and. index_custom .eq. 0) then  ! for Bi/Ge(110)-H2/H3 interface
      if    ( (dij .gt.  8.7) .and. (dij .lt.  9.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B3-2 hoping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  7.7) .and. (dij .lt.  7.9) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B3-1 hoping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      elseif( (dij .gt.  9.5) .and. (dij .lt.  9.8) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B1/B4-2 hopping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      elseif( (dij .gt.  6.8) .and. (dij .lt.  7.5) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B1/B4-1 hopping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
 
      elseif( (dij .gt. 10.0) .and. (dij .lt. 14.0) .and. (ci_atom(1:lia) .ne. cj_atom(1:lja)) ) then  ! B2/B4-1~4 hopping
-       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+       call get_param_name_index(PINPT, param_class, 'g', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
      endif
    endif
 
@@ -119,9 +121,9 @@ subroutine get_cc_index_set(index_custom, NN_TABLE, ii, PINPT, ci_atom, cj_atom)
 
    ! setup for kane-mele 
    if    ( (dij .gt. 1.3d0) .and. (dij .lt. 1.6d0) ) then
-     call get_param_name_index(PINPT, param_class, 'n', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'n', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
    elseif( (dij .gt. 2.3d0) .and. (dij .lt. 2.6d0) ) then
-     call get_param_name_index(PINPT, param_class, 'm', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap)
+     call get_param_name_index(PINPT, param_class, 'm', nn_class, ci_atom, cj_atom, flag_scale, index_custom, flag_use_overlap, imode)
    endif
 
 

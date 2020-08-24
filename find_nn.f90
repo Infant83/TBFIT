@@ -266,9 +266,14 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                  call get_sk_index_set(index_sigma,index_pi,index_delta, &
                                                        index_sigma_scale,index_pi_scale,index_delta_scale, &
                                                        PINPT, param_class, nn_class, &
-                                                       PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
-                                                       PGEOM%spec(i), PGEOM%spec(j), &
+                                                       PGEOM, i, j, &
                                                        NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .false. )
+!                                call get_sk_index_set(index_sigma,index_pi,index_delta, &
+!                                                      index_sigma_scale,index_pi_scale,index_delta_scale, &
+!                                                      PINPT, param_class, nn_class, &
+!                                                      PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
+!                                                      PGEOM%spec(i), PGEOM%spec(j), &
+!                                                      NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .false. )
                                  NN_TABLE_dummy%sk_index_set(1,nn)  = index_sigma
                                  NN_TABLE_dummy%sk_index_set(2,nn)  = index_pi
                                  NN_TABLE_dummy%sk_index_set(3,nn)  = index_delta 
@@ -278,14 +283,18 @@ subroutine find_nn(PINPT,PGEOM,NN_TABLE)
                                  if(PINPT%slater_koster_type .le. 10) then
                                    NN_TABLE_dummy%tij(nn)             = tij_sk(NN_TABLE_dummy,nn,PINPT,onsite_tol,flag_init,.false.)
                                  endif
-
                                  if(PINPT%flag_use_overlap) then
                                    call get_sk_index_set(index_sigma,index_pi,index_delta, &
                                                          index_sigma_scale,index_pi_scale,index_delta_scale, &
                                                          PINPT, param_class, nn_class, &
-                                                         PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
-                                                         PGEOM%spec(i), PGEOM%spec(j), &
+                                                         PGEOM, i, j, &
                                                          NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .true. )
+!                                  call get_sk_index_set(index_sigma,index_pi,index_delta, &
+!                                                        index_sigma_scale,index_pi_scale,index_delta_scale, &
+!                                                        PINPT, param_class, nn_class, &
+!                                                        PGEOM%c_spec(PGEOM%spec(i)), PGEOM%c_spec(PGEOM%spec(j)), &
+!                                                        PGEOM%spec(i), PGEOM%spec(j), &
+!                                                        NN_TABLE%site_cindex(i), NN_TABLE%site_cindex(j), flag_use_site_cindex, .true. )
                                    NN_TABLE_dummy%sk_index_set(1+add_overlap,nn)  = index_sigma
                                    NN_TABLE_dummy%sk_index_set(2+add_overlap,nn)  = index_pi
                                    NN_TABLE_dummy%sk_index_set(3+add_overlap,nn)  = index_delta
@@ -667,7 +676,7 @@ subroutine print_nn_table(NN_TABLE, PINPT)
  open(pid_nntable, file='hopping.dat', status='unknown')
  if(flag_soc) then
    if(flag_slater_koster) then
-     write(pid_nntable,'(A,A)',ADVANCE='yes')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
+     write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&
                        ' M_I "ORB_I"   M_J "ORB_J"  param_type e_o  sig   pi  del sig_s pi_s del_s  nn_class  t_IJ(eV)   lambda_i   stoner_i'
    elseif(.not. flag_slater_koster) then
      write(pid_nntable,'(A,A)',ADVANCE='no')'#   Iatom Jatom         RIJ(x, y, z)           |RIJ|   |RIJ0|(ang)',&

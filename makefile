@@ -29,14 +29,14 @@
 #                  !!! WARN !!! do not use in the current version: it is upon
 #                               developing stage now.
 #############################################################################
- FC   = mpif90 
- TBBIN= $(HOME)/bin
+#FC   = mpif90 
+ TBBIN= $(HOME)/code/bin
 #
 # MAC-INTEL COMPILE
  OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
  F90    = $(FC) $(OPTIONS)
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
-
+LDFLAGS = "-Wl,-rpath,"
 # LINUX-gfortran COMPILE
 #OPTIONS= #-DMPI
 #F90    = gfortran-mp-8 $(OPTIONS)
@@ -89,7 +89,7 @@ MODULE = print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
 		 parameters.o  element_info.o read_incar.o orbital_wavefunction.o \
 		 kronecker_prod.o phase_factor.o do_math.o print_matrix.o \
          sorting.o berry_phase.o sparse_tool.o pikaia_module.o geodesiclm.o kill.o \
-         get_parameter.o cost_function.o reorder_band.o
+         get_parameter.o cost_function.o reorder_band.o total_energy.o
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
@@ -142,6 +142,8 @@ endif
 .SUFFIXES: .f .f90 
 %.o: %.f90
 	$(F90) $(FFLAG) -c $<
+
+#$(F90) $(FFLAG) -Wl,-rpath,. -c $<
 
 
 #-----------------------------------

@@ -1097,4 +1097,75 @@ function degen(E) result(D)
    return
 endfunction
 
+! gaussian distribution function
+function fgauss(sigma, x)
+   use parameters, only : pi, pi2
+   implicit none
+   real*8   sigma,sigma2
+   real*8   x,xx
+   real*8   fgauss
+   xx = x**2
+   sigma2 = sigma**2
+
+  !fgauss= exp(-0.5d0*xx/sigma2)/(sigma*sqrt(pi2))
+   fgauss= 1d0 / (sigma*sqrt(pi2)) * exp( -xx / (2d0*sigma2) )
+
+return
+end function
+
+! fermi-dirac distribution function
+! k_B=8.6173303d-5  !! Boltzmann constant = 2m/hbar**2 [1/eV Ang^2]   
+elemental real*8 function fdirac(x, u, T)
+   use parameters, only : k_B, eta
+   real*8,intent(in) ::  x ! = e - ef
+   real*8,intent(in) ::  u ! chemical potential 
+   real*8,intent(in) ::  T
+   real*8                kT
+   
+   kT = k_B * (T + eta) ! the small value eta is introduced to avoid the numerical error
+
+   fdirac = 1d0 / ( 1d0 + exp( (x-u) / kT) )
+
+return
+endfunction
+
+! gradient of fermi-dirac distribution function w.r.t. the chemical potential
+elemental real*8 function grad_u_fdirac(x, u, T)
+   use parameters, only : k_B, eta
+   real*8,intent(in) ::  x ! = e - ef
+   real*8,intent(in) ::  u ! chemical potential 
+   real*8,intent(in) ::  T
+   real*8                kT
+
+   ! Note: using the relation cosh(2a) + 1 = 2*cosh(a))**2 and 
+   !       derivative rule with f(x) = 1/(1+exp(x)) -> f' = exp(x)*x' / (1+exp(x))**2,
+   !       grad_u fdirac = grad_u (1 + exp( (x - u) / kT))**-1
+   !                     =        (2*cosh( (e - u)/2kT)**-2
+   !
+
+   kT = k_B * (T + eta) + eta ! the small value eta is introduced to avoid the numerical error
+   grad_u_fdirac = 1d0/ kT / (2d0 * cosh((x - u)/(2d0*kT)))**2
+
+return
+endfunction
+
+
+! return index of original 2D array from reshaped 1D array index from 2D array
+elemental integer*4 function idx2Dj(idx1D, ni)
+   implicit none
+   integer*4,intent(in) :: ni
+   integer*4,intent(in) :: idx1D
+
+   idx2Dj = floor( real(idx1D - 1)/real(ni) ) + 1
+return
+endfunction
+elemental integer*4 function idx2Di(idx1D, ni)
+   implicit none
+   integer*4,intent(in) :: ni
+   integer*4,intent(in) :: idx1D
+
+   idx2Di = mod( idx1D - 1, ni ) + 1
+return
+endfunction
+
 endmodule

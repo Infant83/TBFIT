@@ -225,6 +225,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    use mpi_setup
    use memory
    use print_io
+   use do_math, only : fgauss
    implicit none
    type(incar  )            :: PINPT
    type(poscar )            :: PGEOM
@@ -248,8 +249,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    logical                     flag_replot_dos, flag_replot_ldos, flag_replot_sldos, flag_replot_didv
    logical                     flag_sum
    real*8                      dos_
-   real*8                      fgauss
-   external                    fgauss
+!  real*8                      fgauss
+!  external                    fgauss
    real*8                      a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
    real*8                      b2xb3(3),bzvol,dkv
    integer*4                   ldos_natom, ldos_atom(maxval(PRPLT%replot_ldos_natom(1:PRPLT%replot_nldos_sum)))

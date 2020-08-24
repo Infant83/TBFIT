@@ -102,9 +102,11 @@ line: do
            PGEOM%n_atom=sum ( PGEOM%i_spec(1:PGEOM%n_spec) )
 
            allocate( PGEOM%spec(PGEOM%n_atom) )
+           allocate( PGEOM%spec_equiv(PGEOM%n_atom) )
            do i=1,PGEOM%n_spec
              PGEOM%spec( sum(PGEOM%i_spec(1:i)) -PGEOM%i_spec(i)+1 : sum(PGEOM%i_spec(1:i)) ) = i
            enddo
+           PGEOM%spec_equiv = PGEOM%spec ! initialize. 
 
            write(message,'(A,i8)')'   N_ATOM:',PGEOM%n_atom  ; write_msg
            allocate( PGEOM%a_coord(3,PGEOM%n_atom), &
@@ -658,6 +660,61 @@ subroutine find_spec(spec,ispec,n)
          exit l1   
        endif
      enddo l1
+
+  return
+endsubroutine
+
+subroutine set_equiv_atom(PINPT, PGEOM)
+  use parameters, only: incar, poscar
+  implicit none
+  type (incar )            :: PINPT
+  type (poscar)            :: PGEOM
+  integer*4                   i, ia, ja, ispec, jspec, spec_i, spec_j
+  character*40                dummy1, dummy2
+  character*8                 c_spec_i, c_spec_j
+
+lp1:do i = 1, PINPT%nparam_const
+      if ( trim(PINPT%c_const(2,i)) .eq. '=' ) then
+        dummy1 = trim(PINPT%c_const(3,i))
+        dummy2 = trim(PINPT%c_const(1,i))
+        if(dummy1(1:4) .eq. 'spec' .and. dummy2(1:4) .eq. 'spec') then
+          call strip_off(dummy1, c_spec_i, '_',' ',2)
+          call strip_off(dummy2, c_spec_j, '_',' ',2)
+          spec_i = 0
+      lp2:do ispec = 1, PGEOM%n_spec
+            if( trim(PGEOM%c_spec(ispec)) .eq. trim(c_spec_i) ) then
+              spec_i = ispec
+              exit lp2
+            endif
+          enddo lp2
+
+          if(spec_i .ne. 0) then
+            spec_j = 0
+        lp3:do jspec = 1, PGEOM%n_spec
+              if( trim(PGEOM%c_spec(jspec)) .eq. trim(c_spec_j)) then
+                spec_j = jspec
+                exit lp3
+              endif
+            enddo lp3
+            if(spec_j .ne. 0) then
+          lp4:do ja = 1, PGEOM%n_atom
+                if( PGEOM%spec(ja) .eq. spec_j ) then
+                  PGEOM%spec_equiv(ja) = spec_i
+                endif
+              enddo lp4
+            else 
+              cycle lp1
+            endif ! if spec_j
+          else
+            cycle lp1
+          endif ! if spec_i
+
+        else
+          cycle lp1
+        endif ! if atom
+
+      endif ! if '='
+    enddo lp1
 
   return
 endsubroutine

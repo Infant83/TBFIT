@@ -41,6 +41,7 @@ subroutine parse(PINPT,PKPTS)
    type(kpoints)    :: PKPTS
 
    PINPT%flag_parse       = .false.
+   PINPT%flag_plot        = .false.
    PINPT%flag_tbfit_parse = .false.
    PINPT%flag_tbfit_test  = .false.
    PINPT%flag_kfile_parse = .false.
@@ -52,6 +53,7 @@ subroutine parse(PINPT,PKPTS)
    PINPT%flag_ndiv_line_parse = .false.
    PINPT%flag_ndiv_grid_parse = .false.
    narg = iargc()
+   PINPT%flag_print_only_target = .false.
 
   write(message,*)' '  ; write_msg
   write(message,*)'---- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS ---------------------'  ; write_msg
@@ -85,6 +87,24 @@ subroutine parse(PINPT,PKPTS)
            PINPT%flag_tbfit_parse_ = .FALSE.
            write(message,'(A)')'  L_TBFIT:   .FALSE. (enforce by -nofit option)'  ; write_msg
 
+         elseif(trim(option) .eq. '-np') then
+           PINPT%flag_tbfit_parse  = .true.
+           PINPT%flag_tbfit_parse_ = .FALSE.
+           write(message,'(A)')'  L_TBFIT:   .FALSE. (enforce by -np option)'  ; write_msg
+           PINPT%flag_plot         = .TRUE.
+           write(message,'(A)')'   L_PLOT:   .TRUE. (gnuplot gnuBAND-TB.gpi)'  ; write_msg
+
+         elseif(trim(option) .eq. '-print_only' .or. trim(option) .eq. '-po' .or. trim(option) .eq. '-print_weight') then
+           PINPT%flag_print_only_target = .true.
+           PINPT%flag_tbfit_parse  = .true.
+           PINPT%flag_tbfit_parse_ = .TRUE.
+           write(message,'(A)')'  L_TBFIT:   .TRUE. (enforce by -print_only or equivalent option)'  ; write_msg
+           write(message,'(A)')'        AND  PRINT_ONLY_TARGET requested ...                     '  ; write_msg
+
+         elseif(trim(option) .eq. '-plot' .or. trim(option) .eq. '-pl') then
+           PINPT%flag_plot         = .TRUE.
+           write(message,'(A)')'   L_PLOT:   .TRUE. (gnuplot gnuBAND-TB.gpi)'  ; write_msg
+
          elseif(trim(option) .eq. '-test' .or. trim(option) .eq. '-t') then         
            PINPT%flag_tbfit_parse  = .true.
            PINPT%flag_tbfit_test   = .true.
@@ -110,6 +130,13 @@ subroutine parse(PINPT,PKPTS)
            call getarg(iarg+1, value )
            read(value, *) PKPTS%ndiv(1)
            write(message,'(A,I6)')' N_DIV:',PKPTS%ndiv  ; write_msg
+
+!        elseif(trim(option) .eq. '-command') then
+!          PINPT%flag_parse = .true.
+!          PINPT%flag_tbfit_parse  = .true.
+!          PINPT%flag_tbfit_parse_ = .TRUE.
+!          PINPT%flag_shell_command= .true.
+           
 
          elseif(trim(option) .eq. '-nkp_grid') then
            PINPT%flag_parse = .true.
@@ -216,7 +243,7 @@ subroutine help()
    write(6,'(A)')" "
    write(6,'(A)')" ## POSSIBLE OPTIONS ##"
    write(6,'(A)')"                                 "
-   write(6,'(A)')"   -h            : print help pages"
+   write(6,'(A)')"   -h            : print this help page for command line arguments"
    write(6,'(A)')"                                    "
    write(6,'(A)')"   -log FNAME    : output log will be written in FNAME. Default: TBFIT.out"
    write(6,'(A)')"   -input INP    : enforce to read INP file instead of INCAR-TB for the input card file"
@@ -230,15 +257,17 @@ subroutine help()
    write(6,'(A)')"   -kpoint KF    : enforce to read k-points  file 'KF' in prior to the KFILE tag"
    write(6,'(A)')"   -nkp_line nkp : enforce to set number of division between k-path"
    write(6,'(A)')"   -nkp_grid nk1 nk2 nk3 : enforce to set number of division (nk1, nk2, nk3) in the k-grid mode"
-   write(6,'(A)')"   -lorbit       : enforce    to print orbital information"
-   write(6,'(A)')"       .true.  or T : enforce    to print orbital information"
+   write(6,'(A)')"   -lorbit       : enforce to print orbital information"
+   write(6,'(A)')"       .true.  or T : enforce to print orbital information"
    write(6,'(A)')"       .false. or F : enforce not to print orbital information"
-   write(6,'(A)')"           mx    : enforce     to print magnetization mx " 
-   write(6,'(A)')"           my    : enforce     to print magnetization mz " 
-   write(6,'(A)')"           mz    : enforce     to print magnetization mz " 
-   write(6,'(A)')"   -ldos .true.  or T : enforce    to print orbital information for each atom in separate file"
+   write(6,'(A)')"           mx    : enforce to print magnetization mx " 
+   write(6,'(A)')"           my    : enforce to print magnetization mz " 
+   write(6,'(A)')"           mz    : enforce to print magnetization mz " 
+   write(6,'(A)')"   -ldos .true.  or T : enforce to print orbital information for each atom in separate file"
    write(6,'(A)')"         .false. or F : enforce not to print orbital information"
-   write(6,'(A)')"   -test         : run test routine"
+   write(6,'(A)')"   -plot         : run gnuplot script after calculation with 'gnuplot gnuBAND-TB.gpi' "
+   write(6,'(A)')"   -np           : same as ' -nofit + -plot ' option applied "
+   write(6,'(A)')"   -test         : run test routine, for the development perpose only."
    stop
 
    return

@@ -14,10 +14,12 @@ program tbfit
   use version
   use reorder_band
   use print_io
+  use total_energy
   implicit none
   external  get_eig
   real*8    t_start,t_end
   integer*4         mpierr
+  character*132     gnu_command
   type (incar)   :: PINPT       ! parameters for input arguments
   type (dos)     :: PINPT_DOS   ! parameters for density of states calculation
   type (berry)   :: PINPT_BERRY ! parameters for berry phase related quantity calculation
@@ -36,7 +38,6 @@ program tbfit
 #else
   call open_log(PINPT%fnamelog,myid)
 #endif
-
   call version_stamp(t_start)
   call parse(PINPT, PKPTS)
   if_test call test()
@@ -48,6 +49,7 @@ program tbfit
       call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
       call get_eig(NN_TABLE, PKPTS%kpoint, PKPTS%nkpoint, PINPT, ETBA%E, ETBA%V, PGEOM%neig, &
                    PINPT%init_erange, PINPT%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase) !, PINPT%flag_get_band_order)
+      if(PINPT%flag_get_total_energy) call get_total_energy(ETBA, PINPT, PKPTS, .true., .true.)
       if(PINPT%flag_get_band_order .or. PINPT%flag_get_band_order_print_only) then
          call get_ordered_band(ETBA, PKPTS%nkpoint, PGEOM%neig, PINPT%init_erange, PINPT%nband, PINPT, .false., PWGHT)
       endif
@@ -105,6 +107,11 @@ program tbfit
 
   if(allocated(ETBA%E))      deallocate(ETBA%E)
   if(PINPT%flag_get_orbital .and. allocated(ETBA%V) ) deallocate(ETBA%V)
+
+  if(PINPT%flag_plot) then
+    write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
+    if_main call execute_command_line(gnu_command)
+  endif
 
 #ifdef MPI
   call mpi_finish()

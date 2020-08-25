@@ -36,7 +36,7 @@
  OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
  F90    = $(FC) $(OPTIONS)
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
-LDFLAGS = "-Wl,-rpath,"
+
 # LINUX-gfortran COMPILE
 #OPTIONS= #-DMPI
 #F90    = gfortran-mp-8 $(OPTIONS)

@@ -1,6 +1,5 @@
 #include "alias.inc"
-subroutine gen_algo( get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, &
-                     iband, nband, PWGHT, PINPT, PKAIA)
+subroutine gen_algo( get_eig, NN_TABLE, E_DFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM, PKAIA)
     use parameters
     use mpi_setup
     use time
@@ -8,30 +7,38 @@ subroutine gen_algo( get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, &
     use print_io
     implicit none
     type(incar)        :: PINPT
+    type(params)       :: PPRAM
+    type(kpoints)      :: PKPTS
+    type(poscar)       :: PGEOM 
     type(gainp)        :: PKAIA
     type(hopping)      :: NN_TABLE
     type(weight)       :: PWGHT
     type(pikaia_class) :: ga_pikaia
     integer*4             nkpoint, neig, iband, nband, info
     integer*4                      ne  , ib   , nb
-    real*8                kpoint(3,nkpoint)
-    real*8                E_DFT(neig*PINPT%ispin, nkpoint)
+    real*8                kpoint(3,PKPTS%nkpoint)
+    real*8                E_DFT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint)
     external              get_eig
     integer*4             nparam                  
     integer*4             istat
-    real*8                param(PINPT%nparam) ! parameters
+    real*8                param(PPRAM%nparam) ! parameters
     real*8                gofit               ! goodness of fit as a function of param gofit(param) = [0:1]
-    real*8                xl(PINPT%nparam) ! lower bound for x
-    real*8                xu(PINPT%nparam) ! upper bound for x
+    real*8                xl(PPRAM%nparam) ! lower bound for x
+    real*8                xu(PPRAM%nparam) ! upper bound for x
     logical               flag_header_write
     external              report_iter, get_gofit
     write(message,'(A)')' Start: fitting procedures with Genetic Algorithm '  ; write_msg
     write(message,'(A)')'        based on PIKAIA library.'  ; write_msg
-   
-    nparam = PINPT%nparam
-    param  = PINPT%param(:)
-    xl     = PINPT%param_const(3, :)
-    xu     = PINPT%param_const(2, :)
+ 
+    nkpoint= PKPTS%nkpoint
+    kpoint = PKPTS%kpoint
+    neig   = PGEOM%neig
+    nband  = PGEOM%nband
+    iband  = PGEOM%init_erange  
+    nparam = PPRAM%nparam
+    param  = PPRAM%param(:)
+    xl     = PPRAM%param_const(3, :)
+    xu     = PPRAM%param_const(2, :)
 
     ! Initialize the class:
     call ga_pikaia%init(nparam, xl, xu, get_gofit, istat, nkpoint, kpoint, &
@@ -58,9 +65,9 @@ subroutine gen_algo( get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, &
 
 
     ! Run fitting by calling pikaia: 
-    call ga_pikaia%solve(param,gofit,istat,PINPT,NN_TABLE,E_DFT,PWGHT)
+    call ga_pikaia%solve(param,gofit,istat,PINPT,PPRAM,PKPTS,PGEOM,NN_TABLE,E_DFT,PWGHT)
 
-    PINPT%param(:) = param
+    PPRAM%param(:) = param
     write(message,'(A)')'   End: fitting procedures.'    ; write_msg
 
     return
@@ -79,57 +86,51 @@ subroutine report_iter(me,iter,param,gofit,nparam,header_written)
     integer                           :: i
     logical                              header_written
 
-    !the first time it is called, also write a header:
-!   if (.not. header_written) then
-!     do i=1,nparam
-!       write(xheader(i),'(I10)') i
-!       xheader(i) = 'X'//trim(adjustl(xheader(i)))
-!       xheader(i) = repeat(' ',10-len_trim(xheader(i)))//xheader(i)
-!     end do
-!     write(message,'(A5,1X,*(A10,1X))') 'ITER',xheader,'F'  ; write_msg
-!     header_written = .true.
-!   end if
-
-!   write(message,'(I5,1X,*(F10.6,1X))') iter,param,gofit  ; write_msg
     write(message,'(A)')' '  ; write_msg
     write(message,'(A,I4,A,F16.6)')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ', -gofit  ; write_msg
 
     return
 endsubroutine
 
-subroutine get_gofit(ga_pikaia, param, gofit,kpoint,nkpoint,neig, iband, nband, NN_TABLE, E_DFT, PWGHT, PINPT, flag_lmdif)
-  use parameters, only : hopping, weight, incar
+subroutine get_gofit(ga_pikaia, param, gofit,kpoint,nkpoint,neig, iband, nband, NN_TABLE, E_DFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM, flag_lmdif)
+  use parameters, only : hopping, weight, incar, params, kpoints, poscar
   use pikaia_module, only: pikaia_class
   implicit none
   class(pikaia_class),intent(inout) :: ga_pikaia
   type(incar)                       :: PINPT
+  type(params)                      :: PPRAM
+  type(kpoints)                     :: PKPTS
+  type(poscar)                      :: PGEOM
   type(weight)                      :: PWGHT
   type(hopping)                     :: NN_TABLE
   integer*4,intent(in)              :: nkpoint, neig, iband, nband
   real*8,intent(in)                 :: E_DFT(neig*PINPT%ispin,nkpoint)
   real*8,intent(out)                :: gofit   ! fitness value
-  real*8,intent(inout)                 :: param(PINPT%nparam)    !unscaled x vector: [xu,xl]
+  real*8,intent(inout)                 :: param(PPRAM%nparam)    !unscaled x vector: [xu,xl]
   real*8,intent(in)                 :: kpoint(3,nkpoint)
   logical,intent(in)                :: flag_lmdif
    
   logical                              flag_get_orbital, flag_order
   complex*16                           V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
+  complex*16                           SV(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
   real*8                               E_TBA(nband*PINPT%nspin,nkpoint) 
-  real*8                               fnorm, fvec(nkpoint)
+  real*8                               fvec(nkpoint)
+  real*8                               fnorm, fnorm_(2)
   real*8, external                  :: enorm
   external                             get_eig
 
   ! store param which is generated by PIKAIA to PINPT%param before calling get_eig subroutine.
-  PINPT%param = param
+  PPRAM%param = param
 
   flag_order       = PINPT%flag_get_band_order
-  flag_get_orbital = ((.not. PWGHT%flag_weight_default_orb) .or. flag_order)
+  flag_get_orbital = ( PWGHT%flag_weight_orb .or. flag_order)
 
   if(flag_lmdif) then
-    call leasqr_lm ( get_eig, NN_TABLE, kpoint, nkpoint, E_DFT, neig, iband, nband, PWGHT, PINPT)
+    call leasqr_lm ( get_eig, NN_TABLE, E_DFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM, fnorm_)
   endif
 
-  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, E_TBA, V, neig, iband, nband, flag_get_orbital, .false., .false., PINPT%flag_phase, flag_order)
+  call get_eig(NN_TABLE, kpoint, nkpoint, PINPT, PPRAM, E_TBA, V, SV, neig, iband, nband, &
+               flag_get_orbital, .false., .false., PINPT%flag_phase)
 
   if(.not. flag_get_orbital) then
     call get_fvec(fvec, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
@@ -139,8 +140,50 @@ subroutine get_gofit(ga_pikaia, param, gofit,kpoint,nkpoint,neig, iband, nband, 
 
   fnorm = enorm ( nkpoint, fvec )
   gofit = -fnorm
-! gofit = -exp(-1d0/(fnorm**2d0)) + 1d0
 
   return
+endsubroutine
+
+subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
+  use parameters, only: weight, incar
+  implicit none
+  type (weight)  :: PWGHT
+  type (incar )  :: PINPT
+  integer*4  ik, neig, nkpoint
+  integer*4  is, ie, ie_, iband, nband
+  real*8     E_TBA(nband*PINPT%nspin,nkpoint)
+  real*8     E_DFT(neig*PINPT%ispin,nkpoint), dE(nband*PINPT%nspin), fvec(nkpoint)
+  real*8     orbital_weight_penalty(nband*PINPT%nspin)
+  complex*16, intent(in) :: V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
+  real*8     enorm
+  external   enorm
+
+  if(.not. PWGHT%flag_weight_orb) then
+
+    do ik=1,nkpoint
+      do is = 1, PINPT%nspin
+        do ie = 1, nband
+          ie_ = ie + iband - 1 + (is-1) * neig
+          dE(ie+(is-1)*nband) =    (E_TBA(ie+(is-1)*nband,ik) - E_DFT(ie_,ik))    * PWGHT%WT(ie_,ik)
+        enddo
+      enddo
+      fvec(ik) = enorm ( nband*PINPT%nspin, dE )
+    enddo
+
+  elseif(PWGHT%flag_weight_orb) then
+
+    do ik=1,nkpoint
+      do is = 1, PINPT%nspin
+        do ie = 1, nband
+          ie_ = ie + iband - 1 + (is-1) * neig
+          orbital_weight_penalty(ie+(is-1)*nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*nband,ik)) )
+          dE(ie+(is-1)*nband) = (E_TBA(ie+(is-1)*nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + orbital_weight_penalty(ie_)
+        enddo
+      enddo
+      fvec(ik) = enorm ( nband*PINPT%nspin, dE )
+    enddo
+
+  endif
+return
 endsubroutine
 

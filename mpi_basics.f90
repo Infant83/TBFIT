@@ -10,6 +10,7 @@ module mpi_basics
    integer :: mpi_comm_earth
    integer :: myid
    integer :: nprocs
+   integer :: yourid
 
    type mpicomm 
         integer :: mpi_comm

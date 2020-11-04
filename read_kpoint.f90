@@ -1,5 +1,28 @@
 #include "alias.inc"
-subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
+subroutine read_kpoint(PKPTS, PINPT, PGEOM)
+  use parameters, only : kpoints, incar, poscar
+  use mpi_setup
+  use print_io
+  implicit none
+  type(incar)   :: PINPT
+  type(kpoints) :: PKPTS
+  type(poscar)  :: PGEOM
+  integer*4        mpierr
+  logical          flag_kfile_exist
+
+  ! read info: kpoint 
+  inquire(file=PKPTS%kfilenm,exist=flag_kfile_exist)
+  if(flag_kfile_exist) then
+    call read_kpoint_file(PKPTS,PGEOM,PINPT%flag_ndiv_line_parse,PINPT%flag_ndiv_grid_parse)
+  elseif( (.not. flag_kfile_exist .and. PINPT%flag_get_band) .or. &
+          (.not. flag_kfile_exist .and. PINPT%flag_get_berry_curvature) ) then
+    write(message,'(A,A,A)')'  !WARN! ',trim(PKPTS%kfilenm),' does not exist!! Exit...' ; write_msg
+    kill_job
+  endif
+
+  return
+endsubroutine
+subroutine read_kpoint_file(PKPTS, PGEOM, flag_ndiv_line_parse, flag_ndiv_grid_parse)
   use parameters, only : kpoints, poscar, pid_kpoint, incar
   use mpi_setup
   use print_io
@@ -7,22 +30,26 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
   integer*4, parameter :: max_kline=100
   integer*4     i_continue, nitems,ndiv_temp
   integer*4     i,linecount, i_dummy
-  integer*4     idiv_mode
+  integer*4     idiv_mode, ik
   integer*4     mpierr
+  integer*4     iline
   real*8        kline_dummy(3,max_kline)
   real*8, allocatable :: kpts_cart(:,:), kpts_reci(:,:)
   character*132 inputline,fname
   character*40  desc_str,dummy, k_name_dummy(max_kline)
+  character*20  int2str
   character(*), parameter :: func = 'read_kpoint'
   logical       flag_skip
-  external      nitems
+  external      nitems,int2str
+  logical       flag_ndiv_line_parse, flag_ndiv_grid_parse
+
   type(kpoints) :: PKPTS
   type(poscar)  :: PGEOM
-  type(incar )  :: PINPT
   PKPTS%flag_cartesianK = .false.
   PKPTS%flag_reciprocal = .false.
   PKPTS%flag_kgridmode  = .false.
   PKPTS%flag_klinemode  = .false.
+  fname                 = trim(PKPTS%kfilenm)
 
   write(message,*)' '  ; write_msg
   write(message,*)'*- READING KPOINTS FILE: ',trim(fname)  ; write_msg
@@ -52,7 +79,7 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
            if(ndiv_temp .ne. 0) then
              if(.not. allocated(PKPTS%ndiv)) allocate( PKPTS%ndiv(PKPTS%n_ndiv) )
              read(inputline,*,iostat=i_continue) PKPTS%ndiv(1:PKPTS%n_ndiv)
-             if(PKPTS%n_ndiv .gt. 1) PINPT%kline_type = 'FHI-AIMS' ! enforce 
+             if(PKPTS%n_ndiv .gt. 1) PKPTS%kline_type = 'FHI-AIMS' ! enforce 
            endif
            cycle
 
@@ -62,9 +89,7 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
            if(desc_str(1:1) .eq. 'L' .or. desc_str(1:1) .eq. 'l') then
              write(message,'(A)')'   K_MODE: Line-mode'  ; write_msg
              PKPTS%flag_klinemode=.true.
-             if(.not. PINPT%flag_ndiv_line_parse) then
-              !if(.not. allocated(PKPTS%ndiv)) allocate( PKPTS%ndiv(PKPTS%n_ndiv) )
-              !PKPTS%ndiv(1) = ndiv_temp
+             if(.not. flag_ndiv_line_parse) then
                write(message,'(A,*(I8))')'   #N_DIV: (number of ndiv)',PKPTS%n_ndiv  ; write_msg
                write(message,'(A,*(I8))')'    N_DIV:',PKPTS%ndiv  ; write_msg
              else
@@ -100,7 +125,7 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
 
          ! k-grid if .not. 'linemode' .and. 'kgridmode)
          elseif(linecount .eq. 5 .and. .not. PKPTS%flag_klinemode) then
-           if(.not. PINPT%flag_ndiv_grid_parse) then
+           if(.not. flag_ndiv_grid_parse) then
              read(inputline,*,iostat=i_continue) PKPTS%ndiv(1:3)
              write(message,'(A,4x,3I4)')'   K_GRID:',PKPTS%ndiv(1:3)  ; write_msg
            else
@@ -134,9 +159,11 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
              endif
            enddo kline
            write(message,'(A,I8)')'   N_LINE:',PKPTS%nline  ; write_msg
-           if(PKPTS%nline .ne. PKPTS%n_ndiv .and. (PINPT%kline_type .eq. 'FHI-AIMS' .or. PINPT%kline_type .eq. 'FHI-aims' )) then
-             write(message,'(A,I0,A,I0,A)')'   !WARN! You specified ',PKPTS%nline, ' k-path in your KFILE, but it is mismatch with the variable (#N_DIV= ', PKPTS%n_ndiv,') in second line of your KFILE'  ; write_msg
-             write(message,'(2A)')         '          Please check your KFILE: ',PINPT%kfilenm   ; write_msg
+           if(PKPTS%nline .ne. PKPTS%n_ndiv .and. (trim(PKPTS%kline_type) .eq. 'FHI-AIMS' .or. trim(PKPTS%kline_type) .eq. 'FHI-aims' )) then
+             write(message,'(A,I0,A,I0,A)')'   !WARN! You specified ',PKPTS%nline, &
+                                           ' k-path in your KFILE, but it is mismatch with the variable (#N_DIV= ', PKPTS%n_ndiv, &
+                                           ') in second line of your KFILE'  ; write_msg
+             write(message,'(2A)')         '          Please check your KFILE: ',trim(fname)   ; write_msg
              kill_job
            endif
            allocate( PKPTS%kline(3,PKPTS%nline * 2) )
@@ -154,16 +181,27 @@ subroutine read_kpoint(fname, PKPTS, PGEOM, PINPT)
   close(pid_kpoint)
 
   if(PKPTS%flag_klinemode .and. .not. PKPTS%flag_kgridmode) then
-     if(PINPT%kline_type .eq. 'FLEUR' .or. PINPT%kline_type .eq. 'fleur') then
+     if(trim(PKPTS%kline_type) .eq. 'FLEUR' .or. trim(PKPTS%kline_type) .eq. 'fleur') then
        idiv_mode = 2 ! division type: fleur-like. n division between kpoint A and B and total n+1 points
-     elseif(PINPT%kline_type .eq. 'FHI-AIMS' .or. PINPT%kline_type .eq. 'FHI-aims') then
+     elseif(trim(PKPTS%kline_type) .eq. 'FHI-AIMS' .or. trim(PKPTS%kline_type) .eq. 'FHI-aims') then
        idiv_mode = 3 ! division type: vasp-like with n-1 division between each segments. In this mode, however, 
                      ! every path has different division. This is same as FHI-AIMS code does.
      else
        idiv_mode = 1 ! division type: vasp-like. n-1 division between kpoint A and B and total n points
      endif
+     PKPTS%idiv_mode = idiv_mode
      call get_kpath(PKPTS, PGEOM, PKPTS%kunit, idiv_mode)
      write(message,'(A,I8)')'  NKPOINT:',PKPTS%nkpoint  ; write_msg
+     if(idiv_mode .eq. 1) then ! VASP type
+       write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msg
+       write(message,'(A,*(I8))')   '  (index):', (PKPTS%ndiv*(ik-1)+1,ik=1,PKPTS%nline) , PKPTS%ndiv*PKPTS%nline ; write_msg
+     elseif(idiv_mode .eq. 3) then ! AIMS type
+       write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msg
+       write(message,'(A,*(I8))')   '  (index):', 1,  (sum(PKPTS%ndiv(1:ik))+1,ik=1,PKPTS%nline-1) , sum(PKPTS%ndiv) ; write_msg
+     elseif(idiv_mode .eq. 2) then ! FLEUR type
+       write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msg
+       write(message,'(A,*(I8))')   '  (index):', 1,  (PKPTS%ndiv*ik,ik=1,PKPTS%nline) ; write_msg
+     endif
   elseif(PKPTS%flag_kgridmode .and. .not. PKPTS%flag_klinemode) then
      PKPTS%nkpoint = PKPTS%ndiv(1)*PKPTS%ndiv(2)*PKPTS%ndiv(3)
      write(message,'(A,I8)')'  NKPOINT:',PKPTS%nkpoint  ; write_msg

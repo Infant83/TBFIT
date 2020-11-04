@@ -74,12 +74,12 @@ endfunction
 
 function matproduct_complex_general(M,K, JOBA, A, K_, N, JOBB, B) result(C)
    implicit none
-   integer*4   M, K
-   integer*4   K_,N
+   integer*4,intent(in) ::  M, K
+   integer*4,intent(in) ::  K_,N
    complex*16  alpha, beta
    complex*16  A( M,  K), B( K_,  N)
    complex*16  C( M,  N)
-   character*1 JOBA, JOBB
+   character*1,intent(in) :: JOBA, JOBB
    character(*), parameter :: func = 'matproduct_real_general'
 
    ! computes alpha * A * B + beta * C = C
@@ -92,7 +92,7 @@ function matproduct_complex_general(M,K, JOBA, A, K_, N, JOBB, B) result(C)
      stop
    endif
 
-   call DGEMM(JOBA, JOBB, M, N, K, alpha, A, M, B, K, beta, C, M)
+   call ZGEMM(JOBA, JOBB, M, N, K, alpha, A, M, B, K, beta, C, M)
 
    return
 endfunction
@@ -1098,14 +1098,14 @@ function degen(E) result(D)
 endfunction
 
 ! gaussian distribution function
-function fgauss(sigma, x)
+elemental real*8 function fgauss(sigma, x)
    use parameters, only : pi, pi2
    implicit none
-   real*8   sigma,sigma2
-   real*8   x,xx
-   real*8   fgauss
-   xx = x**2
-   sigma2 = sigma**2
+   real*8,intent(in) :: sigma
+   real*8,intent(in) :: x
+   real*8               sigma2, xx
+
+   xx = x**2 ; sigma2 = sigma**2
 
   !fgauss= exp(-0.5d0*xx/sigma2)/(sigma*sqrt(pi2))
    fgauss= 1d0 / (sigma*sqrt(pi2)) * exp( -xx / (2d0*sigma2) )

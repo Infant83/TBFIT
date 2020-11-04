@@ -169,7 +169,7 @@ subroutine set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 endsubroutine
 
 subroutine get_velocity_matrix(PINPT, NN_TABLE, kpoint, neig, dHk, dF_IJ, flag_phase)
-   use parameters, only: incar, hopping, pauli_0
+   use parameters, only: incar, params, hopping, pauli_0
    use kronecker_prod, only: kproduct
    use phase_factor
    implicit none
@@ -181,6 +181,7 @@ subroutine get_velocity_matrix(PINPT, NN_TABLE, kpoint, neig, dHk, dF_IJ, flag_p
      endfunction
    end interface
    type(incar  ) :: PINPT
+   type(params ) :: PPRAM
    type(hopping) :: NN_TABLE
    integer*4        neig
    integer*4        i
@@ -194,14 +195,14 @@ subroutine get_velocity_matrix(PINPT, NN_TABLE, kpoint, neig, dHk, dF_IJ, flag_p
    flag_set_overlap = .false. ! only hamiltonian part is considered, i.e., assume that USE_OVERLAP = .false.
                               ! However, if overlap matrix is considered, one may use another approach 
                               ! for the berry curvature evaluation. This will be updated in the near future. (HJ Kim, KIAS, 2019. Sep.)
-   call set_ham0_vel(dH0, kpoint, PINPT, neig, NN_TABLE, dF_IJ, flag_phase, flag_set_overlap)
+   call set_ham0(dH0, kpoint, PPRAM, neig, NN_TABLE, dF_IJ, flag_phase, flag_set_overlap, PINPT%flag_load_nntable)
 
    if(PINPT%flag_noncollinear) then
 
-     if(PINPT%flag_slater_koster) then 
+     if(PPRAM%flag_slater_koster) then 
        dHk = kproduct(pauli_0, dH0, 2, 2, neig, neig)
      else 
-       call set_ham_soc(dHs,kpoint(:),PINPT,neig,NN_TABLE,dF_IJ,flag_phase)
+       call set_ham_soc(dHs,kpoint(:),PPRAM,neig,NN_TABLE,dF_IJ,flag_phase)
        dHk = kproduct(pauli_0, dH0, 2, 2, neig, neig) !+ dHs
      endif
 
@@ -213,50 +214,6 @@ subroutine get_velocity_matrix(PINPT, NN_TABLE, kpoint, neig, dHk, dF_IJ, flag_p
 
    return
 endsubroutine  
-
-subroutine get_velocity_matrix_direct(PINPT, NN_TABLE, kpoint, neig, dHk, dk)
-   use parameters, only: incar, hopping, pauli_0, eta
-   use kronecker_prod, only: kproduct
-   use phase_factor
-   implicit none
-   type(incar  ) :: PINPT
-   type(hopping) :: NN_TABLE
-   integer*4        neig
-   complex*16       dH0(neig,neig),dH1(neig,neig),dH2(neig,neig)
-   complex*16       dHk(neig*PINPT%ispinor,neig*PINPT%ispinor)
-   complex*16       Hs1(neig*PINPT%ispinor,neig*PINPT%ispinor)
-   complex*16       Hs2(neig*PINPT%ispinor,neig*PINPT%ispinor)
-   complex*16       dHs(neig*PINPT%ispinor,neig*PINPT%ispinor)
-   real*8           k1(3), k2(3), kpoint(3), dk(3), enorm
-   external         enorm
-   logical          flag_phase
-   logical          flag_set_overlap 
-
-   flag_set_overlap = .false. ! only hamiltonian part is considered, i.e., assume that USE_OVERLAP = .false.
-                              ! However, if overlap matrix is considered, one may use another approach 
-                              ! for the berry curvature evaluation. This will be updated in the near future. (HJ Kim, KIAS, 2019. Sep.)
-
-   flag_phase = .true.
-   k1 = kpoint - dk; k2 = kpoint + dk
-   call set_ham0_(dH2, k2 , PINPT, neig, NN_TABLE, F_IJ, flag_phase, flag_set_overlap)
-   call set_ham0_(dH1, k1 , PINPT, neig, NN_TABLE, F_IJ, flag_phase, flag_set_overlap)
-   dH0= (dH2 - dH1) / (2d0*eta)
-
-   if(PINPT%ispinor .eq. 2) then
-     if(PINPT%flag_soc .and. .not. PINPT%flag_slater_koster) then 
-       call set_ham_soc(Hs2, k2, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
-       call set_ham_soc(Hs1, k1, PINPT, neig, NN_TABLE, F_IJ, flag_phase)
-       dHs= (Hs2 - Hs1) / (2d0*eta)
-       dHk= kproduct(pauli_0, dH0, 2, 2, neig, neig) + dHs
-     else
-       dHk= kproduct(pauli_0, dH0, 2, 2, neig, neig)
-     endif
-   else
-     dHk= dH0
-   endif
-
-   return
-endsubroutine
 
 subroutine get_omega(omega_, E_, V_, dxH, dyH,dzH, msize)
    use parameters, only : eta, zi
@@ -281,9 +238,10 @@ subroutine get_omega(omega_, E_, V_, dxH, dyH,dzH, msize)
    do n = 1, msize
      psi_n = V_(:,n)
      do m = 1, msize
-       if(m .ne. n) then
+       if(m .ne. n ) then !.and. abs(E_(m) - E_(n)) .gt. eta) then
+      !if(E_(m) - E_(n) .gt. eta ) then
          psi_m = V_(:,m)
-         de2= (E_(m) - E_(n) )**2 + eta
+         de2= (E_(m) - E_(n) )**2   + eta
          vy_nm = dot_product( psi_n, matmul(dyH,psi_m) ) ! < psi_n| dH/dky | psi_m>
          vy_mn = dot_product( psi_m, matmul(dyH,psi_n) ) ! < psi_m| dH/dky | psi_n>
          vz_nm = dot_product( psi_n, matmul(dzH,psi_m) ) 
@@ -291,34 +249,15 @@ subroutine get_omega(omega_, E_, V_, dxH, dyH,dzH, msize)
          vx_nm = dot_product( psi_n, matmul(dxH,psi_m) ) 
          vx_mn = dot_product( psi_m, matmul(dxH,psi_n) ) 
 
-         omega(n,1) = omega(n,1) + vy_nm * vz_mn / de2
-         omega(n,2) = omega(n,2) + vz_nm * vx_mn / de2
-         omega(n,3) = omega(n,3) + vx_nm * vy_mn / de2
+         omega(n,1) = omega(n,1) + (vy_nm * vz_mn      ) / de2 !- eta
+         omega(n,2) = omega(n,2) + (vz_nm * vx_mn      ) / de2 !- eta
+         omega(n,3) = omega(n,3) + (vx_nm * vy_mn      ) / de2 !- eta
        endif
 
      enddo
    enddo
 
    omega_= -2d0*aimag(omega)
-   return
-endsubroutine
-
-subroutine set_ham0_sym(H0, neig)
-   implicit none
-   integer*4    i
-   integer*4    neig
-   complex*16   diag(neig)
-   complex*16   H0(neig,neig)
-
-   do i = 1, neig
-     diag(i) = H0(i,i)
-     H0(i,i)= (0d0,0d0)
-   enddo
-   H0 = H0 + conjg(transpose(H0))
-   do i = 1, neig
-     H0(i,i)= diag(i)
-   enddo
-
    return
 endsubroutine
 
@@ -442,36 +381,36 @@ subroutine find_largest_gap(largest_gap, clock_direct, z2_index, wcc, nspin, nkp
    return
 endsubroutine
 subroutine set_berry_erange(PINPT_BERRY, PGEOM, PINPT, mode)
-   use parameters, only : incar, berry, poscar
+   use parameters, only : incar, berry, poscar, weight
    implicit none
    type(incar)   :: PINPT
    type(berry)   :: PINPT_BERRY
    type(poscar)  :: PGEOM
+   type(weight)  :: PWGHT_dummy ! dummy weight 
    character*2      mode
    integer*4        erange_(PGEOM%neig * PINPT%ispin)
 
-
    if(mode .eq. 'zk') then ! zak_phase
 
-     call get_tbrange(PINPT_BERRY%strip_zak_range, PGEOM, PINPT, erange_, PINPT_BERRY%zak_nerange)
+     call get_tbrange(PINPT_BERRY%strip_zak_range, PWGHT_dummy, PGEOM, PINPT, erange_, PINPT_BERRY%zak_nerange)
      allocate(PINPT_BERRY%zak_erange(PINPT_BERRY%zak_nerange))
      PINPT_BERRY%zak_erange(1:PINPT_BERRY%zak_nerange) = erange_(1:PINPT_BERRY%zak_nerange)
 
    elseif(mode .eq. 'wc') then ! wannier charge center
 
-     call get_tbrange(PINPT_BERRY%strip_wcc_range, PGEOM, PINPT, erange_, PINPT_BERRY%wcc_nerange)
+     call get_tbrange(PINPT_BERRY%strip_wcc_range, PWGHT_dummy, PGEOM, PINPT, erange_, PINPT_BERRY%wcc_nerange)
      allocate(PINPT_BERRY%wcc_erange(PINPT_BERRY%wcc_nerange))
      PINPT_BERRY%wcc_erange(1:PINPT_BERRY%wcc_nerange) = erange_(1:PINPT_BERRY%wcc_nerange)
 
    elseif(mode .eq. 'bc') then ! berry curvature
 
-     call get_tbrange(PINPT_BERRY%strip_bc_range, PGEOM, PINPT, erange_, PINPT_BERRY%bc_nerange)
+     call get_tbrange(PINPT_BERRY%strip_bc_range, PWGHT_dummy, PGEOM, PINPT, erange_, PINPT_BERRY%bc_nerange)
      allocate(PINPT_BERRY%bc_erange(PINPT_BERRY%bc_nerange))
      PINPT_BERRY%bc_erange(1:PINPT_BERRY%bc_nerange) = erange_(1:PINPT_BERRY%bc_nerange)
 
    elseif(mode .eq. 'z2') then ! z2 index
 
-     call get_tbrange(PINPT_BERRY%strip_z2_range, PGEOM, PINPT, erange_, PINPT_BERRY%z2_nerange)
+     call get_tbrange(PINPT_BERRY%strip_z2_range, PWGHT_dummy, PGEOM, PINPT, erange_, PINPT_BERRY%z2_nerange)
      allocate(PINPT_BERRY%z2_erange(PINPT_BERRY%z2_nerange))
      PINPT_BERRY%z2_erange(1:PINPT_BERRY%z2_nerange) = erange_(1:PINPT_BERRY%z2_nerange)
 
@@ -621,7 +560,6 @@ loop_i:do i = 1, PGEOM%n_atom
      enddo
    enddo loop_i
 
-!  call print_matrix_i(int(real(parity_matrix_op)),PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor, 'parity_mat', 0,'I3')
    return
 endsubroutine
 
@@ -660,23 +598,5 @@ subroutine symmetrize_hamk(H, HS, S, neig, ispinor)
 
    return
 endsubroutine
-
-!subroutine get_symmetry_eigenvalue(L, V, M, neig, ispinor)
-!   implicit none
-!   integer*4         neig, ispinor
-!   integer*4         i,j
-!   complex*16        V(neig*ispinor,neig*ispinor)
-!   complex*16        L(neig*ispinor,neig*ispinor)
-!   complex*16        M(neig*ispinor,neig*ispinor)
-!
-
-!   do i = 1, neig*ispinor
-!     do j = 1, neig*ispinor
-!       L(i,j) = dot_product( V(:,i), matmul(M, V(:,j)) )
-!     enddo
-!   enddo
-
-!   return
-!endsubroutine
 
 end module

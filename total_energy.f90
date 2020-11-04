@@ -1,16 +1,17 @@
 #include "alias.inc"
 module total_energy
-   use parameters, only: energy, incar, kpoints
+   use parameters, only: energy, incar, kpoints, poscar
    use mpi_setup
    use sorting, only : get_sort_index_1D
    use do_math, only : idx2Di, idx2Dj
    use print_io
 contains
 
-   subroutine get_total_energy(ETBA, PINPT, PKPTS, flag_opt_ef, flag_report, E_F_)
+   subroutine get_total_energy(ETBA, PINPT, PKPTS, PGEOM, flag_opt_ef, flag_report, E_F_)
       implicit none
       type(energy)    :: ETBA
       type(incar)     :: PINPT
+      type(poscar)    :: PGEOM
       type(kpoints)   :: PKPTS
       integer*4          nkp, nband, nspin  
       integer*4          mpierr
@@ -18,9 +19,11 @@ contains
       real*8             nelect_ref
       real*8             degen ! degeneracy
       real*8             E_F, E0
-      real*8             OCC(PINPT%nband*PINPT%nspin,PKPTS%nkpoint)
+      real*8             OCC(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
       logical            flag_quit, flag_opt_ef, flag_report
       real*8,intent(inout),optional :: E_F_
+
+      if(.not. PINPT%flag_get_total_energy) return
 
       if(flag_report) then
         write(message,'(A)')' ' ; write_msg
@@ -43,9 +46,9 @@ contains
 
       eltemp      = PINPT%electronic_temperature ! default = 0k
       nkp         = PKPTS%nkpoint
-      nband       = PINPT%nband
+      nband       = PGEOM%nband
       nspin       = PINPT%nspin
-      nelect_ref  = sum(PINPT%nelect)   ! reference number of electrons
+      nelect_ref  = sum(PGEOM%nelect)   ! reference number of electrons
       if(PINPT%ispin .eq. 1) degen = 2d0
 
 
@@ -123,8 +126,6 @@ contains
       ii = 0
       do while (.not. flag_quit)
          ii  = ii + 1
-      write(6,*)"ZZZ ", myid, E_F, nelect - nelect_ref, grad_nelect
-!         if(ii .eq. 20) stop
         if( abs(nelect - nelect_ref) .lt. de_cut ) then
           flag_quit = .true.
         else

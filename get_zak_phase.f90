@@ -1,33 +1,43 @@
 #include "alias.inc"
-subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2
+subroutine get_zak_phase(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
+   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2, params
    use berry_phase
    use mpi_setup
    use print_io
    implicit none
-   type(hopping) :: NN_TABLE
-   type(incar)   :: PINPT
-   type(berry)   :: PINPT_BERRY
-   type(poscar)  :: PGEOM
-   type(kpoints) :: PKPTS
-   integer*4        mpierr
-   integer*4        ikpath, is
-   integer*4        nkdiv, nkpath, nerange
-   integer*4        iband, nband
-   integer*4        erange(PINPT_BERRY%zak_nerange)
-   real*8           time1, time2
-   real*8           G1(3), G2(3)
-   real*8           E(PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv)
-   real*8           zak_phase(PINPT%nspin,PINPT_BERRY%zak_nkpath)
-   real*8           zak_phase_(PINPT%nspin,PINPT_BERRY%zak_nkpath)
-   real*8           kpoint(3,PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkpath)
-   logical          flag_phase, flag_sparse, flag_order
+   type(hopping)          :: NN_TABLE
+   type(incar)            :: PINPT
+   type(params)           :: PPRAM
+   type(berry)            :: PINPT_BERRY
+   type(poscar)           :: PGEOM
+   type(kpoints)          :: PKPTS
+   integer*4                 mpierr
+   integer*4                 ikpath, is
+   integer*4                 nkdiv, nkpath, nerange
+   integer*4                 iband, nband
+   integer*4, allocatable :: erange(:)
+   real*8                    time1, time2
+   real*8                    G1(3), G2(3)
+   real*8,    allocatable :: E(:,:)
+   complex*16,allocatable :: V(:,:,:)
+   complex*16,allocatable :: SV(:,:,:)
+   real*8                    zak_phase(PINPT%nspin,PINPT_BERRY%zak_nkpath)
+   real*8                    zak_phase_(PINPT%nspin,PINPT_BERRY%zak_nkpath)
+   real*8                    kpoint(3,PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkpath)
+   logical                   flag_phase, flag_sparse, flag_order
 #ifdef MPI
    if_main time1 = MPI_Wtime()
 #else
    call cpu_time(time1)
 #endif
+
+   call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'zk')
+   allocate(erange(PINPT_BERRY%zak_nerange))
+   allocate(E(PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv))
+   allocate(V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv))
+   allocate(SV(PGEOM%neig*PINPT%ispin,PINPT_BERRY%zak_nerange,PINPT_BERRY%zak_nkdiv))
+
+   call set_berry_kpath (PINPT_BERRY, PGEOM, PINPT, 'zk')
 
    allocate(PINPT_BERRY%zak_phase(PINPT%nspin,PINPT_BERRY%zak_nkpath))
    allocate(PINPT_BERRY%polarization(PINPT%nspin))
@@ -60,7 +70,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    write(message,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_zak_range)) ; write_msg
 
    do ikpath = 1, nkpath
-     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true.,flag_sparse, .false., flag_phase) !, flag_order)
+     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, PPRAM, E, V, SV, PGEOM%neig, iband, nband, .true.,flag_sparse, .false., flag_phase)
      call set_periodic_gauge(V, G1, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      call get_berry_phase(zak_phase(:,ikpath), kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)

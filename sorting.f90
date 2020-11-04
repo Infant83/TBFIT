@@ -201,7 +201,7 @@ subroutine get_sort_index(isort_index, target_variable, target_dimension, nvaria
    enddo
 
   call cpu_time(t2)
-  write(message,'(A,F12.4)')"  TIME SORT: ", t2 - t1 ; write_msg
+  write(message,'(A,F12.4)')"   TIME SORT: ", t2 - t1 ; write_msg
   
    return
 endsubroutine

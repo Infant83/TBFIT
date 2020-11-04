@@ -1,135 +1,4 @@
 #include "alias.inc"
-subroutine get_fvec2(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT, ldjac, imode)
-  use parameters, only: weight, incar
-  use mpi_setup
-  implicit none
-  type (weight)  :: PWGHT
-  type (incar )  :: PINPT
-  integer*4  i, ik, neig, nkpoint
-  integer*4  is, ie, ie_, iband, nband
-  integer*4  mpierr
-  integer*4  ldjac, imode
-  real*8     E_TBA(nband*PINPT%nspin,nkpoint)
-  real*8     E_DFT(neig*PINPT%ispin,nkpoint), dE(nband*PINPT%nspin)
-  real*8     fvec(ldjac)
-  real*8     fvec_(ldjac)
-  real*8     OW(nband*PINPT%nspin)
-  real*8     OW2
-  complex*16, intent(in) :: V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
-  real*8     enorm
-  external   enorm
-  integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1), sumk, sumk1, my_i
-  real*8     de2(nband)
-  ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
-  ! imode : 2, if ldjac > nparam -> usual cases
-
-  if(imode .eq. 1) then
-    if(PWGHT%flag_weight_default_orb) then
-      call mpi_job_ourjob(nkpoint, ourjob)
-      sumk = sum(ourjob(1:myid)) ; sumk1 = sum(ourjob(1:myid+1)) ; fvec_ = 0d0
-      do ik= sumk + 1, sumk1
-        my_i  = (ik - 1) * nband * PINPT%nspin 
-        do is = 1, PINPT%nspin
-          ie_ = iband - 1 + (is-1) * neig
-          de2 = (E_TBA(1+(is-1)*PINPT%nband:is*PINPT%nband,ik) - E_DFT(ie_+1:ie_+PINPT%nband,ik))**2
-          fvec_(my_i+1 +nband*(is-1):my_i+nband*is) = de2(:) * PWGHT%WT(ie_+1:ie_+PINPT%nband,ik)
-        enddo
-      enddo
-#ifdef MPI
-      call MPI_ALLREDUCE(fvec_, fvec, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-#else
-      fvec = fvec_
-#endif
-    elseif(.not.PWGHT%flag_weight_default_orb) then
-      do ik=1,nkpoint
-        do is = 1, PINPT%nspin
-          do ie = 1, PINPT%nband
-            ie_ = ie + iband - 1 + (is-1) * neig
-            OW(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) ) ! orbital weight
-            dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW(ie_)
-          enddo
-        enddo
-        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
-      enddo
-    endif
-
-  elseif(imode .eq. 2) then
-    if(PWGHT%flag_weight_default_orb) then
-      do ik=1,nkpoint
-        do is = 1, PINPT%nspin
-          do ie = 1, PINPT%nband
-            ie_ = ie + iband - 1 + (is-1) * neig
-            dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))    * PWGHT%WT(ie_,ik)
-          enddo
-        enddo
-        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
-      enddo
-    elseif(.not.PWGHT%flag_weight_default_orb) then
-#ifdef MPI
-      call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
-#endif
-      do ik=1,nkpoint
-        do is = 1, PINPT%nspin
-          do ie = 1, PINPT%nband
-            ie_ = ie + iband - 1 + (is-1) * neig
-           !OW(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
-           !dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW(ie_)
-            OW2 = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
-            dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + OW2
-          enddo
-        enddo
-        fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
-      enddo
-    endif
-  endif
-
-return
-endsubroutine
-
-subroutine get_fvec (fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
-  use parameters, only: weight, incar
-  implicit none
-  type (weight)  :: PWGHT
-  type (incar )  :: PINPT
-  integer*4  ik, neig, nkpoint
-  integer*4  is, ie, ie_, iband, nband
-  real*8     E_TBA(nband*PINPT%nspin,nkpoint)
-  real*8     E_DFT(neig*PINPT%ispin,nkpoint), dE(nband*PINPT%nspin), fvec(nkpoint)
-  real*8     orbital_weight_penalty(nband*PINPT%nspin)
-  complex*16, intent(in) :: V(neig*PINPT%ispin,nband*PINPT%nspin,nkpoint)
-  real*8     enorm
-  external   enorm
-
-  if(PWGHT%flag_weight_default_orb) then
-
-    do ik=1,nkpoint
-      do is = 1, PINPT%nspin
-        do ie = 1, PINPT%nband
-          ie_ = ie + iband - 1 + (is-1) * neig
-         !dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))**2 * PWGHT%WT(ie_,ik) 
-          dE(ie+(is-1)*PINPT%nband) =    (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik))    * PWGHT%WT(ie_,ik) 
-        enddo
-      enddo
-!     fvec(ik) = sum ( dE )
-      fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
-    enddo
-
-  elseif(.not.PWGHT%flag_weight_default_orb) then
-
-    do ik=1,nkpoint
-      do is = 1, PINPT%nspin
-        do ie = 1, PINPT%nband
-          ie_ = ie + iband - 1 + (is-1) * neig
-          orbital_weight_penalty(ie+(is-1)*PINPT%nband) = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(V(:,ie+(is-1)*PINPT%nband,ik)) )
-          dE(ie+(is-1)*PINPT%nband) = (E_TBA(ie+(is-1)*PINPT%nband,ik) - E_DFT(ie_,ik)) * PWGHT%WT(ie_,ik) + orbital_weight_penalty(ie_)
-        enddo
-      enddo
-      fvec(ik) = enorm ( PINPT%nband*PINPT%nspin, dE )
-    enddo
-
-  endif
-return
-endsubroutine
 subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
   use parameters, only : kpoints, poscar
   use mpi_setup
@@ -152,13 +21,13 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
 
   ! k-line mode
   if(PKPTS%flag_klinemode) then
-    if(idiv_mode .eq. 1) then
+    if(idiv_mode .eq. 1) then ! VASP type
       ndivk=PKPTS%ndiv(1)
       PKPTS%nkpoint = ndivk * PKPTS%nline
-    elseif(idiv_mode .eq. 2) then
+    elseif(idiv_mode .eq. 2) then ! FLEUR type
       ndivk=PKPTS%ndiv(1)
       PKPTS%nkpoint = ndivk * PKPTS%nline + 1
-    elseif(idiv_mode .eq. 3) then
+    elseif(idiv_mode .eq. 3) then ! AIMS type
       PKPTS%nkpoint = sum( PKPTS%ndiv(:) )
     endif
     allocate( PK(3,PKPTS%nline*2) )

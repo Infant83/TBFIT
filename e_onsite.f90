@@ -1,8 +1,8 @@
 ! this function is for onsite energy of TaS2 system especially...
-function e_onsite_xx(ci_orb,cj_orb,PINPT,site_index)
-  use parameters, only : rt3, incar
+function e_onsite_xx(ci_orb,cj_orb,PPRAM,site_index)
+  use parameters, only : rt3, params
   implicit none
-  type (incar  ) :: PINPT
+  type (params)  :: PPRAM
   integer*4         i
   integer*4         e_xp1_center, e_xp2_center
   integer*4         e_xp1_wing1, e_xp2_wing1, e_xp3_wing1, e_xp12_wing1
@@ -39,31 +39,24 @@ site:  select case( trim(site_index) )
  
          ! case 'bulk' is only for 1T-TaS2 system
          case ('bulk', 'ta1')
-           ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
-           ! PARAMETER file with 19-th variable.
-!          call tuned_onsite(PINPT, 0, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
-             ptmp1= PINPT%param(e_xp1_center)
-             if( nint(PINPT%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_center)
+             ptmp1= PPRAM%param(e_xp1_center)
+             if( nint(PPRAM%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_center)
              e_onsite_xx = ptmp1
-!            e_onsite_xx = H(1)
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) )  .and. &
                    ((trim(ci_orb) .eq. 'xp2') .or. (trim(ci_orb) .eq. 'xp3')) ) then
-             ptmp1= PINPT%param(e_xp2_center)
-             if( nint(PINPT%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_center)
+             ptmp1= PPRAM%param(e_xp2_center)
+             if( nint(PPRAM%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_center)
              e_onsite_xx = ptmp1
-!            e_onsite_xx = H(2)
            endif
 
          ! Below cases are particulary for David-Star TaS2 system
          case ('center')
-           ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
-           ! PARAMETER file with 19-th variable.
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 0, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 0, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_center)
-               if( nint(PINPT%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_center)
+               ptmp1= PPRAM%param(e_xp1_center)
+               if( nint(PPRAM%param_const(4, e_xp1_center)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_center)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -71,8 +64,8 @@ site:  select case( trim(site_index) )
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) )  .and. &
                    ((trim(ci_orb) .eq. 'xp2') .or. (trim(ci_orb) .eq. 'xp3')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_center)
-               if( nint(PINPT%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_center)
+               ptmp1= PPRAM%param(e_xp2_center)
+               if( nint(PPRAM%param_const(4, e_xp2_center)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_center)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(2)
@@ -80,29 +73,27 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing1_a')
-           ! Be careful, "tuned_onsite" routine only properly works if you have already provide e_tuning parameter in your
-           ! PARAMETER file with 19-th variable.
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 1, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing1)
-               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               ptmp1= PPRAM%param(e_xp1_wing1)
+               if( nint(PPRAM%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
              endif
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(2)
              endif
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(3)
@@ -112,8 +103,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing1)
-               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               ptmp1= PPRAM%param(e_xp12_wing1)
+               if( nint(PPRAM%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(4)
@@ -122,11 +113,11 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing1_b')
-           call tuned_onsite(PINPT, 1, H)
+           call tuned_onsite(PPRAM, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing1)
-               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               ptmp1= PPRAM%param(e_xp1_wing1)
+               if( nint(PPRAM%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -134,10 +125,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
@@ -145,10 +136,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
@@ -158,8 +149,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing1)
-               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               ptmp1= PPRAM%param(e_xp12_wing1)
+               if( nint(PPRAM%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing1)
                e_onsite_xx = -0.5d0*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*H(4)
@@ -169,8 +160,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing1)
-               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               ptmp1= PPRAM%param(e_xp12_wing1)
+               if( nint(PPRAM%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing1)
                e_onsite_xx = -0.5d0*rt3*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*rt3*H(4)
@@ -180,10 +171,10 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
@@ -192,11 +183,11 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing1_c')
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 1, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 1, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing1)
-               if( nint(PINPT%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing1)
+               ptmp1= PPRAM%param(e_xp1_wing1)
+               if( nint(PPRAM%param_const(4, e_xp1_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing1)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -204,10 +195,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
@@ -215,10 +206,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
@@ -228,8 +219,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing1)
-               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               ptmp1= PPRAM%param(e_xp12_wing1)
+               if( nint(PPRAM%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing1)
                e_onsite_xx = -0.5d0*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*H(4)
@@ -239,8 +230,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing1)
-               if( nint(PINPT%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing1)
+               ptmp1= PPRAM%param(e_xp12_wing1)
+               if( nint(PPRAM%param_const(4, e_xp12_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing1)
                e_onsite_xx =  0.5d0*rt3*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx =  0.5d0*rt3*H(4)
@@ -250,10 +241,10 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing1)
-               ptmp2= PINPT%param(e_xp3_wing1)
-               if( nint(PINPT%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing1)
-               if( nint(PINPT%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing1)
+               ptmp1= PPRAM%param(e_xp2_wing1)
+               ptmp2= PPRAM%param(e_xp3_wing1)
+               if( nint(PPRAM%param_const(4, e_xp2_wing1)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing1)
+               if( nint(PPRAM%param_const(4, e_xp3_wing1)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing1)
                e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
@@ -262,11 +253,11 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing2_a')
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing2)
-               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               ptmp1= PPRAM%param(e_xp1_wing2)
+               if( nint(PPRAM%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -274,8 +265,8 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(2)
@@ -283,8 +274,8 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(3)
@@ -294,8 +285,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing2)
-               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               ptmp1= PPRAM%param(e_xp12_wing2)
+               if( nint(PPRAM%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(4)
@@ -304,11 +295,11 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing2_b')
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing2)
-               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               ptmp1= PPRAM%param(e_xp1_wing2)
+               if( nint(PPRAM%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -316,10 +307,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
@@ -327,10 +318,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
@@ -340,8 +331,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing2)
-               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               ptmp1= PPRAM%param(e_xp12_wing2)
+               if( nint(PPRAM%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing2)
                e_onsite_xx = -0.5d0*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*H(4)
@@ -351,8 +342,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing2)
-               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               ptmp1= PPRAM%param(e_xp12_wing2)
+               if( nint(PPRAM%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing2)
                e_onsite_xx = -0.5d0*rt3*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*rt3*H(4)
@@ -362,10 +353,10 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx =  rt3/4.d0*(ptmp1 - ptmp2)
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx =  rt3/4.d0*(H(2) - H(3))
@@ -374,11 +365,11 @@ site:  select case( trim(site_index) )
            endif
 
          case ('wing2_c')
-           if(flag_use_tuned_onsite) call tuned_onsite(PINPT, 2, H)
+           if(flag_use_tuned_onsite) call tuned_onsite(PPRAM, 2, H)
            if( trim(ci_orb) .eq. trim(cj_orb) .and. trim(ci_orb) .eq. 'xp1' ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp1_wing2)
-               if( nint(PINPT%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp1_wing2)
+               ptmp1= PPRAM%param(e_xp1_wing2)
+               if( nint(PPRAM%param_const(4, e_xp1_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp1_wing2)
                e_onsite_xx = ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = H(1)
@@ -386,10 +377,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp2') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = (ptmp1 + 3.d0*ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (H(2) + 3.d0*H(3))/4.d0
@@ -397,10 +388,10 @@ site:  select case( trim(site_index) )
 
            elseif( ( trim(ci_orb) .eq. trim(cj_orb) ) .and. (trim(ci_orb) .eq. 'xp3') ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = (3.d0*ptmp1 + ptmp2)/4.d0
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = (3.d0*H(2) + H(3))/4.d0
@@ -410,8 +401,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp2') .or. &
                     (trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing2)
-               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               ptmp1= PPRAM%param(e_xp12_wing2)
+               if( nint(PPRAM%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing2)
                e_onsite_xx = -0.5d0*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -0.5d0*H(4)
@@ -421,8 +412,8 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp1') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp1')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp12_wing2)
-               if( nint(PINPT%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp12_wing2)
+               ptmp1= PPRAM%param(e_xp12_wing2)
+               if( nint(PPRAM%param_const(4, e_xp12_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp12_wing2)
                e_onsite_xx =  0.5d0*rt3*ptmp1
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx =  0.5d0*rt3*H(4)
@@ -431,10 +422,10 @@ site:  select case( trim(site_index) )
                    ((trim(ci_orb) .eq. 'xp2') .and. (trim(cj_orb) .eq. 'xp3') .or. &
                     (trim(ci_orb) .eq. 'xp3') .and. (trim(cj_orb) .eq. 'xp2')) ) then
              if(.not. flag_use_tuned_onsite) then
-               ptmp1= PINPT%param(e_xp2_wing2)
-               ptmp2= PINPT%param(e_xp3_wing2)
-               if( nint(PINPT%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PINPT%param_const(5, e_xp2_wing2)
-               if( nint(PINPT%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PINPT%param_const(5, e_xp3_wing2)
+               ptmp1= PPRAM%param(e_xp2_wing2)
+               ptmp2= PPRAM%param(e_xp3_wing2)
+               if( nint(PPRAM%param_const(4, e_xp2_wing2)) .eq. 1) ptmp1=PPRAM%param_const(5, e_xp2_wing2)
+               if( nint(PPRAM%param_const(4, e_xp3_wing2)) .eq. 1) ptmp2=PPRAM%param_const(5, e_xp3_wing2)
                e_onsite_xx = -rt3/4.d0*(ptmp1 - ptmp2)
              elseif(flag_use_tuned_onsite) then
                e_onsite_xx = -rt3/4.d0*(H(2) - H(3))
@@ -448,10 +439,10 @@ return
 endfunction
 
 ! this particular subroutine is written only for TaS2 system
-subroutine tuned_onsite(PINPT, iwing, H)
-   use parameters, only : rt2, incar
+subroutine tuned_onsite(PPRAM, iwing, H)
+   use parameters, only : rt2, params
    implicit none
-   type (incar  ) :: PINPT
+   type (params)  :: PPRAM
    real*8            e0, e1, m0, m1
    integer*4         i
    integer*4         iwing
@@ -460,19 +451,19 @@ subroutine tuned_onsite(PINPT, iwing, H)
    select case (iwing)   
      case(0)
        do i = 1, 2
-         if(PINPT%param_const(4, i) .eq. 1) then
-           H(i) = PINPT%param_const(5, i)
+         if(PPRAM%param_const(4, i) .eq. 1) then
+           H(i) = PPRAM%param_const(5, i)
          else
-           H(i) = PINPT%param(i)
+           H(i) = PPRAM%param(i)
          endif
        enddo
        e0 = (H(1) + 2d0*H(2))/3d0
        m0 = (H(1) -     H(2))/3d0
 
-       if(PINPT%param_const(4, 19) .eq. 1) then
-         e0 = e0 * PINPT%param_const(5,19)
+       if(PPRAM%param_const(4, 19) .eq. 1) then
+         e0 = e0 * PPRAM%param_const(5,19)
        else
-         e0 = e0 * PINPT%param(19)
+         e0 = e0 * PPRAM%param(19)
        endif
 
        H(1) = e0 + 2d0 * m0
@@ -482,10 +473,10 @@ subroutine tuned_onsite(PINPT, iwing, H)
 
      case(1)
        do i = 3, 6
-         if(nint(PINPT%param_const(4, i)) .eq. 1) then
-           H(i - 2) = PINPT%param_const(5, i) 
+         if(nint(PPRAM%param_const(4, i)) .eq. 1) then
+           H(i - 2) = PPRAM%param_const(5, i) 
          else
-           H(i - 2) = PINPT%param(i)
+           H(i - 2) = PPRAM%param(i)
          endif
        enddo
        e0 = 1.d0/3.d0 * H(1) + 2.d0/3.d0 * H(2)                    + 2.d0*rt2/3.d0 * H(4)
@@ -493,12 +484,12 @@ subroutine tuned_onsite(PINPT, iwing, H)
        m0 = 1.d0/3.d0 * H(1) - 1.d0/3.d0 * H(2)                    + 1.d0/rt2/3.d0 * H(4)
        m1 = 1.d0/3.d0 * H(1) + 1.d0/6.d0 * H(2) - 1.d0/2.d0 * H(3) -      rt2/3.d0 * H(4)
        ! apply tunning parameter lambda which is defined in PARAMETER file (19-th parameter)
-       if(nint(PINPT%param_const(4, 19)) .eq. 1) then
-         e0 = e0 * PINPT%param_const(5,19)
-         e1 = e1 * PINPT%param_const(5,19)
+       if(nint(PPRAM%param_const(4, 19)) .eq. 1) then
+         e0 = e0 * PPRAM%param_const(5,19)
+         e1 = e1 * PPRAM%param_const(5,19)
        else
-         e0 = e0 * PINPT%param(19)
-         e1 = e1 * PINPT%param(19)
+         e0 = e0 * PPRAM%param(19)
+         e1 = e1 * PPRAM%param(19)
        endif
        H(1) = 1.d0/3.d0 * (        e0 + 2.d0 * e1 + 4.d0 * m0 + 2.d0 * m1)
        H(2) = 1.d0/3.d0 * ( 2.d0 * e0 +        e1 - 4.d0 * m0 +        m1)
@@ -507,10 +498,10 @@ subroutine tuned_onsite(PINPT, iwing, H)
 
      case(2)
        do i = 7, 10
-         if(nint(PINPT%param_const(4, i)) .eq. 1) then
-           H(i - 6) = PINPT%param_const(5, i)
+         if(nint(PPRAM%param_const(4, i)) .eq. 1) then
+           H(i - 6) = PPRAM%param_const(5, i)
          else
-           H(i - 6) = PINPT%param(i)
+           H(i - 6) = PPRAM%param(i)
          endif
        enddo
        e0 = 1d0/3d0 * H(1) + 2d0/3d0 * H(2)                  + 2d0*rt2/3d0 * H(4)
@@ -518,12 +509,12 @@ subroutine tuned_onsite(PINPT, iwing, H)
        m0 = 1d0/3d0 * H(1) - 1d0/3d0 * H(2)                  + 1d0/rt2/3d0 * H(4)
        m1 = 1d0/3d0 * H(1) + 1d0/6d0 * H(2) - 1d0/2d0 * H(3) -     rt2/3d0 * H(4)
        ! apply tunning parameter lambda which is defined in PARAMETER file (19-th parameter)
-       if(nint(PINPT%param_const(4, 19)) .eq. 1) then
-         e0 = e0 * PINPT%param_const(5,19)
-         e1 = e1 * PINPT%param_const(5,19)
+       if(nint(PPRAM%param_const(4, 19)) .eq. 1) then
+         e0 = e0 * PPRAM%param_const(5,19)
+         e1 = e1 * PPRAM%param_const(5,19)
        else
-         e0 = e0 * PINPT%param(19)
-         e1 = e1 * PINPT%param(19)
+         e0 = e0 * PPRAM%param(19)
+         e1 = e1 * PPRAM%param(19)
        endif
        H(1) = 1d0/3d0 * (       e0 + 2d0 * e1 + 4d0 * m0 + 2d0 * m1)
        H(2) = 1d0/3d0 * ( 2d0 * e0 +       e1 - 4d0 * m0 +       m1)

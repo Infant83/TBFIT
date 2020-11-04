@@ -1,7 +1,7 @@
 #include "alias.inc"
-subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
+subroutine get_eig_downfold(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE)
    use mpi_setup
-   use parameters, only : incar, poscar, hopping, kpoints, energy
+   use parameters, only : incar, poscar, hopping, kpoints, energy, params
    use time
    use do_math
    use print_matrix
@@ -9,6 +9,7 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    implicit none
    type(hopping) :: NN_TABLE
    type(incar  ) :: PINPT
+   type(params ) :: PPRAM
    type(energy ) :: ETBA_FULL
    type(energy)  :: ETBA_EFF
    type(kpoints) :: PKPTS
@@ -26,10 +27,10 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    complex*16    Hs(PGEOM%neig*PINPT%ispinor,PGEOM%neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
    complex*16    H0(PGEOM%neig,PGEOM%neig)                             ! slater-koster hopping (k-dependent)
    complex*16    Hk(PGEOM%neig*PINPT%ispinor,PGEOM%neig*PINPT%ispinor) ! total hamiltonian (k-dependent)
-   real*8        E(PINPT%nband*PINPT%nspin)                      ! will store all the energy eigenvalue for each spin
+   real*8        E(PGEOM%nband*PINPT%nspin)                      ! will store all the energy eigenvalue for each spin
    integer*4     index_a(PGEOM%neig_eff * PINPT%ispin)
    integer*4     index_b((PGEOM%neig - PGEOM%neig_eff) * PINPT%ispin)
-   complex*16    V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin)     ! will store all the spin block at once in the first dimension 
+   complex*16    V(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin)     ! will store all the spin block at once in the first dimension 
    complex*16    Ha (PGEOM%neig_eff*PINPT%ispinor,PGEOM%neig_eff*PINPT%ispinor)                                 !  Hk = [ Ha   Hab ]  
    complex*16    Hb ((PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor,(PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor)   !       [ Hab'  Hb ]
    complex*16    Hab(PGEOM%neig_eff *PINPT%ispinor,(PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor)                 !
@@ -56,13 +57,14 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    flag_sparse = .false.
    flag_phase  = .true.
    flag_stat   = .true.
-   fname_header='band_structure_TBA_EFF'
+   write(fname_header,*)'band_structure_TBA_EFF',trim(PINPT%title(NN_TABLE%mysystem))
+!  fname_header='band_structure_TBA_EFF'
 
    ispinor = PINPT%ispinor
    neig    = PGEOM%neig
    neig_eff= PGEOM%neig_eff
-   nband   = PINPT%nband
-   iband   = PINPT%init_erange
+   nband   = PGEOM%nband
+   iband   = PGEOM%init_erange
    kp      = PKPTS%kpoint   
    nkp     = PKPTS%nkpoint
    index_a = NN_TABLE%i_eff_orb ; call get_index_b(index_a, index_b, PGEOM, PINPT)
@@ -87,17 +89,13 @@ subroutine get_eig_downfold(PINPT, PKPTS, PGEOM, NN_TABLE)
    
  k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
      do is = 1, PINPT%nspin
-       call get_hamk_dense(Hk, H0, Hm, Hs, is, kp(:,ik), PINPT, neig, NN_TABLE, flag_init, flag_phase)
+       call get_hamk_dense(Hk, H0, Hm, Hs, is, kp(:,ik), PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase)
        call subdivide_H(Hk, Ha, Hb, Hab, is, PINPT, PGEOM, index_a, index_b)
-
-!      call get_matrix_index(ie, fe, im, fm, is, nband, neig, PINPT%ispinor)
-!      call cal_eig(Hk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
 
        call get_effective_ham(Hef, Ha, Hb, Hab, PINPT, PGEOM)
        call get_matrix_index(ie, fe, im, fm, is, neig_eff*ispinor, neig_eff, PINPT%ispinor)
        call cal_eig_hermitian(Hef,neig_eff*ispinor, EEF(ie:fe,ik), flag_vector) ; if(flag_vector) VEF(im:fm,ie:fe,ik) = Hef
      enddo
-     !call print_eig_status(ik, ii, iadd, stat, nkp, flag_stat)
    enddo k_loop
 
 #ifdef MPI
@@ -162,10 +160,6 @@ subroutine subdivide_H(Hk, Ha, Hb, Hab, is, PINPT, PGEOM, index_a, index_b)
    complex*16    Ha (PGEOM%neig_eff*PINPT%ispinor,PGEOM%neig_eff*PINPT%ispinor)
    complex*16    Hb ((PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor,(PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor)
    complex*16    Hab(PGEOM%neig_eff *PINPT%ispinor,(PGEOM%neig - PGEOM%neig_eff)*PINPT%ispinor)
-!  character*2   cspin(2)
-
-!  cspin(1) = 'up'
-!  cspin(2) = 'dn'
 
    na = PGEOM%neig_eff * PINPT%ispinor
    nb =(PGEOM%neig-PGEOM%neig_eff)* PINPT%ispinor
@@ -179,12 +173,6 @@ subroutine subdivide_H(Hk, Ha, Hb, Hab, is, PINPT, PGEOM, index_a, index_b)
    Ha = Hk(index_a_, index_a_)
    Hb = Hk(index_b_, index_b_)
    Hab= Hk(index_a_, index_b_)
-
-!  call print_matrix_c (Hk(index_a_ ,index_a_), na, na, cspin(is), 0,'F6.1')
-!  call print_matrix_c (Hk                 , PGEOM%neig*PINPT%ispinor, PGEOM%neig*PINPT%ispinor, 'HH', 0,'F6.1')
-!  call print_matrix_c(Ha , na, na, cspin(is), 0, 'F6.1')
-!  call print_matrix_c(Hb , nb, nb, cspin(is), 0, 'F6.1')
-!  call print_matrix_c(Hab, na, nb, cspin(is), 0, 'F6.1')
 
    return
 endsubroutine

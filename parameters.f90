@@ -4,10 +4,6 @@ module parameters
 #ifdef MKL_SPARSE
   use MKL_SPBLAS 
 #endif
-!#ifndef MPI
-!  integer*4,    public, parameter :: nprocs = 1
-!  integer*4,    public, parameter :: myid   = 0
-!#endif
   character*26, public, parameter ::alphabet='abcdefghijklmnopqrstuvwxyz'
   real*8    , public, parameter   ::      pi=4.d0*atan(1.d0) ! Leibniz's formula for Pi
   real*8    , public, parameter   ::     pi2=2.d0*pi
@@ -34,14 +30,13 @@ module parameters
                                                                      0,-1,0, 1,0,0, 0,0,0/), (/3,3,3/))
   integer*4,  public, dimension(3,2),   parameter :: cyclic_axis = reshape((/2,3,1,3,1,2/), (/3,2/))
 
-  integer*4,  public, parameter   :: max_nparam      = 500    !! maximum number of onsite and hopping parameters
+  integer*4,  public, parameter   :: max_nparam      = 500    !! maximum number of onsite and hopping parameters in total
   integer*4,  public, parameter   :: max_kpoint      = 100000 !! maximum number of kpoints
   integer*4,  public, parameter   :: max_set_weight  = 100000  !! maximum number of "SET WEIGHT" tag
   integer*4,  public, parameter   :: max_pair_type   = 1000    !! maximum number of NN_CLASS pair type
   integer*4,  public, parameter   :: max_dummy       = 9999999 !! maximun number of dummy index for arbitral purpose   
   integer*4,  public, parameter   :: max_dummy2      = 1000    !! maximun number of dummy index for arbitral purpose   
   integer*4,  public, parameter   :: max_nsym        = 1000000 !! maximun number of symmetry operation for SPGLIB
-! integer*4,  public, parameter   :: pid_log         = 17 
   integer*4,  public, parameter   :: pid_energy      = 30 
   integer*4,  public, parameter   :: pid_nntable     = 33
   integer*4,  public, parameter   :: pid_incar       = 78
@@ -58,17 +53,23 @@ module parameters
   integer*4,  public, parameter   :: pid_wcc         = 102 ! pid_wcc + 1 = pid_gap
   integer*4,  public, parameter   :: pid_geom        = 177 
   integer*4,  public, parameter   :: pid_geom_ribbon = 178
-  
+  integer*4,  public, parameter   :: pid_circ        = 179
+ 
   type incar !PINPT
+       ! set in parsing step
+       integer*4                     nsystem        ! number of geometry
+       character*132, allocatable :: ifilenm(:)     ! input tag file (default = INCAR-TB, specified by -input ifilenm in command-line)
+       character*132, allocatable :: title(:)       ! title of the system
+       character*132                 pfilenm_parse  ! parsed parameter file name
+       character*132                 kfilenm_parse  ! parsed kpoints   file name
+
        character*40                  fnamelog       ! log file name, default = TBFIT.log
        logical                       flag_get_band  ! default = .true.
        logical                       flag_spglib    ! default = .true. ! write space group information
        logical                       flag_tbfit_parse, flag_tbfit_parse_
        logical                       flag_kfile_parse
+       logical                       flag_pfile_parse
        logical                       flag_ndiv_line_parse, flag_ndiv_grid_parse
-       logical                       flag_pfile_index ! whether put numbering in PARAM_FIT.dat after fitting
-       logical                       flag_use_overlap ! whether setup overlap hamiltonian 
-                                                      ! (need overlap integral parameters in PARAM_FIT.dat file in priori)
        logical                       flag_fit_degeneracy ! fitting is helped by fitting degeneracy as well.
        logical                       flag_miter_parse, flag_mxfit_parse
        logical                       flag_lorbit_parse, flag_proj_parse
@@ -85,88 +86,39 @@ module parameters
        real*8                        ftol
        real*8                        fdiff
        integer*4                     ga_npop
-       integer*4                     miter,mxfit,nparam,nparam_const
-       integer*4                     nparam_free  ! total number of free parameters size(iparam_free(:))
-       integer*4                     read_energy_column_index, read_energy_column_index_dn
-       logical                       flag_tbfit, flag_pfile, flag_pincar
-       logical                       flag_print_only_target, flag_print_param
+       integer*4                     miter,mxfit
+       logical                       flag_tbfit, flag_pincar
+       logical                       flag_tbfit_finish ! when exiting fitting routine, it will be turn to .true.
+       logical                       flag_print_only_target
        logical                       flag_print_energy_diff ! also print energy different between target and tight-binding energies
        logical                       flag_print_orbital  ! activated with LORBIT .TRUE. tag
        logical                       flag_get_orbital    ! whether request wavevector in diagonalize routine
        logical                       flag_print_proj
-       logical                       flag_set_param_const
-       logical                       flag_slater_koster ! default .true.
-       logical                       flag_nrl_slater_koster ! default .false.
        logical                       flag_print_mag
        logical                       flag_print_single ! default .false. (write single precision for wavefunction)
        logical                       flag_load_nntable ! default .false.
        character*2                   axis_print_mag ! mx, my, mz (pauli matrices), 
                                                     ! re, im (real or imag part), 
                                                     ! wf (full wf), bi (enforce to write wf with binary format)
-       real*8                        l_broaden      ! broadening of the cutff-function for NRL type SK parameterization (used if SK_SCALE_MODE > 10 in PFILE)
-       integer*4                     param_nsub_max ! 4 if SK_SCALE_MODE >10, 1 if SK_SCALE_MODE <= 10
-       integer*4,    allocatable  :: param_nsub(:)  ! (nparam) number of sub-parameters for each parameter
-                                                    ! 4: NRL type of e_, ssp_, pds_,...(with s_, o_, os_ )-> onsite, hopping, hopping_scale, 
-                                                    !                                               hopping(overlap),hopping_scale(overlap)
-                                                    ! 1: other parameters -> local_U, lrashba_, lambda_, lsoc_, stoner_I_ , ..., etc.
-       integer*4                     slater_koster_type ! 1 ~ 3: exponential scaling, 11: Mehl & Papaconstantopoulos method (PRB 54, 4519 (1996))
-       real*8,       allocatable  :: param(:), param_nrl(:,:)
-       integer*4,    allocatable  :: iparam_free(:)          ! parameter index for free parameters only (nparam_free) 
-       integer*4,    allocatable  :: iparam_free_nrl(:)      ! parameter index for free parameters only (nparam_free), sum(param_nsub(iparam_free(1:j-1)))+1
-       character*40, allocatable  :: param_name(:)
-       character*40, allocatable  :: c_const(:,:)
-       real*8,       allocatable  :: param_const(:,:) ! i=1 -> 'is same as'
-                                                      ! i=2 -> 'is lower than' (.le.) : maximum bound  ! <=  20 
-                                                      ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! >= -20 or >= 0.001 (if scale factor)
-                                                      ! i=4 -> 'is fixed' : fixed during fitting       ! original value will be 
-                                                                                                       ! copied to PINPT%param_const(i=5,:)
-                                     
-       real*8,       allocatable  :: param_const_nrl(:,:,:) ! (i,j,nparam) ! j=1:4 -> a, b, c, d  for sk-parameters 
-                                                            !                      -> alpha, beta, gamma, xi for onsite parameters
-                                                            !                if size(,:,) = 1, then lonsite_ or lambda_, stoner_ , etc....
-                                                            ! note: this parameter is only activated if slater_koster_type = 11
-       integer*4                     nparam_nrl             ! total number of parameters sum(param_nsub(:))
-       integer*4                     nparam_nrl_free        ! total number of free parameters sum(param_nsub(iparam_free(:)))
 
        character*8                   ls_type   ! fitting method
-       character*132                 ifilenm            ! input tag file (default = INCAR-TB, specified by -input ifilenm in command-line)
-       character*132                 kfilenm,gfilenm    ! kpoint file, geometry file
-       character*132                 ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
-       character*132                 pfilenm,pfileoutnm ! SK parameter file input & output
-       character*132                 efilenmu,efilenmd  ! target energy file (spin up & dn)
-       character*132                 nnfilenm           ! hopping integral file name (default = hopping.dat)     
-       character*16                  efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
-       character*8                   kline_type         ! VASP, FLEUR
-       real*8                        efile_ef           ! fermi level for efile (energy shift: energy - efile_ef will be applied when reading efile)
-       integer*4                     itarget_e_start    ! from which energy level TBFIT read as target energy from target file?
-       integer*4                     nn_max(3) ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
+       integer*4                     nn_max(3)          ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
        logical                       flag_use_weight    ! if true use "weight" information written in PFILE and 
                                                         ! replace it with SET WEIGHT info of INCAR-TB file after fitting procedures
-
-       integer*4                     nweight, npenalty_orb, ndegenw
-       character*132, allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
-       character*132, allocatable :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
-       character*132, allocatable :: strip_kp_deg(:), strip_tb_deg(:), strip_df_deg(:), strip_wt_deg(:)
-       real*8                        degen_tol          ! tolerance for checking degeneracy between bands
 
        ! plot_eig mode
        logical                       flag_plot_eigen_state  !default : .false.
        logical                       flag_plot_wavefunction !default : .true. => WAV_PLOT = .true. if .not. CHG_PLOT = .true.
-       logical                       flag_default_ngrid, flag_default_rorigin
        integer*4                     n_eig_print,n_kpt_print
        integer*4,    allocatable  :: i_eig_print(:)
        integer*4,    allocatable  :: i_kpt_print(:)
-       integer*4                     ngrid(3)
-       real*8                        r_origin(3)   ! direct coordinate for shift of the origin of chg file
        real*8                        rcut_orb_plot ! cutoff radius for orbital plot (applies STM mode too if provied in SET STMPLOT)
                                                    ! default = 5 Ang (see PRB 64, 235111)
        ! plot_stm mode
        logical                       flag_repeat_cell_orb_plot(3) ! default = .true. true. true.
        integer*4                     repeat_cell_orb_plot(3) ! default = 1
        logical                       flag_plot_stm_image    !default : .false.
-       logical                       flag_default_stm_ngrid, flag_default_stm_rorigin
        integer*4                     n_stm        ! how many stm images will be plotted
-       integer*4                     stm_ngrid(3) 
        real*8,       allocatable  :: stm_emax(:), stm_emin(:)
 
        logical                       flag_get_dos
@@ -187,12 +139,6 @@ module parameters
        logical                       flag_local_charge, flag_collinear, flag_noncollinear, flag_soc
 
        logical                       flag_erange
-       integer*4                     init_erange, fina_erange  ! ie:fe
-       integer*4                     nband ! nonmag: ie:fe, collinear: ie:fe for up or dn, non-collinear: ie:fe
-                                           ! = PGEOM%neig*PINPT%ispinor  (if .not. PINPT%flag_erange, default)
-                                           ! = PINPT%feast_nemax (if EWINDOW tag is on and nemax is smaller than PGEOM%neig*PINPT%ispinor)
-                                           ! = PINPT%fina_erange - PINPT%init_erange + 1 ( if PINPT%flag_erange)
-
        logical                       flag_sparse ! if EWINDOW tag has been set up, flag_sparse is forced to be .true.
        integer*4                     feast_nemax ! maximum number of eigenvalues (=nband_guess)
        real*8                        feast_emin, feast_emax ! energy window [emin:emax] for FEAST algorithm
@@ -204,20 +150,11 @@ module parameters
        integer*4,    allocatable  :: feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
        integer*4                     feast_neguess  ! initial guess for the number of states to be found in interval
 
-       logical                       flag_set_ribbon, flag_print_only_ribbon_geom
-       integer*4                     ribbon_nslab(3)
-       real*8                        ribbon_vacuum(3)
-
        logical                       flag_plus_U
 
        logical                       flag_scissor
        integer*4                     i_scissor ! i_scissor level will be operated by scissor operator 
        real*8                        r_scissor ! EDFT(n,k) + r_scissor if n >= i_scissor
-
-       logical                       flag_efield, flag_efield_frac, flag_efield_cart
-       real*8                        efield(3)
-       real*8                        efield_origin(3)
-       real*8                        efield_origin_cart(3)
 
        ! construct effective hamiltonian
        logical                       flag_get_effective_ham
@@ -232,10 +169,8 @@ module parameters
 
        logical                       flag_plot_fit
        logical                       flag_plot
-       character*132                 filenm_gnuplot
-
-       integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
-       integer*4                     max_len_strip_ob, max_len_strip_st
+       character*132                 filenm_gnuplot, filenm_gnuplot_parse
+       logical                       flag_filenm_gnuplot_parse
 
        logical                       flag_print_energy_singlek
        logical                       flag_print_hamk
@@ -246,21 +181,88 @@ module parameters
 
        logical                       flag_get_total_energy 
        real*8                        electronic_temperature ! Temperature, default = 0 (K)
-!      real*8                        dos_smearing           ! Broadening factor kT in Fermi-Dirac distribution function ! default = 0.001 eV
-       real*8,      allocatable   :: nelect(:)              ! number of total electrons in the system  (nspin, for up & dn if nspin=2)
+
+       ! circular dichroism 
+       logical                       flag_get_circ_dichroism ! flag whether perform circular dichroism calculation
+       integer*4                     ncirc_dichroism         
+       integer*4,   allocatable   :: circ_dichroism_pair(:,:)
+
+       integer*4                     lmmax ! 9 (default) =>  1:s, 2~4:px,py,pz, 5~9:dz2,dx2,dxy,dxz,dyz
+                                           ! 3           =>  1:s, 2  :px,py,pz, 3  :dz2,dx2,dxy,dxz,dyz
+       logical                       flag_fit_orbital ! fit orbital character as well?
+       real*8                        orbital_fit_smearing ! gaussian smearing for orbital fitting                                           
+
   endtype incar
 
+  type params !PPRAM
+     ! integer*4                     mysystem   ! my system index (deprecated...)
+       logical                       flag_set_param_const     ! whether set constrain on parameters
+       logical                       flag_pfile_index         ! whether put numbering in PARAM_FIT.dat after fitting
+       logical                       flag_use_overlap         ! whether setup overlap hamiltonian. Automatically activated if the overlap integral parameters
+                                                              ! are provided in the PARAM_FIT.dat file in priori (start with o_ )
+       real*8                        l_broaden                ! broadening of the cutoff-function for NRL type SK parameters (used if SK_SCALE_MODE > 10 in PFILE)
+       logical                       flag_slater_koster       ! default .true.
+       logical                       flag_nrl_slater_koster   ! default .false.
+       integer*4                     slater_koster_type       ! 1 ~ 3: exponential scaling, 11: Mehl & Papaconstantopoulos NRL method (PRB 54, 4519 (1996))
+       character*132                 pfilenm,pfileoutnm       ! SK parameter file input & output
+       integer*4                     nparam                   ! total number of parameters 
+       integer*4                     nparam_const             ! total number of parameters constraints
+       integer*4                     nparam_free              ! total number of free parameters size(iparam_free(:))
+       real*8,       allocatable  :: param(:)                 ! TB parameters
+       real*8,       allocatable  :: param_nrl(:,:)           ! NRL TB parameters
+       integer*4,    allocatable  :: iparam_free(:)           ! parameter index for free parameters only (nparam_free) 
+       integer*4,    allocatable  :: iparam_free_nrl(:)       ! parameter index for free parameters only (nparam_free), sum(param_nsub(iparam_free(1:j-1)))+1
+       character*40, allocatable  :: param_name(:)            
+       character*40, allocatable  :: c_const(:,:)             
+       real*8,       allocatable  :: param_const(:,:)         ! i=1 -> 'is same as'
+                                                              ! i=2 -> 'is lower than' (.le.) : maximum bound  ! <=  20 
+                                                              ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! >= -20 or >= 0.001 (if scale factor)
+                                                              ! i=4 -> 'is fixed' : fixed during fitting       ! original value will be 
+                                                                                                               ! copied to PINPT%param_const(i=5,:)
+       real*8,       allocatable  :: param_const_nrl(:,:,:)   ! (i,j,nparam) ! j=1:4 -> a, b, c, d  for sk-parameters 
+                                                              !                      -> alpha, beta, gamma, xi for onsite parameters
+                                                              !                if size(,:,) = 1, then lonsite_ or lambda_, stoner_ , etc....
+                                                              ! note: this parameter is only activated if slater_koster_type = 11
+       integer*4                     nparam_nrl               ! total number of parameters sum(param_nsub(:))
+       integer*4                     nparam_nrl_free          ! total number of free parameters sum(param_nsub(iparam_free(:)))
+       integer*4                     param_nsub_max           ! 4 if SK_SCALE_MODE >10, 1 if SK_SCALE_MODE <= 10
+       integer*4,    allocatable  :: param_nsub(:)            ! (nparam) number of sub-parameters for each parameter
+                                                              ! 4: NRL type of e_, ssp_, pds_,...(with s_, o_, os_ )-> onsite, hopping, hopping_scale, 
+                                                              !                                               hopping(overlap),hopping_scale(overlap)
+                                                              ! 1: other parameters -> local_U, lrashba_, lambda_, lsoc_, stoner_I_ , ..., etc.
+  endtype params
+
   type poscar !PGEOM
-       integer*4                     neig       ! either neig_up and neig_dn, total number of atomic orbitals (somewhat confusing with eigenvalues..)
+       integer*4                     mysystem   ! my system index
+
+       character*132                 title      ! system name (should have no blank)
+       character*132                 gfilenm    ! geometry file
+       real*8,      allocatable   :: nelect(:)  ! number of total electrons in the system  (nspin, for up & dn if nspin=2), set by NELECT tag
+                                                ! this parameter is used in total energy calculations to determine Fermi level of the system.
+                                                ! NOTE(06.Oct.2020): The default will be automatically set in the future as following:
+                                                ! by default this will be determined based on the valence electron configuration of the atom.
+                                                ! For example, if you have two Si(3s1_3p3) atom and four H(1s1) atom, 
+                                                ! then you will have 4*2 + 1*4 = 12 electrons in total with non-magnetic or noncollinear system 
+                                                ! and 6 (up) and 6 (dn) electrons, respectively, with collinear magnetic systems.
+       integer*4                     neig       ! either neig_up and neig_dn, total number of atomic orbitals
                                                 ! = sum(PGEOM%n_orbital(1:PGEOM%n_atom)) (defined in read_poscar)
+                                                ! The naming is somewhat confusion since it can be misreading as number of eigen states but
+                                                ! we just let it be for the legacy. It represents TOTAL NUMBER OF ORBITAL BASIS.
        integer*4                     neig_total ! neig_up + neig_dn
        integer*4                     neig_target
        integer*4                     nbasis  ! normally neig = nbasis
        integer*4                     neig_eff   ! number of orbital basis for the effective ham (for up and dn)
 
+       integer*4                     init_erange, fina_erange  ! ie:fe, set by ERANGE tag, otherwise, 1 and neig*ispinor 
+       integer*4                     nband ! nonmag: ie:fe, collinear: ie:fe for up or dn, non-collinear: ie:fe
+                                           ! = PGEOM%neig*PINPT%ispinor  (if .not. PINPT%flag_erange, default)
+                                           ! = PINPT%feast_nemax (if EWINDOW tag is on and nemax is smaller than PGEOM%neig*PINPT%ispinor)
+                                           ! = PGEOM%fina_erange - PGEOM%init_erange + 1 ( if PINPT%flag_erange)
+
        integer*4                     n_spec, n_atom
        integer*4,   allocatable   :: i_spec(:) ! number of atoms per each species (1:n_spec)
        character*8, allocatable   :: c_spec(:) ! character of species for each species (1:n_spec)
+       logical,     allocatable   :: flag_site_cindex(:) ! flag site indicator has been defined or not
        character*20,allocatable   :: site_cindex(:)  ! site indicator. NOTE: same as site_cindex of NN_TABLE 
        integer*4,   allocatable   :: spec(:)        ! species information for each atom (1:n_atom). The order of appearance in the POSCAR
        integer*4,   allocatable   :: spec_equiv(:)  ! species information specifying equivalent atom species
@@ -282,6 +284,7 @@ module parameters
        real*8,      allocatable   :: n_quantum(:) ! principal quantum number for the atomic species
        real*8,      allocatable   :: z_eff_nuc(:,:) ! effective nuclear charge for each atomic orbital
 
+
        character*40                  system_name
        real*8                        a_scale, a_latt(3,3) ! lattice vector (unit of Ang)
        real*8                        b_latt(3,3) ! reciprocal lattice vector(unit of A^-1)
@@ -291,8 +294,23 @@ module parameters
        character*80,allocatable   :: nn_pair(:)
        real*8,      allocatable   :: nn_dist(:), nn_r0(:)
 
-       real*8,      allocatable   :: local_charge(:,:)   ! local net charge (rho_up - rho_dn)
-                                          
+       integer*4,   allocatable   :: orb_index(:) ! store lm(atomic orbital, s, px,py...), from 1 to 9, information for each basis (neig)
+
+       ! setup for ribbon geometry
+       logical                       flag_set_ribbon, flag_print_only_ribbon_geom
+       integer*4                     ribbon_nslab(3)
+       real*8                        ribbon_vacuum(3)
+
+       ! setup grid for charge plot
+       integer*4                     ngrid(3)
+       integer*4                     stm_ngrid(3) 
+       real*8                        r_origin(3)   ! direct coordinate for shift of the origin of chg file
+
+       ! local charge/moment (same as NN_TABLE)
+       real*8,      allocatable   :: local_charge(:) !i=ham_index(neig)
+       real*8,      allocatable   :: local_moment(:,:) !(1:3,i) (1:3)=(mi, theta, phi), i=ham_idx(neig)
+       real*8,      allocatable   :: local_moment_rot(:,:) !(1:3,i) (1:3)=(mx, my, mz)=-I*mi_dot_sigma, i=ham_idx
+
        !SPGLIB related variables
        integer*4                     spg_error
        integer*4                     spg_space_group !space group index
@@ -322,8 +340,19 @@ module parameters
   endtype poscar
 
   type kpoints !PKPTS
+       integer*4                     mysystem   ! my system index
+
+       character*132                 kfilenm            ! kpoint file
+       character*132                 ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
+       character*8                   kline_type ! FHI-AIMS, VASP, FLEUR
        integer*4                     nkpoint,nline
        integer*4                     n_ndiv
+       integer*4                     idiv_mode ! kpath division mode
+                                               ! 1 -> division type: vasp-like. n-1 division between kpoint A and B and total n points
+                                               ! 2 -> division type: fleur-like. n division between kpoint A and B and total n+1 points 
+                                               ! 3 -> division type: vasp-like with n-1 division between each segments. In this mode, however,
+                                               !                    every path has different division. This is same as FHI-AIMS code does.
+
        integer*4,   allocatable   :: ndiv(:)
        integer*4                     kreduce ! Should be 1 if kline_type is not FLEUR, in the current version.
        real*8,      allocatable   :: kpoint(:,:),kline(:,:)
@@ -337,16 +366,20 @@ module parameters
   endtype kpoints
 
   type energy !EDFT / ETBA / ETBA_DOS
-       real*8,      allocatable   :: E(:,:)   !E(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2)
-       complex*16,  allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) order is same as E above
+       integer*4                     mysystem   ! my system index
+       ! energy/wavefunction etc setup
+       real*8,      allocatable   :: E(:,:)   !E(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), eigenstate
+       complex*16,  allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) wavevector (basis,eigen,kpooint)
+       real*8,      allocatable   :: ORB(:,:,:) ! orbital projected density of state (lm, neig*ispin (or nband*nspin), nkpoint), lm=s,px,py....,dyz
+       complex*16,  allocatable   :: SV(:,:,:) !SV(nbasis=neig*ispin,neig*ispin,nkpoint) overlap matrix S multiplied V, S_ij = <i|j> (i,j,kpoint)
        real*8,      allocatable   :: D(:,:,:)   !D(3,neig*ispin,nkpoint) Information for degeneracy is stored.
                                                 !D(1,:,:) -> degeneracy D_above * D_below 
                                                 !D(2,:,:) -> degeneracy D_above = E_n+1 - E_n  (exception, E_neig = 1)
                                                 !D(3,:,:) -> degeneracy D_below = E_n   - E_n-1(exception, E_1    = 1)
-!      real*8,      allocatable   :: O(:,:,:) ! O(n,m,k) = abs ( <psi_nk|psi_mk+1> )
        integer*4,   allocatable   :: IDX(:,:) ! band index after band re-ordering (valid if LORDER = .TRUE.)
        real*8,      allocatable   :: E_ORD(:,:) ! re-ordered band
        complex*16,  allocatable   :: V_ORD(:,:,:) ! re-ordered eigenvector
+       complex*16,  allocatable   :: SV_ORD(:,:,:) ! re-ordered eigenvector multiplied with S
 
        real*8,      allocatable   :: E_BAND(:)  ! band  energy of the system for each spin (nspin) 
        real*8,      allocatable   :: E_TOT(:)   ! total energy of the system for each spin (nspin)
@@ -355,24 +388,41 @@ module parameters
   endtype energy
 
   type weight !PWGHT
+       integer*4                     mysystem   ! my system index
+       character*132                 efilenmu,efilenmd  ! target energy file (spin up & dn)
+       character*16                  efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
+       real*8                        efile_ef           ! fermi level for efile (energy shift: energy - efile_ef will be applied when reading efile)
+       integer*4                     itarget_e_start    ! from which energy level TBFIT read as target energy from target file?
+       integer*4                     read_energy_column_index, read_energy_column_index_dn ! which column of the target file should be read?
+       
        integer*4                     iband, fband
-       integer*4                     nweight      ! number of           weight  (WEIGHT)  strip in "SET WEIGHT" tag
-       integer*4                     ndegenw      ! number of dgeneracy weight  (DEGENW)  strip in "SET WEIGHT" tag
-       integer*4                     npenalty_orb ! number of orbital   penalty (PENALTY) strip in "SET WEIGHT" tag
-!      integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
-!      integer*4                     max_len_strip_ob, max_len_strip_st
+       integer*4                     vbmd, cbmd   ! valence and conduction band maximum and minimum: DFT
+       integer*4                     vbmt, cbmt   ! valence and conduction band maximum and minimum: TBA
        real*8,      allocatable   :: WT(:,:)
        real*8,      allocatable   :: DEGENERACY_WT(:,:)
        real*8,      allocatable   :: PENALTY_ORB(:,:,:)
        logical                       flag_weight_default
-       logical                       flag_weight_default_orb
+       logical                       flag_weight_orb
+
+       ! weight setting
+       integer*4                     nweight      ! number of           weight  (WEIGHT)  strip in "SET WEIGHT" tag
+       integer*4                     ndegenw      ! number of dgeneracy weight  (DEGENW)  strip in "SET WEIGHT" tag
+       integer*4                     npenalty_orb ! number of orbital   penalty (PENALTY) strip in "SET WEIGHT" tag
+       character*132, allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
+       character*132, allocatable :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
+       character*132, allocatable :: strip_kp_deg(:), strip_tb_deg(:), strip_df_deg(:), strip_wt_deg(:)
+       integer*4                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
+       integer*4                     max_len_strip_ob, max_len_strip_st
+
   endtype weight
 
   type hopping !NN_TABLE (nearest neighbor table; but not restricted to nearest)
+       integer*4                     mysystem   ! my system index
+
+       character*132                 nnfilenm      ! hopping integral file name (default = hopping.dat)     
+       character*132                 nnfilenmo     ! hopping integral file name (default = hopping.dat)     
        integer*4,   allocatable   :: i_atom(:)     !(n) n = nn_neighbor index
        integer*4,   allocatable   :: j_atom(:)
-!      integer*4,   allocatable   :: i_spec(:)     !(n) n = nn_neighbor index. species information (order of appearance in PFILE)
-!      integer*4,   allocatable   :: j_spec(:)     ! do not confuse with i_spec of "poscar" type
        real*8,      allocatable   :: i_coord(:,:)  ! cartesian coordinate of atom_i (1:3,n) = nn_neighbor index
        real*8,      allocatable   :: j_coord(:,:)  ! cartesian coordinate of atom_j
        real*8,      allocatable   :: Rij(:,:) ! vector connecting two orbital i and j
@@ -410,16 +460,22 @@ module parameters
        integer*4,   allocatable   :: local_U_param_index(:) ! array size = i, i=ham_index(neig), 
        integer*4,   allocatable   :: plus_U_param_index(:) ! array size = i, i=ham_index(neig), 
        integer*4,   allocatable   :: soc_param_index(:)    ! soc parameter index for each orbital-orbital pair (nn)
-!      real*8,      allocatable   :: orbital_moment(:,:)   ! (1:3,i) (1:3)=(Lx, Ly, Lz), i=nn_index (nn-class=0)
 
        real*8,      allocatable   :: tij_file(:) ! hopping amplitude read from file (hopping.dat)
        real*8,      allocatable   :: sij_file(:) ! overlap integral  read from file (overlap.dat)
 
        integer*4,   allocatable   :: i_eff_orb(:) ! effective orbital index (1:neig * ispin) ! only meaningful if ERANGE=full
 
+       ! E-field
+       logical                       flag_efield, flag_efield_frac, flag_efield_cart
+       real*8                        efield(3)
+       real*8                        efield_origin(3)
+       real*8                        efield_origin_cart(3)
   endtype hopping
 
   type dos ! PINPT_DOS
+       integer*4                     mysystem   ! my system index
+
        character*40                  dos_kfilenm
        character*40                  dos_filenm, ldos_filenm
        integer*4                     dos_kgrid(3)
@@ -444,15 +500,11 @@ module parameters
        character*1                   dos_kunit
 
        logical                       dos_flag_sparse
-!      integer*4                     dos_feast_nemax ! maximum number of eigenvalues (=nband_guess)
-!      real*8                        dos_feast_emin, dos_feast_emax ! energy window [emin:emax] for FEAST algorithm
-!      integer*4                     dos_feast_fpm(128) ! FEAST parameters
-!      integer*4,    allocatable  :: dos_feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
-!      integer*4                     dos_feast_neguess  ! initial guess for the number of states to be found in interval
-
   endtype dos
 
   type berry ! PINPT_BERRY
+       integer*4                     mysystem   ! my system index
+
        logical                       flag_wcc_evolve
        character*40                  wcc_filenm, wcc_gap_filenm
        integer*4                     wcc_nerange
@@ -549,6 +601,8 @@ module parameters
   endtype spmat
 
   type gainp ! input/control parameters for genetic algorithm
+       integer*4                     mysystem   ! my system index
+
        integer*4                     mgen    ! maximum number of GA iterations (generation) (default : 500)
        integer*4                     npop    ! number of individuals in a population (default is 100)
        integer*4                     ngene   ! number of significant digits (number of genes) retained 
@@ -582,12 +636,17 @@ module parameters
   endtype gainp
 
   type replot ! PRPLT, required parameters for replot dos/ldos with given bandstructure file
-       logical                       flag_replot_dos   ! flag for density of states
-       logical                       flag_replot_ldos  ! flag for local density of states
-       logical                       flag_replot_sldos ! flag for spatial local density of states
-       logical                       flag_replot_band  ! flag for replot band structure
-       logical                       flag_replot_didv  ! flag for replot spatial density of states (LDOS) for given energy window
-       logical                       flag_replot_only  ! flag for calculate band structure not just reading it (if .false., default:.true.)
+       integer*4                     mysystem   ! my system index
+
+       logical                       flag_replot            ! whether turn on replot mode
+
+       logical                       flag_replot_dos        ! flag for density of states
+       logical                       flag_replot_ldos       ! flag for local density of states
+       logical                       flag_replot_sldos      ! flag for spatial local density of states
+       logical                       flag_replot_band       ! flag for replot band structure
+       logical                       flag_replot_didv       ! flag for replot spatial density of states (LDOS) for given energy window
+       logical                       flag_replot_proj_band  ! flag for replot projected band
+
        logical                       flag_replot_formatted ! flag whether band_structure_TBA file is formatted (.dat) or unformatted (.bin)
 
        character*80                  fname_band_up, fname_band_dn  ! file name the be read (set to default)
@@ -604,6 +663,7 @@ module parameters
        real*8,      allocatable   :: replot_ldos_tot(:,:,:,:,:)   ! local DOS (n_orbital(iatom), maxval(ldos_natom), nspin, nediv,nldos_sum)
 
        character*40                  replot_sldos_fname
+       character*40                  replot_dos_fname
        character*40                  replot_didv_fname
        real*8,      allocatable   :: replot_sldos_sum(:,:,:) ! spatial local density of states sum over( natom, nspin, nediv )
        integer*4                     replot_sldos_cell(3)  ! repeat cell along a1, a2, a3 direction
@@ -617,7 +677,6 @@ module parameters
        logical,     allocatable   :: flag_replot_write_unformatted(:) ! (nband)
 
        ! projected band
-       logical                       flag_replot_proj_band
        integer*4                     replot_nproj_sum
        integer*4,   allocatable   :: replot_proj_natom(:) ! how many atoms to be plotted for projected band
        integer*4,   allocatable   :: replot_proj_atom(:,:) ! integer array of atom index. maxsize=n_atom

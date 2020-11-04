@@ -58,15 +58,18 @@
 !
 !*****************************************************************************************
     module pikaia_module
-    use parameters, only : incar, weight, hopping
+    use parameters, only : incar, weight, hopping, params, kpoints, poscar
     use,intrinsic :: iso_fortran_env
     use mpi_setup
     implicit none
 
     private
     type(incar)   :: PINPT
+    type(params)  :: PPRAM
+    type(kpoints) :: PKPTS
     type(hopping) :: NN_TABLE
     type(weight)  :: PWGHT
+    type(poscar)  :: PGEOM
     integer,parameter :: wp = real64  !! Default real kind [8 bytes].
 
     !*********************************************************
@@ -139,12 +142,15 @@
 
     abstract interface
     
-        subroutine pikaia_func(me,param,gofit,kpoint, nkpoint, neig, iband, nband,NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)  
+        subroutine pikaia_func(me,param,gofit,kpoint, nkpoint, neig, iband, nband,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,flag_lmdif)  
             !! The interface for the function that pikaia will be maximizing.
-        import :: wp,pikaia_class, incar, hopping, weight
+        import :: wp,pikaia_class, incar, hopping, weight, params, kpoints, poscar
         implicit none
         class(pikaia_class),intent(inout)  :: me    !! pikaia class
         type(incar)                        :: PINPT
+        type(params)                       :: PPRAM
+        type(kpoints)                      :: PKPTS
+        type(poscar)                       :: PGEOM
         type(weight)                       :: PWGHT
         type(hopping)                      :: NN_TABLE
         integer,                intent(in) :: nkpoint, neig, iband, nband
@@ -458,10 +464,13 @@
 !   * Davis, Lawrence, ed.  Handbook of Genetic Algorithms.
 !     Van Nostrand Reinhold, 1991.
 
-    subroutine pikaia(me,param,gofit,istat,PINPT,NN_TABLE,E_DFT,PWGHT)
-    use parameters, only: incar, hopping, weight
+    subroutine pikaia(me,param,gofit,istat,PINPT,PPRAM,PKPTS,PGEOM,NN_TABLE,E_DFT,PWGHT)
+    use parameters, only: incar, hopping, weight, params, kpoints, poscar
     implicit none
     type(incar)   :: PINPT
+    type(params)  :: PPRAM
+    type(kpoints) :: PKPTS
+    type(poscar)  :: PGEOM
     type(hopping) :: NN_TABLE
     type(weight ) :: PWGHT   
     !subroutine arguments:
@@ -519,7 +528,7 @@
         do k=1,me%n    !make sure they are all within the [0,1] bounds
             xguess(k) = max( 0.0_wp, min(1.0_wp,xguess(k)) )
         end do
-        call me%ff(xguess,fguess,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+        call me%ff(xguess,fguess,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.false.)
 
         !how many elements in the population to set to xguess?:
         ! [at least 1, at most n]
@@ -541,16 +550,16 @@
         end do
 
         do k=1,me%n ! impose constraint as defined in SET CONSTRAINT of INCAR-TB
-          if( nint(PINPT%param_const(1,k)) .ge. 1) then
-            oldph(k,ip) = oldph(nint(PINPT%param_const(1,k)),ip)
+          if( nint(PPRAM%param_const(1,k)) .ge. 1) then
+            oldph(k,ip) = oldph(nint(PPRAM%param_const(1,k)),ip)
           endif
         enddo
 
         ! get fitness for each populations
         if(PINPT%flag_ga_with_lmdif) then
-          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
+          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.true.)
         else
-          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+          call me%ff(oldph(:,ip),fitns(ip),NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.false.)
         endif
     end do
 
@@ -582,22 +591,22 @@
 
             !4'.get lmdif fit for the geotypes 
             if (PINPT%flag_ga_with_lmdif) then
-              call me%ff(ph(:,1),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
-              call me%ff(ph(:,2),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,.true.)
+              call me%ff(ph(:,1),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.true.)
+              call me%ff(ph(:,2),fitns_dummy,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.true.)
             endif            
 
             !5. insert into population
             if (me%irep==1) then
                 call me%genrep(ip,ph,newph)
             else
-                call me%stdrep(ph,oldph,fitns,ifit,jfit,new,NN_TABLE,E_DFT,PWGHT,PINPT)
+                call me%stdrep(ph,oldph,fitns,ifit,jfit,new,NN_TABLE,E_DFT,PWGHT,PINPT, PPRAM,PKPTS,PGEOM)
                 newtot = newtot+new
             end if
 
         end do    !End of Main Population Loop
 
         !if running full generational replacement: swap populations
-        if (me%irep==1) call me%newpop(oldph,newph,ifit,jfit,fitns,newtot,NN_TABLE,E_DFT,PWGHT,PINPT)
+        if (me%irep==1) call me%newpop(oldph,newph,ifit,jfit,fitns,newtot,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM)
 
         !adjust mutation rate?
         if (any(me%imut==[2,3,5,6])) call adjmut(me,oldph,fitns,ifit)
@@ -649,10 +658,13 @@
 !
 !  Main pikaia wrapper used by the class.
 
-    subroutine solve_with_pikaia(me,param,gofit,istat,PINPT,NN_TABLE,E_DFT,PWGHT)
-    use parameters, only : incar, hopping, weight
+    subroutine solve_with_pikaia(me,param,gofit,istat,PINPT,PPRAM,PKPTS,PGEOM,NN_TABLE,E_DFT,PWGHT)
+    use parameters, only : incar, hopping, weight, poscar,kpoints, params
     implicit none
     type(incar)                         :: PINPT
+    type(params)                        :: PPRAM
+    type(kpoints)                       :: PKPTS
+    type(poscar)                        :: PGEOM
     type(hopping)                       :: NN_TABLE
     type(weight )                       :: PWGHT
     class(pikaia_class),intent(inout)   :: me
@@ -667,7 +679,7 @@
         param = (param-me%xl)/me%del
 
         !call the main routine, using the wrapper function:
-        call me%pikaia(param,gofit,istat,PINPT,NN_TABLE,E_DFT,PWGHT)
+        call me%pikaia(param,gofit,istat,PINPT,PPRAM,PKPTS, PGEOM, NN_TABLE,E_DFT,PWGHT)
 
         !unscale output to be [xl,xu]:
         param = me%xl + me%del*param
@@ -687,11 +699,14 @@
 !
 !  Wrapper for the user's function that is used by the main pikaia routine
 !  The scaled_param input to this function comes from pikaia, and will be between [0,1].
-    subroutine func_wrapper(me,scaled_param,gofit,NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)
-    use parameters, only : hopping, weight, incar
+    subroutine func_wrapper(me,scaled_param,gofit,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM, flag_lmdif)
+    use parameters, only : hopping, weight, incar, params,kpoints,poscar
     implicit none
     type(incar)                         :: PINPT
+    type(params)                        :: PPRAM
+    type(kpoints)                       :: PKPTS
     type(weight)                        :: PWGHT
+    type(poscar)                        :: PGEOM
     type(hopping)                       :: NN_TABLE
     class(pikaia_class),intent(inout)   :: me   ! pikaia class
     real(wp),dimension(me%neig*PINPT%ispin,me%nkp) :: E_DFT
@@ -712,7 +727,7 @@
     neig   = me%neig
 
     !call the user's function with param:
-    call me%user_f(param,gofit, kpoint, nkpoint, neig, iband, nband, NN_TABLE,E_DFT,PWGHT,PINPT,flag_lmdif)
+    call me%user_f(param,gofit, kpoint, nkpoint, neig, iband, nband, NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM, flag_lmdif)
 
     if(PINPT%flag_ga_with_lmdif) then
       !scale input initial guess to be [0,1]:
@@ -1345,11 +1360,14 @@
 !  only if they are fit enough (replace-random if irep=2 or
 !  replace-worst if irep=3).
 
-    subroutine stdrep(me,ph,oldph,fitns,ifit,jfit,nnew,NN_TABLE,E_DFT,PWGHT,PINPT)
-    use parameters, only : hopping, weight, incar
+    subroutine stdrep(me,ph,oldph,fitns,ifit,jfit,nnew,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM)
+    use parameters, only : hopping, weight, incar, params,kpoints,poscar
     implicit none
     type(incar)                         :: PINPT
+    type(params)                        :: PPRAM
+    type(kpoints)                       :: PKPTS
     type(weight)                        :: PWGHT
+    type(poscar)                        :: PGEOM
     type(hopping)                       :: NN_TABLE
     class(pikaia_class),intent(inout)             :: me
     real(wp),dimension(me%neig*PINPT%ispin,me%nkp),intent(in) :: E_DFT
@@ -1368,7 +1386,7 @@
     main_loop : do j=1,2
 
         !1. compute offspring fitness (with caller's fitness function)
-        call me%ff(ph(:,j),fit,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+        call me%ff(ph(:,j),fit,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.false.)
 
         !2. if fit enough, insert in population
         do i=me%np,1,-1
@@ -1438,11 +1456,14 @@
 !# History
 !  * Jacob Williams : 3/9/2015 : avoid unnecessary function evaluation if `ielite/=1`.
 
-    subroutine newpop(me,oldph,newph,ifit,jfit,fitns,nnew,NN_TABLE,E_DFT,PWGHT,PINPT)
-    use parameters, only: incar, weight, hopping
+    subroutine newpop(me,oldph,newph,ifit,jfit,fitns,nnew,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM)
+    use parameters, only: incar, weight, hopping, params,kpoints
     implicit none
     type(incar)                         :: PINPT
+    type(params)                        :: PPRAM
+    type(kpoints)                       :: PKPTS
     type(weight)                        :: PWGHT
+    type(poscar)                        :: PGEOM
     type(hopping)                       :: NN_TABLE
     class(pikaia_class),intent(inout)            :: me
     real(wp),dimension(me%neig*PINPT%ispin,me%nkp),intent(in) :: E_DFT
@@ -1463,7 +1484,7 @@
         !if using elitism, introduce in new population fittest of old
         !population (if greater than fitness of the individual it is
         !to replace)
-        call me%ff(newph(:,1),f,NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+        call me%ff(newph(:,1),f,NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.false.)
 
         if (f<fitns(ifit(me%np))) then
             newph(:,1)=oldph(:,ifit(me%np))
@@ -1478,7 +1499,7 @@
         oldph(:,i)=newph(:,i)
 
         !get fitness using caller's fitness function
-        call me%ff(oldph(:,i),fitns(i),NN_TABLE,E_DFT,PWGHT,PINPT,.false.)
+        call me%ff(oldph(:,i),fitns(i),NN_TABLE,E_DFT,PWGHT,PINPT,PPRAM,PKPTS,PGEOM,.false.)
 
     end do
 

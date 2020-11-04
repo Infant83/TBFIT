@@ -12,7 +12,7 @@ module print_io
    character*2048    message9
    character*2048    message_pack(1024) ! just assumed that maximum number of cpus = 1024 (one can increase according to your system))
    integer*4, public, parameter :: pid_log = 17
-
+   integer*4, public            :: iverbose     ! 1: full, 2: no
 contains
    subroutine open_log(fnamelog, myid)
       implicit none
@@ -29,6 +29,8 @@ contains
       character(len=*)      :: string
       integer*4                imode
       integer*4, intent(in) :: myid
+
+      if(iverbose .eq. 2) return
 
       select case (imode)
 

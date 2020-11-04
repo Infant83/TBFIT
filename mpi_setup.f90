@@ -47,7 +47,7 @@ module mpi_setup
      integer*4  CONTEXT
 #endif
      character*40 fnamelog
-
+     yourid = 99
      call MPI_INIT(mpierr)
 
      flag_use_mpi = .false.

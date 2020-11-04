@@ -171,10 +171,10 @@ ________________________________________________________________________________
 
 ! collect all the orthonormal eigenvectors of the matrix
 
-!Begin master part
+!Begin main part
 
 IF (rank.EQ.0) THEN
-   !obtain dimensions of the local array on master node
+   !obtain dimensions of the local array on main node
    LOCr = NUMROC(N,NBROW,MYROW,0,NPROW)
    LOCc = NUMROC(N,NBCOL,MYCOL,0,NPCOL)
 
@@ -233,9 +233,9 @@ IF (rank.EQ.0) THEN
          ENDDO
       ENDDO
    ENDDO
-   !End master part.
+   !End main part.
 
-   ! Begin slave part.
+   ! Begin neighboring node part.
 ELSE 
    !send the processor coordinates in grid
    CALL MPI_Send(myrow, 1, MPI_Integer, 0, 10, MPI_COMM_WORLD, IERR)
@@ -247,7 +247,7 @@ ELSE
    CALL MPI_Send(LZ,LDA*LDB , MPI_DOUBLE_COMPLEX, 0, 30, MPI_COMM_WORLD, IERR)
 
 ENDIF
-! End slave part.
+! End neighboring node part.
 !------------------------------------------------------------------------------------------
 
 OPEN(27,file='differences.dat')

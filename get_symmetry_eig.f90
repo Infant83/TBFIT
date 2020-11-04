@@ -1,6 +1,6 @@
 #include "alias.inc"
-subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-   use parameters, only : hopping, incar, berry, poscar, kpoints, pi2, pi, zi, pauli_0, pauli_x, pauli_y, pauli_z
+subroutine get_symmetry_eig(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
+   use parameters, only : hopping, incar, berry, poscar, kpoints, pi2, pi, zi, pauli_0, pauli_x, pauli_y, pauli_z, params
    use berry_phase
    use mpi_setup
    use phase_factor
@@ -9,6 +9,7 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    use print_io
    implicit none
    type (incar)   :: PINPT       ! parameters for input arguments
+   type (params)  :: PPRAM       ! parameters for input arguments
    type (berry)   :: PINPT_BERRY ! parameters for berry phase related quantity calculation
    type (poscar)  :: PGEOM       ! parameters for geometry info
    type (kpoints) :: PKPTS       ! parameters for kpoints
@@ -37,6 +38,8 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    complex*16        phi_i(PGEOM%neig*PINPT%ispinor), phi_j(PGEOM%neig*PINPT%ispinor)
    complex*16        phase_shift(PGEOM%neig*PINPT%ispinor)
    real*8            origin(3)
+
+   call get_kpoint(PINPT_BERRY%symmetry_kpoint, PINPT_BERRY%symmetry_kpoint_reci, PINPT_BERRY%symmetry_nkpoint, PGEOM)
 
    neig       = PGEOM%neig
    ispin      = PINPT%ispin
@@ -75,7 +78,7 @@ sp:do is = 1, nspin
        write(message,'(A,I3,1x,A10,A,3F10.5)')'       KPT',ik,kpoint_name(ik),' : ',kpoint_reci(:,ik) ; write_msg
  
        ! GET HAMILTONIAN HK
-       call get_ham_Hk(Hk, NN_TABLE, PINPT, kpoint(:,ik), is, neig, flag_phase) ; V = Hk
+       call get_ham_Hk(Hk, NN_TABLE, PINPT, PPRAM, kpoint(:,ik), is, neig, flag_phase) ; V = Hk
        if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(Hk, neig*ispinor, neig*ispinor, 'H_'//trim(PINPT_BERRY%symmetry_kpoint_name(ik)), 1, 'F6.3')
 
        ! SYMMETRIZE HK by S_OP * HK * S_OP' ==> save as V

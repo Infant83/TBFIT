@@ -1,7 +1,129 @@
 #include "alias.inc"
+subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
+  use parameters, only : incar, poscar, hopping, params, k_B
+  use mpi_setup
+  use print_io
+  implicit none
+  type (incar )            :: PINPT
+  type (poscar)            :: PGEOM
+  type (hopping)           :: NN_TABLE
+  type (params)            :: PPRAM   
+  integer*4                   mpierr
+  logical                     flag_gfile_exist
+  integer*4                   nelect(2)
+
+  inquire(file=PGEOM%gfilenm,exist=flag_gfile_exist)
+
+  if(.not. flag_gfile_exist) then
+    write(message,'(A,A,A)')'  !WARN! ',trim(PGEOM%gfilenm),' does not exist!! Exit...' ; write_msg
+    kill_job
+  endif
+
+  ! set ribbon if required
+  if(PGEOM%flag_set_ribbon) call set_ribbon_geom(PGEOM) 
+
+  ! read geometry
+  write(message,*)' '  ; write_msg
+  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(PGEOM%gfilenm)  ; write_msg
+  call read_poscar(PINPT, PGEOM, NN_TABLE)
+
+  !set equivalent atom if defined in CONSTRAINT set
+  call set_equiv_atom(PPRAM, PGEOM)
+
+  !set nband and initial band if flag_erange = .false.
+  if(.not.PINPT%flag_erange) then
+    PGEOM%init_erange = 1 ! default
+    PGEOM%fina_erange = PGEOM%neig*PINPT%ispinor ! default
+    PGEOM%nband = PGEOM%neig*PINPT%ispinor ! default
+    if(PINPT%flag_sparse) then
+      ! initial number of ncsr will not exeed n_neighbor.
+      ! Note that this will be adjusted later in the "get_eig" routine by
+      ! constructing the Hamiltonian with Compressed Sparse array format.
+      if(PINPT%feast_nemax .le. 0) then
+        PGEOM%nband = PGEOM%neig*PINPT%ispinor ! default (do not save memory...)
+        PGEOM%init_erange = 1
+        PGEOM%fina_erange = PGEOM%neig*PINPT%ispinor
+      elseif(PINPT%feast_nemax .ge. 1) then
+        if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
+          write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'   ; write_msg
+          write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'           ; write_msg
+          write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'     ; write_msg
+          PGEOM%nband = PGEOM%neig * PINPT%ispinor
+          PINPT%feast_nemax = PGEOM%nband
+        else
+          PGEOM%nband = PINPT%feast_nemax
+        endif
+        PGEOM%init_erange = 1
+        PGEOM%fina_erange = PGEOM%nband
+      endif
+    endif
+  endif
+
+  ! set orbital index (s,p,d...) according to their name specified in PFILE (only work with flag_slater_koster = .true.)
+  if(PPRAM%flag_slater_koster) then
+    call set_orbital_index(PGEOM, PINPT%lmmax)
+  endif
+
+  ! set effective nunclear charge which will be used in eigen state plot or stm plot
+  if(PPRAM%flag_slater_koster .and. (PINPT%flag_plot_stm_image .or. PINPT%flag_plot_eigen_state) ) then
+    call set_effective_nuclear_charge(PGEOM)
+  endif
+
+  ! setup for effective hamiltonian calculation
+  if(PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
+    write(message,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'  ; write_msg
+    write(message,'(A)')'           Exit program...' ; write_msg
+    kill_job
+  elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
+    call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
+  endif
+
+  ! set nelect for total energy calculation (if flag_get_total_energy = .true.)
+   if(PINPT%flag_get_total_energy) then
+     if(allocated(PGEOM%nelect)) then
+       nelect = PGEOM%nelect
+       deallocate(PGEOM%nelect)
+     endif
+     if(PINPT%nspin .eq. 2) then
+       allocate(PGEOM%nelect(2))
+       PGEOM%nelect = nelect
+       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
+       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
+       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+
+       if(nelect(1) .lt. 0d0) then
+         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
+         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+         kill_job
+       else
+         write(message,'(A,F12.5)')'   NELECT: (up)', PGEOM%nelect(1) ; write_msg
+         write(message,'(A,F12.5)')'   NELECT: (dn)', PGEOM%nelect(2) ; write_msg
+       endif
+     else
+       allocate(PGEOM%nelect(1))
+       PGEOM%nelect = nelect(1)
+       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
+       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
+       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+       if(nelect(1) .lt. 0d0) then
+         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
+         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+         kill_job
+       else
+         write(message,'(A,F12.5)')'   NELECT: ', PGEOM%nelect(1) ; write_msg
+       endif
+     endif
+   else
+     write(message,'(A)')'  L_TOTEN: .FALSE.' ; write_msg
+   endif
+
+  write(message,*)'*- END READING GEOMETRY FILE ---------------------'  ; write_msg
+  write(message,*)' '  ; write_msg
+
+  return
+endsubroutine
 subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   use parameters,  only : incar, poscar, hopping, pid_geom
-! use inverse_mat, only : inv
   use do_math, only : rotate_vector, inv
   use mpi_setup
   implicit none
@@ -26,21 +148,18 @@ subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   character*20                locpot_index
   character(*), parameter  :: func = 'read_poscar'
   logical                     flag_skip, flag_read_moment, flag_moment_cart
-! real*8                      rot_m(3)
   external                    nitems, str2lowcase
   type (incar )            :: PINPT  
   type (poscar)            :: PGEOM  
   type (hopping)           :: NN_TABLE
 
-  fname        = PINPT%gfilenm
+  fname        = PGEOM%gfilenm
   PGEOM%n_spec = 0
   PGEOM%flag_selective = .false.
   flag_read_moment = .false.
   flag_moment_cart = .false.
   pos_index = 0
 
-  write(message,*)' '  ; write_msg
-  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(fname)  ; write_msg
   open (pid_geom, FILE=fname,iostat=i_continue)
   linecount = 0
   ii = 0
@@ -76,16 +195,19 @@ line: do
         ! lattice parameter
          elseif(linecount .eq. 3 ) then
            backspace(pid_geom)
+           write(message,'(A            )')'          _______________________________________________'; write_msg
            do i=1,3
              read(pid_geom,'(A)',iostat=i_continue) inputline
              read(inputline,*,iostat=i_continue) PGEOM%a_latt(1:3,i)
-             write(message,'(A,i1,A,3F15.8)')'  A_LATT',i,':  ',PGEOM%a_latt(1:3,i)  ; write_msg
+             write(message,'(A,i1,A,3F15.8)')'  LATT A',i,':  ',PGEOM%a_latt(1:3,i)  ; write_msg
            enddo
            call get_reci(PGEOM%b_latt(:,1), PGEOM%b_latt(:,2), PGEOM%b_latt(:,3), &
                          PGEOM%a_latt(:,1), PGEOM%a_latt(:,2), PGEOM%a_latt(:,3))
+           write(message,'(A            )')'          –––––––––––––––––––––––––––––––––––––––––––––––'; write_msg
            do i=1,3
-             write(message,'(A,i1,A,3F15.8)')'  B_RECI',i,':  ',PGEOM%b_latt(1:3,i)  ; write_msg
+             write(message,'(A,i1,A,3F15.8)')'  RECI B',i,':  ',PGEOM%b_latt(1:3,i)  ; write_msg
            enddo
+           write(message,'(A            )')'          ––––——––––––––––––––––––––––––––———––––––––––––'; write_msg
            linecount = linecount + 2
            cycle
 
@@ -134,13 +256,13 @@ line: do
            read(inputline,*,iostat=i_continue) desc_str
            if(desc_str(1:1) .eq. 'S' .or. desc_str(1:1) .eq. 's') then 
              PGEOM%flag_selective = .true.
-             write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
            elseif(desc_str(1:1) .eq. 'D' .or. desc_str(1:1) .eq. 'd') then 
              PGEOM%flag_selective = .false.
              PGEOM%flag_direct=.true.
              PGEOM%flag_cartesian=.false.
              linecount = linecount + 1
-             write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
              write(message,'(A)')' C_CRDTYP:  DIRECT'  ; write_msg
            elseif(desc_str(1:1) .eq. 'C' .or. desc_str(1:1) .eq. 'c' .or. &
                   desc_str(1:1) .eq. 'K' .or. desc_str(1:1) .eq. 'k') then 
@@ -148,7 +270,7 @@ line: do
              PGEOM%flag_direct=.false.
              PGEOM%flag_cartesian=.true.
              linecount = linecount + 1
-             write(message,'(A)')' L_CONSTR:  .FALSE.'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .FALSE.'  ; write_msg
              write(message,'(A)')' C_CRDTYP:  CARTESIAN'  ; write_msg
            endif
          elseif(linecount .eq. 9 ) then
@@ -368,18 +490,18 @@ line: do
              do i=1,PGEOM%n_atom
                if(PGEOM%n_orbital(i) .eq. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msg
+                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msg_file
                  endif
                elseif(PGEOM%n_orbital(i) .gt. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msg
-                   write(message,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i) ; write_msg
+                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msg_file
+                   write(message,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i) ; write_msg_file
                  endif
                  if(PINPT%flag_local_charge) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(PINPT%flag_report_geom) then
-                     write(message,'(A,*(F10.4))')'   CHARGE:   ',local_charge_(i_dummy:i_dummy1) ; write_msg
+                     write(message,'(A,*(F10.4))')'   CHARGE:   ',local_charge_(i_dummy:i_dummy1) ; write_msg_file
                    endif
                  endif
 
@@ -387,18 +509,18 @@ line: do
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(PINPT%flag_report_geom) then
-                     write(message,'(A,*(F10.4))')'   MAGMOM:   ',local_moment_(1,i_dummy:i_dummy1) ; write_msg
+                     write(message,'(A,*(F10.4))')'   MAGMOM:   ',local_moment_(1,i_dummy:i_dummy1) ; write_msg_file
                    endif
                  elseif(PINPT%flag_noncollinear) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(flag_moment_cart)then
                      if(PINPT%flag_report_geom) then
-                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (Mx,My,Mz) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg
+                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (Mx,My,Mz) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg_file
                      endif
                    else
                      if(PINPT%flag_report_geom) then
-                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (M,theta,phi) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg
+                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (M,theta,phi) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg_file
                      endif
                    endif
                  endif
@@ -456,58 +578,56 @@ line: do
   endif
 
   ! set efield_origin (if "efield" requested)
-  if(PINPT%flag_efield .and. PINPT%flag_efield_frac) then
-    PINPT%efield_origin_cart(1:3) = PINPT%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
-                                    PINPT%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
-                                    PINPT%efield_origin(3) * PGEOM%a_latt(1:3,3)
-    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',PINPT%efield_origin_cart(1:3)  ; write_msg
-  elseif(PINPT%flag_efield .and. .not. PINPT%flag_efield_frac .and. .not. PINPT%flag_efield_cart) then
-    PINPT%efield_origin(1) = 0
-    PINPT%efield_origin(2) = 0
-    PINPT%efield_origin(3) = ( maxval(PGEOM%a_coord(3,:)) - minval(PGEOM%a_coord(3,:)) ) * 0.5d0
+  if(NN_TABLE%flag_efield .and. NN_TABLE%flag_efield_frac) then
+    NN_TABLE%efield_origin_cart(1:3) = NN_TABLE%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
+                                       NN_TABLE%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
+                                       NN_TABLE%efield_origin(3) * PGEOM%a_latt(1:3,3)
+    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msg
+  elseif(NN_TABLE%flag_efield .and. .not. NN_TABLE%flag_efield_frac .and. .not. NN_TABLE%flag_efield_cart) then
+    NN_TABLE%efield_origin(1) = 0
+    NN_TABLE%efield_origin(2) = 0
+    NN_TABLE%efield_origin(3) = ( maxval(PGEOM%a_coord(3,:)) - minval(PGEOM%a_coord(3,:)) ) * 0.5d0
 
-    PINPT%efield_origin_cart(1:3) = PINPT%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
-                                    PINPT%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
-                                    PINPT%efield_origin(3) * PGEOM%a_latt(1:3,3)
-    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',PINPT%efield_origin_cart(1:3)  ; write_msg
+    NN_TABLE%efield_origin_cart(1:3) = NN_TABLE%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
+                                       NN_TABLE%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
+                                       NN_TABLE%efield_origin(3) * PGEOM%a_latt(1:3,3)
+    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msg
   endif
 
+
+  ! store site_index
+  allocate(PGEOM%site_cindex(PGEOM%n_atom))
+  allocate(PGEOM%flag_site_cindex(PGEOM%n_atom))
+  PGEOM%site_cindex = site_c_index_
+  PGEOM%flag_site_cindex = flag_site_c_index_
+
   ! store local moment
-  allocate(NN_TABLE%local_moment(3,PGEOM%neig)) ! local net moment for each atomic orbital basis
-  allocate(NN_TABLE%local_moment_rot(3,PGEOM%neig)) ! local moment rotated
-  NN_TABLE%local_moment     = 0d0
-  NN_TABLE%local_moment_rot = 0d0
+  allocate(PGEOM%local_moment(3,PGEOM%neig)) ! local net moment for each atomic orbital basis
+  allocate(PGEOM%local_moment_rot(3,PGEOM%neig)) ! local moment rotated
+  PGEOM%local_moment     = 0d0 ;   PGEOM%local_moment_rot = 0d0
   if(PINPT%flag_collinear) then
-    NN_TABLE%local_moment(1,:) = local_moment_(1,1:PGEOM%neig)
+    PGEOM%local_moment(1,:) = local_moment_(1,1:PGEOM%neig)
   elseif(PINPT%flag_noncollinear) then
-    NN_TABLE%local_moment(1,:) = local_moment_(1,1:PGEOM%neig)
-    NN_TABLE%local_moment(2,:) = local_moment_(2,1:PGEOM%neig)
-    NN_TABLE%local_moment(3,:) = local_moment_(3,1:PGEOM%neig)
+    PGEOM%local_moment(1,:) = local_moment_(1,1:PGEOM%neig)
+    PGEOM%local_moment(2,:) = local_moment_(2,1:PGEOM%neig)
+    PGEOM%local_moment(3,:) = local_moment_(3,1:PGEOM%neig)
     if(flag_moment_cart) then
       do i = 1, PGEOM%neig
-        NN_TABLE%local_moment_rot(1:3,i) = NN_TABLE%local_moment(1:3,i)
+        PGEOM%local_moment_rot(1:3,i) = PGEOM%local_moment(1:3,i)
       enddo
     else
       do i = 1, PGEOM%neig
-        call rotate_vector( NN_TABLE%local_moment_rot(1:3,i), NN_TABLE%local_moment(1:3,i) )
+        call rotate_vector( PGEOM%local_moment_rot(1:3,i), PGEOM%local_moment(1:3,i) )
       enddo
     endif
   endif
 
   ! store local charge
-  allocate(NN_TABLE%local_charge(PGEOM%neig)) ! local charge for each atomic orbital basis
-  NN_TABLE%local_charge = 0d0
+  allocate(PGEOM%local_charge(PGEOM%neig)) ! local charge for each atomic orbital basis
+  PGEOM%local_charge = 0d0
   if(PINPT%flag_local_charge) then
-    NN_TABLE%local_charge(:) = local_charge_(1:PGEOM%neig)
+    PGEOM%local_charge(:) = local_charge_(1:PGEOM%neig)
   endif
-
-  ! store site_index
-  allocate(NN_TABLE%site_cindex(PGEOM%n_atom)) ! site_index for each atomic site
-  allocate(NN_TABLE%flag_site_cindex(PGEOM%n_atom)) ! flag for site_index for each atomic site
-  NN_TABLE%site_cindex = site_c_index_
-  NN_TABLE%flag_site_cindex =flag_site_c_index_
-  allocate(PGEOM%site_cindex(PGEOM%n_atom))
-  PGEOM%site_cindex = site_c_index_
 
   if (linecount == 0) then
     write(message,*)'Attention - empty input file: ',trim(fname),' , ',func  ; write_msg
@@ -525,10 +645,76 @@ line: do
 #endif
 
 
-  write(message,*)'*- END READING GEOMETRY FILE ---------------------'  ; write_msg
-  write(message,*)' '  ; write_msg
 
 return
+endsubroutine
+subroutine set_orbital_index(PGEOM, lmmax)
+   use parameters, only: poscar
+   use mpi_setup
+   implicit none
+   type (poscar)            :: PGEOM
+   integer*4                   iatom, iorb, imatrix, lmmax
+   integer*4, allocatable   :: orb_index(:)
+   character*8                 orb
+   integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1), mpierr
+
+   call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+
+   allocate(PGEOM%orb_index(PGEOM%neig))
+   allocate(orb_index(PGEOM%neig))
+   PGEOM%orb_index = 0 ; orb_index = 0
+
+   do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+     do iorb = 1, PGEOM%n_orbital(iatom)
+       orb = adjustl(trim(PGEOM%c_orbital(iorb,iatom)))
+       imatrix= sum( PGEOM%n_orbital(1:iatom) ) - PGEOM%n_orbital(iatom) + iorb
+       
+       if(lmmax .eq. 9) then
+         select case (trim(orb))
+           case ('s')
+             PGEOM%orb_index(imatrix) = 1
+  
+           case ('px')
+             PGEOM%orb_index(imatrix) = 2
+           case ('py')
+             PGEOM%orb_index(imatrix) = 3
+           case ('pz')
+             PGEOM%orb_index(imatrix) = 4
+              
+           case ('dz2')
+             PGEOM%orb_index(imatrix) = 5
+           case ('dx2')
+             PGEOM%orb_index(imatrix) = 6
+           case ('dxy')
+             PGEOM%orb_index(imatrix) = 7
+           case ('dxz')
+             PGEOM%orb_index(imatrix) = 8
+           case ('dyz')
+             PGEOM%orb_index(imatrix) = 9
+  
+         endselect
+       elseif(lmmax .eq. 3) then
+         select case (trim(orb))
+           case ('s')
+             PGEOM%orb_index(imatrix) = 1
+
+           case('px', 'py', 'pz') 
+             PGEOM%orb_index(imatrix) = 2
+
+           case('dz2', 'dx2', 'dxy', 'dxz', 'dyz')
+             PGEOM%orb_index(imatrix) = 3
+         endselect
+       endif
+
+     enddo ! iorb
+   enddo ! iatom
+
+#ifdef MPI
+   call MPI_ALLREDUCE(PGEOM%orb_index,orb_index,size(PGEOM%orb_index),MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+   PGEOM%orb_index = orb_index
+#endif
+
+   return
 endsubroutine
 
 subroutine set_effective_nuclear_charge(PGEOM)
@@ -664,19 +850,19 @@ subroutine find_spec(spec,ispec,n)
   return
 endsubroutine
 
-subroutine set_equiv_atom(PINPT, PGEOM)
-  use parameters, only: incar, poscar
+subroutine set_equiv_atom(PPRAM, PGEOM)
+  use parameters, only: params, poscar
   implicit none
-  type (incar )            :: PINPT
+  type (params)            :: PPRAM
   type (poscar)            :: PGEOM
   integer*4                   i, ia, ja, ispec, jspec, spec_i, spec_j
   character*40                dummy1, dummy2
   character*8                 c_spec_i, c_spec_j
 
-lp1:do i = 1, PINPT%nparam_const
-      if ( trim(PINPT%c_const(2,i)) .eq. '=' ) then
-        dummy1 = trim(PINPT%c_const(3,i))
-        dummy2 = trim(PINPT%c_const(1,i))
+lp1:do i = 1, PPRAM%nparam_const
+      if ( trim(PPRAM%c_const(2,i)) .eq. '=' ) then
+        dummy1 = trim(PPRAM%c_const(3,i))
+        dummy2 = trim(PPRAM%c_const(1,i))
         if(dummy1(1:4) .eq. 'spec' .and. dummy2(1:4) .eq. 'spec') then
           call strip_off(dummy1, c_spec_i, '_',' ',2)
           call strip_off(dummy2, c_spec_j, '_',' ',2)

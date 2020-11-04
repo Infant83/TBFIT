@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
+subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
    use parameters  
    use mpi_setup
    use time
@@ -10,6 +10,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    type(hopping)           :: NN_TABLE
    type(dos    )           :: PINPT_DOS
    type(incar  )           :: PINPT
+   type(params )           :: PPRAM
    type(poscar )           :: PGEOM
    type(kpoints)           :: PKPTS
    integer*4                  i,k,ie,nkpoint,nparam,neig, nediv, ispin, nspin, ispinor
@@ -31,12 +32,12 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    real*8,     allocatable :: ldos_tot(:,:,:,:)                  ! nbasis+tot, dos_natom_ldos, nediv,spin
    real*8,     allocatable :: E(:,:), E_(:,:)
    complex*16, allocatable :: V(:,:,:), V_(:,:,:)
+   complex*16, allocatable :: SV(:,:,:), SV_(:,:,:)
    complex*16, allocatable :: myV(:,:) !nbasis,nband
+   complex*16, allocatable :: mySV(:,:) !nbasis,nband
    real*8                     rho
    real*8                     a1(3),a2(3),a3(3),b1(3),b2(3),b3(3)
    real*8                     b2xb3(3),bzvol,dkv
-!  real*8                     fgauss
-!  external                   fgauss  
    character*40               fname_header
    real*8                     time1, time2, time3, time4
    logical                    flag_sparse, flag_exit_dsum
@@ -66,6 +67,15 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    write(message,*)''  ; write_msg
    write(message,'(A)')'START: DOS EVALUATION'  ; write_msg
 
+   ! setup atom index for projected band only if not allocated already
+   if(PINPT_DOS%dos_flag_print_ldos .and. PINPT_DOS%dos_ldos_natom .eq. 0) then
+     allocate(PINPT_DOS%dos_ldos_atom(PGEOM%n_atom))
+     do i = 1, PGEOM%n_atom
+       PINPT_DOS%dos_ldos_atom(i) = i
+     enddo
+     PINPT_DOS%dos_ldos_natom = PGEOM%n_atom
+   endif
+
    neig    = PGEOM%neig
    ispin   = PINPT%ispin
    nspin   = PINPT%nspin
@@ -74,7 +84,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
    nk2     = PINPT_DOS%dos_kgrid(2)  
    nk3     = PINPT_DOS%dos_kgrid(3)  
    nkpoint = nk1 * nk2 * nk3
-   nparam  = PINPT%nparam
+   nparam  = PPRAM%nparam
    kshift  = PINPT_DOS%dos_kshift
    nediv   = PINPT_DOS%dos_nediv
    emax    = PINPT_DOS%dos_emax
@@ -120,7 +130,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
        write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of DOS_EWINDOW tag is larger than the eigenvalues (NEIG)'  ; write_msg
        write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'  ; write_msg
        write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'  ; write_msg
-       PINPT%feast_nemax = PINPT%nband
+       PINPT%feast_nemax = PGEOM%nband
      endif
    elseif(.not. PINPT_DOS%dos_flag_sparse) then
      flag_sparse = PINPT_DOS%dos_flag_sparse
@@ -136,8 +146,8 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
 
    allocate( param(nparam) )
    allocate( param_const(5,nparam) )
-   param   = PINPT%param
-   param_const = PINPT%param_const
+   param   = PPRAM%param
+   param_const = PPRAM%param_const
    allocate( E(nband*nspin,nkpoint) )
    if_main allocate( V(neig*ispin,nband*nspin,nkpoint) )
    allocate( myV(neig*ispin,nband*nspin) )
@@ -163,7 +173,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      if_main call print_kpoint(kpoint_reci, nkpoint, PINPT_DOS%dos_kfilenm)
    endif
 
-   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, E, V, neig, iband, nband, &
+   call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, PPRAM, E, V, SV, neig, iband, nband, &
                 PINPT%flag_get_orbital, flag_sparse, .true., .true.) !, flag_order)
 
    if(flag_sparse) then
@@ -171,7 +181,7 @@ subroutine get_dos(NN_TABLE, PINPT, PINPT_DOS, PGEOM, PKPTS)
      ne_found = PINPT%feast_ne
    else
      allocate(ne_found(PINPT%nspin, nkpoint))
-     ne_found = PINPT%nband
+     ne_found = PGEOM%nband
    endif
 
 #ifdef MPI
@@ -191,8 +201,15 @@ kp:do ik = 1,  nkpoint
 #ifdef MPI
        if_main myV = V(:,:,ik)
        call MPI_BCAST(myV, size(myV), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+       if(PPRAM%flag_use_overlap) then
+         if_main mySV = SV(:,:,ik)
+         call MPI_BCAST(mySV, size(mySV), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+       endif
 #else
        myV = V(:,:,ik)
+       if(PPRAM%flag_use_overlap) then
+         mySV = SV(:,:,ik)
+       endif
 #endif
      endif
      if(nkpoint .lt. 10) then
@@ -203,7 +220,7 @@ kp:do ik = 1,  nkpoint
          inck = inck + 1
        endif
      endif
-!eig:do ie = 1 + myid, nediv, nprocs
+
      inc = 1
  eig:do ie = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
        if(nkpoint .lt. 10) then
@@ -222,13 +239,17 @@ kp:do ik = 1,  nkpoint
            if(PINPT_DOS%dos_flag_print_ldos) then
              ii = i+nband*(is-1) ! get band index according to the spin index
              do ia = 1, PINPT_DOS%dos_ldos_natom
-!              iatom = PINPT_DOS%dos_ldos_atom(ia) ! which atom will be resolved?
                ! which matrix index is the starting point for "iatom"
                imatrix = sum(PGEOM%n_orbital(1:PINPT_DOS%dos_ldos_atom(ia))) - &
                              PGEOM%n_orbital(PINPT_DOS%dos_ldos_atom(ia)) + 1 
                do im = 1, PGEOM%n_orbital(PINPT_DOS%dos_ldos_atom(ia))
-                 mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho =       real(conjg(myV(mm     ,ii))*myV(mm     ,ii))
-                 if(ispinor .eq. 2)                      rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
+                 if(.not. PPRAM%flag_use_overlap) then
+                   mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho =       real(conjg(myV(mm     ,ii))*myV(mm     ,ii))
+                   if(ispinor .eq. 2)                      rho = rho + real(conjg(myV(mm+neig,ii))*myV(mm+neig,ii))
+                 elseif(PPRAM%flag_use_overlap) then
+                   mm = im+imatrix-1 + PGEOM%neig*(is-1) ; rho =       real(conjg(myV(mm     ,ii))*mySV(mm     ,ii))
+                   if(ispinor .eq. 2)                      rho = rho + real(conjg(myV(mm+neig,ii))*mySV(mm+neig,ii))
+                 endif
                  ldos_tot(im,ia,is,ie) = ldos_tot(im,ia,is,ie) + rho * dos_
                enddo
              enddo
@@ -268,8 +289,12 @@ kp:do ik = 1,  nkpoint
        do is = 1, nspin
          E_(is,:)   = E(  PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
          V_(:,is,:) = V(:,PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
+         if(PPRAM%flag_use_overlap) then
+           SV_(:,is,:) = SV(:,PINPT_DOS%dos_ensurf(i) - iband + 1 - (is-1)*(neig-PINPT_DOS%dos_n_ensurf), :)
+         endif
        enddo
-      call print_energy_ensurf(kpoint, nkpoint,PINPT_DOS%dos_ensurf(i), nspin, E_, V_, PGEOM, PINPT, fname_header, PINPT_DOS%dos_kunit)
+      call print_energy_ensurf(kpoint, nkpoint,PINPT_DOS%dos_ensurf(i), nspin, E_, V_, SV_, PGEOM, PINPT, &
+                               fname_header, PINPT_DOS%dos_kunit, PPRAM%flag_use_overlap)
      enddo
    endif
 
@@ -277,9 +302,12 @@ kp:do ik = 1,  nkpoint
    deallocate( param_const)
    deallocate( E )
    if(allocated(V )) deallocate( V )
+   if(allocated(SV)) deallocate( SV)
    if(allocated(E_)) deallocate( E_)
    if(allocated(V_)) deallocate( V_)
+   if(allocated(SV_)) deallocate( SV_)
    if(allocated(myV))deallocate(myV)
+   if(allocated(mySV))deallocate(mySV)
    deallocate( kpoint )
    deallocate( kpoint_reci )
    deallocate( ne_found )
@@ -311,19 +339,6 @@ kp:do ik = 1,  nkpoint
 return
 endsubroutine
 
-!function fgauss(sigma, x)
-!   use parameters, only : pi, pi2
-!   implicit none
-!   real*8   sigma,sigma2
-!   real*8   x,xx
-!   real*8   fgauss
-!   xx = x**2
-!   sigma2 = sigma**2
-!
-!   fgauss= exp(-0.5d0*xx/sigma2)/(sigma*sqrt(pi2))
-
-!return
-!end function
 subroutine get_ensurf_fname_format(i, format_string)
    implicit none
    integer*4    i

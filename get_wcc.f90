@@ -1,34 +1,36 @@
 #include "alias.inc"
-subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2
+subroutine get_wcc(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
+   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2, params
    use berry_phase
    use mpi_setup
    use print_io
    implicit none
-   type(hopping) :: NN_TABLE
-   type(incar)   :: PINPT
-   type(berry)   :: PINPT_BERRY
-   type(poscar)  :: PGEOM
-   type(kpoints) :: PKPTS
-   integer*4        mpierr
-   integer*4        is
-   integer*4        ikpath, nkpath
-   integer*4        nkdiv, nerange, nband, iband
-   integer*4        erange(PINPT_BERRY%wcc_nerange)
-   real*8           G(3)
-   real*8           time1, time2
-   real*8           E(PINPT_BERRY%wcc_nerange,PINPT_BERRY%wcc_nkdiv)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%wcc_nerange,PINPT_BERRY%wcc_nkdiv)
-   real*8           wcc(PINPT_BERRY%wcc_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%wcc_nkpath)
-   real*8           largest_gap(PINPT%nspin,PINPT_BERRY%wcc_nkpath)
-   integer*4        clock_direct (PINPT%nspin,PINPT_BERRY%wcc_nkpath)
-   integer*4        z2_index(PINPT%nspin)
-#ifdef MPI
-   real*8           wcc_(PINPT_BERRY%wcc_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%wcc_nkpath)
-#endif
-   real*8           kpoint(3,PINPT_BERRY%wcc_nkdiv,PINPT_BERRY%wcc_nkpath)
-   logical          flag_phase
-   logical          flag_sparse, flag_get_chern, flag_get_chern_spin, flag_order
+   type(hopping)          :: NN_TABLE
+   type(incar)            :: PINPT
+   type(params)           :: PPRAM
+   type(berry)            :: PINPT_BERRY
+   type(poscar)           :: PGEOM
+   type(kpoints)          :: PKPTS
+   integer*4                 mpierr
+   integer*4                 is
+   integer*4                 ikpath, nkpath
+   integer*4                 nkdiv, nerange, nband, iband
+   integer*4, allocatable :: erange(:)
+   real*8                    G(3)
+   real*8                    time1, time2
+   real*8,    allocatable :: E(:,:)
+   complex*16,allocatable :: V(:,:,:)
+   complex*16,allocatable :: SV(:,:,:)
+   real*8,    allocatable :: wcc(:,:,:)
+#ifdef MPI                   
+   real*8,    allocatable :: wcc_(:,:,:)
+#endif                       
+   real*8                    largest_gap(PINPT%nspin,PINPT_BERRY%wcc_nkpath)
+   integer*4                 clock_direct (PINPT%nspin,PINPT_BERRY%wcc_nkpath)
+   integer*4                 z2_index(PINPT%nspin)
+   real*8                    kpoint(3,PINPT_BERRY%wcc_nkdiv,PINPT_BERRY%wcc_nkpath)
+   logical                   flag_phase
+   logical                   flag_sparse, flag_get_chern, flag_get_chern_spin, flag_order
 
 
 #ifdef MPI
@@ -36,6 +38,17 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 #else
    call cpu_time(time1)
 #endif
+
+   call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'wc')
+   allocate(erange(PINPT_BERRY%wcc_nerange))
+   allocate(E(PINPT_BERRY%wcc_nerange,PINPT_BERRY%wcc_nkdiv))
+   allocate(V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%wcc_nerange,PINPT_BERRY%wcc_nkdiv))
+   allocate(SV(PGEOM%neig*PINPT%ispin,PINPT_BERRY%wcc_nerange,PINPT_BERRY%wcc_nkdiv))
+   allocate(wcc(PINPT_BERRY%wcc_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%wcc_nkpath))
+#ifdef MPI
+   allocate(wcc_(PINPT_BERRY%wcc_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%wcc_nkpath))
+#endif
+   call set_berry_kpath (PINPT_BERRY, PGEOM, PINPT, 'wc')
 
    write(message,*)'' ; write_msg
    write(message,'(A)')'START: WCC EVALUATION' ; write_msg
@@ -72,7 +85,7 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    iband  = erange(1)
 
    do ikpath = 1,  nkpath
-     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase, flag_order)
+     call get_eig(NN_TABLE, kpoint(:,:,ikpath), nkdiv, PINPT, PPRAM, E, V, SV, PGEOM%neig, iband, nband,.true., flag_sparse, .false., flag_phase)
      if_main call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
      if_main call get_berry_phase(wcc(:,:,ikpath),kpoint(:,:,ikpath), V, PINPT, PGEOM, nkdiv, erange, nerange)
@@ -90,7 +103,6 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
    ! where hamiltonian size is quite small.
 
    PINPT_BERRY%wcc = wcc
-!  if_main call print_wcc(PINPT, PINPT_BERRY)
    call find_largest_gap(largest_gap, clock_direct, z2_index, PINPT_BERRY%wcc, PINPT%nspin, nkpath, nerange)
    if(flag_get_chern) call get_chern_number(PINPT_BERRY%wcc_chern(:), PINPT_BERRY%wcc_polarization(:,:), &
                                             PINPT_BERRY%wcc(:,:,:), PINPT%nspin, nkpath, nerange)
@@ -101,7 +113,6 @@ subroutine get_wcc(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
 
 #else
    PINPT_BERRY%wcc = wcc 
-!  call print_wcc(PINPT, PINPT_BERRY)
    call find_largest_gap(largest_gap, clock_direct, z2_index, PINPT_BERRY%wcc, PINPT%nspin, nkpath, nerange)
    if(flag_get_chern) call get_chern_number(PINPT_BERRY%wcc_chern(:), PINPT_BERRY%wcc_polarization(:,:), &
                                             PINPT_BERRY%wcc(:,:,:), PINPT%nspin, nkpath, nerange)

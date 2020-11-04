@@ -7,8 +7,325 @@ module read_incar
 
 contains
 
-   subroutine set_eigplot(PINPT,desc_str)
+   subroutine read_input_tags(PINPT, &
+                              PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
+                              EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, &
+                              PRPLT, mysystem)
+      type(incar)            :: PINPT
+      type(params)           :: PPRAM
+      type(kpoints)          :: PKPTS
+      type(poscar )          :: PGEOM
+      type(hopping)          :: NN_TABLE
+      type(weight )          :: PWGHT
+      type(energy )          :: EDFT
+      type(gainp  )          :: PKAIA
+      type(berry  )          :: PINPT_BERRY
+      type(dos    )          :: PINPT_DOS
+      type(replot )          :: PRPLT
+      integer*4                 mpierr
+      integer*4                 mysystem ! system index to be set up
+      integer*4                 i_continue
+      integer*4                 linecount
+      character*132             inputline
+      character*40              desc_str
+      logical                   flag_kfile_ribbon
+      integer*4, external    :: nitems
+      character(*),parameter :: func = 'read_input_tags'
+      
+      flag_kfile_ribbon=.false.
+      call write_log(' ',3,myid)
+      write(message, '(A)')'##############################################################';  write_msg
+      call write_log('---- READING INPUT FILE: '//trim(PINPT%ifilenm(mysystem)),3,myid)
+      write(message, '(A)')'##############################################################';  write_msg
+      call write_log(' ',3,myid)
+
+      call set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
+
+      open (pid_incar, FILE=trim(PINPT%ifilenm(mysystem)),iostat=i_continue) ;  linecount = 0
+     
+     line: do
+            read(pid_incar,'(A)',iostat=i_continue) inputline
+            if(i_continue<0) exit               ! end of file reached
+            if(i_continue>0) then
+             call write_log('Unknown error reading file:'//trim(PINPT%ifilenm(mysystem))//' '//trim(func),3,myid)
+             kill_job
+            endif
+            linecount = linecount + 1
+            ! check INPUT tag
+            read(inputline,*,iostat=i_continue) desc_str
+            if(i_continue .ne. 0) cycle              ! skip empty line
+            if (desc_str(1:1).eq.'#') cycle  ! skip comment
+    
+            ! head
+            select case (desc_str)
+    
+              ! set TITLE for the output header
+              case('TITLE')
+                call set_title(PINPT,PGEOM, inputline, desc_str)
+
+              !set TBFIT or not, and releated parameters
+              case('GET_BAND', 'BAND')
+                call set_get_band(PINPT,inputline, desc_str)
+    
+              case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT', 'FDIFF')
+                call set_tbfit(PINPT, inputline, desc_str)
+    
+              case('EWINDOW')
+                call set_energy_window(PINPT, inputline, desc_str)
+    
+              case('ERANGE')
+                call set_energy_range(PINPT, PGEOM, inputline, desc_str)
+    
+              !read KPOINT info file from KFILE
+              case('KFILE')
+                if(.not. PINPT%flag_kfile_parse) then
+                  call set_kpoint_file(PINPT, PKPTS, flag_kfile_ribbon, inputline)
+                endif
+
+              case('KREDUCE')
+                read(inputline,*,iostat=i_continue) desc_str, PKPTS%kreduce
+    
+              !load hopping file?
+              case('LOAD_HOP', 'LOAD_TIJ', 'LOAD_NNTABLE')
+                call set_load_nntable(PINPT, NN_TABLE, inputline, desc_str)
+    
+              !read GEOMETRY info file from GFILE
+              case('GFILE')
+                call set_geom_file(PINPT, PGEOM, inputline, 1)
+    
+              !report GEOMETRY info read from GFILE
+              case('PRINT_GEOM')
+                call set_geom_file(PINPT, PGEOM, inputline, 2)
+    
+              !read TB-parameter file from PFILE
+              case('PFILE')
+               call set_tbparam_file(PINPT, PPRAM, PWGHT, inputline)
+    
+              !how many times the unit cell is repeated in finding nearest neighbor pair?
+              case('NN_MAX')
+               call set_nn_max(PINPT,inputline,desc_str)
+    
+              !where to write fitted TB-parameter to POFILE
+              case('POFILE')
+               call set_tbparam_out_file(PPRAM, inputline)
+    
+#ifdef SPGLIB
+              !spglib symmetry information will be written
+              case('SPGLIB', 'SPG_LIB', 'LSPGLIB')
+                call set_spglib_write(PINPT, inputline,desc_str)
+#endif
+    
+              ! LSPIN tag. 1:non-collinear or NM, 2:collinear
+              case('TYPMAG')
+                call set_magnetism_tag(PINPT, inputline)
+    
+              ! LSORB tag. .true.:spin-orbit .false.: no-soc but collinear only
+              case('LSORB')
+                call set_spin_orbit_tag(PINPT, inputline)
+    
+              ! LOCCHG. tag  true.:read local charge density for the onsite modification
+              case('LOCCHG')
+                call set_local_charge(PINPT, inputline)
+    
+              ! PLUS+U. tag  true.: perform +U approach U*Sigma_i n_i,u * n_i,d
+              case('PLUS+U')
+                call set_plus_U_scheme(PINPT, inputline)
+    
+              !read target (DFT) energy file from EFILE
+              case('EFILE','EFILEU','EFILED')
+                call set_target_file(PWGHT, inputline, desc_str)
+              case('EFILE_EF')
+                read(inputline,*,iostat=i_continue) desc_str, PWGHT%efile_ef
+                write(message,'(A,F12.5)')'  EDFT_EF:  ', PWGHT%efile_ef ; write_msg
+    
+              case('PLOTFIT')
+                if(nitems(inputline) -1 .eq. 1) then
+                  read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
+                else
+                  if(PINPT%flag_filenm_gnuplot_parse) then
+                    read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
+                  elseif(.not. PINPT%flag_filenm_gnuplot_parse) then
+                    read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit, PINPT%filenm_gnuplot
+                  endif
+                endif
+    
+              case('PRTDIFF')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
+    
+              case('PRTSEPK')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_singlek
+    
+              case('PRTHAMK')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_hamk
+    
+              case('LPHASE', 'PHASE')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
+                write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msg
+    
+              case('LORBFIT')
+                ! NOTE: only work with PWGHT%read_energy_column_index = 2 and PWGHT%efile_type = 'user',
+                !       and most importantly, orbital projected density should be provided in EFILE from 6-th column as follows:
+                !       k-dist  energy  s  p  d  s  py  pz  px  dxy  dyz  dz2  dxz  dx2  tot
+                !         1        2    3  4  5  6  7   8   9   10   11   12   13   14   15
+                !                                1  3   4   2    7    9    5    8    6
+                !       This is same sequence as in PROCAR format
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_fit_orbital, PINPT%orbital_fit_smearing
+                write(message,'(A,L)')' L_ORBFIT: ',PINPT%flag_fit_orbital ; write_msg
+    
+              case('LORDER')
+                call set_band_order(PINPT, inputline)
+    
+    
+              !## TOTAL ENERGY RELATED TAGS ###########################################################
+              case('LTOTEN')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_get_total_energy
+    
+              case('ELTEMP')
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%electronic_temperature
+    
+              case('NELECT')
+                call set_nelect(PGEOM, inputline)
+    
+              !#######################################################################################
+    
+              !if true, target data with weight information is printed and quit the program
+              case('PRINT_ONLY')
+                call set_print_only_target(PINPT,inputline)
+    
+              !if true, scissor operator for the target data will be applied for the energy levels specified
+              case('SCISSOR')
+                call set_target_scissor(PINPT, inputline)
+    
+              !set orbital decomposed output or not
+              case('LORBIT')
+                if(.not. PINPT%flag_lorbit_parse) then
+                  call set_local_orbital_print(PINPT, inputline)
+                endif
+              !set orbital decomposed output onto each atomic site
+              case('LDOS', 'LDOS_SUM', 'PROJ', 'PROJ_SUM', 'PROJ_BAND')
+                if(.not. PINPT%flag_proj_parse) then
+                  call set_ldos_project_print(PINPT,inputline)
+                endif
+    
+              ! set Circular dichroism calculation
+              case('CIRC_DICHROISM', 'CIRCULAR_DICHROISM')
+                call set_circular_dichroism(PINPT, inputline)
+    
+              ! kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A)
+              case('K_UNIT')
+                call set_kpoint_unit(PKPTS, inputline)
+    
+              !read TBFIT settings: TB-parameters, weight, ... etc. And also, Zak phase, DOS etc, can be set here.
+              case('SET')
+                read(inputline,*,iostat=i_continue) desc_str, desc_str
+                !set constraint for parameters
+                if(trim(desc_str) .eq. 'CONSTRAINT') then
+                  call set_constraint(PPRAM, desc_str)
+
+                !set weight for the fitting
+                elseif(trim(desc_str) .eq. 'WEIGHT' .and. .not. PINPT%flag_use_weight) then
+                  call set_weight_factor(PINPT, PWGHT, desc_str)
+    
+                !set onsite_tolerance : distance within this range will be regared as onsite
+                elseif(trim(desc_str) .eq. 'ONSITETOL') then
+                  call set_onsite_tol(NN_TABLE, inputline)
+    
+                !set NN_CLASS with given atom pair of ditance
+                elseif(trim(desc_str) .eq. 'NN_CLASS') then
+                  call set_nn_class(PGEOM, desc_str)
+    
+                !set eigenstate charge density plot
+                elseif(trim(desc_str) .eq. 'EIGPLOT' .or. trim(desc_str) .eq. 'STMPLOT') then
+                  call set_eigplot(PINPT,PGEOM,desc_str)
+    
+                !set density of state (DOS) plot
+                elseif(trim(desc_str) .eq. 'DOS') then
+                  call set_density_of_states(PINPT, PINPT_DOS, desc_str)
+    
+                !set ribbon geometry
+                elseif(trim(desc_str) .eq. 'RIBBON') then
+                  call set_ribbon(PGEOM, PKPTS, flag_kfile_ribbon, desc_str)
+    
+                !set Z2 topological index calculation based on WCC method (see Ref. [PRB 83, 235401])
+                elseif(trim(desc_str) .eq. 'Z2' .or. trim(desc_str) .eq. 'Z2_INDEX') then
+                  call set_z2(PINPT, PINPT_BERRY, desc_str)
+    
+                !set Wannier charge center calculation (see Ref. [PRB 83, 235401])
+                elseif(trim(desc_str) .eq. 'WCC') then
+                  call set_wcc(PINPT, PINPT_BERRY, desc_str)
+    
+                !set Zak phase
+                elseif(trim(desc_str) .eq. 'ZAK_PHASE') then
+                  call set_zak_phase(PINPT, PINPT_BERRY, desc_str)
+    
+                !set Parity eigenvalue calculation
+                elseif(trim(desc_str) .eq. 'PARITY' .or. trim(desc_str) .eq. 'PARITY_CHECK') then
+                  call set_parity_check(PINPT, PINPT_BERRY, desc_str)
+    
+                elseif(trim(desc_str) .eq. 'SYMMETRY_EIG' .or.  trim(desc_str) .eq. 'SYMMETRY_INDICATOR') then
+                  call set_symmetry_check(PINPT, PINPT_BERRY, desc_str)
+    
+                !set Berry curvature
+                elseif(trim(desc_str) .eq. 'BERRY_CURVATURE' .or. trim(desc_str) .eq. 'BERRYC') then
+                  call set_berry_curvature(PINPT, PINPT_BERRY, desc_str)
+    
+                !set E-field
+                elseif(trim(desc_str) .eq. 'EFIELD') then
+                  call set_efield(NN_TABLE, desc_str)
+    
+                !set parameters for the Genetic Algorithm of PIKAIA library
+                elseif(trim(desc_str) .eq. 'GA') then
+                  call set_gainp(PKAIA, desc_str)
+    
+                !set effective hamiltonian
+                elseif(trim(desc_str) .eq. 'EFFECTIVE') then
+                  call set_effective(PINPT, desc_str)
+    
+                elseif(trim(desc_str) .eq. 'REPLOT') then
+                  call set_replot(PINPT,PRPLT,desc_str)
+    
+                endif !SET
+    
+            end select
+          enddo line
+
+      if (linecount == 0) then
+        write(message,*)'Attention - empty input file: ',trim(PINPT%ifilenm(mysystem)) ; write_msg
+        kill_job
+      endif
+      close(pid_incar)
+
+      if(PINPT%flag_tbfit .and. PINPT%flag_sparse) then
+        write(message,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'  ; write_msg
+        write(message,'(A)') '           Please deactivate EWINDOW for the further process.'  ; write_msg
+        write(message,'(A)') '           Exit program...'  ; write_msg
+        kill_job
+      endif
+
+      return
+   endsubroutine
+
+   subroutine set_title(PINPT, PGEOM, inputline, desc_str)
+      type(poscar) ::  PGEOM
+      type(incar ) ::  PINPT
+      character*132 inputline
+      character*40  desc_str
+      integer*4     mysystem
+      integer*4     i_continue
+      character(*), parameter :: func = 'set_title'
+
+      mysystem = PGEOM%mysystem
+
+      read(inputline,*,iostat=i_continue) desc_str, PGEOM%title
+      PINPT%title(mysystem) = trim(PGEOM%title)
+      write(message,'(2A)')'    TITLE: ', trim(PINPT%title(mysystem)) ; write_msg
+      PINPT%title(mysystem) = '.'//PINPT%title(mysystem)
+
+      return
+   endsubroutine
+   subroutine set_eigplot(PINPT,PGEOM,desc_str)
       type(incar)  ::  PINPT
+      type(poscar) ::  PGEOM
       integer*4     i
       integer*4     i_continue
       integer*4     i_dummy, i_dummy2
@@ -54,8 +371,7 @@ mode: select case ( trim(plot_mode) )
                 case('NGRID')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 3) then
-                    read(inputline,*,iostat=i_continue) desc_str,PINPT%ngrid(1:3)
-                    PINPT%flag_default_ngrid = .false.
+                    read(inputline,*,iostat=i_continue) desc_str,PGEOM%ngrid(1:3)
                   else
                     write(message,'(A)')'    !WARN! NGRID tag of "SET EIGPLOT" should be three consequent integer numbers.'  ; write_msg
                     write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msg
@@ -65,9 +381,8 @@ mode: select case ( trim(plot_mode) )
                 case('RORIGIN')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 3) then
-                    read(inputline,*,iostat=i_continue) desc_str,PINPT%r_origin(1:3)
-                    write(message,'(A,3(F15.8))')'   R_ORIG:  ',PINPT%r_origin(1:3) ; write_msg
-                    PINPT%flag_default_rorigin = .false.
+                    read(inputline,*,iostat=i_continue) desc_str,PGEOM%r_origin(1:3)
+                    write(message,'(A,3(F15.8))')'   R_ORIG:  ',PGEOM%r_origin(1:3) ; write_msg
                   else
                     write(message,'(A)')'    !WARN! RORIGIN tag of "SET EIGPLOT" should be three consequent real values.'  ; write_msg
                     write(message,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func  ; write_msg
@@ -126,8 +441,7 @@ mode: select case ( trim(plot_mode) )
                 case('NGRID')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 3) then
-                    read(inputline,*,iostat=i_continue) desc_str,PINPT%stm_ngrid(1:3)
-                    PINPT%flag_default_stm_ngrid = .false.
+                    read(inputline,*,iostat=i_continue) desc_str,PGEOM%stm_ngrid(1:3)
                   else
                     write(message,'(A)')'    !WARN! NGRID tag of "SET STMPLOT" should be three consequent integer numbers.'  ; write_msg
                     write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msg
@@ -203,129 +517,16 @@ mode: select case ( trim(plot_mode) )
       return    
    endsubroutine
 
-   ! deprecated option .. use set_tbparam_file instead
-   subroutine set_tbparam(PINPT,param_const,desc_str)
-      type(incar)  ::  PINPT
-      integer*4     i, ii, i_continue
-      integer*4     i_dummy
-      integer*4     nitems
-      character*132 inputline
-      character*40  desc_str
-      character*40  dummy, dummy2
-      real*8        r_dummy
-      logical       flag_number
-      external      nitems, flag_number
-      real*8        param_const(5,max_nparam)
-      character(*), parameter :: func = 'set_tbparam'
+   subroutine set_constraint(PPRAM,desc_str)
+      type(params) ::  PPRAM
+      integer*4        i, ii, i_continue
+      integer*4        nitems
+      external         nitems
+      character(*),    parameter :: func = 'set_constraint'
+      character*132    inputline
+      character*40     desc_str, dummy, dummy1,dummy2,dummy3     
 
-      if(PINPT%flag_pfile) then
-        write(message,'(A,A,A)')'    !WARNING! ',trim(PINPT%pfilenm),' is alread provided,'  ; write_msg
-        write(message,'(A,A,A)')'    !WARNING! ','but the TBPARAM is also provided in the INCAR-TB file.'  ; write_msg
-        write(message,'(A,A,A)')'    !WARNING! ','Those values from INCAR-TB will not be read'  ; write_msg
-      elseif(.not. PINPT%flag_pfile) then
-        i=0
-        do
-          read(pid_incar,'(A)',iostat=i_continue) inputline
-          read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
-          if(i_continue .ne. 0) then
-           i=i+1
-           cycle              ! skip empty line
-          elseif(desc_str(1:1).eq.'#') then
-           i=i+1
-           cycle  ! skip comment
-          elseif(desc_str .eq. 'END' ) then
-           i=i+1
-           exit   ! finish reading TB-parameters
-          else
-           i=i+1
-           PINPT%nparam=PINPT%nparam+1
-          endif
-        enddo
-        do ii=1,i
-          backspace(pid_incar)
-        enddo
-        if(PINPT%nparam .ne. 0) then
-          allocate( PINPT%param(PINPT%nparam), PINPT%param_name(PINPT%nparam) )
-          if(.not. PINPT%flag_pfile) then
-            param_const(1,1:PINPT%nparam) = 0d0
-            param_const(2,1:PINPT%nparam) = 20d0
-            param_const(3,1:PINPT%nparam) =-20d0
-            param_const(4,1:PINPT%nparam) = 0d0
-            param_const(5,1:PINPT%nparam) = 0d0
-
-          endif
-
-          i=0
-          do
-            read(pid_incar,'(A)',iostat=i_continue) inputline
-            read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
-            if(i_continue .ne. 0) cycle              ! skip empty line
-            if (desc_str(1:1).eq.'#') cycle  ! skip comment
-            if (desc_str .eq. 'END' ) exit   ! finish reading TB-parameters
-            i=i+1
-            i_dummy = nitems(inputline) - 1
-
-            if(i_dummy .eq. 1) then
-              read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i)
-
-            elseif( i_dummy .eq. 2) then
-              read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy
-              dummy = trim(dummy)
-              if(.not. flag_number(dummy)) then
-                if(.not. PINPT%flag_pfile) then
-                  if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
-                    param_const(4,i) = 1d0
-                    param_const(5,i) = PINPT%param(i)
-                  elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-                    param_const(4,i) = 0d0
-                  endif
-                endif
-              elseif(flag_number(dummy)) then
-                if(.not. PINPT%flag_pfile) then
-                  call str2real(dummy, r_dummy)
-                  PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
-                endif
-              endif
-
-            elseif( i_dummy .eq. 3) then
-              read(inputline,*,iostat=i_continue) PINPT%param_name(i),PINPT%param(i),dummy2, dummy
-              dummy2= trim(dummy2)
-              if(.not.flag_number(dummy2)) stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
-              dummy = trim(dummy)
-              if(flag_number(dummy))     stop "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file."
-
-              call str2real(dummy2, r_dummy)
-              PINPT%param(i) = PINPT%param(i) * r_dummy ! re_scaled
-              
-              if(.not. PINPT%flag_pfile) then
-                if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
-                  param_const(4,i) = 1d0
-                  param_const(5,i) = PINPT%param(i)
-                elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-                  param_const(4,i) = 0d0
-                endif
-              endif
-
-            endif
-          enddo
-          PINPT%flag_pincar = .true.
-        elseif ( PINPT%nparam .eq. 0 ) then
-          write(message,'(A,A,A)')'    !WARNING! TBPARAM tag is set in the INCAR-TB but'  ; write_msg
-          write(message,'(A,A,A)')'    !WARNING! TB-parameter is not provided.         '  ; write_msg
-          write(message,'(A,A,A)')'    !WARNING! TB-parameter will be read from externl file if set by PFILE'  ; write_msg
-        endif
-      endif
-      return
-   endsubroutine
-
-   subroutine set_constraint(PINPT,desc_str)
-      type(incar)  ::  PINPT
-      integer*4     i, ii, i_continue
-      integer*4     nitems
-      external      nitems
-      character(*), parameter :: func = 'set_constraint'
-      character*132 inputline
-      character*40  desc_str, dummy, dummy1,dummy2,dummy3     
+     !if(PPRAM%nparam .eq. 0) return
 
       i=0
       do
@@ -342,16 +543,16 @@ mode: select case ( trim(plot_mode) )
          exit   ! finish reading parameter constraint
         else
          i=i+1
-         PINPT%nparam_const=PINPT%nparam_const+1
+         PPRAM%nparam_const=PPRAM%nparam_const+1
         endif
       enddo
       do ii=1,i
         backspace(pid_incar)
       enddo
 
-      if(PINPT%nparam_const .ne. 0) then
-        PINPT%flag_set_param_const = .true.
-        allocate( PINPT%c_const(3,PINPT%nparam_const) )
+      if(PPRAM%nparam_const .ne. 0) then
+        PPRAM%flag_set_param_const = .true.
+        allocate( PPRAM%c_const(3,PPRAM%nparam_const) )
         i=0
         do
           read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -361,9 +562,9 @@ mode: select case ( trim(plot_mode) )
           if (desc_str .eq. 'END' ) exit   ! finish reading TB-parameters
           i=i+1
           read(inputline,*,iostat=i_continue) dummy1, dummy2, dummy3
-          PINPT%c_const(1,i)=dummy1
-          PINPT%c_const(2,i)=dummy2
-          PINPT%c_const(3,i)=dummy3
+          PPRAM%c_const(1,i)=dummy1
+          PPRAM%c_const(2,i)=dummy2
+          PPRAM%c_const(3,i)=dummy3
         enddo
       endif
 
@@ -405,7 +606,7 @@ mode: select case ( trim(plot_mode) )
                 call str2real(trim(dummy1),strip_nn_dist_(i))
                 call str2real(trim(dummy3),strip_nn_r0_(i))
               endif
-              write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',strip_nn_pair_(i),' R0_max:',strip_nn_dist_(i),'   R0:',strip_nn_r0_(i)  ; write_msg
+             !write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',strip_nn_pair_(i),' R0_max:',strip_nn_dist_(i),'   R0:',strip_nn_r0_(i)  ; write_msg
             enddo
             allocate( PGEOM%nn_pair(i) )
             allocate( PGEOM%nn_dist(i) )
@@ -419,8 +620,9 @@ mode: select case ( trim(plot_mode) )
       return
    endsubroutine
 
-   subroutine set_replot(PRPLT, desc_str)
+   subroutine set_replot(PINPT, PRPLT, desc_str)
       type(replot )  :: PRPLT
+      type(incar  )  :: PINPT
       integer*4     i, ii, k, i_continue
       integer*4     nitems
       external      nitems
@@ -440,20 +642,6 @@ mode: select case ( trim(plot_mode) )
       logical       flag_replot_print_single(max_dummy)
       logical       flag_replot_write_unformatted(max_dummy)
 
-      ! setup default values
-!     PRPLT%replot_ldos_natom    =  0 
-      PRPLT%replot_dos_smearing  =  0.025d0 
-      PRPLT%replot_dos_emin      = -10d0
-      PRPLT%replot_dos_emax      =  10d0
-      PRPLT%replot_dos_nediv     =  1000
-      PRPLT%replot_sldos_cell    = (/1,1,1/)
-      PRPLT%r_origin             = 0d0
-      PRPLT%bond_cut             = 3d0 
-      PRPLT%flag_replot_formatted= .true.  ! default: read formatted band_structure_TBA file
-!     PRPLT%replot_axis_print_mag= 'rh'
-
-
-
  set_rpl:do while(trim(desc_str) .ne. 'END')
            read(pid_incar,'(A)',iostat=i_continue) inputline
            read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -463,38 +651,39 @@ mode: select case ( trim(plot_mode) )
 
   case_rpl:select case ( trim(desc_str) )
              case('REPLOT_DOS')
-               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos 
-               if(PRPLT%flag_replot_dos) then
-                 write(message,'(A)')'  REPLT_DOS: .TRUE.'  ; write_msg
-               elseif(.not. PRPLT%flag_replot_dos) then
-                 write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msg
-               endif
-
+              !i_dummy = nitems(inputline) - 1
+              !if(i_dummy .eq. 1) then
+                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos 
+                 if(PRPLT%flag_replot_dos) then
+                   write(message,'(A)')'  REPLT_DOS: .TRUE. '; write_msg ! ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msg
+                 elseif(.not. PRPLT%flag_replot_dos) then
+                   write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msg
+                 endif
+              !elseif(i_dummy .eq. 2) then
+              !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos, PRPLT%replot_dos_fname
+              !  if(PRPLT%flag_replot_dos) then
+              !    write(message,'(2A)')'  REPLT_DOS: .TRUE. ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msg
+              !  else
+              !    write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msg
+              !  endif
+              !endif
              case('REPLOT_SLDOS')
-               i_dummy = nitems(inputline) - 1
-               if(i_dummy .eq. 1) then
+              !i_dummy = nitems(inputline) - 1
+              !if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
                  if(PRPLT%flag_replot_sldos) then
-                   write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
+                   write(message,'(A)')'REPLT_SLDOS: .TRUE. '; write_msg !==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
                  elseif(.not. PRPLT%flag_replot_sldos) then
                    write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
                  endif
-               elseif(i_dummy .eq. 2) then
-                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos,PRPLT%replot_sldos_fname
-                 if(PRPLT%flag_replot_sldos) then
-                   write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
-                 elseif(.not. PRPLT%flag_replot_sldos) then
-                   write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
-                 endif
-               endif
-
-             case('REPLOT_ONLY')
-               read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_only
-               if(PRPLT%flag_replot_only) then
-                 write(message,'(A)')' REPLT_ONLY: .TRUE.'  ; write_msg
-               elseif(.not. PRPLT%flag_replot_only) then
-                 write(message,'(A)')' REPLT_ONLY: .FALSE.'  ; write_msg
-               endif
+              !elseif(i_dummy .eq. 2) then
+              !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos,PRPLT%replot_sldos_fname
+              !  if(PRPLT%flag_replot_sldos) then
+              !    write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
+              !  elseif(.not. PRPLT%flag_replot_sldos) then
+              !    write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
+              !  endif
+              !endif
 
              case('FILE_FORMAT')
                read(inputline,*,iostat=i_continue) desc_str, desc_str
@@ -738,22 +927,22 @@ mode: select case ( trim(plot_mode) )
                endif
 
              case('REPLOT_DIDV', 'REPLOT_STS') 
-               i_dummy = nitems(inputline) - 1
-               if(i_dummy .eq. 1) then
+              !i_dummy = nitems(inputline) - 1
+              !if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv
                  if(PRPLT%flag_replot_didv) then
-                   write(message,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
+                   write(message,'(2A)')' REPLT_DIDV: .TRUE. '; write_msg ! ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
                  elseif(.not. PRPLT%flag_replot_didv) then
                    write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msg
                  endif
-               elseif(i_dummy .eq. 2) then
-                 read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv,PRPLT%replot_didv_fname
-                 if(PRPLT%flag_replot_didv) then
-                   write(message,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
-                 elseif(.not. PRPLT%flag_replot_didv) then
-                   write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msg
-                 endif
-               endif
+              !elseif(i_dummy .eq. 2) then
+              !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv,PRPLT%replot_didv_fname
+              !  if(PRPLT%flag_replot_didv) then
+              !    write(message,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
+              !  elseif(.not. PRPLT%flag_replot_didv) then
+              !    write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msg
+              !  endif
+              !endif
 
              case('NEDOS','REPLOT_NEDOS')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_nediv
@@ -835,16 +1024,6 @@ mode: select case ( trim(plot_mode) )
 
          enddo set_rpl
 
-!     if(PRPLT%flag_replot_formatted .and. PRPLT%flag_replot_band) then
-!       write(message,'(A)') '    !WARN! FILE_FORMAT for band_structure_TBA has been set to '  ; write_msg
-!       write(message,'(A)') '           ascii(formatted) and also requested REPLOT_BAND to .TRUE.'  ; write_msg
-!       write(message,'(A)') '           which is not accepted offer.'  ; write_msg
-!       write(message,'(A)') '           Note that REPLOT_BAND is to convert band_structure_TBA.bin to'  ; write_msg
-!       write(message,'(A)') '           band_structure_TBA.dat which is ascii (formatted) format.'  ; write_msg
-!       write(message,'(A)') '           Exit program...'  ; write_msg
-!       kill_job
-!     endif
-
       if(PRPLT%replot_nproj_sum .ge. 1) PRPLT%flag_replot_proj_band = .true.
       if(PRPLT%replot_nldos_sum .ge. 1) PRPLT%flag_replot_ldos = .true.
 
@@ -866,6 +1045,17 @@ mode: select case ( trim(plot_mode) )
          write(message,'(A)') '           and REPLOT_NEDOS or (NEDOS) is larger than 2 which is nonsense, hence, REPLOT_NEDOS is '  ; write_msg
          write(message,'(A)') '           enfornced to be 1. Proceed calculations..'  ; write_msg
       endif
+
+
+      ! SET TBFIT to .FALSE. by default if REPLOT is requested
+      PRPLT%flag_replot = (PRPLT%flag_replot_dos .or. &
+                           PRPLT%flag_replot_ldos .or. &
+                           PRPLT%flag_replot_sldos .or. &
+                           PRPLT%flag_replot_didv .or. &
+                           PRPLT%flag_replot_proj_band)
+
+      if(PRPLT%flag_replot) PINPT%flag_tbfit = .false.
+
       return
    endsubroutine
    subroutine set_density_of_states(PINPT, PINPT_DOS, desc_str)
@@ -884,7 +1074,6 @@ mode: select case ( trim(plot_mode) )
       external      flag_number
     
             PINPT%flag_get_dos = .true.
-!           PINPT%flag_get_band = .true.
             write(message,'(A)')'  GET_DOS: .TRUE.'  ; write_msg
             !initialize the default values
             PINPT_DOS%dos_kgrid(1:3) = 0d0
@@ -1165,8 +1354,9 @@ mode: select case ( trim(plot_mode) )
       return
    endsubroutine
 
-   subroutine set_ribbon(PINPT, flag_kfile_ribbon, desc_str)
-      type(incar)  ::  PINPT
+   subroutine set_ribbon(PGEOM, PKPTS, flag_kfile_ribbon, desc_str)
+      type(poscar)  ::  PGEOM
+      type(kpoints) ::  PKPTS
       integer*4     i_continue
       integer*4     i_dummy
       integer*4     nitems
@@ -1176,10 +1366,10 @@ mode: select case ( trim(plot_mode) )
       character(*), parameter :: func = 'set_ribbon'
       logical       flag_kfile_ribbon
 
-      PINPT%flag_set_ribbon = .true.
+      PGEOM%flag_set_ribbon = .true.
       write(message,'(A)')' SET_RIBN: SET UP RIBBON GEOMETRY = .TRUE.'  ; write_msg
-      PINPT%ribbon_nslab(1:3) = -1
-      PINPT%ribbon_vacuum(1:3) =  0   ! default setting for vacuum size
+      PGEOM%ribbon_nslab(1:3) = -1
+      PGEOM%ribbon_vacuum(1:3) =  0   ! default setting for vacuum size
 
 set_rib: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -1190,39 +1380,39 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
         select case ( trim(desc_str) )
           case('NSLAB')
-            read(inputline,*,iostat=i_continue) desc_str,PINPT%ribbon_nslab(1:3)
+            read(inputline,*,iostat=i_continue) desc_str,PGEOM%ribbon_nslab(1:3)
 
           case('VACUUM')
-            read(inputline,*,iostat=i_continue) desc_str,PINPT%ribbon_vacuum(1:3)
+            read(inputline,*,iostat=i_continue) desc_str,PGEOM%ribbon_vacuum(1:3)
 
           case('PRINT_ONLY_R')
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_only_ribbon_geom
+            read(inputline,*,iostat=i_continue) desc_str, PGEOM%flag_print_only_ribbon_geom
 
           case('KFILE_R','KFILE_RIB','KFILE_RIBBON')
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%ribbon_kfilenm
+            read(inputline,*,iostat=i_continue) desc_str, PKPTS%ribbon_kfilenm
             flag_kfile_ribbon = .true.
-            PINPT%kfilenm = PINPT%ribbon_kfilenm
-            write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PINPT%kfilenm)  ; write_msg
+            PKPTS%kfilenm = PKPTS%ribbon_kfilenm
+            write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
 
         end select
       enddo set_rib
 
-      if(minval(PINPT%ribbon_nslab(1:3)) .le. 0) then
+      if(minval(PGEOM%ribbon_nslab(1:3)) .le. 0) then
         write(message,'(A)')'  !WARNING! NSLAB tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msg
         write(message,'(A)')'  !WARNING! Proper usage: NSLAB   N1 N2 N3'  ; write_msg
         write(message,'(A)')'  !WARNING! Exit program...'  ; write_msg
         stop
       endif
-      if(minval(PINPT%ribbon_nslab(1:3)) .lt. 0) then
+      if(minval(PGEOM%ribbon_nslab(1:3)) .lt. 0) then
         write(message,'(A)')'  !WARNING! VACUUM tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msg
         write(message,'(A)')'  !WARNING! Proper usage: VACUUM   vac_1 vac_2 vac_3'  ; write_msg
         write(message,'(A)')'  !WARNING! Exit program...'  ; write_msg
         stop
       endif
 
-      write(message,'(A,3I5)')' RIB_SLAB: (N1*A1,N2*A2,N3*A3) => N1,N2,N3 =', PINPT%ribbon_nslab(1:3)  ; write_msg
-      write(message,'(A,3F12.6)')' RIB_VACU: (in Angstrom)', PINPT%ribbon_vacuum(1:3)  ; write_msg
-      if(PINPT%flag_print_only_ribbon_geom) then
+      write(message,'(A,3I5)')' RIB_SLAB: (N1*A1,N2*A2,N3*A3) => N1,N2,N3 =', PGEOM%ribbon_nslab(1:3)  ; write_msg
+      write(message,'(A,3F12.6)')' RIB_VACU: (in Angstrom)', PGEOM%ribbon_vacuum(1:3)  ; write_msg
+      if(PGEOM%flag_print_only_ribbon_geom) then
         write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .TRUE.'  ; write_msg
       else
         write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .FALSE.'  ; write_msg
@@ -1231,8 +1421,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_efield(PINPT, desc_str)
-      type(incar)  ::  PINPT
+   subroutine set_efield(NN_TABLE, desc_str)
+      type(hopping) ::  NN_TABLE
       integer*4     i_continue
       integer*4     i_dummy
       integer*4     nitems
@@ -1241,7 +1431,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       external      nitems
       character(*), parameter :: func = 'set_efield'
 
-      PINPT%flag_efield = .true.
+      NN_TABLE%flag_efield = .true.
 
       do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -1252,18 +1442,16 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
         select case ( trim(desc_str) )
           case('EFIELD')
-            read(inputline,*,iostat=i_continue) desc_str,PINPT%efield(1:3)
-            write(message,'(A,3F12.6)')'  E_FIELD:  ',PINPT%efield(1:3)  ; write_msg
+            read(inputline,*,iostat=i_continue) desc_str,NN_TABLE%efield(1:3)
+            write(message,'(A,3F12.6)')'  E_FIELD:  ',NN_TABLE%efield(1:3)  ; write_msg
           case('EF_CENTER','EF_ORIGIN','EF_ORIGIN_FRAC','EF_CENTER_FRAC') ! field_origin
-            PINPT%flag_efield_frac = .true.
-            PINPT%flag_efield_cart = .false.
-            read(inputline,*,iostat=i_continue) desc_str,PINPT%efield_origin(1:3)
-!           write(message,'(A,3F12.6)')'EF_ORIGIN:  (in factional coord) ',PINPT%efield_origin(1:3)  ; write_msg
+            NN_TABLE%flag_efield_frac = .true.
+            NN_TABLE%flag_efield_cart = .false.
+            read(inputline,*,iostat=i_continue) desc_str,NN_TABLE%efield_origin(1:3)
           case('EF_CENTER_CART','EF_ORIGIN_CART','EF_CORIGIN') ! field_origin
-            PINPT%flag_efield_frac = .false.
-            PINPT%flag_efield_cart = .true.
-            read(inputline,*,iostat=i_continue) desc_str,PINPT%efield_origin_cart(1:3)
-!           write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',PINPT%efield_origin_cart(1:3)  ; write_msg
+            NN_TABLE%flag_efield_frac = .false.
+            NN_TABLE%flag_efield_cart = .true.
+            read(inputline,*,iostat=i_continue) desc_str,NN_TABLE%efield_origin_cart(1:3)
         end select
       enddo 
 
@@ -1286,6 +1474,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character*132 strip_kp_orb_(max_set_weight),strip_tb_orb_(max_set_weight),strip_orb_(max_set_weight),strip_site_(max_set_weight)
       character*132 strip_pen_orb_(max_set_weight)
       character*132 strip_kp_deg_(max_set_weight), strip_tb_deg_(max_set_weight),strip_df_deg_(max_set_weight),strip_wt_deg_(max_set_weight)
+      integer*4     mpierr
 
       i=0
       i_orb = 0
@@ -1332,6 +1521,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           call strip_off (trim(inputline), strip_tb_deg_(i_deg), 'TBABND', 'DFTBND', 1)   ! get TBABND strip
           call strip_off (trim(inputline), strip_df_deg_(i_deg), 'DFTBND', 'DEGENW', 1)   ! get DFTBND strip
           call strip_off (trim(inputline), strip_wt_deg_(i_deg), 'DEGENW', ' '     , 2)   ! get DEGENERACY WEIGHT strip
+        else
+          call set_target_band_acronym(PWGHT, inputline, desc_str)
         endif
       enddo wgt
 
@@ -1341,11 +1532,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       endif
 
       PWGHT%nweight=i
-      PINPT%nweight=i
       PWGHT%npenalty_orb = i_orb
-      PINPT%npenalty_orb = i_orb
       PWGHT%ndegenw=i_deg
-      PINPT%ndegenw=i_deg
 
       ! Set WEIGHT
       if(PWGHT%nweight .eq. 0) then
@@ -1353,15 +1541,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       elseif( PWGHT%nweight .ge. 1) then
         PWGHT%flag_weight_default = .false.
         write(message,'(A,I8)')' N_CONSTR:',PWGHT%nweight  ; write_msg
-        if(allocated(PINPT%strip_kp) ) deallocate(PINPT%strip_kp) ; allocate( PINPT%strip_kp(PWGHT%nweight) )
-        if(allocated(PINPT%strip_tb) ) deallocate(PINPT%strip_tb) ; allocate( PINPT%strip_tb(PWGHT%nweight) )
-        if(allocated(PINPT%strip_df) ) deallocate(PINPT%strip_df) ; allocate( PINPT%strip_df(PWGHT%nweight) )
-        if(allocated(PINPT%strip_wt) ) deallocate(PINPT%strip_wt) ; allocate( PINPT%strip_wt(PWGHT%nweight) )
+        if(allocated(PWGHT%strip_kp) ) deallocate(PWGHT%strip_kp) ; allocate( PWGHT%strip_kp(PWGHT%nweight) )
+        if(allocated(PWGHT%strip_tb) ) deallocate(PWGHT%strip_tb) ; allocate( PWGHT%strip_tb(PWGHT%nweight) )
+        if(allocated(PWGHT%strip_df) ) deallocate(PWGHT%strip_df) ; allocate( PWGHT%strip_df(PWGHT%nweight) )
+        if(allocated(PWGHT%strip_wt) ) deallocate(PWGHT%strip_wt) ; allocate( PWGHT%strip_wt(PWGHT%nweight) )
         do i = 1, PWGHT%nweight
-          PINPT%strip_kp(i)=strip_kp_(i)
-          PINPT%strip_tb(i)=strip_tb_(i)
-          PINPT%strip_df(i)=strip_df_(i)
-          PINPT%strip_wt(i)=strip_wt_(i)
+          PWGHT%strip_kp(i)=strip_kp_(i)
+          PWGHT%strip_tb(i)=strip_tb_(i)
+          PWGHT%strip_df(i)=strip_df_(i)
+          PWGHT%strip_wt(i)=strip_wt_(i)
         enddo
       endif
 
@@ -1371,36 +1559,36 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       elseif( PWGHT%ndegenw .ge. 1) then
         PINPT%flag_fit_degeneracy = .true. 
         write(message,'(A,I8)')' N_DEGENW:',PWGHT%ndegenw  ; write_msg
-        if(allocated(PINPT%strip_kp_deg) ) deallocate(PINPT%strip_kp_deg) ; allocate( PINPT%strip_kp_deg(PWGHT%ndegenw) )
-        if(allocated(PINPT%strip_tb_deg) ) deallocate(PINPT%strip_tb_deg) ; allocate( PINPT%strip_tb_deg(PWGHT%ndegenw) )
-        if(allocated(PINPT%strip_df_deg) ) deallocate(PINPT%strip_df_deg) ; allocate( PINPT%strip_df_deg(PWGHT%ndegenw) )
-        if(allocated(PINPT%strip_wt_deg) ) deallocate(PINPT%strip_wt_deg) ; allocate( PINPT%strip_wt_deg(PWGHT%ndegenw) )
+        if(allocated(PWGHT%strip_kp_deg) ) deallocate(PWGHT%strip_kp_deg) ; allocate( PWGHT%strip_kp_deg(PWGHT%ndegenw) )
+        if(allocated(PWGHT%strip_tb_deg) ) deallocate(PWGHT%strip_tb_deg) ; allocate( PWGHT%strip_tb_deg(PWGHT%ndegenw) )
+        if(allocated(PWGHT%strip_df_deg) ) deallocate(PWGHT%strip_df_deg) ; allocate( PWGHT%strip_df_deg(PWGHT%ndegenw) )
+        if(allocated(PWGHT%strip_wt_deg) ) deallocate(PWGHT%strip_wt_deg) ; allocate( PWGHT%strip_wt_deg(PWGHT%ndegenw) )
         do i = 1, PWGHT%ndegenw
-          PINPT%strip_kp_deg(i)=strip_kp_deg_(i)
-          PINPT%strip_tb_deg(i)=strip_tb_deg_(i)
-          PINPT%strip_df_deg(i)=strip_df_deg_(i)
-          PINPT%strip_wt_deg(i)=strip_wt_deg_(i)
+          PWGHT%strip_kp_deg(i)=strip_kp_deg_(i)
+          PWGHT%strip_tb_deg(i)=strip_tb_deg_(i)
+          PWGHT%strip_df_deg(i)=strip_df_deg_(i)
+          PWGHT%strip_wt_deg(i)=strip_wt_deg_(i)
         enddo
       endif
 
 
       ! Set ORBITAL PENALTY 
       if(PWGHT%npenalty_orb .eq. 0) then
-        PWGHT%flag_weight_default_orb = .true.
+        PWGHT%flag_weight_orb = .false.
       elseif( PWGHT%npenalty_orb .ge. 1) then
-        PWGHT%flag_weight_default_orb = .false.
+        PWGHT%flag_weight_orb = .true. 
         write(message,'(A,I8,A)')' N_CONSTR:',PWGHT%npenalty_orb,' (# of penalty weight for orbital)'  ; write_msg
-        if(allocated(PINPT%strip_kp_orb)) deallocate(PINPT%strip_kp_orb) ; allocate( PINPT%strip_kp_orb(PWGHT%npenalty_orb) )
-        if(allocated(PINPT%strip_tb_orb)) deallocate(PINPT%strip_tb_orb) ; allocate( PINPT%strip_tb_orb(PWGHT%npenalty_orb) )
-        if(allocated(PINPT%strip_pen_orb))deallocate(PINPT%strip_pen_orb); allocate( PINPT%strip_pen_orb(PWGHT%npenalty_orb) )
-        if(allocated(PINPT%strip_orb))    deallocate(PINPT%strip_orb)    ; allocate( PINPT%strip_orb(PWGHT%npenalty_orb) )
-        if(allocated(PINPT%strip_site))   deallocate(PINPT%strip_site)   ; allocate( PINPT%strip_site(PWGHT%npenalty_orb) )
+        if(allocated(PWGHT%strip_kp_orb)) deallocate(PWGHT%strip_kp_orb) ; allocate( PWGHT%strip_kp_orb( PWGHT%npenalty_orb) )
+        if(allocated(PWGHT%strip_tb_orb)) deallocate(PWGHT%strip_tb_orb) ; allocate( PWGHT%strip_tb_orb( PWGHT%npenalty_orb) )
+        if(allocated(PWGHT%strip_pen_orb))deallocate(PWGHT%strip_pen_orb); allocate( PWGHT%strip_pen_orb(PWGHT%npenalty_orb) )
+        if(allocated(PWGHT%strip_orb))    deallocate(PWGHT%strip_orb)    ; allocate( PWGHT%strip_orb(    PWGHT%npenalty_orb) )
+        if(allocated(PWGHT%strip_site))   deallocate(PWGHT%strip_site)   ; allocate( PWGHT%strip_site(   PWGHT%npenalty_orb) )
         do i = 1, PWGHT%npenalty_orb
-          PINPT%strip_kp_orb(i)=strip_kp_orb_(i)
-          PINPT%strip_tb_orb(i)=strip_tb_orb_(i)
-          PINPT%strip_pen_orb(i)=strip_pen_orb_(i)
-          PINPT%strip_orb(i)=strip_orb_(i)
-          PINPT%strip_site(i)=strip_site_(i)
+          PWGHT%strip_kp_orb(i)=strip_kp_orb_(i)
+          PWGHT%strip_tb_orb(i)=strip_tb_orb_(i)
+          PWGHT%strip_pen_orb(i)=strip_pen_orb_(i)
+          PWGHT%strip_orb(i)=strip_orb_(i)
+          PWGHT%strip_site(i)=strip_site_(i)
         enddo
 
       endif
@@ -2288,46 +2476,43 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_tbparam_file(PINPT, PWGHT, param_const, param_const_nrl, inputline)
+   subroutine set_tbparam_file(PINPT, PPRAM, PWGHT, inputline)
       type(incar)  ::  PINPT
+      type(params) ::  PPRAM
       type(weight) ::  PWGHT
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str, dummy
-      real*8        param_const(5,max_nparam), param_const_nrl(5,4,max_nparam)
       integer*4     nitems, i_dummy
       external      nitems
       character(*), parameter :: func = 'set_tbparam_file'
 
       i_dummy = nitems(inputline) - 1
 
-      if(.not. PINPT%flag_pfile) then
+      ! if PFILE is already set by parse, skip this routine
+      if(.not. PINPT%flag_pfile_parse) then
         if(i_dummy .eq. 1) then
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%pfilenm
+          read(inputline,*,iostat=i_continue) desc_str, PPRAM%pfilenm
         elseif(i_dummy .gt. 1) then
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%pfilenm, dummy
+          read(inputline,*,iostat=i_continue) desc_str, PPRAM%pfilenm, dummy
           if(trim(dummy) .eq. 'USE_WEIGHT' .or. trim(dummy) .eq. 'use_weight') then
-            PINPT%flag_use_weight = .true.
+            if(PINPT%nsystem .eq. 1) then 
+              ! only active if nsystem = 1, otherwise error occur since 
+              ! parameter file is shared over systems in fitting
+              PINPT%flag_use_weight = .true. 
+            endif
           endif
         endif
-
-        if(allocated(PINPT%param) .or. allocated(PINPT%param_name) .or. PINPT%flag_pincar) then
-           PINPT%flag_pincar=.false.
-           deallocate(PINPT%param)
-           deallocate(PINPT%param_name)
-           write(message,'(A)')'  !WARN!  TB-parameter is already set by TBPARAM in the INCAR-TB,'  ; write_msg
-           write(message,'(A)')'  !WARN!  however, since the external TB-parameter file is provided,'  ; write_msg
-           write(message,'(A,A,A)')'  !WARN!  those valeus from ',trim(PINPT%pfilenm),' will be read in priori'  ; write_msg
-        endif
       endif
-      write(message,'(A,A)')' PARA_FNM:  ',trim(PINPT%pfilenm)  ; write_msg
-      call read_param(PINPT, PWGHT, param_const, param_const_nrl)
 
+      write(message,'(A,A)')' PARA_FNM:  ',trim(PPRAM%pfilenm)  ; write_msg
+      
       return
    endsubroutine
 
-   subroutine set_kpoint_file(PINPT, flag_kfile_ribbon, inputline)
-      type(incar)  ::  PINPT
+   subroutine set_kpoint_file(PINPT, PKPTS, flag_kfile_ribbon, inputline)
+      type(incar)   ::  PINPT
+      type(kpoints) ::  PKPTS
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
@@ -2339,30 +2524,31 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       i_dummy = nitems(inputline) -1
 
       if(i_dummy .eq. 1) then
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%kfilenm
+        read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
         if(flag_kfile_ribbon) then
-          PINPT%kfilenm = PINPT%ribbon_kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PINPT%kfilenm)  ; write_msg
+          PKPTS%kfilenm = PKPTS%ribbon_kfilenm
+          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
         else
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  ',trim(PINPT%kfilenm)  ; write_msg
+          read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
+          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msg
         endif
       elseif(i_dummy .eq. 2) then
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%kfilenm, PINPT%kline_type  
+        read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm, PKPTS%kline_type  
         if(flag_kfile_ribbon) then
-          PINPT%kfilenm = PINPT%ribbon_kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PINPT%kfilenm)  ; write_msg
+          PKPTS%kfilenm = PKPTS%ribbon_kfilenm
+          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
         else
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  ',trim(PINPT%kfilenm)  ; write_msg
+          read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
+          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msg
         endif
       endif
 
       return
    endsubroutine
 
-   subroutine set_geom_file(PINPT, inputline, imode)
+   subroutine set_geom_file(PINPT, PGEOM, inputline, imode)
       type(incar)  ::  PINPT
+      type(poscar) ::  PGEOM
       integer*4     i_continue
       integer*4     nitems
       integer*4     imode
@@ -2376,24 +2562,24 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       if(imode .eq. 1) then
         i_dummy = nitems(inputline) -1
         if(i_dummy .eq. 1) then
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm
-          write(message,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)  ; write_msg
+          read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm
+          write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
 
         elseif(i_dummy .ge. 2) then
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str
+          read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, desc_str
           call str2logical(trim(desc_str),flag_logical,flag)
           if(flag_logical) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, PINPT%flag_report_geom
-            write(message,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)  ; write_msg
+            read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, PINPT%flag_report_geom
+            write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
             write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msg
 
           elseif(.not. flag_logical) then
             if(trim(desc_str) .eq. 'PRINT_GEOM') then
-              read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str, desc_str
+              read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, desc_str, desc_str
               call str2logical(trim(desc_str),flag_logical,flag)
               if(flag_logical) then 
-                read(inputline,*,iostat=i_continue) desc_str, PINPT%gfilenm, desc_str, PINPT%flag_report_geom
-                write(message,'(A,A)')' GEOM_FNM:  ',trim(PINPT%gfilenm)  ; write_msg
+                read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, desc_str, PINPT%flag_report_geom
+                write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
                 write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msg
               endif
             endif
@@ -2416,51 +2602,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_tbparam_out_file(PINPT, inputline)
-      type(incar)  ::  PINPT
+   subroutine set_tbparam_out_file(PPRAM, inputline)
+      type(params) ::  PPRAM
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
       character(*), parameter :: func = 'set_tbparam_out_file'
 
-      read(inputline,*,iostat=i_continue) desc_str, PINPT%pfileoutnm
-      write(message,'(A,A40)')' POUT_FNM:  ',PINPT%pfileoutnm  ; write_msg
-      PINPT%flag_print_param = .true.
-
-      return
-   endsubroutine
-
-   subroutine set_hopping_type(PINPT, inputline)
-      type(incar)  ::  PINPT
-      integer*4     i_continue
-      character*132 inputline
-      character*40  desc_str
-      integer*4     nitems, i_dummy 
-      character(*), parameter :: func = 'set_hopping_type'
-      external      nitems
-
-     !i_dummy = nitems(inputline) - 1
-
-     !if(i_dummy .eq. 1) then
-        read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_slater_koster
-        if(PINPT%flag_slater_koster) then
-          !write(message,'(A,A)')' TYPE_HOP:  ','SLATER_KOSTER: mode 1'  ; write_msg
-          write(message,'(A,A)')' TYPE_HOP:  ','SLATER_KOSTER'  ; write_msg
-        elseif(.not. PINPT%flag_slater_koster) then
-          write(message,'(A,A)')' TYPE_HOP:  ','USER_DEFINED'  ; write_msg
-        endif
-
-    ! elseif(i_dummy .eq. 3) then
- 
-    !   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_slater_koster, desc_str, PINPT%slater_koster_type
-    !   if(PINPT%flag_slater_koster) then
-    !     write(message,'(A,A,I0)')' TYPE_HOP:  ','SLATER_KOSTER: mode ', PINPT%slater_koster_type   ; write_msg
-    !     ! parameterization scheme : if 11 : see Mehl & Papaconstantopoulos PRB 54, 4519 (1996)
-    !   elseif(.not. PINPT%flag_slater_koster) then
-    !     write(message,'(A,A)')' TYPE_HOP:  ','USER_DEFINED'  ; write_msg
-    !   endif
-
-    ! endif
+      read(inputline,*,iostat=i_continue) desc_str, PPRAM%pfileoutnm
+      write(message,'(A,A40)')' POUT_FNM:  ',PPRAM%pfileoutnm  ; write_msg
 
       return
    endsubroutine
@@ -2499,8 +2649,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_load_nntable(PINPT, inputline, tag_name)
+   subroutine set_load_nntable(PINPT, NN_TABLE, inputline, tag_name)
       type(incar)  :: PINPT
+      type(hopping):: NN_TABLE
       integer*4       i_continue
       character*132   inputline
       character*40    desc_str, tag_name
@@ -2515,10 +2666,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         i_dummy = nitems(inputline) -1
 
         if(i_dummy .eq. 2) then
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_load_nntable, PINPT%nnfilenm
-          inquire(file=PINPT%nnfilenm,exist=flag_exist)
+          read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_load_nntable, NN_TABLE%nnfilenm
+          inquire(file=NN_TABLE%nnfilenmo,exist=flag_exist)
           if(.not.flag_exist) then
-            write(message,'(5A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name),'" tag, but the file "', trim(PINPT%nnfilenm),'" does not exist! Exit...'  ; write_msg
+            write(message,'(5A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name),'" tag, but the file "', trim(NN_TABLE%nnfilenmo),'" does not exist! Exit...'  ; write_msg
             stop
           endif
 
@@ -2605,92 +2756,135 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       return
    endsubroutine
-   subroutine set_target_file(PINPT, flag_read_energy, inputline, input_tag)
-      type(incar)  ::  PINPT
-      integer*4     i_continue
-      character*132 inputline
-      character*40  desc_str
+   subroutine set_target_file(PWGHT, inputline, input_tag)
+      type(weight)  :: PWGHT
+      integer*4        i_continue
+      character*132    inputline
+      character*40     desc_str
+      character*40     input_tag
+      integer*4        nitems, i_dummy
+      external         nitems
       character(*), parameter :: func = 'set_target_file'
-      character*40  input_tag
-      logical       flag_read_energy
-      integer*4     nitems, i_dummy
-      external      nitems
 
       select case(input_tag)
         case('EFILE')
           i_dummy = nitems(inputline) -1
           if(i_dummy .eq. 1) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmu
           elseif(i_dummy .eq. 2) then
             read(inputline,*,iostat=i_continue) desc_str, desc_str
             if(trim(desc_str) .eq. 'VASP' .or. trim(desc_str) .eq. 'vasp') then
-              PINPT%efile_type='vasp'
-              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu !, PINPT%read_energy_column_index
+              PWGHT%efile_type='vasp'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PWGHT%efilenmu
             elseif(trim(desc_str) .eq. 'USER' .or. trim(desc_str) .eq. 'user') then
-              PINPT%efile_type='user'
-              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu !, PINPT%read_energy_column_index
+              PWGHT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PWGHT%efilenmu
             else
-              PINPT%efile_type='user'
-              read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu, PINPT%read_energy_column_index
+              PWGHT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmu, PWGHT%read_energy_column_index
             endif
           elseif(i_dummy .eq. 3) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efile_type, desc_str, PINPT%itarget_e_start
-            if(trim(PINPT%efile_type) .eq. 'VASP' .or. trim(PINPT%efile_type) .eq. 'vasp') then
-              PINPT%efile_type='vasp'
-              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu, PINPT%itarget_e_start !, PINPT%read_energy_column_index
-            elseif(trim(PINPT%efile_type) .eq. 'USER' .or. trim(PINPT%efile_type) .eq. 'user' ) then
-              PINPT%efile_type='user'
-              read(inputline,*,iostat=i_continue) desc_str, desc_str, PINPT%efilenmu, PINPT%itarget_e_start !, PINPT%read_energy_column_index
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efile_type, desc_str, PWGHT%itarget_e_start
+            if(trim(PWGHT%efile_type) .eq. 'VASP' .or. trim(PWGHT%efile_type) .eq. 'vasp') then
+              PWGHT%efile_type='vasp'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PWGHT%efilenmu, PWGHT%itarget_e_start
+            elseif(trim(PWGHT%efile_type) .eq. 'USER' .or. trim(PWGHT%efile_type) .eq. 'user' ) then
+              PWGHT%efile_type='user'
+              read(inputline,*,iostat=i_continue) desc_str, desc_str, PWGHT%efilenmu, PWGHT%itarget_e_start
             endif
 
           endif
-          write(message,'(A,A)')' EDFT_FNM: ',trim(PINPT%efilenmu)  ; write_msg
-          flag_read_energy=.true.
+          write(message,'(A,A)')' EDFT_FNM: ',trim(PWGHT%efilenmu)  ; write_msg
 
         case('EFILEU')
           i_dummy = nitems(inputline) -1
           if(i_dummy .eq. 1) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmu
           elseif(i_dummy .eq. 2) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmu, PINPT%read_energy_column_index
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmu, PWGHT%read_energy_column_index
           endif
-          write(message,'(A,A)')' EDFT_FNM: spin-up= ',trim(PINPT%efilenmu)  ; write_msg
-          flag_read_energy=.true.
+          write(message,'(A,A)')' EDFT_FNM: spin-up= ',trim(PWGHT%efilenmu)  ; write_msg
 
         case('EFILED')
           i_dummy = nitems(inputline) -1
           if(i_dummy .eq. 1) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmd
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmd
           elseif(i_dummy .eq. 2) then
-            read(inputline,*,iostat=i_continue) desc_str, PINPT%efilenmd, PINPT%read_energy_column_index_dn
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmd, PWGHT%read_energy_column_index_dn
           endif
-          write(message,'(A,A)')' EDFT_FNM: spin-dn= ',trim(PINPT%efilenmd)  ; write_msg
-          flag_read_energy=.true.
+          write(message,'(A,A)')' EDFT_FNM: spin-dn= ',trim(PWGHT%efilenmd)  ; write_msg
 
       end select
 
       return
    endsubroutine
 
-   subroutine set_target_band_init_fina(PWGHT, inputline, input_tag)
+   subroutine set_target_band_acronym(PWGHT, inputline, input_tag)
       type(weight)  ::  PWGHT
       integer*4     i_continue
       character*132 inputline
-      character*40  desc_str
-      character(*), parameter :: func = 'set_taget_band_init_fina'
+      character*40  desc_str, dummy
+      character(*), parameter :: func = 'set_taget_band_acronym'
       character*40  input_tag
       logical       flag_read_energy
-      integer*4     nitems, i_dummy
+      integer*4     nitems, i_dummy, mpierr
       external      nitems
-
+      
       select case(input_tag)
-        case('IBAND')
-          read(inputline,*,iostat=i_continue) desc_str, PWGHT%iband
-          write(message,'(A,I8)')' INI_BAND:',PWGHT%iband  ; write_msg
+        case('IBAND') ! initial band of DFT target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%iband
+          else
+            read(inputline,*,iostat=i_continue) desc_str,        PWGHT%iband
+          endif
+          write(message,'(A,I8)')'    IBAND:',PWGHT%iband  ; write_msg
 
-         case('FBAND')
-          read(inputline,*,iostat=i_continue) desc_str, PWGHT%fband
-          write(message,'(A,I8)')' FIN_BAND:',PWGHT%fband  ; write_msg
+        case('FBAND') ! final band of DFT target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%fband
+          else
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%fband
+          endif
+          write(message,'(A,I8)')'    FBAND:',PWGHT%fband  ; write_msg
+
+        case('VBMD') ! valence band of DFT target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%vbmd
+          else
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%vbmd
+          endif
+          write(message,'(A,I8)')'     VBMD:',PWGHT%vbmd  ; write_msg
+
+        case('CBMD') ! conduction band of DFT target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%cbmd
+          else
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmd
+          endif
+          write(message,'(A,I8)')'     CBMD:',PWGHT%cbmd  ; write_msg
+
+        case('VBMT') ! valence band of TBA target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%vbmt
+          else
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%vbmt
+          endif
+          write(message,'(A,I8)')'     VBMT:',PWGHT%vbmt  ; write_msg
+
+        case('CBMT') ! conduction band of TBA target
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%cbmt
+          else
+            read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmt
+          endif
+          write(message,'(A,I8)')'     CBMT:',PWGHT%cbmt  ; write_msg
+!       case('NN') ! arbitral number  
+!         if(index(inputline,'=') .ge. 1) then
+!           read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%cbmt
+!         else
+!           read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmt
+!         endif
+!         write(message,'(A,I8)')'       NN:',PWGHT%cbmt  ; write_msg
 
       end select
 
@@ -2794,6 +2988,46 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             PINPT%proj_atom(1:ii,PINPT%nproj_sum) = i_dummyr(1:ii)
             write(message,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)  ; write_msg
           endif    
+        endif
+
+      endif
+
+      return
+   endsubroutine
+
+   subroutine set_circular_dichroism(PINPT, inputline)
+      type(incar)  ::  PINPT
+      integer*4        i_continue, mpierr
+      character*132    inputline
+      character*40     desc_str, dummy, dummy1,dummy2
+      integer*4        i_dummy
+      character(*), parameter :: func = 'set_circular_dichroism'
+      integer*4        nitems
+      external         nitems
+      logical          flag_circ, flag_number
+
+      i_dummy = nitems(inputline) - 1
+      if(i_dummy .ne. 3) then
+        if(PINPT%flag_print_proj_sum) then
+          write(message,'(A)')'  !!!!WARN: CIRC_DICHROISM tag is activated but eigenstate index is not specified correctly '  ; write_msg
+          write(message,'(A)')'            Correct usage is, for example, '; write_msg
+          write(message,'(A)')'            CIRC_DICHROISM .TRUE.  10 11 '  ; write_msg
+          write(message,'(A)')'  Stop program...'  ; write_msg
+          kill_job
+        endif
+
+      elseif(i_dummy .eq. 3) then
+        read(inputline,*,iostat=i_continue) desc_str,flag_circ
+        read(inputline,*,iostat=i_continue) desc_str,dummy, dummy1, dummy2
+
+        if(flag_circ .and. flag_number(trim(dummy1)).and. flag_number(trim(dummy2))) then
+          PINPT%flag_get_circ_dichroism = .true. 
+          PINPT%ncirc_dichroism= PINPT%ncirc_dichroism + 1
+          if(PINPT%ncirc_dichroism .eq. 1) allocate( PINPT%circ_dichroism_pair(2,max_dummy2))
+          read(inputline,*,iostat=i_continue) desc_str,dummy, PINPT%circ_dichroism_pair(1:2,PINPT%ncirc_dichroism)
+          write(message,'(A,I0,A,I0)')'CIRC_DICH: .TRUE. Circularly polarized light induced interband transition from ', &
+                                       PINPT%circ_dichroism_pair(1,PINPT%ncirc_dichroism), ' to ', &
+                                       PINPT%circ_dichroism_pair(2,PINPT%ncirc_dichroism); write_msg
         endif
 
       endif
@@ -2956,12 +3190,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character*132 inputline
       character*40  desc_str
       character*40  input_tag
+      integer*4     mpierr
       character(*), parameter :: func = 'set_tbfit'
 
       select case(input_tag)
 
         case('TBFIT') !set TBFIT or not
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_tbfit
+          if(.not. PINPT%flag_tbfit_parse) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_tbfit
+          endif
           if(PINPT%flag_tbfit) then
              write(message,'(A)')'  L_TBFIT: .TRUE.'  ; write_msg
           elseif(.not. PINPT%flag_tbfit) then
@@ -2970,7 +3207,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
              write(message,'(A)')'  L_TBFIT:  unknown input variable.. exit program'  ; write_msg
              stop
           endif
-
+          
         case('LSTYPE') !set non-linear regression scheme
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
           if(PINPT%ls_type .eq. 'LMDIF' .or. PINPT%ls_type .eq. 'lmdif' ) then
@@ -3014,11 +3251,30 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             write(message,'(A,I8)')'  MAX_FIT:  ',PINPT%mxfit  ; write_msg
           endif
 
+          if(PINPT%mxfit .le. 0) then
+            write(message,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'  ; write_msg
+            write(message,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'  ; write_msg
+            kill_job
+          endif
+          
         case('NPOP') ! set number of generation for genetic algorithm
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ga_npop
           write(message,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop  ; write_msg
 
       end select
+
+      return
+   endsubroutine
+
+   subroutine set_nelect(PGEOM, inputline)
+      type(poscar )  ::  PGEOM
+      integer*4     i_continue
+      character*132 inputline
+      character*40  desc_str
+      character(*), parameter :: func = 'set_nelect'
+
+      read(inputline, *,iostat=i_continue) desc_str, PGEOM%nelect
+      if(PGEOM%nelect(2) .lt. 0d0) PGEOM%nelect(2) = PGEOM%nelect(1)
 
       return
    endsubroutine
@@ -3299,8 +3555,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_energy_range(PINPT, inputline, desc_str)
+   subroutine set_energy_range(PINPT, PGEOM, inputline, desc_str)
       type(incar  )  ::  PINPT
+      type(poscar )  ::  PGEOM
       integer*4     i_continue
       integer*4     i_dummy
       character*132 inputline
@@ -3333,13 +3590,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           write(message,'(A,A)')'  !WARN! No range has been defined! Please check ERANGE tag atain. Exit... ', func  ; write_msg
           stop
         elseif( nitems(inputline) -1 .eq. 1) then
-          read(inputline,*,iostat=i_continue) desc_str,PINPT%init_erange
-          PINPT%fina_erange = PINPT%init_erange
-          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'  ; write_msg
+          read(inputline,*,iostat=i_continue) desc_str,PGEOM%init_erange
+          PGEOM%fina_erange = PGEOM%init_erange
+          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
           PINPT%flag_erange = .true.
         elseif( nitems(inputline) -1 .eq. 2) then
-          read(inputline,*,iostat=i_continue) desc_str,PINPT%init_erange, PINPT%fina_erange
-          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'  ; write_msg
+          read(inputline,*,iostat=i_continue) desc_str,PGEOM%init_erange, PGEOM%fina_erange
+          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
           PINPT%flag_erange = .true.
         else
           write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msg
@@ -3359,12 +3616,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msg
           stop
         endif
-        call str2int(dummy1,PINPT%init_erange)
-        call str2int(dummy2,PINPT%fina_erange)
-        write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PINPT%init_erange,'-th TO ',PINPT%fina_erange,'-th EIGENSTATES'  ; write_msg
+        call str2int(dummy1,PGEOM%init_erange)
+        call str2int(dummy2,PGEOM%fina_erange)
+        write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
         PINPT%flag_erange = .true.
       endif
-      PINPT%nband = PINPT%fina_erange - PINPT%init_erange + 1
+      PGEOM%nband = PGEOM%fina_erange - PGEOM%init_erange + 1
 
       return
    endsubroutine
@@ -3435,5 +3692,32 @@ set_rib: do while(trim(desc_str) .ne. 'END')
    endsubroutine
 #endif
 
+   subroutine set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem) 
+      implicit none
+      type(incar)            :: PINPT
+      type(params)           :: PPRAM
+      type(kpoints)          :: PKPTS
+      type(poscar )          :: PGEOM
+      type(hopping)          :: NN_TABLE
+      type(weight )          :: PWGHT
+      type(energy )          :: EDFT
+      type(gainp  )          :: PKAIA
+      type(berry  )          :: PINPT_BERRY
+      type(dos    )          :: PINPT_DOS
+      type(replot )          :: PRPLT
+      integer*4                 mysystem
+       
+     !PPRAM%mysystem       = mysystem
+      PGEOM%mysystem       = mysystem
+      PKPTS%mysystem       = mysystem
+      EDFT%mysystem        = mysystem
+      PWGHT%mysystem       = mysystem
+      NN_TABLE%mysystem    = mysystem
+      PINPT_DOS%mysystem   = mysystem
+      PINPT_BERRY%mysystem = mysystem
+      PKAIA%mysystem       = mysystem
+      PRPLT%mysystem       = mysystem
 
+      return
+   endsubroutine
 endmodule

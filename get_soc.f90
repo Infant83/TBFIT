@@ -1,5 +1,5 @@
-subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
-    use parameters, only: zi, pi, pi2, pauli_x, pauli_y, pauli_z, hopping, incar
+subroutine set_ham_soc(H, k, PPRAM, neig, NN_TABLE, FIJ, flag_phase)
+    use parameters, only: zi, pi, pi2, pauli_x, pauli_y, pauli_z, hopping, params
     use kronecker_prod, only: kproduct
     use phase_factor
     use print_matrix
@@ -13,7 +13,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
       endfunction
     end interface
     type(hopping)           :: NN_TABLE
-    type(incar  )           :: PINPT
+    type(params )           :: PPRAM
     integer*4, intent(in)   :: neig
     integer*4                  nn, i, j
     integer*4                  soc_index, rashba_index
@@ -31,7 +31,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
     complex*16                 prod
     real*8                     lsign, hsign
 
-    if(PINPT%flag_slater_koster) then
+    if(PPRAM%flag_slater_koster) then
       Hx = 0d0
       Hy = 0d0
       Hz = 0d0
@@ -43,13 +43,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
         ! set SOC hamiltonian based on atomic orbitals
         if( soc_index .gt. 0 .and. (NN_TABLE%p_class(nn) .eq. 'pp' .or. NN_TABLE%p_class(nn) .eq. 'dd') ) then
-          call get_param(PINPT, soc_index, 1, lambda_soc)
-         !if(PINPT%slater_koster_type .gt. 10) then
-         !  call get_param_nrl(PINPT,    soc_index, lambda_soc   )
-         !else
-         !  call get_param(PINPT,    soc_index, lambda_soc   )
-         !endif
-          ! CALCULATE  <orb_i|LS|orb_j> 
+          call get_param(PPRAM, soc_index, 1, lambda_soc)
           Hx(i,j) = lambda_soc * L_x(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
           Hy(i,j) = lambda_soc * L_y(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
           Hz(i,j) = lambda_soc * L_z(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
@@ -60,12 +54,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
 
         ! set SOC hamiltonian based on 'xx' type orbitals which are composed by linear combination of atomic orbitals
         elseif( soc_index .gt. 0 .and. NN_TABLE%p_class(nn) .eq. 'xx' ) then
-          call get_param(PINPT, soc_index, 1, lambda_soc)
-         !if(PINPT%slater_koster_type .gt. 10) then
-         !  call get_param_nrl(PINPT,    soc_index, lambda_soc   )
-         !else  
-         !  call get_param(PINPT,    soc_index, lambda_soc   )
-         !endif
+          call get_param(PPRAM, soc_index, 1, lambda_soc)
 
           ! CALCULATE  <orb_i|LS|orb_j> 
           Hx(i,j) = lambda_soc * L_x(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
@@ -85,7 +74,7 @@ subroutine set_ham_soc(H, k, PINPT, neig, NN_TABLE, FIJ, flag_phase)
          +kproduct(pauli_y, Hy, 2, 2, neig, neig) &
          +kproduct(pauli_z, Hz, 2, 2, neig, neig)
 
-    elseif(.not.PINPT%flag_slater_koster) then
+    elseif(.not.PPRAM%flag_slater_koster) then
       Hx = 0d0
       Hy = 0d0
       Hz = 0d0
@@ -106,10 +95,8 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
         endif
 
         if( soc_index .ge. 1 .and. rashba_index .ge. 1) then
-          call get_param(PINPT,    soc_index, 1, lambda_soc   )
-          call get_param(PINPT, rashba_index, 1, lambda_rashba)
-         !call get_param(PINPT,    soc_index, lambda_soc   )
-         !call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PPRAM,    soc_index, 1, lambda_soc   )
+          call get_param(PPRAM, rashba_index, 1, lambda_rashba)
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x
@@ -140,8 +127,7 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
             H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
           endif
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
-          call get_param(PINPT,    soc_index, 1, lambda_soc   )
-         !call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PPRAM,    soc_index, 1, lambda_soc   )
 
           ! This model is only for Kane-mele type of SOC. Be careful..
           prod=exp(-2d0*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
@@ -157,8 +143,7 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
             H(j+neig, i+neig) = conjg(H(i+neig, j+neig))
           endif
         elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered
-          call get_param(PINPT, rashba_index, 1, lambda_rashba)
-         !call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PPRAM, rashba_index, 1, lambda_rashba)
 
           ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           H(i,j+neig) = H(i,j+neig) + zi*lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F &               ! sigma_x
@@ -176,15 +161,15 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
 
 return
 endsubroutine
-subroutine get_soc_param_index(index_lambda,ci_orb, cj_orb, c_atom, PINPT, param_class)
-    use parameters, only : incar
+subroutine get_soc_param_index(index_lambda,ci_orb, cj_orb, c_atom, PPRAM, param_class)
+    use parameters, only : params
     implicit none
-    type(incar) :: PINPT
-    integer*4     index_lambda
-    integer*4     i, lio, ljo, la
-    character*8   ci_orb, cj_orb, c_atom
-    character*20  lambda_name
-    character*2   param_class
+    type(params) :: PPRAM
+    integer*4       index_lambda
+    integer*4       i, lio, ljo, la
+    character*8     ci_orb, cj_orb, c_atom
+    character*20    lambda_name
+    character*2     param_class
 
     lio = len_trim(ci_orb)
     ljo = len_trim(cj_orb)
@@ -194,7 +179,7 @@ subroutine get_soc_param_index(index_lambda,ci_orb, cj_orb, c_atom, PINPT, param
     write(lambda_name,*)'lambda_',param_class(1:1),'_',c_atom(1:la)
 
     if(ci_orb(1:lio) .ne. cj_orb(1:ljo)) then 
-     call get_param_index(PINPT, lambda_name, index_lambda)
+     call get_param_index(PPRAM, lambda_name, index_lambda)
     endif
 
 return

@@ -31,12 +31,13 @@
 #############################################################################
 #FC   = mpif90 
  TBBIN= $(HOME)/code/bin
-#
+ VERSION=$(shell date +%Y%m%d)
+#VERSION=0.41
+ 
 # MAC-INTEL COMPILE
  OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
  F90    = $(FC) $(OPTIONS)
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
-
 # LINUX-gfortran COMPILE
 #OPTIONS= #-DMPI
 #F90    = gfortran-mp-8 $(OPTIONS)
@@ -86,18 +87,21 @@ SPARSE_PARA=$(findstring -DPSPARSE,$(OPTIONS))
 MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o 
 TEST   = test.o
 MODULE = print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
-		 parameters.o  element_info.o read_incar.o orbital_wavefunction.o \
-		 kronecker_prod.o phase_factor.o do_math.o print_matrix.o \
-         sorting.o berry_phase.o sparse_tool.o pikaia_module.o geodesiclm.o kill.o \
-         get_parameter.o cost_function.o reorder_band.o total_energy.o
+		 parameters.o set_default.o  element_info.o read_incar.o \
+		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
+		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
+		 pikaia_module.o geodesiclm.o kill.o get_parameter.o \
+		 reorder_band.o total_energy.o projected_band.o cost_function.o
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
-		 print_wcc.o print_zak_phase.o print_berry_curvature.o replot_dos_band.o
+		 print_wcc.o print_zak_phase.o print_berry_curvature.o replot_dos_band.o \
+         print_circ_dichroism.o
 GET    = get_tij.o get_eig.o get_dos.o get_soc.o get_param_class.o \
 		 get_cc_param.o get_berry_curvature.o get_wcc.o get_zak_phase.o \
          get_z2_invariant.o get_parity.o get_symmetry_eig.o get_hamk_sparse.o \
-         get_effective_ham.o e_onsite.o get_degeneracy.o
+         get_effective_ham.o e_onsite.o get_degeneracy.o get_circular_dichroism.o \
+		 post_process.o
 SYMM   = get_symmetry.o 
 SPG_INT= spglib_interface.o
 FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o
@@ -150,9 +154,11 @@ endif
 # Targets                          |
 #-----------------------------------
 #$(BIN)/tbfit: $(OBJECTS) 
-tbfit: $(OBJECTS) 
+
+tbfit.$(VERSION): $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
-	cp tbfit $(BIN)
+	cp tbfit.$(VERSION) $(BIN)/tbfit
+	cp tbfit.$(VERSION) ./tbfit.versions
 
 get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
 	$(F90) -o $@ $^ $(LAPACK)

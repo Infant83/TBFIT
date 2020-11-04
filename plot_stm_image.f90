@@ -20,19 +20,19 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    integer*4     pid_stm_up, pid_stm_dn
    real*8        a1(3),a2(3),a3(3), vol
    real*8        origin(3,PGEOM%neig), origin_reset(3,PGEOM%neig)
-   real*8        grid_a1(0:PINPT%stm_ngrid(1)-1), rx(PGEOM%neig)
-   real*8        grid_a2(0:PINPT%stm_ngrid(2)-1), ry(PGEOM%neig)
-   real*8        grid_a3(0:PINPT%stm_ngrid(3)-1), rz(PGEOM%neig)
+   real*8        grid_a1(0:PGEOM%stm_ngrid(1)-1), rx(PGEOM%neig)
+   real*8        grid_a2(0:PGEOM%stm_ngrid(2)-1), ry(PGEOM%neig)
+   real*8        grid_a3(0:PGEOM%stm_ngrid(3)-1), rz(PGEOM%neig)
    complex*16    phi_r(PGEOM%neig)
-   complex*16    psi_r_up_total(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
-   complex*16    psi_r_dn_total(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
-   complex*16    psi_r_up_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
-   complex*16    psi_r_dn_(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3))
-   complex*16    psi_r_up(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3) )
-   complex*16    psi_r_dn(PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3) )
-   complex*16    V(PGEOM%neig*PINPT%ispin,PINPT%nband*PINPT%nspin)
+   complex*16    psi_r_up_total(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3))
+   complex*16    psi_r_dn_total(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3))
+   complex*16    psi_r_up_(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3))
+   complex*16    psi_r_dn_(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3))
+   complex*16    psi_r_up(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3) )
+   complex*16    psi_r_dn(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3) )
+   complex*16    V(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin)
    character*8   corb(PGEOM%neig)
-   integer*4     stm_erange(PINPT%nband,PINPT%nspin), stm_neig(PINPT%nspin)
+   integer*4     stm_erange(PGEOM%nband,PINPT%nspin), stm_neig(PINPT%nspin)
    character*2   spin_index_c(2)
    real*8        t0, t1
    character*4   timer
@@ -57,8 +57,8 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    call MPI_BARRIER(mpi_comm_earth, mpierr)
 #endif
    if_main call report_memory(int8(ng1)*int8(ng2)*int8(ng3)*nprocs*PINPT%ispin*3, 16, 'Charge density') ! psi_r_up/dn, psi_r_up_/dn_, _up/dn_total
-   if_main call report_memory(int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PINPT%nband)*int8(PINPT%nspin)*int8(nprocs)+&
-                              int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PINPT%nband)*int8(PINPT%nspin)*int8(PKPTS%nkpoint), 16, 'Eigen vectors ') ! V*nprocs + ETBA%V(root)
+   if_main call report_memory(int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PGEOM%nband)*int8(PINPT%nspin)*int8(nprocs)+&
+                              int8(PGEOM%neig)*int8(PINPT%ispin)*int8(PGEOM%nband)*int8(PINPT%nspin)*int8(PKPTS%nkpoint), 16, 'Eigen vectors ') ! V*nprocs + ETBA%V(root)
  stm: do istm = 1, PINPT%n_stm
        psi_r_up_total = 0d0
        psi_r_dn_total = 0d0
@@ -71,10 +71,10 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    kp: do ikk = 1, PKPTS%nkpoint
          call initialize_psi_r_stm(psi_r_up,psi_r_dn, ngrid,PINPT%ispin)
          stm_neig = 0; stm_erange = 0 ! initialize
-         call get_stm_erange(PINPT, PKPTS, ETBA%E(:,ikk), neig, stm_neig, stm_erange, istm, ikk)
+         call get_stm_erange(PINPT, PKPTS, ETBA%E(:,ikk), neig, PGEOM%init_erange, PGEOM%nband, stm_neig, stm_erange, istm, ikk)
    spin: do is = 1, PINPT%nspin ! 2 for collinear,  1 for nonmag and non-collinear
            if_main call print_kpoint_index_info_header(stm_neig, PINPT%nspin, is, ikk, PKPTS%kpoint_reci(:,ikk))
-           if_main call print_band_index_info_header(stm_neig, stm_erange, PINPT%nspin, is, PINPT%nband)
+           if_main call print_band_index_info_header(stm_neig, stm_erange, PINPT%nspin, is, PGEOM%nband)
 
            if(stm_neig(is) .gt. 0) then
 #ifdef MPI
@@ -89,9 +89,8 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
            ! It is due to the V(:,iee) is only for "up" part. For "dn" part, V(:,iee + nband)
            call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
-     !band: do ie = 1+myid, stm_neig(is),nprocs
      band: do ie = 1, stm_neig(is)
-             iee = stm_erange(ie,is) - PINPT%init_erange + 1
+             iee = stm_erange(ie,is) - PGEOM%init_erange + 1
     cell_z: do iz =  -PINPT%repeat_cell_orb_plot(3),PINPT%repeat_cell_orb_plot(3) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_y: do iy =  -PINPT%repeat_cell_orb_plot(2),PINPT%repeat_cell_orb_plot(2) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
     cell_x: do ix =  -PINPT%repeat_cell_orb_plot(1),PINPT%repeat_cell_orb_plot(1) !ad hoc ... for MoTe2 grain boundary only... !WARNING!!
@@ -106,7 +105,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                 if(PINPT%nspin .eq. 1) then
                   call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor,PINPT%nspin)
                 elseif(PINPT%nspin .eq. 2) then
-                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,(/iee,iee+PINPT%nband/)),is,PINPT%ispinor,PINPT%nspin)
+                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,(/iee,iee+PGEOM%nband/)),is,PINPT%ispinor,PINPT%nspin)
                 endif
               enddo grid_x
               enddo grid_y
@@ -258,8 +257,6 @@ subroutine print_CHGCAR_stm_head(PINPT, PGEOM, pid_stm_up, pid_stm_dn, istm)
          call CHGCAR_stm_head(pid_stm_up, istm, PINPT, PGEOM, c_extension_up)
  if_nsp2 call CHGCAR_stm_head(pid_stm_dn, istm, PINPT, PGEOM, c_extension_dn)
 
-   
-
    return
 endsubroutine
 
@@ -287,29 +284,25 @@ subroutine CHGCAR_stm_head(pid_stm_, istm, PINPT, PGEOM, c_extension)
    write(pid_stm_,'(3F20.16)')PGEOM%a_latt(1:3,3)
    write(pid_stm_,*)PGEOM%c_spec(:)
    write(pid_stm_,*)PGEOM%i_spec(:)
-   !if(PGEOM%flag_direct)    write(pid_stm_,'(A)') "Direct"
-   !if(PGEOM%flag_cartesian) write(pid_stm_,'(A)') "Cartesian"
    write(pid_stm_,'(A)') "Direct" ! only direct coordinate will be written
    do i = 1, PGEOM%n_atom
-!    write(pid_stm_,'(3F20.16)') PGEOM%a_coord(:,i)+PINPT%r_origin(:) ! origin_shift is not 
-                                                                      ! applied at this point
      write(pid_stm_,'(3F20.16)') PGEOM%a_coord(:,i)
    enddo
    write(pid_stm_,*)" "
-   write(pid_stm_,'(1x,3I6)')PINPT%stm_ngrid(1:3)
+   write(pid_stm_,'(1x,3I6)')PGEOM%stm_ngrid(1:3)
 
    return
 endsubroutine
 
-subroutine get_stm_erange(PINPT, PKPTS, E, neig, stm_neig, stm_erange, istm, ikk)
+subroutine get_stm_erange(PINPT, PKPTS, E, neig, iband, nband, stm_neig, stm_erange, istm, ikk)
    use parameters, only : incar, poscar, kpoints, energy
    implicit none
    type (incar)   :: PINPT
    type (kpoints) :: PKPTS
    integer*4     ie, ii, ispin, ikk
-   integer*4     istm, neig
-   integer*4     stm_erange(PINPT%nband,PINPT%nspin), stm_neig(PINPT%nspin)
-   real*8        E(PINPT%nband * PINPT%nspin)
+   integer*4     istm, neig, iband, nband
+   integer*4     stm_erange(nband,PINPT%nspin), stm_neig(PINPT%nspin)
+   real*8        E(nband * PINPT%nspin)
    character*2   spin_index
    integer*4     feast_ne(PINPT%nspin)
 
@@ -319,40 +312,40 @@ subroutine get_stm_erange(PINPT, PKPTS, E, neig, stm_neig, stm_erange, istm, ikk
 
    do ispin = 1, PINPT%nspin
      select case (ispin)
-       case(1)
+       case(1) ! spin up
          ii = 0
          if(PINPT%flag_sparse) then
            do ie = 1, feast_ne(1)   ! valid for nonmagnetic and noncollinear case, and spin-up for collinear
              if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
                ii = ii + 1
-               stm_erange(ii, 1) = ie + PINPT%init_erange - 1
+               stm_erange(ii, 1) = ie + iband - 1
              endif
            enddo
          else
-           do ie = 1, PINPT%nband   ! valid for nonmagnetic and noncollinear case, and spin-up for collinear
+           do ie = 1, nband   ! valid for nonmagnetic and noncollinear case, and spin-up for collinear
              if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
                ii = ii + 1
-               stm_erange(ii, 1) = ie + PINPT%init_erange - 1
+               stm_erange(ii, 1) = ie + iband - 1
              endif
            enddo
          endif
 
          stm_neig(1) = ii ! total number of bands within energy window
 
-       case(2)
+       case(2) ! spin down
          ii = 0
          if(PINPT%flag_sparse .and. feast_ne(2) .ge. 1) then
-           do ie = 1+PINPT%nband, PINPT%nband + feast_ne(2) ! this is only valid if nspin = 2 (collinear) case
+           do ie = 1+nband, nband + feast_ne(2) ! this is only valid if nspin = 2 (collinear) case
              if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
                ii = ii + 1
-               stm_erange(ii, 2) = ie + PINPT%init_erange - 1
+               stm_erange(ii, 2) = ie + iband - 1
              endif
            enddo
          else
-           do ie = 1+PINPT%nband, PINPT%nband*2 ! this is only valid if nspin = 2 (collinear) case
+           do ie = 1+nband, nband*2 ! this is only valid if nspin = 2 (collinear) case
              if(E(ie) .ge. PINPT%stm_emin(istm) .and. E(ie) .le. PINPT%stm_emax(istm)) then
                ii = ii + 1
-               stm_erange(ii, 2) = ie + PINPT%init_erange - 1
+               stm_erange(ii, 2) = ie + iband - 1
              endif
            enddo
          endif
@@ -387,13 +380,13 @@ subroutine set_variable_plot_stm(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    integer*4        lqnum(PGEOM%neig)
    character*2      orb(PGEOM%neig), orb_
    real*8           origin(3,PGEOM%neig)
-   real*8           grid_d1, grid_a1(0:PINPT%stm_ngrid(1)-1)
-   real*8           grid_d2, grid_a2(0:PINPT%stm_ngrid(2)-1)
-   real*8           grid_d3, grid_a3(0:PINPT%stm_ngrid(3)-1)
+   real*8           grid_d1, grid_a1(0:PGEOM%stm_ngrid(1)-1)
+   real*8           grid_d2, grid_a2(0:PGEOM%stm_ngrid(2)-1)
+   real*8           grid_d3, grid_a3(0:PGEOM%stm_ngrid(3)-1)
 
    neig   = PGEOM%neig
-   ngrid  = PINPT%stm_ngrid(1)*PINPT%stm_ngrid(2)*PINPT%stm_ngrid(3)
-   ng1    = PINPT%stm_ngrid(1) ; ng2     = PINPT%stm_ngrid(2) ; ng3     = PINPT%stm_ngrid(3)
+   ngrid  = PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3)
+   ng1    = PGEOM%stm_ngrid(1) ; ng2     = PGEOM%stm_ngrid(2) ; ng3     = PGEOM%stm_ngrid(3)
    nwrite = 5
    nline=int(ngrid/nwrite)
    nresi=mod(ngrid,nwrite)
@@ -477,5 +470,39 @@ subroutine print_band_index_info_header(stm_neig,stm_erange,nspin, is, nband)
 
    endif
 
+   return
+endsubroutine
+
+subroutine set_ngrid(PINPT, PGEOM)
+   use parameters, only : incar, poscar
+   use mpi_setup
+   use print_io
+   implicit none
+   type(incar)   :: PINPT
+   type(poscar)  :: PGEOM
+   integer*4        mpierr
+   real*8           enorm
+   external         enorm  
+
+   if(PGEOM%ngrid(1) .eq. -1 .and. PINPT%flag_plot_eigen_state) then
+     PGEOM%ngrid(1) = nint(enorm(3, PGEOM%a_latt(:,1)) / 0.1d0)
+     PGEOM%ngrid(2) = nint(enorm(3, PGEOM%a_latt(:,2)) / 0.1d0)
+     PGEOM%ngrid(3) = nint(enorm(3, PGEOM%a_latt(:,3)) / 0.1d0)
+     PGEOM%ngrid(1) = PGEOM%ngrid(1) + mod(PGEOM%ngrid(1),2)
+     PGEOM%ngrid(2) = PGEOM%ngrid(2) + mod(PGEOM%ngrid(2),2)
+     PGEOM%ngrid(3) = PGEOM%ngrid(3) + mod(PGEOM%ngrid(3),2)
+     write(message,'(A,3(I6))')'   N_GRID: (for EIGPLOT) ',PGEOM%ngrid(1:3) ; write_msg
+   endif
+
+   if(PGEOM%stm_ngrid(1) .eq. -1 .and. PINPT%flag_plot_stm_image) then
+     PGEOM%stm_ngrid(1) = nint(enorm(3, PGEOM%a_latt(:,1)) / 0.1d0)
+     PGEOM%stm_ngrid(2) = nint(enorm(3, PGEOM%a_latt(:,2)) / 0.1d0)
+     PGEOM%stm_ngrid(3) = nint(enorm(3, PGEOM%a_latt(:,3)) / 0.1d0)
+     PGEOM%stm_ngrid(1) = PGEOM%stm_ngrid(1) + mod(PGEOM%stm_ngrid(1),2)
+     PGEOM%stm_ngrid(2) = PGEOM%stm_ngrid(2) + mod(PGEOM%stm_ngrid(2),2)
+     PGEOM%stm_ngrid(3) = PGEOM%stm_ngrid(3) + mod(PGEOM%stm_ngrid(3),2)
+     write(message,'(A,3(I6))')'   N_GRID: (for STMPLOT) ',PGEOM%stm_ngrid(1:3) ; write_msg
+   endif
+   
    return
 endsubroutine

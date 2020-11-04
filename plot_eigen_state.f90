@@ -21,12 +21,12 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    real*8       a1(3),a2(3),a3(3), vol
    character*8  corb(PGEOM%neig)
    real*8       origin(3,PGEOM%neig), origin_reset(3,PGEOM%neig)
-   real*8       grid_a1(0:PINPT%ngrid(1)-1), rx(PGEOM%neig)
-   real*8       grid_a2(0:PINPT%ngrid(2)-1), ry(PGEOM%neig)
-   real*8       grid_a3(0:PINPT%ngrid(3)-1), rz(PGEOM%neig)
+   real*8       grid_a1(0:PGEOM%ngrid(1)-1), rx(PGEOM%neig)
+   real*8       grid_a2(0:PGEOM%ngrid(2)-1), ry(PGEOM%neig)
+   real*8       grid_a3(0:PGEOM%ngrid(3)-1), rz(PGEOM%neig)
    complex*16   phi_r(PGEOM%neig)
-   complex*16   psi_r_up(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
-   complex*16   psi_r_dn(PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3))
+   complex*16   psi_r_up(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
+   complex*16   psi_r_dn(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
    complex*16   V(PGEOM%neig*PINPT%ispin,PINPT%nspin)
    real*8       time1, time2
    logical      flag_exist_up, flag_exist_dn
@@ -47,7 +47,7 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
 
 en:do ie = 1, PINPT%n_eig_print
      write(message,'(A,I5)')            "   *EIGEN STATE No. : ",PINPT%i_eig_print(ie)  ; write_msg
-     iee = PINPT%i_eig_print(ie) - PINPT%init_erange + 1
+     iee = PINPT%i_eig_print(ie) - PGEOM%init_erange + 1
  kp: do ik = 1, PINPT%n_kpt_print
        write(message,'(A,*(I5))'       )"    **  K-POINT No. : ",PINPT%i_kpt_print(ik)  ; write_msg
        ikk = PINPT%i_kpt_print(ik)    
@@ -56,14 +56,14 @@ en:do ie = 1, PINPT%n_eig_print
        if(PINPT%nspin .eq. 1) then
          if_main V(:,1)=ETBA%V(:,iee,ikk)
        elseif(PINPT%nspin .eq. 2) then
-         if_main V(:,:)=ETBA%V(:,(/iee,iee+PINPT%nband/),ikk)
+         if_main V(:,:)=ETBA%V(:,(/iee,iee+PGEOM%nband/),ikk)
        endif
        call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
 #else
        if(PINPT%nspin .eq. 1) then
          V(:,1)=ETBA%V(:,iee,ikk)
        elseif(PINPT%nspin .eq. 2) then
-         V(:,:)=ETBA%V(:,(/iee,iee+PINPT%nband/),ikk)
+         V(:,:)=ETBA%V(:,(/iee,iee+PGEOM%nband/),ikk)
        endif
 #endif
 
@@ -92,7 +92,7 @@ cell_x:do ix = -1,1
   grid_y:do i2=0,ng2-1
   grid_x:do i1=0,ng1-1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
-           call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, PINPT%ngrid, a1, a2, a3, i1,i2,i3)
+           call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, PGEOM%ngrid, a1, a2, a3, i1,i2,i3)
            call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction, zeff, nqnum, lqnum, orb)
            call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
                           flag_exist_up, flag_exist_dn)
@@ -383,14 +383,12 @@ subroutine PARCHG_head(pid_chg_,ik,ie,PINPT, PGEOM, c_extension)
   write(pid_chg_,'(3F20.16)')PGEOM%a_latt(1:3,3)
   write(pid_chg_,*)PGEOM%c_spec(:)
   write(pid_chg_,*)PGEOM%i_spec(:)
-  !if(PGEOM%flag_direct)    write(pid_chg_,'(A)') "Direct"
-  !if(PGEOM%flag_cartesian) write(pid_chg_,'(A)') "Cartesian"
    write(pid_chg_,'(A)') "Direct"
   do i = 1, PGEOM%n_atom
-    write(pid_chg_,'(3F20.16)') PGEOM%a_coord(:,i)+PINPT%r_origin(:)
+    write(pid_chg_,'(3F20.16)') PGEOM%a_coord(:,i)+PGEOM%r_origin(:)
   enddo
   write(pid_chg_,*)" "
-  write(pid_chg_,'(1x,3I6)')PINPT%ngrid(1:3)
+  write(pid_chg_,'(1x,3I6)')PGEOM%ngrid(1:3)
 
  return
 endsubroutine
@@ -468,9 +466,9 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    integer*4        lqnum(PGEOM%neig)
    character*2      orb(PGEOM%neig), orb_
    real*8           origin(3,PGEOM%neig)
-   real*8           grid_d1, grid_a1(0:PINPT%ngrid(1)-1)
-   real*8           grid_d2, grid_a2(0:PINPT%ngrid(2)-1)
-   real*8           grid_d3, grid_a3(0:PINPT%ngrid(3)-1)
+   real*8           grid_d1, grid_a1(0:PGEOM%ngrid(1)-1)
+   real*8           grid_d2, grid_a2(0:PGEOM%ngrid(2)-1)
+   real*8           grid_d3, grid_a3(0:PGEOM%ngrid(3)-1)
 
    write(message,*)' '  ; write_msg
    if(PINPT%flag_plot_wavefunction) then
@@ -479,8 +477,8 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
      write(message,'(A)')' *- START WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
    endif
    neig   = PGEOM%neig
-   ngrid  = PINPT%ngrid(1)*PINPT%ngrid(2)*PINPT%ngrid(3)
-   ng1    = PINPT%ngrid(1) ; ng2     = PINPT%ngrid(2) ; ng3     = PINPT%ngrid(3)
+   ngrid  = PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3)
+   ng1    = PGEOM%ngrid(1) ; ng2     = PGEOM%ngrid(2) ; ng3     = PGEOM%ngrid(3)
    nwrite = 5
    nline=int(ngrid/nwrite)
    nresi=mod(ngrid,nwrite)
@@ -488,7 +486,7 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
    pid_chg_up = pid_chg
    pid_chg_dn = pid_chg + 10
 
-   rshift(1:3)=PINPT%r_origin(1:3)
+   rshift(1:3)=PGEOM%r_origin(1:3)
    a1=PGEOM%a_latt(1:3,1)
    a2=PGEOM%a_latt(1:3,2)
    a3=PGEOM%a_latt(1:3,3)

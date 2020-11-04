@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine set_ribbon_geom(PINPT)
+subroutine set_ribbon_geom(PGEOM)
    use parameters 
    use mpi_setup
    use do_math, only : inv
@@ -21,13 +21,13 @@ subroutine set_ribbon_geom(PINPT)
    logical                   flag_skip
    logical                   flag_selective, flag_direct, flag_cartesian
    external                  enorm, nitems
-   type(incar)           ::  PINPT   
+   type(poscar)          ::  PGEOM   
    integer*4                 mpierr
 
-   filenm_unitcell = PINPT%gfilenm 
+   filenm_unitcell = PGEOM%gfilenm 
    write(filenm_ribbon,*)trim(filenm_unitcell),'-ribbon'
-   write(message,'(A,A,A,A)')' GEOM_FNM: ',trim(PINPT%gfilenm),' ==> ',trim(filenm_ribbon)  ; write_msg
-   PINPT%gfilenm = filenm_ribbon
+   write(message,'(A,A,A,A)')' GEOM_FNM: ',trim(PGEOM%gfilenm),' ==> ',trim(filenm_ribbon)  ; write_msg
+   PGEOM%gfilenm = filenm_ribbon ! update geometry file name with ribbon geometry
    linecount = 0
 
 !  pid_geom_ribbon = pid_geom + 1
@@ -56,8 +56,8 @@ subroutine set_ribbon_geom(PINPT)
         do i=1,3
           read(pid_geom,'(A)',iostat=i_continue) inputline
           read(inputline,*,iostat=i_continue) a_latt(1:3,i)
-          write(pid_geom_ribbon,'(3F20.12)') a_latt(1:3,i) * ( PINPT%ribbon_nslab(i) + PINPT%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
-          a_latt_ribbon(1:3,i) = a_latt(1:3,i) * ( PINPT%ribbon_nslab(i) + PINPT%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
+          write(pid_geom_ribbon,'(3F20.12)') a_latt(1:3,i) * ( PGEOM%ribbon_nslab(i) + PGEOM%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
+          a_latt_ribbon(1:3,i) = a_latt(1:3,i) * ( PGEOM%ribbon_nslab(i) + PGEOM%ribbon_vacuum(i)/enorm(3,a_latt(1:3,i)) )
         enddo
         t_latt_inv = inv(a_latt)
         linecount = linecount + 2
@@ -69,7 +69,7 @@ subroutine set_ribbon_geom(PINPT)
 
       elseif(linecount .eq. 7 ) then
         read(inputline,*,iostat=i_continue) natom_spec(1:nspec)
-        write(pid_geom_ribbon,'(*(I8))') natom_spec(1:nspec) * PINPT%ribbon_nslab(1) * PINPT%ribbon_nslab(2) * PINPT%ribbon_nslab(3)
+        write(pid_geom_ribbon,'(*(I8))') natom_spec(1:nspec) * PGEOM%ribbon_nslab(1) * PGEOM%ribbon_nslab(2) * PGEOM%ribbon_nslab(3)
         n_atom_unit = sum(natom_spec(1:nspec))
 
      ! constraint and coordinate type
@@ -150,43 +150,43 @@ subroutine set_ribbon_geom(PINPT)
             !set ribbon coordinate
             if(i_dummy .ge. 5) call strip_off(trim(inputline), c_dummy, desc_str(1:ld), ' ', 2)
             if(i_dummy .eq. 3) then 
-              do iz = 1, PINPT%ribbon_nslab(3)
-                do iy = 1, PINPT%ribbon_nslab(2)
-                  do ix = 1, PINPT%ribbon_nslab(1)
-                    coord_ribbon(1) = coord_unit(1) / real(PINPT%ribbon_nslab(1))+ (ix - 1)/real(PINPT%ribbon_nslab(1))
-                    coord_ribbon(2) = coord_unit(2) / real(PINPT%ribbon_nslab(2))+ (iy - 1)/real(PINPT%ribbon_nslab(2))
-                    coord_ribbon(3) = coord_unit(3) / real(PINPT%ribbon_nslab(3))+ (iz - 1)/real(PINPT%ribbon_nslab(3))
-                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PINPT%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
-                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PINPT%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
-                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PINPT%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
+              do iz = 1, PGEOM%ribbon_nslab(3)
+                do iy = 1, PGEOM%ribbon_nslab(2)
+                  do ix = 1, PGEOM%ribbon_nslab(1)
+                    coord_ribbon(1) = coord_unit(1) / real(PGEOM%ribbon_nslab(1))+ (ix - 1)/real(PGEOM%ribbon_nslab(1))
+                    coord_ribbon(2) = coord_unit(2) / real(PGEOM%ribbon_nslab(2))+ (iy - 1)/real(PGEOM%ribbon_nslab(2))
+                    coord_ribbon(3) = coord_unit(3) / real(PGEOM%ribbon_nslab(3))+ (iz - 1)/real(PGEOM%ribbon_nslab(3))
+                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PGEOM%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
+                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PGEOM%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
+                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PGEOM%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
                     write(pid_geom_ribbon,'(3F20.12)') coord_ribbon(1:3) 
                   enddo
                 enddo
               enddo
             elseif(i_dummy .eq. 4) then
-              do iz = 1, PINPT%ribbon_nslab(3)
-                do iy = 1, PINPT%ribbon_nslab(2)
-                  do ix = 1, PINPT%ribbon_nslab(1)
-                    coord_ribbon(1) = coord_unit(1) / real(PINPT%ribbon_nslab(1))+ (ix - 1)/real(PINPT%ribbon_nslab(1))
-                    coord_ribbon(2) = coord_unit(2) / real(PINPT%ribbon_nslab(2))+ (iy - 1)/real(PINPT%ribbon_nslab(2))
-                    coord_ribbon(3) = coord_unit(3) / real(PINPT%ribbon_nslab(3))+ (iz - 1)/real(PINPT%ribbon_nslab(3))
-                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PINPT%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
-                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PINPT%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
-                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PINPT%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
+              do iz = 1, PGEOM%ribbon_nslab(3)
+                do iy = 1, PGEOM%ribbon_nslab(2)
+                  do ix = 1, PGEOM%ribbon_nslab(1)
+                    coord_ribbon(1) = coord_unit(1) / real(PGEOM%ribbon_nslab(1))+ (ix - 1)/real(PGEOM%ribbon_nslab(1))
+                    coord_ribbon(2) = coord_unit(2) / real(PGEOM%ribbon_nslab(2))+ (iy - 1)/real(PGEOM%ribbon_nslab(2))
+                    coord_ribbon(3) = coord_unit(3) / real(PGEOM%ribbon_nslab(3))+ (iz - 1)/real(PGEOM%ribbon_nslab(3))
+                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PGEOM%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
+                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PGEOM%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
+                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PGEOM%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
                     write(pid_geom_ribbon,'(3F20.12,2x,A)') coord_ribbon(1:3), trim(desc_str)
                   enddo 
                 enddo
               enddo
             elseif(i_dummy .ge. 5) then
-              do iz = 1, PINPT%ribbon_nslab(3)
-                do iy = 1, PINPT%ribbon_nslab(2)
-                  do ix = 1, PINPT%ribbon_nslab(1)
-                    coord_ribbon(1) = coord_unit(1) / real(PINPT%ribbon_nslab(1))+ (ix - 1)/real(PINPT%ribbon_nslab(1))
-                    coord_ribbon(2) = coord_unit(2) / real(PINPT%ribbon_nslab(2))+ (iy - 1)/real(PINPT%ribbon_nslab(2))
-                    coord_ribbon(3) = coord_unit(3) / real(PINPT%ribbon_nslab(3))+ (iz - 1)/real(PINPT%ribbon_nslab(3))
-                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PINPT%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
-                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PINPT%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
-                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PINPT%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
+              do iz = 1, PGEOM%ribbon_nslab(3)
+                do iy = 1, PGEOM%ribbon_nslab(2)
+                  do ix = 1, PGEOM%ribbon_nslab(1)
+                    coord_ribbon(1) = coord_unit(1) / real(PGEOM%ribbon_nslab(1))+ (ix - 1)/real(PGEOM%ribbon_nslab(1))
+                    coord_ribbon(2) = coord_unit(2) / real(PGEOM%ribbon_nslab(2))+ (iy - 1)/real(PGEOM%ribbon_nslab(2))
+                    coord_ribbon(3) = coord_unit(3) / real(PGEOM%ribbon_nslab(3))+ (iz - 1)/real(PGEOM%ribbon_nslab(3))
+                    coord_ribbon(1) = coord_ribbon(1) - coord_ribbon(1) * PGEOM%ribbon_vacuum(1)/enorm(3,a_latt_ribbon(1:3,1))
+                    coord_ribbon(2) = coord_ribbon(2) - coord_ribbon(2) * PGEOM%ribbon_vacuum(2)/enorm(3,a_latt_ribbon(1:3,2))
+                    coord_ribbon(3) = coord_ribbon(3) - coord_ribbon(3) * PGEOM%ribbon_vacuum(3)/enorm(3,a_latt_ribbon(1:3,3))
                     write(pid_geom_ribbon,'(3F20.12,2x,A,2x,A)') coord_ribbon(1:3), trim(desc_str), trim(c_dummy)
                   enddo 
                 enddo
@@ -200,7 +200,7 @@ subroutine set_ribbon_geom(PINPT)
    close(pid_geom)
    close(pid_geom_ribbon)
 
-   if(PINPT%flag_print_only_ribbon_geom) then
+   if(PGEOM%flag_print_only_ribbon_geom) then
      write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_RIBBON_GEOM requested..'  ; write_msg
      write(message,'(A,A,A)')'  !WARN! The ribbon geometry will be wrote down in /GFILE/-ribbon'  ; write_msg
      write(message,'(A,A,A)')'  !WARN! Exit program...'  ; write_msg

@@ -1,12 +1,12 @@
 #include "alias.inc"
-function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
-  use parameters, only : pi, rt2, rt3, hopping, incar
+function tij_sk(NN_TABLE,ii,PPRAM,tol,flag_set_overlap)
+  use parameters, only : pi, rt2, rt3, hopping, params
   use get_parameter
   use print_io
   use mpi_setup
   implicit none
   type (hopping)  :: NN_TABLE
-  type (incar  )  :: PINPT
+  type (params )  :: PPRAM
   integer*4 i,ii, iscale_mode
   integer*4 n_nn, i_atom
   integer*4 i_o, i_s, i_p, i_d, i_ovl 
@@ -25,7 +25,8 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
   real*8, external:: f_s_nrl
   real*8, external:: e_onsite_xx
   real*8, external:: e_nrl
-  logical  flag_init, flag_set_overlap
+!!logical  flag_init, flag_set_overlap
+  logical  flag_set_overlap
 
   ! NN_TABLE%sk_set_index(0:6(+6;if use_overlap),nn)
   !    0        1       2      3       4        5       6
@@ -43,15 +44,10 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
   !       see e_onsite_xx routine to see how the 'param_name' is constructed
   !       in the case of param_class = 'xx' which is based on the 'site_index' subtag.
 
-  if(PINPT%flag_load_nntable .and. .not. flag_init) then
-    tij_sk = NN_TABLE%tij_file(ii)
-    return
-  endif
-
   i_ovl = 0
   if(flag_set_overlap) i_ovl = 6
 
-  iscale_mode= PINPT%slater_koster_type ! default = 1, see 'f_s' function for the detail.
+  iscale_mode= PPRAM%slater_koster_type ! default = 1, see 'f_s' function for the detail.
   i_atom     = NN_TABLE%i_atom(ii)
   rij(1:3)   = NN_TABLE%Rij(1:3,ii)
   dij        = NN_TABLE%Dij(    ii)
@@ -97,19 +93,19 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
 
       if( NN_TABLE%p_class(ii) .eq. 'xx' ) then  
         ! set user defined onsite energy modifications in 'e_onsite_xx' function
-        e = e_onsite_xx(ci_orb,cj_orb, PINPT, site_index)
+        e = e_onsite_xx(ci_orb,cj_orb, PPRAM, site_index)
 
       else
         ! set onsite energy species by species and orbital by orbital
         i_o = NN_TABLE%sk_index_set(0,ii) ! onsite energy parameter index
         if(i_o .gt. 0 .and. .not. flag_set_overlap) then ! if onsite energy for Hk
-          if(iscale_mode .le. 10) call get_param(PINPT, i_o, 1, e)
+          if(iscale_mode .le. 10) call get_param(PPRAM, i_o, 1, e)
           if(iscale_mode .gt. 10) then 
             do i = 1, 4
-              call get_param(PINPT,i_o, i, e_(i)) ! get onsite energy parameters
+              call get_param(PPRAM,i_o, i, e_(i)) ! get onsite energy parameters
             enddo
             do i = 1, n_nn
-              call get_param(PINPT,NN_TABLE%l_onsite_param_index(NN_TABLE%j_nn(i,i_atom)),1, l_onsite(i)) ! get l_onsite for each j_nn
+              call get_param(PPRAM,NN_TABLE%l_onsite_param_index(NN_TABLE%j_nn(i,i_atom)),1, l_onsite(i)) ! get l_onsite for each j_nn
             enddo
           endif
         else
@@ -124,41 +120,41 @@ function tij_sk(NN_TABLE,ii,PINPT,tol,flag_init,flag_set_overlap)
         i_d = NN_TABLE%sk_index_set(3+i_ovl,ii)
         if( i_s .ne. 0) then
           do i = 1, 4
-            call get_param(PINPT, i_s, i , s_(i) ) ! sigma
+            call get_param(PPRAM, i_s, i , s_(i) ) ! sigma
           enddo
         endif
         if( i_p .ne. 0) then
           do i = 1, 4
-            call get_param(PINPT, i_p, i, p_(i) ) ! pi
+            call get_param(PPRAM, i_p, i, p_(i) ) ! pi
           enddo
         endif
         if( i_d .ne. 0) then 
           do i = 1, 4
-            call get_param(PINPT, i_d, i, d_(i) ) ! delta
+            call get_param(PPRAM, i_d, i, d_(i) ) ! delta
           enddo
         endif
       else
         i_s = NN_TABLE%sk_index_set(1+i_ovl,ii)
         i_p = NN_TABLE%sk_index_set(2+i_ovl,ii)
         i_d = NN_TABLE%sk_index_set(3+i_ovl,ii)
-        if( i_s .ne. 0) call get_param(PINPT, i_s, 1, s  ) ! sigma
-        if( i_p .ne. 0) call get_param(PINPT, i_p, 1, p  ) ! pi
-        if( i_d .ne. 0) call get_param(PINPT, i_d, 1, d  ) ! delta
+        if( i_s .ne. 0) call get_param(PPRAM, i_s, 1, s  ) ! sigma
+        if( i_p .ne. 0) call get_param(PPRAM, i_p, 1, p  ) ! pi
+        if( i_d .ne. 0) call get_param(PPRAM, i_d, 1, d  ) ! delta
         i_s = NN_TABLE%sk_index_set(4+i_ovl,ii) 
         i_p = NN_TABLE%sk_index_set(5+i_ovl,ii)
         i_d = NN_TABLE%sk_index_set(6+i_ovl,ii)
-        if( i_s .ne. 0) call get_param(PINPT, i_s, 1, s_s) ! sigma_scale
-        if( i_p .ne. 0) call get_param(PINPT, i_p, 1, p_s) ! pi_scale
-        if( i_d .ne. 0) call get_param(PINPT, i_d, 1, d_s) ! delta_scale
+        if( i_s .ne. 0) call get_param(PPRAM, i_s, 1, s_s) ! sigma_scale
+        if( i_p .ne. 0) call get_param(PPRAM, i_p, 1, p_s) ! pi_scale
+        if( i_d .ne. 0) call get_param(PPRAM, i_d, 1, d_s) ! delta_scale
       endif
 
   endif !check n_class
 
 
   if( iscale_mode .gt. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
-    s = f_s_nrl ( s_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
-    p = f_s_nrl ( p_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
-    d = f_s_nrl ( d_, d0, dij, iscale_mode, PINPT%l_broaden) * i_sign * j_sign
+    s = f_s_nrl ( s_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
+    p = f_s_nrl ( p_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
+    d = f_s_nrl ( d_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
 
   elseif(iscale_mode .le. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
 
@@ -458,18 +454,18 @@ sk: select case ( NN_TABLE%p_class(ii) )
 
   ! onsite energy if nn_class == 0
   elseif( NN_TABLE%n_class(ii) .eq. 0 ) then 
-    if(PINPT%flag_efield .and. (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)) ) then ! if E-field
+    if(NN_TABLE%flag_efield .and. (NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)) ) then ! if E-field
       if(.not.flag_set_overlap) then
 
         if(iscale_mode .gt. 10) then
           if(n_nn .gt. 0) then
-            tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PINPT%l_broaden) &
-                    -dot_product(PINPT%efield(1:3),NN_TABLE%i_coord(1:3,ii)-PINPT%efield_origin_cart(1:3))
+            tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PPRAM%l_broaden) &
+                    -dot_product(NN_TABLE%efield(1:3),NN_TABLE%i_coord(1:3,ii)-NN_TABLE%efield_origin_cart(1:3))
           elseif(n_nn .eq. 0) then
             tij_sk = e_(1)
           endif
         else
-          tij_sk = e - dot_product(PINPT%efield(1:3),NN_TABLE%i_coord(1:3,ii)-PINPT%efield_origin_cart(1:3))
+          tij_sk = e - dot_product(NN_TABLE%efield(1:3),NN_TABLE%i_coord(1:3,ii)-NN_TABLE%efield_origin_cart(1:3))
         endif
       elseif(flag_set_overlap) then
         tij_sk = e 
@@ -477,7 +473,7 @@ sk: select case ( NN_TABLE%p_class(ii) )
     else ! if not E-field
       if(iscale_mode .gt. 10) then
         if(n_nn .gt. 0 .and. .not. flag_set_overlap) then
-          tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PINPT%l_broaden) 
+          tij_sk = e_nrl(e_, NN_TABLE%R0_nn(1:n_nn,i_atom), NN_TABLE%R_nn(1:n_nn,i_atom), n_nn, l_onsite, PPRAM%l_broaden) 
         elseif(n_nn .eq. 0) then
           tij_sk = e_(1)
         endif
@@ -586,4 +582,55 @@ function f_s2(dda_s, dda_s2, d0, d, mode)
    endif
 return
 endfunction
+
+subroutine get_hopping_integral(Eij, NN_TABLE, nn, PPRAM, tol, kpoint, FIJ_, &
+                                flag_phase, flag_set_overlap, flag_load_nntable)
+  use parameters, only : zi, hopping, params
+  use phase_factor
+  implicit none
+  interface
+    function FIJ_(k,R)
+      complex*16   FIJ_
+      real*8, intent(in) :: k(3)
+      real*8, intent(in) :: R(3)
+    endfunction
+  end interface
+  type (hopping) :: NN_TABLE
+  type (params ) :: PPRAM
+  integer*4         nn
+  real*8            kpoint(3), tol, tij_sk, tij_cc
+  real*8            Rij(3)
+  complex*16        Eij, phase_ij, tij
+  external          tij_sk, tij_cc
+  logical           flag_phase, flag_set_overlap, flag_load_nntable
+
+  if(flag_phase) then
+    Rij = NN_TABLE%Rij(1:3,nn)
+  else
+    Rij = NN_TABLE%R  (1:3,nn)
+  endif
+
+  phase_ij = FIJ_(kpoint, Rij)
+
+  if(flag_load_nntable) then
+    tij = NN_TABLE%tij_file(nn)
+    Eij = tij * phase_ij
+    ! NOTE: if flag_set_overlap = .true. and flag_load_nntable = .true. this will not work properly
+    !       since NN_TABLE%sij_file(nn) is not properly defined.
+    !       Need to be updated in the future release. 29.Oct.2020: H.-J. Kim
+    return
+  endif
+
+  if(PPRAM%flag_slater_koster) then
+    tij = tij_sk(NN_TABLE,nn,PPRAM,tol, flag_set_overlap)
+    Eij = tij * phase_ij
+    return
+  else
+    tij = tij_cc(NN_TABLE,nn,PPRAM,tol)
+    Eij = tij * phase_ij
+    return
+  endif
+
+return
+endsubroutine
 

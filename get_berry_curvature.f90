@@ -4,6 +4,7 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    use berry_phase
    use phase_factor
    use mpi_setup
+   use time
    use kronecker_prod, only: kproduct
    use print_io
    implicit none
@@ -16,13 +17,11 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    real*8           time1, time2
    integer*4        mpierr
 
+   call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'bc')
+
    write(message,*)''  ; write_msg
-   write(message,'(A)')'START: BERRYCURVATURE'   ; write_msg
-#ifdef MPI
-   if_main time1 = MPI_Wtime()
-#else
-   call cpu_time(time1)
-#endif
+   write(message,'(A)')' ---- START: BERRYCURVATURE -----------'   ; write_msg
+   call time_check(time2, time1, 'init')
 
    if(PINPT%flag_erange) then
      write(message,'(A)')'    !WARN! Current version does not support to calculate Berry curvautre'  ; write_msg
@@ -43,13 +42,10 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
      call get_bc_resta(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    endif
 
-
-#ifdef MPI
-   if_main time2 = MPI_Wtime()
-#else
-   call cpu_time(time2)
-#endif
-   write(message,'(A,F12.3)')'END: BERRYCURVATURE. TIME ELAPSED (s) =',time2-time1  ; write_msg
+   call time_check(time2, time1)
+   write(message,*)' ' ; write_msg
+   write(message,'(A,F12.3)')'   TIME for BERRYCURVATURE CALCULATION (s) ', time2 ; write_msg
+   write(message,'(A      )')' ---- END: BERRYCURVATURE -----------'; write_msg
 
    return
 endsubroutine

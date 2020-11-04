@@ -1,8 +1,7 @@
-subroutine get_site_number(NN_TABLE, PGEOM, site_cindex, range_dummy, size_range_dummy)
-   use parameters
+subroutine get_site_number(PGEOM, site_cindex, range_dummy, size_range_dummy)
+   use parameters, only : poscar
    implicit none
    type(poscar)  :: PGEOM
-   type(hopping) :: NN_TABLE
    integer*4        i, j, pos
    integer*4        lsite
    integer*4        range_dummy(PGEOM%n_atom), size_range_dummy
@@ -25,7 +24,7 @@ subroutine get_site_number(NN_TABLE, PGEOM, site_cindex, range_dummy, size_range
      size_range_dummy = 0
 
      do i = 1, PGEOM%n_atom
-       site_dummy = trim(NN_TABLE%site_cindex(i))
+       site_dummy = trim(PGEOM%site_cindex(i))
        if(site_dummy(1:lsite) .eq. site_name) then
          size_range_dummy = size_range_dummy + 1
          range_dummy(size_range_dummy) = i
@@ -35,7 +34,7 @@ subroutine get_site_number(NN_TABLE, PGEOM, site_cindex, range_dummy, size_range
    elseif(.not. flag_all) then
      size_range_dummy = 0
      do i = 1, PGEOM%n_atom
-       site_dummy = trim(NN_TABLE%site_cindex(i))
+       site_dummy = trim(PGEOM%site_cindex(i))
        if(trim(site_dummy) .eq. trim(site_cindex)) then
          size_range_dummy = size_range_dummy + 1
          range_dummy(size_range_dummy) = i

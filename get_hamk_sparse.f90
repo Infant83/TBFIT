@@ -1,8 +1,8 @@
 #include "alias.inc"
 #ifdef MKL_SPARSE
-subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, &
+subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, &
                            flag_sparse_zero_SHm, flag_sparse_zero_SHs)
-  use parameters, only : incar, hopping, spmat
+  use parameters, only : incar, hopping, spmat, params
   use mpi_setup
   use phase_factor
   use do_math
@@ -15,6 +15,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
   use print_io
   implicit none
   type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (hopping) :: NN_TABLE
   type (spmat  ) :: SHk, SH0, SHm, SHs
   type (spmat  ) :: SSk, SS0  ! for overlap matrix
@@ -41,23 +42,18 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
  
 
   ! H0 will be constructed for spin-1. For spin-2, copied from spin-1 
-  if(PINPT%flag_use_overlap) then
-    if(is .eq. 1) call set_ham0_sparse_overlap  (SH0, SS0, kp, PINPT, neig, NN_TABLE, flag_phase)
-  elseif(.not. PINPT%flag_use_overlap) then
-    if(is .eq. 1) call set_ham0_sparse          (SH0,      kp, PINPT, neig, NN_TABLE, flag_phase)
+  if(PPRAM%flag_use_overlap) then
+    if(is .eq. 1) call set_ham0_sparse_overlap  (SH0, SS0, kp, PINPT, PPRAM, neig, NN_TABLE, flag_phase)
+  elseif(.not. PPRAM%flag_use_overlap) then
+    if(is .eq. 1) call set_ham0_sparse          (SH0,      kp, PINPT, PPRAM, neig, NN_TABLE, flag_phase)
   endif
-! if(PINPT%flag_use_overlap) then
-!   if(is .eq. 1) call set_ham0_sparse (SS0, kp, PINPT, neig, NN_TABLE, flag_phase, .true. )
-! endif
 
   if(flag_init) then   ! setup k-independent Hamiltonian: Hm, Hs (if .not. slater_koster)
-    if(PINPT%flag_collinear) then
-      call set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero_SHm)
-    elseif(PINPT%flag_noncollinear) then
-      call set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero_SHm)
-
-      if(PINPT%flag_soc .and. PINPT%flag_slater_koster) then
-        call set_ham_soc_sparse(SHs, 0d0, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
+    if(PINPT%flag_collinear .or. PINPT%flag_noncollinear) then
+      call set_ham_mag_sparse(SHm, NN_TABLE, PPRAM, neig, PINPT%ispinor, &
+                              flag_sparse_zero_SHm, PINPT%flag_collinear, PINPT%flag_noncollinear)
+      if(PINPT%flag_soc .and. PPRAM%flag_slater_koster .and. PINPT%flag_noncollinear) then
+        call set_ham_soc_sparse(SHs, 0d0, PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, .true., F_IJ)
       endif
     endif
     flag_init = .false.
@@ -66,7 +62,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
   if(PINPT%flag_collinear) then
     if(.not. flag_sparse_zero_SHm) then
       call sparse_create_csr_handle(S0, SH0)
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call sparse_create_csr_handle(S_Sk, SS0) ! since overlap matrix does not need to add Sm, SS0 is directly handled by S_Sk
       endif
       call sparse_create_csr_handle(Sm, SHm)
@@ -77,7 +73,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
       call sparse_error_report('MKL_SPARSE_z_ADD: S0+Sm=Sk', istat)
 
       call sparse_export_csr(Sk, SHk)
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call sparse_export_csr(S_Sk, SSk)
       endif
 
@@ -85,17 +81,13 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
       call sparse_error_report('MKL_SPARSE_DESTROY: Sm ', istat)
       istat = MKL_SPARSE_DESTROY(S0)
       call sparse_error_report('MKL_SPARSE_DESTROY: S0 ', istat)
-!     if(PINPT%flag_use_overlap) then
-!       istat = MKL_SPARSE_DESTROY(S_S0)
-!       call sparse_error_report('MKL_SPARSE_DESTROY: S_S0 ', istat)
-!     endif
     elseif(flag_sparse_zero_SHm) then
       SHk%msize = SH0%msize
       SHk%nnz   = SH0%nnz
       allocate(SHk%H(SH0%nnz    )) ; SHk%H = SH0%H
       allocate(SHk%J(SH0%nnz    )) ; SHk%J = SH0%J
       allocate(SHk%I(SH0%msize+1)) ; SHk%I = SH0%I
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         SSk%msize = SS0%msize
         SSk%nnz   = SS0%nnz
         allocate(SSk%H(SS0%nnz    )) ; SSk%H = SS0%H
@@ -106,18 +98,14 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
 
   elseif(PINPT%flag_noncollinear) then
     if(PINPT%flag_soc) then
-      if(.not. PINPT%flag_slater_koster) then
+      if(.not. PPRAM%flag_slater_koster) then
         !set up k-dependent SOC in the case of 'cc' orbitals
-        call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
-!       write(message,'(A)')'    !WARN! Current version does not support Sparse Matrix '  ; write_msg
-!       write(message,'(A)')'           for non-Slater-Koster type Hamiltonian'  ; write_msg
-!       write(message,'(A)')'           Exit program...'  ; write_msg
-!       kill_job
+        call set_ham_soc_sparse(SHs, kp, PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, .false., F_IJ)
       endif
 
       call kproduct_pauli_0_CSR(SH0)
       call sparse_create_csr_handle(S0, SH0)
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call kproduct_pauli_0_CSR(SS0)
         call sparse_create_csr_handle(S_Sk, SS0)
       endif
@@ -168,14 +156,14 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
         endif
       endif
 
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call sparse_export_csr(S_Sk, SSk)
       endif
 
     else
       call kproduct_pauli_0_CSR(SH0)
       call sparse_create_csr_handle(S0, SH0)
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call kproduct_pauli_0_CSR(SS0)
         call sparse_create_csr_handle(S_Sk, SS0)
       endif
@@ -194,7 +182,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
         call sparse_export_csr(S0, SHk)
       endif
 
-      if(PINPT%flag_use_overlap) then
+      if(PPRAM%flag_use_overlap) then
         call sparse_export_csr(S_Sk, SSk)
       endif
 
@@ -215,7 +203,7 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
     SHk%nnz   = SH0%nnz
     SHk%msize = SH0%msize
 
-    if(PINPT%flag_use_overlap) then
+    if(PPRAM%flag_use_overlap) then
       allocate(SSk%H(SS0%nnz))
       allocate(SSk%J(SS0%nnz))
       allocate(SSk%I(SS0%msize + 1))
@@ -231,9 +219,9 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, n
   return
 endsubroutine
 
-subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, flag_init, flag_phase, &
+subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, &
                            flag_sparse_zero_SHm, flag_sparse_zero_SHs)
-  use parameters, only : incar, hopping, spmat
+  use parameters, only : incar, hopping, spmat, params
   use mpi_setup
   use phase_factor
   use do_math
@@ -246,6 +234,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   use print_io
   implicit none
   type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (hopping) :: NN_TABLE
   type (spmat  ) :: SHk, SH0, SHm, SHs
 #ifdef MKL_SPARSE
@@ -258,6 +247,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   complex*16        alpha
   logical           flag_sparse_zero_SHm ! if the sparse matrix has no non-zero element (nnz = 0),
   logical           flag_sparse_zero_SHs ! this flag will be .true. and will skip related construction routine.
+  logical           flag_slater_koster
   real*8            t1, t0
   integer*4         mpierr
 
@@ -269,16 +259,14 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
   !     initialized every call        if .not. slater-koster (deallocated after cal_eig_Hk_sparse exit)
 
   ! H0 will be constructed for spin-1. For spin-2, copied from spin-1 
-  if(is .eq. 1) call set_ham0_sparse   (SH0, kp, PINPT, neig, NN_TABLE, flag_phase)
+  if(is .eq. 1) call set_ham0_sparse   (SH0, kp, PINPT, PPRAM, neig, NN_TABLE, flag_phase)
 
   if(flag_init) then   ! setup k-independent Hamiltonian: Hm, Hs (if .not. slater_koster)
-    if(PINPT%flag_collinear) then
-      call set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero_SHm)
-    elseif(PINPT%flag_noncollinear) then
-      call set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero_SHm)
-
-      if(PINPT%flag_soc .and. PINPT%flag_slater_koster) then
-        call set_ham_soc_sparse(SHs, 0d0, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
+    if(PINPT%flag_collinear .or. PINPT%flag_noncollinear) then
+      call set_ham_mag_sparse(SHm, NN_TABLE, PPRAM, neig, PINPT%ispinor, &
+                              flag_sparse_zero_SHm, PINPT%flag_collinear, PINPT%flag_noncollinear)
+      if(PINPT%flag_soc .and. flag_slater_koster .and. PINPT%flag_noncollinear) then
+        call set_ham_soc_sparse(SHs, 0d0, PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, .true., F_IJ)
       endif
     endif
     flag_init = .false.
@@ -310,13 +298,9 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
 
   elseif(PINPT%flag_noncollinear) then
     if(PINPT%flag_soc) then
-      if(.not. PINPT%flag_slater_koster) then 
+      if(.not. PPRAM%flag_slater_koster) then 
         !set up k-dependent SOC in the case of 'cc' orbitals
-        call set_ham_soc_sparse(SHs, kp, PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, F_IJ)
-!       write(message,'(A)')'    !WARN! Current version does not support Sparse Matrix '  ; write_msg
-!       write(message,'(A)')'           for non-Slater-Koster type Hamiltonian'  ; write_msg
-!       write(message,'(A)')'           Exit program...'  ; write_msg
-!       kill_job
+        call set_ham_soc_sparse(SHs, kp, PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, .false., F_IJ)
       endif
       
       call kproduct_pauli_0_CSR(SH0)
@@ -407,8 +391,8 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, neig, NN_TABLE, fl
 
   return
 endsubroutine
-subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, neig, NN_TABLE, flag_phase)
-  use parameters, only : zi, hopping, incar, spmat, eta
+subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, PPRAM, neig, NN_TABLE, flag_phase)
+  use parameters, only : zi, hopping, incar, spmat, eta, params
   use phase_factor
   use mpi_setup
   use sparse_tool
@@ -416,6 +400,7 @@ subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, neig, NN_TABLE, flag
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (spmat  ) :: SH0_COO, SH0
   type (spmat  ) :: SS0_COO, SS0
   integer*4         neig , ii, jj, nn, m, mm
@@ -440,14 +425,14 @@ subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, neig, NN_TABLE, flag
 nn_:do nn=1,NN_TABLE%n_neighbor
     ii=NN_TABLE%i_matrix(nn)
     jj=NN_TABLE%j_matrix(nn)
-    call get_hopping_integral(Eij, NN_TABLE, nn, PINPT, tol, kpoint, F_IJ, flag_phase, .false.)
-    call get_hopping_integral(Sij, NN_TABLE, nn, PINPT, tol, kpoint, F_IJ, flag_phase, .true. )
+    call get_hopping_integral(Eij, NN_TABLE, nn, PPRAM, tol, kpoint, F_IJ, flag_phase, .false., PINPT%flag_load_nntable)
+    call get_hopping_integral(Sij, NN_TABLE, nn, PPRAM, tol, kpoint, F_IJ, flag_phase, .true. , PINPT%flag_load_nntable)
 
     if(ii .eq. jj .and. NN_TABLE%Dij(nn) <= tol) then
-      if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(ii))) .ge. 1) then
-        Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(ii)))
+      if(nint(PPRAM%param_const(4,NN_TABLE%local_U_param_index(ii))) .ge. 1) then
+        Tij =  Eij + NN_TABLE%local_charge(ii)*PPRAM%param_const(5,(NN_TABLE%local_U_param_index(ii)))
       else
-        Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param((NN_TABLE%local_U_param_index(ii)))
+        Tij =  Eij + NN_TABLE%local_charge(ii)*PPRAM%param((NN_TABLE%local_U_param_index(ii)))
       endif
 
       if(abs(Tij) .ge. eta) then
@@ -554,8 +539,8 @@ nn_:do nn=1,NN_TABLE%n_neighbor
 return
 endsubroutine
 
-subroutine set_ham0_sparse(SH0, kpoint, PINPT, neig, NN_TABLE, flag_phase)
-  use parameters, only : zi, hopping, incar, spmat, eta
+subroutine set_ham0_sparse(SH0, kpoint, PINPT, PPRAM, neig, NN_TABLE, flag_phase)
+  use parameters, only : zi, hopping, incar, spmat, eta, params
   use phase_factor
   use mpi_setup
   use sparse_tool
@@ -563,6 +548,7 @@ subroutine set_ham0_sparse(SH0, kpoint, PINPT, neig, NN_TABLE, flag_phase)
   implicit none
   type (hopping) :: NN_TABLE
   type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (spmat  ) :: SH0_COO, SH0
   integer*4         neig , ii, jj, nn, m, mm
   integer*4         ivel_axis
@@ -583,13 +569,13 @@ subroutine set_ham0_sparse(SH0, kpoint, PINPT, neig, NN_TABLE, flag_phase)
 nn_:do nn=1,NN_TABLE%n_neighbor
     ii=NN_TABLE%i_matrix(nn)
     jj=NN_TABLE%j_matrix(nn)
-    call get_hopping_integral(Eij, NN_TABLE, nn, PINPT, tol, kpoint, F_IJ, flag_phase, .false.)
+    call get_hopping_integral(Eij, NN_TABLE, nn, PPRAM, tol, kpoint, F_IJ, flag_phase, .false., PINPT%flag_load_nntable)
 
     if(ii .eq. jj .and. NN_TABLE%Dij(nn) <= tol) then
-      if(nint(PINPT%param_const(4,NN_TABLE%local_U_param_index(ii))) .ge. 1) then
-        Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param_const(5,(NN_TABLE%local_U_param_index(ii)))
+      if(nint(PPRAM%param_const(4,NN_TABLE%local_U_param_index(ii))) .ge. 1) then
+        Tij =  Eij + NN_TABLE%local_charge(ii)*PPRAM%param_const(5,(NN_TABLE%local_U_param_index(ii)))
       else
-        Tij =  Eij + NN_TABLE%local_charge(ii)*PINPT%param((NN_TABLE%local_U_param_index(ii)))
+        Tij =  Eij + NN_TABLE%local_charge(ii)*PPRAM%param((NN_TABLE%local_U_param_index(ii)))
       endif
 
       if(abs(Tij) .ge. eta) then
@@ -678,16 +664,17 @@ nn_:do nn=1,NN_TABLE%n_neighbor
 
 return
 endsubroutine
-subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
-  use parameters, only : zi, hopping, incar, spmat, eta
+subroutine set_ham_mag_sparse(SHm, NN_TABLE, PPRAM, neig, ispinor, &
+                              flag_sparse_zero, flag_collinear, flag_noncollinear)
+  use parameters, only : zi, hopping, spmat, eta, params
   use mpi_setup
   use sparse_tool
   use print_io
   implicit none
   type (hopping) :: NN_TABLE
-  type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (spmat  ) :: SHm_COO, SHm
-  integer*4         neig
+  integer*4         neig, ispinor
   integer*4         nn, ii, mm, m
   complex*16        Tij, Tij_x, Tij_y, Tij_z
   integer*4         I(NN_TABLE%n_neighbor*4) ! default maximum : n_neighbor*4
@@ -695,6 +682,7 @@ subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
   complex*16        H(NN_TABLE%n_neighbor*4)
   complex*16        IJ(NN_TABLE%n_neighbor*4) 
   logical           flag_sparse_zero
+  logical           flag_collinear, flag_noncollinear
 
     flag_sparse_zero = .false.
 
@@ -702,13 +690,13 @@ subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
     mm = 0
     IJ = (-1d0,-1d0)
 
-    if(PINPT%flag_collinear) then
+    if(flag_collinear) then
  nn_c:do nn = 1, neig
         if(NN_TABLE%stoner_I_param_index(nn) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(nn))) .eq. 1) then ! if i-th basis has constraint .true.
-            Tij = -0.5d0 * NN_TABLE%local_moment(1,nn) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(nn))
+          if(nint(PPRAM%param_const(4,NN_TABLE%stoner_I_param_index(nn))) .eq. 1) then ! if i-th basis has constraint .true.
+            Tij = -0.5d0 * NN_TABLE%local_moment(1,nn) * PPRAM%param_const(5,NN_TABLE%stoner_I_param_index(nn))
           else
-            Tij = -0.5d0 * NN_TABLE%local_moment(1,nn) * PINPT%param(NN_TABLE%stoner_I_param_index(nn))
+            Tij = -0.5d0 * NN_TABLE%local_moment(1,nn) * PPRAM%param(NN_TABLE%stoner_I_param_index(nn))
           endif
           
           if(abs(Tij) .ge. eta) then
@@ -734,17 +722,17 @@ subroutine set_ham_mag_sparse(SHm, NN_TABLE, PINPT, neig, flag_sparse_zero)
         endif
       enddo nn_c
 
-    elseif(PINPT%flag_noncollinear) then
+    elseif(flag_noncollinear) then
 nn_nc:do nn = 1, neig
         if(NN_TABLE%stoner_I_param_index(nn) .gt. 0) then   ! if stoner parameter has been set...
-          if(nint(PINPT%param_const(4,NN_TABLE%stoner_I_param_index(nn))) .eq. 1) then ! if i-th basis has constraint .true.
-            Tij_x  = - 0.5d0 * NN_TABLE%local_moment_rot(1,nn) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(nn))
-            Tij_y  =   0.5d0 * NN_TABLE%local_moment_rot(2,nn) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(nn)) * zi
-            Tij_z  = - 0.5d0 * NN_TABLE%local_moment_rot(3,nn) * PINPT%param_const(5,NN_TABLE%stoner_I_param_index(nn))
+          if(nint(PPRAM%param_const(4,NN_TABLE%stoner_I_param_index(nn))) .eq. 1) then ! if i-th basis has constraint .true.
+            Tij_x  = - 0.5d0 * NN_TABLE%local_moment_rot(1,nn) * PPRAM%param_const(5,NN_TABLE%stoner_I_param_index(nn))
+            Tij_y  =   0.5d0 * NN_TABLE%local_moment_rot(2,nn) * PPRAM%param_const(5,NN_TABLE%stoner_I_param_index(nn)) * zi
+            Tij_z  = - 0.5d0 * NN_TABLE%local_moment_rot(3,nn) * PPRAM%param_const(5,NN_TABLE%stoner_I_param_index(nn))
           else
-            Tij_x  = - 0.5d0 * NN_TABLE%local_moment_rot(1,nn) * PINPT%param(NN_TABLE%stoner_I_param_index(nn))
-            Tij_y  =   0.5d0 * NN_TABLE%local_moment_rot(2,nn) * PINPT%param(NN_TABLE%stoner_I_param_index(nn)) * zi
-            Tij_z  = - 0.5d0 * NN_TABLE%local_moment_rot(3,nn) * PINPT%param(NN_TABLE%stoner_I_param_index(nn))
+            Tij_x  = - 0.5d0 * NN_TABLE%local_moment_rot(1,nn) * PPRAM%param(NN_TABLE%stoner_I_param_index(nn))
+            Tij_y  =   0.5d0 * NN_TABLE%local_moment_rot(2,nn) * PPRAM%param(NN_TABLE%stoner_I_param_index(nn)) * zi
+            Tij_z  = - 0.5d0 * NN_TABLE%local_moment_rot(3,nn) * PPRAM%param(NN_TABLE%stoner_I_param_index(nn))
           endif
 
           if(abs(Tij_x) + abs(Tij_y) + abs(Tij_z) .ge. eta) then
@@ -798,7 +786,7 @@ nn_nc:do nn = 1, neig
       allocate(SHm_COO%I(mm))
       allocate(SHm_COO%J(mm))
       SHm_COO%nnz   = mm
-      SHm_COO%msize = neig * PINPT%ispinor
+      SHm_COO%msize = neig * ispinor
       SHm_COO%H     = H(1:mm)
       SHm_COO%I     = I(1:mm)
       SHm_COO%J     = J(1:mm)
@@ -812,8 +800,8 @@ nn_nc:do nn = 1, neig
 
 return
 endsubroutine
-subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_sparse_zero, FIJ)
-  use parameters, only : zi, hopping, incar, spmat, eta, pi, pi2
+subroutine set_ham_soc_sparse(SHs, kp , PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero, flag_slater_koster, FIJ)
+  use parameters, only : zi, hopping, params, spmat, eta, pi, pi2, params
   use sparse_tool
   use kronecker_prod
   use mpi_setup
@@ -832,7 +820,7 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
     endfunction
   end interface
   type (hopping) :: NN_TABLE
-  type (incar  ) :: PINPT
+  type (params ) :: PPRAM
   type (spmat  ) :: COO_x, COO_y, COO_z, CSR_x, CSR_y, CSR_z, SHs
   type (SPARSE_MATRIX_T) :: SHx, SHy, SHz, SHxy, SHxyz
   integer*4         neig
@@ -841,7 +829,7 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
   integer*4         soc_index, rashba_index
   real*8            lambda_soc, lambda_rashba
   real*8            kp(3)
-  logical           flag_phase, flag_sparse_zero
+  logical           flag_phase, flag_sparse_zero, flag_slater_koster
   complex*16        Tij, Tij_x, Tij_y, Tij_z
   complex*16        F
   integer*4         I(NN_TABLE%n_neighbor*2) ! default maximum : n_neighbor*4
@@ -864,7 +852,7 @@ subroutine set_ham_soc_sparse(SHs, kp , PINPT, neig, NN_TABLE, flag_phase, flag_
   mm = 0
   IJ = (-1d0, -1d0)
 
-    if(PINPT%flag_slater_koster) then
+    if(flag_slater_koster) then
       Hx = 0d0
       Hy = 0d0
       Hz = 0d0
@@ -877,8 +865,7 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
         ! set SOC hamiltonian based on 'xx' type orbitals which are composed by linear combination of atomic orbitals
         if( soc_index .gt. 0 .and. (NN_TABLE%p_class(nn) .eq. 'pp' .or. NN_TABLE%p_class(nn) .eq. 'dd' &
                                                                    .or. NN_TABLE%p_class(nn) .eq. 'xx'  ) ) then
-          call get_param(PINPT,    soc_index, 1, lambda_soc   )
-         !call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PPRAM,    soc_index, 1, lambda_soc   )
           ! CALCULATE  <orb_i|LS|orb_j> 
           Tij_x = lambda_soc * L_x(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
           Tij_y = lambda_soc * L_y(NN_TABLE%ci_orb(nn), NN_TABLE%cj_orb(nn), NN_TABLE%p_class(nn))
@@ -960,7 +947,7 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
         call sparse_error_report('MKL_SPARSE_DESTROY: SHxy', istat)
       endif
 
-    elseif(.not.PINPT%flag_slater_koster) then
+    elseif(.not. flag_slater_koster) then
       Hx = 0d0
       Hy = 0d0
       Hz = 0d0
@@ -980,10 +967,8 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
         endif
 
         if( soc_index .ge. 1 .and. rashba_index .ge. 1) then
-          call get_param(PINPT,    soc_index, 1, lambda_soc   )
-          call get_param(PINPT, rashba_index, 1, lambda_rashba)
-         !call get_param(PINPT,    soc_index, lambda_soc   )
-         !call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PPRAM,    soc_index, 1, lambda_soc   )
+          call get_param(PPRAM, rashba_index, 1, lambda_rashba)
 
 !         ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           Tij_x = zi * lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F  ! sigma_x
@@ -1005,8 +990,7 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
           call save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, NN_TABLE%n_neighbor)
 
         elseif( soc_index .ge. 1 .and. rashba_index .eq. 0) then
-          call get_param(PINPT,    soc_index, 1, lambda_soc   )
-         !call get_param(PINPT,    soc_index, lambda_soc   )
+          call get_param(PPRAM,    soc_index, 1, lambda_soc   )
 
 !         ! This model is only for Kane-mele type of SOC. Be careful..
           prod=exp(-2d0*zi * pi * dot_product((/2.45d0,0d0/), NN_TABLE%Rij(1:2,nn)))
@@ -1022,8 +1006,7 @@ nn_cc:do nn = 1, NN_TABLE%n_neighbor
           call save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, IJ, NN_TABLE%n_neighbor)
 
         elseif( soc_index .eq. 0 .and. rashba_index .gt. 1 ) then ! WARN: only the AB-a hopping is considered (for Bi/Si110 case)
-          call get_param(PINPT, rashba_index, 1, lambda_rashba)
-         !call get_param(PINPT, rashba_index, lambda_rashba)
+          call get_param(PPRAM, rashba_index, 1, lambda_rashba)
 
 !         ! set Rashba-SOC between i_orb and j_orb separated by |dij|, originated from E-field normal to surface
           Tij_x = zi * lambda_rashba * NN_TABLE%Rij(2,nn)/NN_TABLE%Dij(nn) * F  ! sigma_x
@@ -1149,38 +1132,3 @@ subroutine save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, I
 return
 endsubroutine
 #endif
-
-subroutine get_hopping_integral(Eij, NN_TABLE, nn, PINPT, tol, kpoint, FIJ_, flag_phase, flag_set_overlap)
-  use parameters, only : zi, hopping, incar
-  use phase_factor
-  interface
-    function FIJ_(k,R)
-      complex*16   FIJ_
-      real*8, intent(in) :: k(3)
-      real*8, intent(in) :: R(3)
-    endfunction
-  end interface
-  type (hopping) :: NN_TABLE
-  type (incar  ) :: PINPT
-  integer*4         nn
-  real*8            kpoint(3), tol, tij_sk, tij_cc
-  complex*16        Eij
-  external          tij_sk, tij_cc
-  logical           flag_phase, flag_set_overlap
-
-  if(PINPT%flag_slater_koster) then
-    if(flag_phase) then
-      Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ_( kpoint, NN_TABLE%Rij(1:3,nn))
-    elseif(.not. flag_phase) then
-      Eij = tij_sk(NN_TABLE,nn,PINPT,tol,.false., flag_set_overlap) * FIJ_( kpoint, NN_TABLE%R  (1:3,nn))
-    endif
-  elseif(.not.PINPT%flag_slater_koster) then
-    if(flag_phase) then
-      Eij = tij_cc(NN_TABLE,nn,PINPT,tol,.false.) * FIJ_( kpoint, NN_TABLE%Rij(1:3,nn))
-    elseif(.not. flag_phase) then
-      Eij = tij_cc(NN_TABLE,nn,PINPT,tol,.false.) * FIJ_( kpoint, NN_TABLE%R  (1:3,nn))
-    endif
-  endif
-
-return
-endsubroutine

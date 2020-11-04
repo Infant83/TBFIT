@@ -1,39 +1,47 @@
 #include "alias.inc"
-subroutine get_z2(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS)
-   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2, cyclic_axis
+subroutine get_z2(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
+   use parameters, only : incar, hopping, poscar, berry, energy, kpoints, pi2, cyclic_axis, params
    use berry_phase
    use mpi_setup
    use time
    use print_io
    implicit none
-   type(hopping) :: NN_TABLE
-   type(incar)   :: PINPT
-   type(berry)   :: PINPT_BERRY
-   type(poscar)  :: PGEOM
-   type(kpoints) :: PKPTS
-   integer*4        mpierr
-   logical          flag_phase, flag_sparse, flag_get_chern
-   integer*4        i, is
-   integer*4        nerange, nkdiv, nkpath, nplane
-   integer*4        ix, ip, ikpath
-   integer*4        iband, nband
-   integer*4        erange(PINPT_BERRY%z2_nerange)
-   real*8           E(PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv)
-   complex*16       V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv)
-   real*8           shift(2)
-   real*8           k_init_reci(3), k_end_reci(3), kpath(3,2,PINPT_BERRY%z2_nkpath)
-   real*8           G(3)
-   real*8           time1, time2
-   character*2      caxis(3)
-   character*3      cplane(2)
-   character*40     fnm_header, fnm_gap_header
-   character*40     z2_filenm, z2_gap_filenm
-   integer*4        z2_axis(size(PINPT_BERRY%z2_axis))
-   real*8           largest_gap(PINPT%nspin,PINPT_BERRY%z2_nkpath)
-   integer*4        clock_direct (PINPT%nspin,PINPT_BERRY%z2_nkpath)
-   integer*4        z2_index(PINPT%nspin), z2_bulk(0:3,PINPT%nspin)
-   integer*4        z2_dimension
-   logical          flag_order
+   type(hopping)          :: NN_TABLE
+   type(incar)            :: PINPT
+   type(params)           :: PPRAM
+   type(berry)            :: PINPT_BERRY
+   type(poscar)           :: PGEOM
+   type(kpoints)          :: PKPTS
+   integer*4                 mpierr
+   logical                   flag_phase, flag_sparse, flag_get_chern
+   integer*4                 i, is
+   integer*4                 nerange, nkdiv, nkpath, nplane
+   integer*4                 ix, ip, ikpath
+   integer*4                 iband, nband
+   integer*4, allocatable :: erange(:)
+   real*8,    allocatable :: E(:,:)
+   complex*16,allocatable :: V(:,:,:)
+   complex*16,allocatable :: SV(:,:,:)
+   real*8                    shift(2)
+   real*8                    k_init_reci(3), k_end_reci(3), kpath(3,2,PINPT_BERRY%z2_nkpath)
+   real*8                    G(3)
+   real*8                    time1, time2
+   character*2               caxis(3)
+   character*3               cplane(2)
+   character*40              fnm_header, fnm_gap_header
+   character*40              z2_filenm, z2_gap_filenm
+   integer*4                 z2_axis(size(PINPT_BERRY%z2_axis))
+   real*8                    largest_gap(PINPT%nspin,PINPT_BERRY%z2_nkpath)
+   integer*4                 clock_direct (PINPT%nspin,PINPT_BERRY%z2_nkpath)
+   integer*4                 z2_index(PINPT%nspin), z2_bulk(0:3,PINPT%nspin)
+   integer*4                 z2_dimension
+   logical                   flag_order
+
+   call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'z2')
+   allocate(erange(PINPT_BERRY%z2_nerange))
+   allocate(E(PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv))
+   allocate(V(PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv))
+   allocate(SV(PGEOM%neig*PINPT%ispin,PINPT_BERRY%z2_nerange,PINPT_BERRY%z2_nkdiv))
 
    allocate(PINPT_BERRY%z2_wcc(PINPT_BERRY%z2_nerange/PINPT%nspin,PINPT%nspin,PINPT_BERRY%z2_nkpath, &
                                PINPT_BERRY%z2_nplane,size(PINPT_BERRY%z2_axis)))
@@ -78,7 +86,7 @@ axis:do ix = 1, size(z2_axis)
          call set_kpath_plane(PINPT_BERRY%z2_kpoint(:,:,:,ip,ix), PINPT_BERRY%z2_kpoint_reci(:,:,:,ip,ix), kpath, nkdiv, nkpath, z2_axis(ix), shift(ip), PGEOM)
          G = PINPT_BERRY%z2_kpoint(:,nkdiv,1,ip,ix) - PINPT_BERRY%z2_kpoint(:,1,1,ip,ix)
     path:do ikpath = 1, nkpath
-           call get_eig(NN_TABLE, PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), nkdiv, PINPT, E, V, PGEOM%neig, iband, nband, .true., flag_sparse, .false., flag_phase) !, flag_order)
+           call get_eig(NN_TABLE, PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), nkdiv, PINPT, PPRAM, E, V, SV, PGEOM%neig, iband, nband, .true., flag_sparse, .false., flag_phase)
            call set_periodic_gauge(V, G, PINPT, PGEOM, nkdiv, erange, nerange)
 #ifdef F08
            call get_berry_phase    (PINPT_BERRY%z2_wcc(:,:,ikpath,ip,ix), PINPT_BERRY%z2_kpoint(:,:,ikpath,ip,ix), V, PINPT, PGEOM, nkdiv, erange, nerange)

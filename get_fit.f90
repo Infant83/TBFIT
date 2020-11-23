@@ -142,6 +142,9 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
      if(i .eq. 1) then
        PINPT_ = PINPT  ! main input tags are read from system 1
        PPRAM1 = PPRAM_  ! main parameters are read from system 1
+     elseif(i .gt. 1) then
+       PINPT_%title(i) = PINPT%title(i)
+       PINPT_%ifilenm(i) = PINPT%ifilenm(i)
      endif
 
    enddo
@@ -182,6 +185,7 @@ subroutine report_init(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM)
    do i = 1, PINPT%nsystem
      if_main_then 
        fname = 'band_structure_DFT'//trim(PINPT%title(i))//'.dat'
+
        call print_energy_weight( PKPTS(i)%kpoint, PKPTS(i)%nkpoint, EDFT(i), PWGHT(i), PGEOM(i)%neig, &
                                  PINPT, trim(fname), PINPT%flag_get_band_order)
      if_main_end

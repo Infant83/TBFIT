@@ -47,6 +47,8 @@ subroutine parse_very_init(PINPT)
      do i = 1, PINPT%nsystem
        PINPT%ifilenm(i) = trim(ifilenm_dummy(i))
        write(PINPT%title(i),'(A,I0)') '.',i  ! numbering by default
+       write(6,*)"KKKW ", trim(PINPT%title(i))
+
      enddo
    endif
 

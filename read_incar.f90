@@ -4,7 +4,7 @@ module read_incar
    use parameters
    use print_io
    implicit none
-
+   
 contains
 
    subroutine read_input_tags(PINPT, &
@@ -33,11 +33,11 @@ contains
       character(*),parameter :: func = 'read_input_tags'
       
       flag_kfile_ribbon=.false.
-      call write_log(' ',3,myid)
-      write(message, '(A)')'##############################################################';  write_msg
-      call write_log('---- READING INPUT FILE: '//trim(PINPT%ifilenm(mysystem)),3,myid)
-      write(message, '(A)')'##############################################################';  write_msg
-      call write_log(' ',3,myid)
+      call write_log(' ',print_mode,myid)
+      write(message, '(A)')'##############################################################';  write_msgi
+      call write_log('---- READING INPUT FILE: '//trim(PINPT%ifilenm(mysystem)),print_mode,myid)
+      write(message, '(A)')'##############################################################';  write_msgi
+      call write_log(' ',print_mode,myid)
 
       call set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
 
@@ -136,7 +136,7 @@ contains
                 call set_target_file(PWGHT, inputline, desc_str)
               case('EFILE_EF')
                 read(inputline,*,iostat=i_continue) desc_str, PWGHT%efile_ef
-                write(message,'(A,F12.5)')'  EDFT_EF:  ', PWGHT%efile_ef ; write_msg
+                write(message,'(A,F12.5)')'  EDFT_EF:  ', PWGHT%efile_ef ; write_msgi
     
               case('PLOTFIT')
                 if(nitems(inputline) -1 .eq. 1) then
@@ -160,7 +160,7 @@ contains
     
               case('LPHASE', 'PHASE')
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
-                write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msg
+                write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msgi
     
               case('LORBFIT')
                 ! NOTE: only work with PWGHT%read_energy_column_index = 2 and PWGHT%efile_type = 'user',
@@ -170,7 +170,7 @@ contains
                 !                                1  3   4   2    7    9    5    8    6
                 !       This is same sequence as in PROCAR format
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_fit_orbital, PINPT%orbital_fit_smearing
-                write(message,'(A,L)')' L_ORBFIT: ',PINPT%flag_fit_orbital ; write_msg
+                write(message,'(A,L)')' L_ORBFIT: ',PINPT%flag_fit_orbital ; write_msgi
     
               case('LORDER')
                 call set_band_order(PINPT, inputline)
@@ -203,9 +203,7 @@ contains
                 endif
               !set orbital decomposed output onto each atomic site
               case('LDOS', 'LDOS_SUM', 'PROJ', 'PROJ_SUM', 'PROJ_BAND')
-                if(.not. PINPT%flag_proj_parse) then
-                  call set_ldos_project_print(PINPT,inputline)
-                endif
+                call set_ldos_project_print(PINPT,inputline)
     
               ! set Circular dichroism calculation
               case('CIRC_DICHROISM', 'CIRCULAR_DICHROISM')
@@ -290,15 +288,15 @@ contains
           enddo line
 
       if (linecount == 0) then
-        write(message,*)'Attention - empty input file: ',trim(PINPT%ifilenm(mysystem)) ; write_msg
+        write(message,*)'Attention - empty input file: ',trim(PINPT%ifilenm(mysystem)) ; write_msgi
         kill_job
       endif
       close(pid_incar)
 
       if(PINPT%flag_tbfit .and. PINPT%flag_sparse) then
-        write(message,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'  ; write_msg
-        write(message,'(A)') '           Please deactivate EWINDOW for the further process.'  ; write_msg
-        write(message,'(A)') '           Exit program...'  ; write_msg
+        write(message,'(A)') '    !WARN! EWINDOW tag cannot be used in FITTING procedures'  ; write_msgi
+        write(message,'(A)') '           Please deactivate EWINDOW for the further process.'  ; write_msgi
+        write(message,'(A)') '           Exit program...'  ; write_msgi
         kill_job
       endif
 
@@ -318,7 +316,7 @@ contains
 
       read(inputline,*,iostat=i_continue) desc_str, PGEOM%title
       PINPT%title(mysystem) = trim(PGEOM%title)
-      write(message,'(2A)')'    TITLE: ', trim(PINPT%title(mysystem)) ; write_msg
+      write(message,'(2A)')'    TITLE: ', trim(PINPT%title(mysystem)) ; write_msgi
       PINPT%title(mysystem) = '.'//PINPT%title(mysystem)
 
       return
@@ -358,14 +356,14 @@ mode: select case ( trim(plot_mode) )
                   PINPT%n_eig_print = nitems(inputline) - 1
                   allocate(PINPT%i_eig_print(PINPT%n_eig_print))
                   read(inputline,*,iostat=i_continue) desc_str,PINPT%i_eig_print(1:PINPT%n_eig_print)
-                  write(message,'(A,*(I6))')' EIG_PLOT:  ',PINPT%i_eig_print  ; write_msg
+                  write(message,'(A,*(I6))')' EIG_PLOT:  ',PINPT%i_eig_print  ; write_msgi
                   cycle plot_eig
 
                 case('IKPT')
                   PINPT%n_kpt_print = nitems(inputline) - 1
                   allocate(PINPT%i_kpt_print(PINPT%n_kpt_print))
                   read(inputline,*,iostat=i_continue) desc_str,PINPT%i_kpt_print(1:PINPT%n_kpt_print)
-                  write(message,'(A,*(I6))')' KPT_PLOT:  ',PINPT%i_kpt_print  ; write_msg
+                  write(message,'(A,*(I6))')' KPT_PLOT:  ',PINPT%i_kpt_print  ; write_msgi
                   cycle plot_eig
 
                 case('NGRID')
@@ -373,8 +371,8 @@ mode: select case ( trim(plot_mode) )
                   if(i_dummy .eq. 3) then
                     read(inputline,*,iostat=i_continue) desc_str,PGEOM%ngrid(1:3)
                   else
-                    write(message,'(A)')'    !WARN! NGRID tag of "SET EIGPLOT" should be three consequent integer numbers.'  ; write_msg
-                    write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! NGRID tag of "SET EIGPLOT" should be three consequent integer numbers.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msgi
                     stop
                   endif
 
@@ -382,10 +380,10 @@ mode: select case ( trim(plot_mode) )
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 3) then
                     read(inputline,*,iostat=i_continue) desc_str,PGEOM%r_origin(1:3)
-                    write(message,'(A,3(F15.8))')'   R_ORIG:  ',PGEOM%r_origin(1:3) ; write_msg
+                    write(message,'(A,3(F15.8))')'   R_ORIG:  ',PGEOM%r_origin(1:3) ; write_msgi
                   else
-                    write(message,'(A)')'    !WARN! RORIGIN tag of "SET EIGPLOT" should be three consequent real values.'  ; write_msg
-                    write(message,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! RORIGIN tag of "SET EIGPLOT" should be three consequent real values.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func  ; write_msgi
                     stop
                   endif
 
@@ -393,10 +391,10 @@ mode: select case ( trim(plot_mode) )
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 1) then
                     read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_plot_wavefunction
-                    write(message,'(A,L)')' WAV_PLOT:  ',PINPT%flag_plot_wavefunction  ; write_msg
+                    write(message,'(A,L)')' WAV_PLOT:  ',PINPT%flag_plot_wavefunction  ; write_msgi
                   else
-                    write(message,'(A)')'    !WARN! WAV_PLOT tag of "SET EIGPLOT" should be .TRUE. or .FALSE.'  ; write_msg
-                    write(message,'(A,A)')'           Please check WAV_PLOT tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! WAV_PLOT tag of "SET EIGPLOT" should be .TRUE. or .FALSE.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check WAV_PLOT tag again. Exit... ',func  ; write_msgi
                     stop
                   endif
 
@@ -404,17 +402,17 @@ mode: select case ( trim(plot_mode) )
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 1) then
                     read(inputline,*,iostat=i_continue) desc_str, PINPT%rcut_orb_plot
-                    write(message,'(A,F9.4)')' RCUT_ORB:  ',PINPT%rcut_orb_plot  ; write_msg
+                    write(message,'(A,F9.4)')' RCUT_ORB:  ',PINPT%rcut_orb_plot  ; write_msgi
                   else
-                    write(message,'(A)')'    !WARN! RCUT_ORB tag of "SET EIGPLOT" should be single real type parameter.'  ; write_msg
-                    write(message,'(A,A)')'           Please check RCUT_ORB tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! RCUT_ORB tag of "SET EIGPLOT" should be single real type parameter.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check RCUT_ORB tag again. Exit... ',func  ; write_msgi
                   endif
                 case('REPEAT_CELL')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .ne. 3) then
-                    write(message,'(A)')'   !WARN! REPEAT_CELL only accepts three logical arguments, for example "T T F",'  ; write_msg
-                    write(message,'(A)')'          which implies that the orbitals along a1 and a2 direction are repeated and'  ; write_msg
-                    write(message,'(A)')'          not for the a3 direction. check manual. Stop program...'  ; write_msg
+                    write(message,'(A)')'   !WARN! REPEAT_CELL only accepts three logical arguments, for example "T T F",'  ; write_msgi
+                    write(message,'(A)')'          which implies that the orbitals along a1 and a2 direction are repeated and'  ; write_msgi
+                    write(message,'(A)')'          not for the a3 direction. check manual. Stop program...'  ; write_msgi
                     stop
                   endif
                   read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_repeat_cell_orb_plot(1:3)
@@ -427,7 +425,7 @@ mode: select case ( trim(plot_mode) )
             PINPT%flag_plot_stm_image = .true.
             PINPT%flag_repeat_cell_orb_plot(1:3) = .true.
 
-            write(message,'(A,L)')' STM_PLOT:  ',PINPT%flag_plot_stm_image  ; write_msg
+            write(message,'(A,L)')' STM_PLOT:  ',PINPT%flag_plot_stm_image  ; write_msgi
             PINPT%n_stm= 0
   plot_stm: do while(trim(desc_str) .ne. 'END')
               read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -443,8 +441,8 @@ mode: select case ( trim(plot_mode) )
                   if(i_dummy .eq. 3) then
                     read(inputline,*,iostat=i_continue) desc_str,PGEOM%stm_ngrid(1:3)
                   else
-                    write(message,'(A)')'    !WARN! NGRID tag of "SET STMPLOT" should be three consequent integer numbers.'  ; write_msg
-                    write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! NGRID tag of "SET STMPLOT" should be three consequent integer numbers.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check NGRID tag again. Exit... ',func  ; write_msgi
                     stop
                   endif
 
@@ -457,12 +455,12 @@ mode: select case ( trim(plot_mode) )
                     i_dummy2 = nitems(dummy)
                     if(i_dummy2 .eq. 2)then ! if 'emax' and 'emin' is both provided
                       read(dummy,*,iostat=i_continue) stm_emin(PINPT%n_stm), stm_emax(PINPT%n_stm)
-                      write(message,'(A,I2,A,F9.4,A,F9.4,A)')' STM_ERAN: PLOT(',PINPT%n_stm,')= [',stm_emin(PINPT%n_stm),':',stm_emax(PINPT%n_stm),']'  ; write_msg
+                      write(message,'(A,I2,A,F9.4,A,F9.4,A)')' STM_ERAN: PLOT(',PINPT%n_stm,')= [',stm_emin(PINPT%n_stm),':',stm_emax(PINPT%n_stm),']'  ; write_msgi
                     else
-                      write(message,'(A)')'    !WARNING!  STM_ERANGE is not properly set up.'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msg
-                      write(message,'(A)')'    !WARNING!    STM_ERANGE  EMIN:EMAX or EMIN EMAX'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msg
+                      write(message,'(A)')'    !WARNING!  STM_ERANGE is not properly set up.'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!    STM_ERANGE  EMIN:EMAX or EMIN EMAX'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msgi
                       stop
                     endif
                   elseif(i_dummy .gt. 1) then ! if ':' is provided
@@ -470,24 +468,24 @@ mode: select case ( trim(plot_mode) )
                     call str2real(dummy1,stm_emin(PINPT%n_stm))
                     call strip_off (trim(dummy), dummy2,':',' ',2)
                     call str2real(dummy2,stm_emax(PINPT%n_stm))
-                    write(message,'(A,I2,A,F9.4,A,F9.4,A)')' STM_ERAN: PLOT(',PINPT%n_stm,')= [',stm_emin(PINPT%n_stm),':',stm_emax(PINPT%n_stm),']'  ; write_msg
+                    write(message,'(A,I2,A,F9.4,A,F9.4,A)')' STM_ERAN: PLOT(',PINPT%n_stm,')= [',stm_emin(PINPT%n_stm),':',stm_emax(PINPT%n_stm),']'  ; write_msgi
                   endif
 
                 case('RCUT', 'RCUT_ORB')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 1) then
                     read(inputline,*,iostat=i_continue) desc_str, PINPT%rcut_orb_plot
-                    write(message,'(A,F9.4)')' RCUT_ORB:  ',PINPT%rcut_orb_plot  ; write_msg
+                    write(message,'(A,F9.4)')' RCUT_ORB:  ',PINPT%rcut_orb_plot  ; write_msgi
                   else
-                    write(message,'(A)')'    !WARN! RCUT_ORB tag of "SET EIGPLOT" should be single real type parameter.'  ; write_msg
-                    write(message,'(A,A)')'           Please check RCUT_ORB tag again. Exit... ',func  ; write_msg
+                    write(message,'(A)')'    !WARN! RCUT_ORB tag of "SET EIGPLOT" should be single real type parameter.'  ; write_msgi
+                    write(message,'(A,A)')'           Please check RCUT_ORB tag again. Exit... ',func  ; write_msgi
                   endif
                 case('REPEAT_CELL')
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .ne. 3) then
-                    write(message,'(A)')'   !WARN! REPEAT_CELL only accepts three logical arguments, for example "T T F",'  ; write_msg
-                    write(message,'(A)')'          which implies that the orbitals along a1 and a2 direction are repeated and'  ; write_msg
-                    write(message,'(A)')'          not for the a3 direction. check manual. Stop program...'  ; write_msg
+                    write(message,'(A)')'   !WARN! REPEAT_CELL only accepts three logical arguments, for example "T T F",'  ; write_msgi
+                    write(message,'(A)')'          which implies that the orbitals along a1 and a2 direction are repeated and'  ; write_msgi
+                    write(message,'(A)')'          not for the a3 direction. check manual. Stop program...'  ; write_msgi
                     stop
                   endif
                   read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_repeat_cell_orb_plot(1:3)
@@ -508,8 +506,8 @@ mode: select case ( trim(plot_mode) )
           PINPT%repeat_cell_orb_plot(i) = 1
         else
           PINPT%repeat_cell_orb_plot(i) = 0
-          write(message,'(A,I1,A)')'   !WARN! You have set the orbitals will not be repeated along a',i,'-direction' ; write_msg
-          write(message,'(A)')     '          in the STM or EIGPLOT. Proceed anyway...' ; write_msg
+          write(message,'(A,I1,A)')'   !WARN! You have set the orbitals will not be repeated along a',i,'-direction' ; write_msgi
+          write(message,'(A)')     '          in the STM or EIGPLOT. Proceed anyway...' ; write_msgi
         endif
       enddo
 
@@ -606,7 +604,7 @@ mode: select case ( trim(plot_mode) )
                 call str2real(trim(dummy1),strip_nn_dist_(i))
                 call str2real(trim(dummy3),strip_nn_r0_(i))
               endif
-             !write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',strip_nn_pair_(i),' R0_max:',strip_nn_dist_(i),'   R0:',strip_nn_r0_(i)  ; write_msg
+             !write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',strip_nn_pair_(i),' R0_max:',strip_nn_dist_(i),'   R0:',strip_nn_r0_(i)  ; write_msgi
             enddo
             allocate( PGEOM%nn_pair(i) )
             allocate( PGEOM%nn_dist(i) )
@@ -655,16 +653,16 @@ mode: select case ( trim(plot_mode) )
               !if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos 
                  if(PRPLT%flag_replot_dos) then
-                   write(message,'(A)')'  REPLT_DOS: .TRUE. '; write_msg ! ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msg
+                   write(message,'(A)')'  REPLT_DOS: .TRUE. '; write_msgi! ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msgi
                  elseif(.not. PRPLT%flag_replot_dos) then
-                   write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msg
+                   write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msgi
                  endif
               !elseif(i_dummy .eq. 2) then
               !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_dos, PRPLT%replot_dos_fname
               !  if(PRPLT%flag_replot_dos) then
-              !    write(message,'(2A)')'  REPLT_DOS: .TRUE. ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msg
+              !    write(message,'(2A)')'  REPLT_DOS: .TRUE. ==> written in', trim(PRPLT%replot_dos_fname)  ; write_msgi
               !  else
-              !    write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msg
+              !    write(message,'(A)')'  REPLT_DOS: .FALSE.'  ; write_msgi
               !  endif
               !endif
              case('REPLOT_SLDOS')
@@ -672,26 +670,26 @@ mode: select case ( trim(plot_mode) )
               !if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos
                  if(PRPLT%flag_replot_sldos) then
-                   write(message,'(A)')'REPLT_SLDOS: .TRUE. '; write_msg !==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
+                   write(message,'(A)')'REPLT_SLDOS: .TRUE. '; write_msgi !==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msgi
                  elseif(.not. PRPLT%flag_replot_sldos) then
-                   write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
+                   write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msgi
                  endif
               !elseif(i_dummy .eq. 2) then
               !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_sldos,PRPLT%replot_sldos_fname
               !  if(PRPLT%flag_replot_sldos) then
-              !    write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msg
+              !    write(message,'(2A)')'REPLT_SLDOS: .TRUE. ==> written in ',trim(PRPLT%replot_sldos_fname)  ; write_msgi
               !  elseif(.not. PRPLT%flag_replot_sldos) then
-              !    write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msg
+              !    write(message,'(A)')'REPLT_SLDOS: .FALSE.'  ; write_msgi
               !  endif
               !endif
 
              case('FILE_FORMAT')
                read(inputline,*,iostat=i_continue) desc_str, desc_str
                if(desc_str(1:3) .eq. 'bin') then
-                 write(message,'(A)')' REPLT_FILE_FORM: read unformatted (binary) .bin file'  ; write_msg
+                 write(message,'(A)')' REPLT_FILE_FORM: read unformatted (binary) .bin file'  ; write_msgi
                  PRPLT%flag_replot_formatted = .false.
                elseif(desc_str(1:3) .eq. 'asc' .or. desc_str(1:3) .eq. 'dat') then
-                 write(message,'(A)')' REPLT_FILE_FORM: read formatted (ascii) .dat file'  ; write_msg
+                 write(message,'(A)')' REPLT_FILE_FORM: read formatted (ascii) .dat file'  ; write_msgi
                  PRPLT%flag_replot_formatted = .true.
                endif
 
@@ -700,7 +698,7 @@ mode: select case ( trim(plot_mode) )
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band
                  if(PRPLT%flag_replot_band) then
-                   write(message,'(A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msg
+                   write(message,'(A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msgi
 
                    PRPLT%replot_nband = PRPLT%replot_nband + 1
                    axis_print_mag(PRPLT%replot_nband) = 'rh'
@@ -708,23 +706,23 @@ mode: select case ( trim(plot_mode) )
                    flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE.
                    
                  elseif(.not. PRPLT%flag_replot_band) then
-                   write(message,'(A)')' REPLT_BAND: .FALSE.  rh'  ; write_msg
+                   write(message,'(A)')' REPLT_BAND: .FALSE.  rh'  ; write_msgi
                  endif
                elseif(i_dummy .eq. 2) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, axis_dummy
                  if(PRPLT%flag_replot_band) then
                    if    (axis_dummy .eq. 'mx') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'  ; write_msgi
                    elseif(axis_dummy .eq. 'my') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'  ; write_msgi
                    elseif(axis_dummy .eq. 'mz') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'  ; write_msgi
                    elseif(axis_dummy .eq. 'wf') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'  ; write_msgi
                    elseif(axis_dummy .eq. 'rh') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msgi
                    elseif(axis_dummy .eq. 'no') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'  ; write_msgi
                    endif
                    
                    PRPLT%replot_nband = PRPLT%replot_nband + 1
@@ -733,24 +731,24 @@ mode: select case ( trim(plot_mode) )
                    flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE.
 
                  elseif(.not. PRPLT%flag_replot_band) then
-                   write(message,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)  ; write_msg
+                   write(message,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)  ; write_msgi
                  endif
                elseif(i_dummy .eq. 3) then
 
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_band, axis_dummy, form_dummy
                  if(PRPLT%flag_replot_band) then
                    if    (axis_dummy .eq. 'mx') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_x|psi_nk> (mx)'  ; write_msgi
                    elseif(axis_dummy .eq. 'my') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_y|psi_nk> (my)'  ; write_msgi
                    elseif(axis_dummy .eq. 'mz') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <psi_nk|sigma_z|psi_nk> (mz)'  ; write_msgi
                    elseif(axis_dummy .eq. 'wf') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with total wavefunction (wf)'  ; write_msgi
                    elseif(axis_dummy .eq. 'rh') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. with <phi_i|psi_nk> (rh) ; phi_i : atomic orbital'  ; write_msgi
                    elseif(axis_dummy .eq. 'no') then
-                     write(message,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'  ; write_msg
+                     write(message,'(2A)')' REPLT_BAND: .TRUE. only with eigenvalues'  ; write_msgi
                    endif
 
                    PRPLT%replot_nband = PRPLT%replot_nband + 1
@@ -760,10 +758,10 @@ mode: select case ( trim(plot_mode) )
                      flag_replot_write_unformatted(PRPLT%replot_nband) = .TRUE. 
                      if(form_dummy(1:4) .eq. 'bin4') then
                        flag_replot_print_single(PRPLT%replot_nband)= .TRUE.
-                       write(message,'(2A)')'           : with binary format (single).'  ; write_msg
+                       write(message,'(2A)')'           : with binary format (single).'  ; write_msgi
                      else
                        flag_replot_print_single(PRPLT%replot_nband)= .FALSE.
-                       write(message,'(2A)')'           : with binary format.'  ; write_msg
+                       write(message,'(2A)')'           : with binary format.'  ; write_msgi
                      endif
                    else
                      flag_replot_write_unformatted(PRPLT%replot_nband) = .FALSE. 
@@ -771,7 +769,7 @@ mode: select case ( trim(plot_mode) )
                    endif
 
                  elseif(.not. PRPLT%flag_replot_band) then
-                   write(message,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)  ; write_msg
+                   write(message,'(2A)')' REPLT_BAND: .FALSE.  ',trim(axis_dummy)  ; write_msgi
                  endif
 
                endif
@@ -781,7 +779,7 @@ mode: select case ( trim(plot_mode) )
 !              if(i_dummy .eq. 1) then
 !                read(inputline, *, iostate=i_continue) desc_str, PRPLT%flag_replot_eig, 
 !                if(PRPLT%flag_replot_eig) then
-!                  write(message,'(A)')' REPLT_EIG: .TRUE.'  ; write_msg
+!                  write(message,'(A)')' REPLT_EIG: .TRUE.'  ; write_msgi
 !                endif
 !              endif
 
@@ -790,17 +788,17 @@ mode: select case ( trim(plot_mode) )
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str, PRPLT%flag_replot_proj_band
                  if(PRPLT%flag_replot_proj_band) then
-                   write(message,'(A)')'  !!!!WARN: REPLOT_PROJ_BAND tag is activated but atom indext to be summed up '  ; write_msg
-                   write(message,'(A)')'            did not specified.'  ; write_msg
-                   write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msg
-                   write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msg
-                   write(message,'(A)')'            REPLOT_PROJ_BAND .TRUE.  1:10 15'  ; write_msg
-                   write(message,'(A)')'  Stop program...'  ; write_msg
+                   write(message,'(A)')'  !!!!WARN: REPLOT_PROJ_BAND tag is activated but atom indext to be summed up '  ; write_msgi
+                   write(message,'(A)')'            did not specified.'  ; write_msgi
+                   write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msgi
+                   write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msgi
+                   write(message,'(A)')'            REPLOT_PROJ_BAND .TRUE.  1:10 15'  ; write_msgi
+                   write(message,'(A)')'  Stop program...'  ; write_msgi
                    kill_job
                  endif
 
                  if( .not. PRPLT%flag_replot_proj_band) then
-                   write(message,'(A)')' REPLT_PROJ_BAND: .FALSE.'  ; write_msg
+                   write(message,'(A)')' REPLT_PROJ_BAND: .FALSE.'  ; write_msgi
                  endif
 
                elseif(i_dummy .gt. 1) then
@@ -819,7 +817,7 @@ mode: select case ( trim(plot_mode) )
                      endif
                      PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = nitems(dummy1)
                      read(dummy1,*,iostat=i_continue) PRPLT%replot_proj_atom(1:PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum), PRPLT%replot_nproj_sum)
-                     write(message,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)  ; write_msg
+                     write(message,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)  ; write_msgi
                    elseif(i_dummy1 .ge. 1)then
                      i_dummy2 = nitems(dummy1)
                      allocate( strip_dummy(i_dummy2) )
@@ -850,7 +848,7 @@ mode: select case ( trim(plot_mode) )
                      PRPLT%replot_proj_natom(PRPLT%replot_nproj_sum) = ii
                      deallocate( strip_dummy )
                      PRPLT%replot_proj_atom(1:ii,PRPLT%replot_nproj_sum) = i_dummyr(1:ii)
-                     write(message,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)  ; write_msg
+                     write(message,'(A,I0,2A)')'REPLT_PROJ_BAND: .TRUE. , Atom_index SET ',PRPLT%replot_nproj_sum,' = ',trim(dummy1)  ; write_msgi
                    endif
                  endif
 
@@ -862,14 +860,14 @@ mode: select case ( trim(plot_mode) )
                if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_ldos
                  if(PRPLT%flag_replot_ldos) then
-                   write(message,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'  ; write_msg
-                   write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msg
-                   write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msg
-                   write(message,'(A)')'            REPLOT_LDOS .TRUE.  1:10 15'  ; write_msg
-                   write(message,'(A)')'            If you want to resolve all atoms, then you can specify'  ; write_msg
-                   write(message,'(A)')'            REPLOT_LDOS .TRUE.  1:NATOM '  ; write_msg
-                   write(message,'(A)')'            where "NATOM" must be replaced implicitly according to the provided geometry file'  ; write_msg
-                   write(message,'(A)')'  Stop program...'  ; write_msg
+                   write(message,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'  ; write_msgi
+                   write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msgi
+                   write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msgi
+                   write(message,'(A)')'            REPLOT_LDOS .TRUE.  1:10 15'  ; write_msgi
+                   write(message,'(A)')'            If you want to resolve all atoms, then you can specify'  ; write_msgi
+                   write(message,'(A)')'            REPLOT_LDOS .TRUE.  1:NATOM '  ; write_msgi
+                   write(message,'(A)')'            where "NATOM" must be replaced implicitly according to the provided geometry file'  ; write_msgi
+                   write(message,'(A)')'  Stop program...'  ; write_msgi
                    kill_job
                  endif
 
@@ -890,7 +888,7 @@ mode: select case ( trim(plot_mode) )
                      endif
                      PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum) = nitems(dummy1)
                      read(dummy1,*,iostat=i_continue) PRPLT%replot_ldos_atom(1:PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum), PRPLT%replot_nldos_sum)
-                     write(message,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ',trim(dummy1)  ; write_msg
+                     write(message,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ',trim(dummy1)  ; write_msgi
                    elseif(i_dummy1 .ge. 1)then
                      i_dummy2 = nitems(dummy1)
                      allocate( strip_dummy(i_dummy2) )
@@ -921,7 +919,7 @@ mode: select case ( trim(plot_mode) )
                      PRPLT%replot_ldos_natom(PRPLT%replot_nldos_sum) = ii
                      deallocate( strip_dummy )
                      PRPLT%replot_ldos_atom(1:ii,PRPLT%replot_nldos_sum) = i_dummyr(1:ii)
-                     write(message,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ', trim(dummy1)  ; write_msg
+                     write(message,'(A,I0,2A)')' REPLT_LDOS: .TRUE. , Atom_index SET ',PRPLT%replot_nldos_sum,' = ', trim(dummy1)  ; write_msgi
                    endif
                  endif
                endif
@@ -931,25 +929,25 @@ mode: select case ( trim(plot_mode) )
               !if(i_dummy .eq. 1) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv
                  if(PRPLT%flag_replot_didv) then
-                   write(message,'(2A)')' REPLT_DIDV: .TRUE. '; write_msg ! ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
+                   write(message,'(2A)')' REPLT_DIDV: .TRUE. '; write_msgi ! ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msgi
                  elseif(.not. PRPLT%flag_replot_didv) then
-                   write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msg
+                   write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msgi
                  endif
               !elseif(i_dummy .eq. 2) then
               !  read(inputline,*,iostat=i_continue) desc_str,PRPLT%flag_replot_didv,PRPLT%replot_didv_fname
               !  if(PRPLT%flag_replot_didv) then
-              !    write(message,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msg
+              !    write(message,'(2A)')' REPLT_DIDV: .TRUE. ==> written in ',trim(PRPLT%replot_didv_fname)  ; write_msgi
               !  elseif(.not. PRPLT%flag_replot_didv) then
-              !    write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msg
+              !    write(message,'(A)')' REPLT_DIDV: .FALSE.'  ; write_msgi
               !  endif
               !endif
 
              case('NEDOS','REPLOT_NEDOS')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_nediv
-               write(message,'(A,I8)')' REPLT_NDIV:', PRPLT%replot_dos_nediv  ; write_msg
+               write(message,'(A,I8)')' REPLT_NDIV:', PRPLT%replot_dos_nediv  ; write_msgi
                if(PRPLT%replot_dos_nediv .le. 0) then
-                 write(message,'(3A,I0)')'    !WARNING! ',trim(desc_str),' should be larger than or equal to 1. current value: ',PRPLT%replot_dos_nediv ; write_msg
-                 write(message,'(A)')'               Exit program...'  ; write_msg
+                 write(message,'(3A,I0)')'    !WARNING! ',trim(desc_str),' should be larger than or equal to 1. current value: ',PRPLT%replot_dos_nediv ; write_msgi
+                 write(message,'(A)')'               Exit program...'  ; write_msgi
                  kill_job
                endif
 
@@ -961,37 +959,37 @@ mode: select case ( trim(plot_mode) )
                  i_dummy2 = nitems(dummy)
                  if(i_dummy2 .eq. 2)then
                    read(dummy,*,iostat=i_continue) PRPLT%replot_dos_emin,PRPLT%replot_dos_emax
-                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msg
-                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msg
+                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msgi
+                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msgi
                  else
-                   write(message,'(A)')'    !WARNING!  REPLOT_EWINDOW is not properly set up.'  ; write_msg
-                   write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msg
-                   write(message,'(A)')'    !WARNING!    REPLOT_WINDOW  EMIN:EMAX , :EMAX, EMIN: or :'  ; write_msg
-                   write(message,'(A)')'    !WARNING! or REPLOT_EWINDOW  EMIN EMAX'  ; write_msg
-                   write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msg
+                   write(message,'(A)')'    !WARNING!  REPLOT_EWINDOW is not properly set up.'  ; write_msgi
+                   write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msgi
+                   write(message,'(A)')'    !WARNING!    REPLOT_WINDOW  EMIN:EMAX , :EMAX, EMIN: or :'  ; write_msgi
+                   write(message,'(A)')'    !WARNING! or REPLOT_EWINDOW  EMIN EMAX'  ; write_msgi
+                   write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msgi
                    kill_job
                  endif
                elseif(i_dummy .ge. 1) then
                  if(len_trim(dummy1) .eq. 0) then
                    PRPLT%replot_dos_emin = -10.0d0 ! default dos_emin
-                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msg
+                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msgi
                  else
                    call str2real(dummy1,PRPLT%replot_dos_emin)
-                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msg
+                   write(message,'(A,F15.8)')' REPLT_EMIN:  ',PRPLT%replot_dos_emin  ; write_msgi
                  endif
                  call strip_off (trim(dummy), dummy2,':',' ',2)
                  if(len_trim(dummy2) .eq. 0) then
                    PRPLT%replot_dos_emax =  10.0d0 ! default dos_emax
-                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msg
+                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msgi
                  else
                    call str2real(dummy2,PRPLT%replot_dos_emax)
-                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msg
+                   write(message,'(A,F15.8)')' REPLT_EMAX:  ',PRPLT%replot_dos_emax  ; write_msgi
                  endif
                endif
 
              case('SMEARING', 'REPLOT_SMEARING') ! gaussian smearing
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%replot_dos_smearing
-               write(message,'(A,F8.4)')'REPLT_SIGMA: GAUSSIAN WIDTH = ',PRPLT%replot_dos_smearing  ; write_msg
+               write(message,'(A,F8.4)')'REPLT_SIGMA: GAUSSIAN WIDTH = ',PRPLT%replot_dos_smearing  ; write_msgi
 
              case('REPEAT_CELL')
                i_dummy = nitems(inputline) -1
@@ -1003,22 +1001,22 @@ mode: select case ( trim(plot_mode) )
                elseif(i_dummy .eq. 3) then
                  read(inputline,*,iostat=i_continue) desc_str, PRPLT%replot_sldos_cell(1:3) 
                endif
-               write(message,'(A,3(I6))')' REPLT_CELL:',PRPLT%replot_sldos_cell(1:3)  ; write_msg
+               write(message,'(A,3(I6))')' REPLT_CELL:',PRPLT%replot_sldos_cell(1:3)  ; write_msgi
 
              case('RORIGIN')
                i_dummy = nitems(inputline) - 1
                if(i_dummy .eq. 3) then
                  read(inputline,*,iostat=i_continue) desc_str,PRPLT%r_origin(1:3)
-                 write(message,'(A,3(F15.8))')' REPLT_ORIG:  ',PRPLT%r_origin(1:3) ; write_msg
+                 write(message,'(A,3(F15.8))')' REPLT_ORIG:  ',PRPLT%r_origin(1:3) ; write_msgi
                else
-                 write(message,'(A)')'    !WARN! RORIGIN tag of "SET REPLOT" should be three consequent real values.'  ; write_msg
-                 write(message,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func  ; write_msg
+                 write(message,'(A)')'    !WARN! RORIGIN tag of "SET REPLOT" should be three consequent real values.'  ; write_msgi
+                 write(message,'(A,A)')'           Please check RORIGIN tag again. Exit... ',func  ; write_msgi
                  kill_job
                endif
 
              case('BOND_CUT')
                read(inputline,*,iostat=i_continue) desc_str,PRPLT%bond_cut
-               write(message,'(A,3(F15.8))')' REPLT_RCUT:  ',PRPLT%bond_cut ; write_msg
+               write(message,'(A,3(F15.8))')' REPLT_RCUT:  ',PRPLT%bond_cut ; write_msgi
 
            endselect case_rpl
 
@@ -1041,9 +1039,9 @@ mode: select case ( trim(plot_mode) )
     
       if(PRPLT%replot_dos_emin .eq. PRPLT%replot_dos_emax .and. PRPLT%replot_dos_nediv .ne. 1) then
          PRPLT%replot_dos_nediv = 1
-         write(message,'(A)') '    !WARN! EMIN and EMAX value of "DOS_EWINDOW" tag of "SET REPLOT" has been set to be equal: EMIN=EMAX'  ; write_msg
-         write(message,'(A)') '           and REPLOT_NEDOS or (NEDOS) is larger than 2 which is nonsense, hence, REPLOT_NEDOS is '  ; write_msg
-         write(message,'(A)') '           enfornced to be 1. Proceed calculations..'  ; write_msg
+         write(message,'(A)') '    !WARN! EMIN and EMAX value of "DOS_EWINDOW" tag of "SET REPLOT" has been set to be equal: EMIN=EMAX'  ; write_msgi
+         write(message,'(A)') '           and REPLOT_NEDOS or (NEDOS) is larger than 2 which is nonsense, hence, REPLOT_NEDOS is '  ; write_msgi
+         write(message,'(A)') '           enfornced to be 1. Proceed calculations..'  ; write_msgi
       endif
 
 
@@ -1074,7 +1072,7 @@ mode: select case ( trim(plot_mode) )
       external      flag_number
     
             PINPT%flag_get_dos = .true.
-            write(message,'(A)')'  GET_DOS: .TRUE.'  ; write_msg
+            write(message,'(A)')'  GET_DOS: .TRUE.'  ; write_msgi
             !initialize the default values
             PINPT_DOS%dos_kgrid(1:3) = 0d0
             PINPT_DOS%dos_emin = -10d0
@@ -1104,7 +1102,7 @@ mode: select case ( trim(plot_mode) )
     case_dos: select case ( trim(desc_str) )
                 case('NEDOS')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_nediv
-                  write(message,'(A,I8)')' DOS_EDIV:', PINPT_DOS%dos_nediv  ; write_msg
+                  write(message,'(A,I8)')' DOS_EDIV:', PINPT_DOS%dos_nediv  ; write_msgi
                 case('DOS_ERANGE', 'DOS_EWINDOW')
                   call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
                   i_dummy=index(dummy,':')
@@ -1113,31 +1111,31 @@ mode: select case ( trim(plot_mode) )
                     i_dummy2 = nitems(dummy)
                     if(i_dummy2 .eq. 2)then
                       read(dummy,*,iostat=i_continue) PINPT_DOS%dos_emin,PINPT_DOS%dos_emax
-                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msg
-                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msg
+                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msgi
+                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msgi
                     else
-                      write(message,'(A)')'    !WARNING!  DOS_ERANGE is not properly set up.'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msg
-                      write(message,'(A)')'    !WARNING!    DOS_ERANGE  EMIN:EMAX , :EMAX, EMIN: or :'  ; write_msg
-                      write(message,'(A)')'    !WARNING! or DOS_ERANGE  EMIN EMAX'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msg
+                      write(message,'(A)')'    !WARNING!  DOS_ERANGE is not properly set up.'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!    DOS_ERANGE  EMIN:EMAX , :EMAX, EMIN: or :'  ; write_msgi
+                      write(message,'(A)')'    !WARNING! or DOS_ERANGE  EMIN EMAX'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msgi
                       stop
                     endif
                   elseif(i_dummy .ge. 1) then
                     if(len_trim(dummy1) .eq. 0) then
                       PINPT_DOS%dos_emin = -10.0d0 ! default dos_emin
-                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msg
+                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msgi
                     else
                       call str2real(dummy1,PINPT_DOS%dos_emin)
-                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msg
+                      write(message,'(A,F15.8)')' DOS_EMIN:  ',PINPT_DOS%dos_emin  ; write_msgi
                     endif
                     call strip_off (trim(dummy), dummy2,':',' ',2)
                     if(len_trim(dummy2) .eq. 0) then
                       PINPT_DOS%dos_emax =  10.0d0 ! default dos_emax
-                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msg
+                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msgi
                     else
                       call str2real(dummy2,PINPT_DOS%dos_emax)
-                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msg
+                      write(message,'(A,F15.8)')' DOS_EMAX:  ',PINPT_DOS%dos_emax  ; write_msgi
                     endif
                   endif
                 case('DOS_NRANGE', 'DOS_NE_MAX')
@@ -1148,65 +1146,65 @@ mode: select case ( trim(plot_mode) )
                     i_dummy2 = nitems(dummy)
                     if(i_dummy2 .eq. 2)then
                       read(dummy,*,iostat=i_continue) PINPT_DOS%dos_iband,PINPT_DOS%dos_fband
-                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msg
-                      write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msg
+                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msgi
+                      write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msgi
                     elseif(i_dummy2 .eq. 1) then
                       read(dummy,*,iostat=i_continue) PINPT_DOS%dos_fband
                       PINPT_DOS%dos_iband = 1
-                      write(message,'(A,I8)')' DOS_IBND: (default)',PINPT_DOS%dos_iband  ; write_msg
-                      write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msg
+                      write(message,'(A,I8)')' DOS_IBND: (default)',PINPT_DOS%dos_iband  ; write_msgi
+                      write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msgi
                     else
-                      write(message,'(A)')'    !WARNING!  DOS_NRANGE is not properly set up.'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msg
-                      write(message,'(A)')'    !WARNING!    DOS_NRANGE  IBAND:FBAND , :FBAND, IBAND: or :'  ; write_msg
-                      write(message,'(A)')'    !WARNING! or DOS_NRANGE  IBAND FBAND'  ; write_msg
-                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msg
+                      write(message,'(A)')'    !WARNING!  DOS_NRANGE is not properly set up.'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!    DOS_NRANGE  IBAND:FBAND , :FBAND, IBAND: or :'  ; write_msgi
+                      write(message,'(A)')'    !WARNING! or DOS_NRANGE  IBAND FBAND'  ; write_msgi
+                      write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msgi
                       stop
                     endif
                   elseif(i_dummy .ge. 1 .and. len_trim(dummy) .ne. 1) then
                     if(len_trim(dummy1) .eq. 0) then
                       PINPT_DOS%dos_iband = 1 ! default dos_emin
-                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msg
+                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msgi
                     else
                       call str2int(dummy1,PINPT_DOS%dos_iband)
-                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msg
+                      write(message,'(A,I8)')' DOS_IBND:',PINPT_DOS%dos_iband  ; write_msgi
                     endif
                     call strip_off (trim(dummy), dummy2,':',' ',2)
                     if(len_trim(dummy2) .eq. 0) then
                       PINPT_DOS%dos_fband =  999999 ! default dos_emax
-                      write(message,'(A)')' DOS_FBND: automatically set to NEIG'  ; write_msg
+                      write(message,'(A)')' DOS_FBND: automatically set to NEIG'  ; write_msgi
                     else
                       if(flag_number( trim(dummy2) ) ) then
                         call str2int(dummy2,PINPT_DOS%dos_fband)
-                        write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msg
+                        write(message,'(A,I8)')' DOS_FBND:',PINPT_DOS%dos_fband  ; write_msgi
                       elseif(.not. flag_number( trim(dummy2) ) .and. trim(dummy2) .eq. 'NEIG' ) then
                         PINPT_DOS%dos_fband =  999999
-                        write(message,'(A)')' DOS_FBND: NEIG = N_ORBIT'  ; write_msg
+                        write(message,'(A)')' DOS_FBND: NEIG = N_ORBIT'  ; write_msgi
                       else
-                        write(message,'(A,I8)')'  !WARNING! DOS_FBND setting is inproper. Please check syntax again. Exit..'  ; write_msg
+                        write(message,'(A,I8)')'  !WARNING! DOS_FBND setting is inproper. Please check syntax again. Exit..'  ; write_msgi
                         stop
                       endif
                     endif
                   elseif(i_dummy .eq. 1 .and. len_trim(dummy) .eq. 1) then
                     PINPT_DOS%dos_iband = 1
-                    write(message,'(A,I8)')' DOS_IBND: 1'  ; write_msg
-                    write(message,'(A,I8)')' DOS_FBND: NEIG'  ; write_msg
+                    write(message,'(A,I8)')' DOS_IBND: 1'  ; write_msgi
+                    write(message,'(A,I8)')' DOS_FBND: NEIG'  ; write_msgi
                   endif
                 case('MKGRID')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_kgrid(1:3)
-                  write(message,'(A,3I6)')' DOS_KDIV: Monkhorst-Pack grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msg
+                  write(message,'(A,3I6)')' DOS_KDIV: Monkhorst-Pack grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msgi
                   PINPT_DOS%dos_flag_gamma=.false.
                 case('GKGRID')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_kgrid(1:3)
-                  write(message,'(A,3I6)')' DOS_KDIV: Gamma-centered grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msg
+                  write(message,'(A,3I6)')' DOS_KDIV: Gamma-centered grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msgi
                   PINPT_DOS%dos_flag_gamma=.true.
                 case('KGRID')
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_kgrid(1:3)
-                  write(message,'(A,3I6)')' DOS_KDIV: Monkhorst-Pack grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msg
+                  write(message,'(A,3I6)')' DOS_KDIV: Monkhorst-Pack grid',PINPT_DOS%dos_kgrid(1:3)  ; write_msgi
                   PINPT_DOS%dos_flag_gamma=.false.
                 case('KSHIFT') ! optional shift of the mesh (s_1, s_2, s_3) ; the usage is same as VASP 
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_kshift(1:3)
-                  write(message,'(A,3F6.2)')' DOS_KSFT:',PINPT_DOS%dos_kshift(1:3)  ; write_msg
+                  write(message,'(A,3F6.2)')' DOS_KSFT:',PINPT_DOS%dos_kshift(1:3)  ; write_msgi
                 case('PRINT_KPTS') ! print kpoint information (reciprocal unit) into file
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 1) then
@@ -1215,18 +1213,18 @@ mode: select case ( trim(plot_mode) )
                     read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_kpoint, PINPT_DOS%dos_kfilenm
                   endif
                   if(PINPT_DOS%dos_flag_print_kpoint) then
-                    write(message,'(A,A)')' DOS_KOUT: KPOINT OUT -> .TRUE. ',trim(PINPT_DOS%dos_kfilenm)  ; write_msg
+                    write(message,'(A,A)')' DOS_KOUT: KPOINT OUT -> .TRUE. ',trim(PINPT_DOS%dos_kfilenm)  ; write_msgi
                   elseif(.not. PINPT_DOS%dos_flag_print_kpoint) then
-                    write(message,'(A,A)')' DOS_KOUT: KPOINT OUT -> .FALSE.'  ; write_msg
+                    write(message,'(A,A)')' DOS_KOUT: KPOINT OUT -> .FALSE.'  ; write_msgi
                   endif
                 case('PRINT_EIG') ! print eigenstate energy information into ENSURF.EIG.NEIG.dat file
                   i_dummy = nitems(inputline) - 1
                   if(i_dummy .eq. 1) then
                     read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_eigen
                     if(PINPT_DOS%dos_flag_print_eigen) then
-                      write(message,'(A)')'  !WARNING! DOS_EOUT: EIGEN  OUT -> .TRUE. but the target energy to be plotted is not specified.'  ; write_msg
-                      write(message,'(A)')'  !WARNING! Please check PRINT_EIG tag again. The proper use is : PRINT_EIG .TRUE. N1 N2 N3... or N1:N3 '  ; write_msg
-                      write(message,'(A)')'  !WARNING! Exit program...'  ; write_msg
+                      write(message,'(A)')'  !WARNING! DOS_EOUT: EIGEN  OUT -> .TRUE. but the target energy to be plotted is not specified.'  ; write_msgi
+                      write(message,'(A)')'  !WARNING! Please check PRINT_EIG tag again. The proper use is : PRINT_EIG .TRUE. N1 N2 N3... or N1:N3 '  ; write_msgi
+                      write(message,'(A)')'  !WARNING! Exit program...'  ; write_msgi
                       stop
                     endif
                   elseif(i_dummy .gt. 1) then
@@ -1239,7 +1237,7 @@ mode: select case ( trim(plot_mode) )
                         PINPT_DOS%dos_n_ensurf = nitems(dummy1)
                         allocate( PINPT_DOS%dos_ensurf(PINPT_DOS%dos_n_ensurf) )
                         read(dummy1,*,iostat=i_continue) PINPT_DOS%dos_ensurf(1:PINPT_DOS%dos_n_ensurf)
-                        write(message,'(A,*(I5))')' DOS_EOUT: ENSURF OUT -> .TRUE.',PINPT_DOS%dos_ensurf(1:PINPT_DOS%dos_n_ensurf)  ; write_msg
+                        write(message,'(A,*(I5))')' DOS_EOUT: ENSURF OUT -> .TRUE.',PINPT_DOS%dos_ensurf(1:PINPT_DOS%dos_n_ensurf)  ; write_msgi
                       elseif(i_dummy1 .ge. 1)then
                         i_dummy2 = nitems(dummy1)
                         allocate( strip_dummy(i_dummy2) )
@@ -1274,29 +1272,29 @@ mode: select case ( trim(plot_mode) )
                   PINPT_DOS%dos_kunit=dummy(1:1)
                   if(PINPT_DOS%dos_kunit .eq. 'r' .or. PINPT_DOS%dos_kunit .eq. 'R') then
                     PINPT_DOS%dos_kunit = 'R'
-                    write(message,'(A)')' DOS_UNIT: KPOINT UNIT = Reciprocal'  ; write_msg
+                    write(message,'(A)')' DOS_UNIT: KPOINT UNIT = Reciprocal'  ; write_msgi
                   elseif(PINPT_DOS%dos_kunit .eq. 'a' .or. PINPT_DOS%dos_kunit .eq. 'A') then
                     PINPT_DOS%dos_kunit = 'A'
-                    write(message,'(A)')' DOS_UNIT: KPOINT UNIT = Angstrom unit (1/A)'  ; write_msg
+                    write(message,'(A)')' DOS_UNIT: KPOINT UNIT = Angstrom unit (1/A)'  ; write_msgi
                   endif
                 case('DOS_FNAME') ! DOS output file name
                   read(inputline,*,iostat=i_continue) desc_str,desc_str
                   PINPT_DOS%dos_filenm = trim(desc_str)
-                  write(message,'(A,A)')' DOS_FNAM: ',trim(PINPT_DOS%dos_filenm)  ; write_msg
+                  write(message,'(A,A)')' DOS_FNAM: ',trim(PINPT_DOS%dos_filenm)  ; write_msgi
                 case('LDOS_FNAME') ! LDOS output file name
                   read(inputline,*,iostat=i_continue) desc_str, desc_str
                   PINPT_DOS%ldos_filenm = trim(desc_str)
-                  write(message,'(A,A)')'LDOS_FNAM: ',trim(PINPT_DOS%dos_filenm)  ; write_msg
+                  write(message,'(A,A)')'LDOS_FNAM: ',trim(PINPT_DOS%dos_filenm)  ; write_msgi
                 case('SMEARING') ! gaussian smearing
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_smearing
-                  write(message,'(A,F8.4)')'DOS_SIGMA: GAUSSIAN WIDTH = ',PINPT_DOS%dos_smearing  ; write_msg
+                  write(message,'(A,F8.4)')'DOS_SIGMA: GAUSSIAN WIDTH = ',PINPT_DOS%dos_smearing  ; write_msgi
                 case('DOS_SPARSE') ! logical flag for sparse matrix setup, if true, ERANGE will be 
                                    ! the energy window, and DOS_NRANGE will be used as NE_MAX
                   read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_sparse
                   if(PINPT_DOS%dos_flag_sparse) then
-                    write(message,'(A)')'DOS_SPARSE: .TRUE.'  ; write_msg
+                    write(message,'(A)')'DOS_SPARSE: .TRUE.'  ; write_msgi
                   elseif(.not. PINPT_DOS%dos_flag_sparse) then
-                    write(message,'(A)')'DOS_SPARSE: .FALSE.'  ; write_msg
+                    write(message,'(A)')'DOS_SPARSE: .FALSE.'  ; write_msgi
                   endif
 
                 case('PRINT_LDOS')
@@ -1304,8 +1302,8 @@ mode: select case ( trim(plot_mode) )
                   if(i_dummy .eq. 1) then
                     read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_ldos
                     if(PINPT_DOS%dos_flag_print_ldos) then
-                      write(message,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'  ; write_msg
-                      write(message,'(A)')'  !WARNING!          -> LDOS for all atoms of the system will be evaluated by default.'  ; write_msg
+                      write(message,'(A)')'  !WARNING! DOS_LDOS -> .TRUE. but the list of target atoms is not specified.'  ; write_msgi
+                      write(message,'(A)')'  !WARNING!          -> LDOS for all atoms of the system will be evaluated by default.'  ; write_msgi
                     endif
                   elseif(i_dummy .gt. 1) then
                     read(inputline,*,iostat=i_continue) desc_str,PINPT_DOS%dos_flag_print_ldos
@@ -1317,7 +1315,7 @@ mode: select case ( trim(plot_mode) )
                         PINPT_DOS%dos_ldos_natom = nitems(dummy1)
                         allocate( PINPT_DOS%dos_ldos_atom(PINPT_DOS%dos_ldos_natom) )
                         read(dummy1,*,iostat=i_continue) PINPT_DOS%dos_ldos_atom(1:PINPT_DOS%dos_ldos_natom)
-                        write(message,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)  ; write_msg
+                        write(message,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)  ; write_msgi
                       elseif(i_dummy1 .ge. 1)then
                         i_dummy2 = nitems(dummy1)
                         allocate( strip_dummy(i_dummy2) )
@@ -1343,7 +1341,7 @@ mode: select case ( trim(plot_mode) )
                         allocate( PINPT_DOS%dos_ldos_atom(PINPT_DOS%dos_ldos_natom) )
                         deallocate( strip_dummy )
                         PINPT_DOS%dos_ldos_atom(1:ii) = i_dummyr(1:ii)
-                        write(message,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)  ; write_msg
+                        write(message,'(A,A)')' DOS_LDOS: .TRUE. , Atom_index = ',trim(dummy1)  ; write_msgi
                       endif
                     endif
                   endif
@@ -1367,7 +1365,7 @@ mode: select case ( trim(plot_mode) )
       logical       flag_kfile_ribbon
 
       PGEOM%flag_set_ribbon = .true.
-      write(message,'(A)')' SET_RIBN: SET UP RIBBON GEOMETRY = .TRUE.'  ; write_msg
+      write(message,'(A)')' SET_RIBN: SET UP RIBBON GEOMETRY = .TRUE.'  ; write_msgi
       PGEOM%ribbon_nslab(1:3) = -1
       PGEOM%ribbon_vacuum(1:3) =  0   ! default setting for vacuum size
 
@@ -1392,30 +1390,30 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             read(inputline,*,iostat=i_continue) desc_str, PKPTS%ribbon_kfilenm
             flag_kfile_ribbon = .true.
             PKPTS%kfilenm = PKPTS%ribbon_kfilenm
-            write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
+            write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msgi
 
         end select
       enddo set_rib
 
       if(minval(PGEOM%ribbon_nslab(1:3)) .le. 0) then
-        write(message,'(A)')'  !WARNING! NSLAB tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msg
-        write(message,'(A)')'  !WARNING! Proper usage: NSLAB   N1 N2 N3'  ; write_msg
-        write(message,'(A)')'  !WARNING! Exit program...'  ; write_msg
+        write(message,'(A)')'  !WARNING! NSLAB tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msgi
+        write(message,'(A)')'  !WARNING! Proper usage: NSLAB   N1 N2 N3'  ; write_msgi
+        write(message,'(A)')'  !WARNING! Exit program...'  ; write_msgi
         stop
       endif
       if(minval(PGEOM%ribbon_nslab(1:3)) .lt. 0) then
-        write(message,'(A)')'  !WARNING! VACUUM tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msg
-        write(message,'(A)')'  !WARNING! Proper usage: VACUUM   vac_1 vac_2 vac_3'  ; write_msg
-        write(message,'(A)')'  !WARNING! Exit program...'  ; write_msg
+        write(message,'(A)')'  !WARNING! VACUUM tag for the RIBBON calculation is not properly defined. Please check the tag.'  ; write_msgi
+        write(message,'(A)')'  !WARNING! Proper usage: VACUUM   vac_1 vac_2 vac_3'  ; write_msgi
+        write(message,'(A)')'  !WARNING! Exit program...'  ; write_msgi
         stop
       endif
 
-      write(message,'(A,3I5)')' RIB_SLAB: (N1*A1,N2*A2,N3*A3) => N1,N2,N3 =', PGEOM%ribbon_nslab(1:3)  ; write_msg
-      write(message,'(A,3F12.6)')' RIB_VACU: (in Angstrom)', PGEOM%ribbon_vacuum(1:3)  ; write_msg
+      write(message,'(A,3I5)')' RIB_SLAB: (N1*A1,N2*A2,N3*A3) => N1,N2,N3 =', PGEOM%ribbon_nslab(1:3)  ; write_msgi
+      write(message,'(A,3F12.6)')' RIB_VACU: (in Angstrom)', PGEOM%ribbon_vacuum(1:3)  ; write_msgi
       if(PGEOM%flag_print_only_ribbon_geom) then
-        write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .TRUE.'  ; write_msg
+        write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .TRUE.'  ; write_msgi
       else
-        write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .FALSE.'  ; write_msg
+        write(message,'(A,3F12.6)')' RIB_GEOM: PRINT_ONLY = .FALSE.'  ; write_msgi
       endif
 
       return
@@ -1443,7 +1441,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
           case('EFIELD')
             read(inputline,*,iostat=i_continue) desc_str,NN_TABLE%efield(1:3)
-            write(message,'(A,3F12.6)')'  E_FIELD:  ',NN_TABLE%efield(1:3)  ; write_msg
+            write(message,'(A,3F12.6)')'  E_FIELD:  ',NN_TABLE%efield(1:3)  ; write_msgi
           case('EF_CENTER','EF_ORIGIN','EF_ORIGIN_FRAC','EF_CENTER_FRAC') ! field_origin
             NN_TABLE%flag_efield_frac = .true.
             NN_TABLE%flag_efield_cart = .false.
@@ -1540,7 +1538,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         PWGHT%flag_weight_default = .true.
       elseif( PWGHT%nweight .ge. 1) then
         PWGHT%flag_weight_default = .false.
-        write(message,'(A,I8)')' N_CONSTR:',PWGHT%nweight  ; write_msg
+        write(message,'(A,I8)')' N_CONSTR:',PWGHT%nweight  ; write_msgi
         if(allocated(PWGHT%strip_kp) ) deallocate(PWGHT%strip_kp) ; allocate( PWGHT%strip_kp(PWGHT%nweight) )
         if(allocated(PWGHT%strip_tb) ) deallocate(PWGHT%strip_tb) ; allocate( PWGHT%strip_tb(PWGHT%nweight) )
         if(allocated(PWGHT%strip_df) ) deallocate(PWGHT%strip_df) ; allocate( PWGHT%strip_df(PWGHT%nweight) )
@@ -1558,7 +1556,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         PINPT%flag_fit_degeneracy = .false.
       elseif( PWGHT%ndegenw .ge. 1) then
         PINPT%flag_fit_degeneracy = .true. 
-        write(message,'(A,I8)')' N_DEGENW:',PWGHT%ndegenw  ; write_msg
+        write(message,'(A,I8)')' N_DEGENW:',PWGHT%ndegenw  ; write_msgi
         if(allocated(PWGHT%strip_kp_deg) ) deallocate(PWGHT%strip_kp_deg) ; allocate( PWGHT%strip_kp_deg(PWGHT%ndegenw) )
         if(allocated(PWGHT%strip_tb_deg) ) deallocate(PWGHT%strip_tb_deg) ; allocate( PWGHT%strip_tb_deg(PWGHT%ndegenw) )
         if(allocated(PWGHT%strip_df_deg) ) deallocate(PWGHT%strip_df_deg) ; allocate( PWGHT%strip_df_deg(PWGHT%ndegenw) )
@@ -1577,7 +1575,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         PWGHT%flag_weight_orb = .false.
       elseif( PWGHT%npenalty_orb .ge. 1) then
         PWGHT%flag_weight_orb = .true. 
-        write(message,'(A,I8,A)')' N_CONSTR:',PWGHT%npenalty_orb,' (# of penalty weight for orbital)'  ; write_msg
+        write(message,'(A,I8,A)')' N_CONSTR:',PWGHT%npenalty_orb,' (# of penalty weight for orbital)'  ; write_msgi
         if(allocated(PWGHT%strip_kp_orb)) deallocate(PWGHT%strip_kp_orb) ; allocate( PWGHT%strip_kp_orb( PWGHT%npenalty_orb) )
         if(allocated(PWGHT%strip_tb_orb)) deallocate(PWGHT%strip_tb_orb) ; allocate( PWGHT%strip_tb_orb( PWGHT%npenalty_orb) )
         if(allocated(PWGHT%strip_pen_orb))deallocate(PWGHT%strip_pen_orb); allocate( PWGHT%strip_pen_orb(PWGHT%npenalty_orb) )
@@ -1619,7 +1617,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%z2_axis(:) = (/1,2,3/) ! default
       PINPT_BERRY%flag_z2_get_chern = .false. ! default
 
-      write(message,'(A)')'   GET_Z2: .TRUE. '  ; write_msg
+      write(message,'(A)')'   GET_Z2: .TRUE. '  ; write_msgi
   set_wann: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -1630,19 +1628,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
           case('Z2_ERANGE')  ! get z2_range
             call strip_off (trim(inputline), PINPT_BERRY%strip_z2_range, 'Z2_ERANGE', ' ' , 2)
-            write(message,'(3A)')'  Z2_RANG:  ',adjustl(trim(PINPT_BERRY%strip_z2_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msg
+            write(message,'(3A)')'  Z2_RANG:  ',adjustl(trim(PINPT_BERRY%strip_z2_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msgi
 
           case('Z2_DIMENSION')  ! which direction? 
             call strip_off (trim(inputline), dummy, 'Z2_DIMENSION', ' ' , 2)
             i_dummy=index(dummy,'D')
             if(i_dummy .eq. 0) then
-              write(message,'(A)')' !WARN!: Z2_DIMENSION should be start with one of following strings:'  ; write_msg
-              write(message,'(A)')'  3D  => Z2_DIMENSION 3D'  ; write_msg
-              write(message,'(A)')'  2D  => Z2_DIMENSION 2D:z # z is normal direction of surface'  ; write_msg
-              write(message,'(A)')'  1D  => Z2_DIMENSION 1D:x # x is parallel direction of 1D system'  ; write_msg
-              write(message,'(A)')'  For 2D and 1D, "x", "y", or "z" indicates the normal and parallel'         ; write_msg
-              write(message,'(A)')'  direction of the system'  ; write_msg
-              write(message,'(A)')'  Exit program anyway... Check your "SET Z2" in "INCAR-TB" again.'  ; write_msg
+              write(message,'(A)')' !WARN!: Z2_DIMENSION should be start with one of following strings:'  ; write_msgi
+              write(message,'(A)')'  3D  => Z2_DIMENSION 3D'  ; write_msgi
+              write(message,'(A)')'  2D  => Z2_DIMENSION 2D:z # z is normal direction of surface'  ; write_msgi
+              write(message,'(A)')'  1D  => Z2_DIMENSION 1D:x # x is parallel direction of 1D system'  ; write_msgi
+              write(message,'(A)')'  For 2D and 1D, "x", "y", or "z" indicates the normal and parallel'         ; write_msgi
+              write(message,'(A)')'  direction of the system'  ; write_msgi
+              write(message,'(A)')'  Exit program anyway... Check your "SET Z2" in "INCAR-TB" again.'  ; write_msgi
               stop
             endif
 
@@ -1652,7 +1650,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               deallocate(PINPT_BERRY%z2_axis)
               allocate(PINPT_BERRY%z2_axis(3))
               PINPT_BERRY%z2_axis(:) = (/1,2,3/)
-              write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msg
+              write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msgi
 
             elseif(PINPT_BERRY%z2_dimension .eq. 2) then
               deallocate(PINPT_BERRY%z2_axis)
@@ -1660,23 +1658,23 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               i_dummy = index(dummy,':')
               if(i_dummy .eq. 0) then
                 PINPT_BERRY%z2_axis(1) = 3 ! default : third reciprocal axis will be chosen for the WCC surface normal axis
-                write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msg
-                write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (default)'  ; write_msg
+                write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msgi
+                write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (default)'  ; write_msgi
               elseif(i_dummy .ne. 0) then
                 call strip_off (trim(dummy), dummy2, ':', ' ' , 2)
                 select case (trim(dummy2))
                   case('1','x','a','b1', 'X', 'A', 'B1')
                     PINPT_BERRY%z2_axis(1) = 1
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (B1-B2 plane, xy)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (B1-B2 plane, xy)'  ; write_msgi
                   case('2','y','b','b2', 'Y', 'B', 'B2')
                     PINPT_BERRY%z2_axis(1) = 2
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B2 direction of the reciprocal lattice vector (B2-B3 plane, yz)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B2 direction of the reciprocal lattice vector (B2-B3 plane, yz)'  ; write_msgi
                   case('3','z','c','b3', 'Z', 'C', 'B3')
                     PINPT_BERRY%z2_axis(1) = 3
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (B3-B1 plane, zx)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (B3-B1 plane, zx)'  ; write_msgi
                 endselect
               endif
 
@@ -1686,23 +1684,23 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               i_dummy = index(dummy, ':')
               if(i_dummy .eq. 0) then    
                 PINPT_BERRY%z2_axis(1) = 1
-                write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (default, parallel to B1)'  ; write_msg
+                write(message,'(3A)')'   Z2_DIM: ', trim(dummy), ' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (default, parallel to B1)'  ; write_msgi
               elseif(i_dummy .ne. 0) then
                 call strip_off (trim(dummy), dummy2, ':', ' ' , 2)
                 select case (trim(dummy2))
                   case('1','x','a','kx', 'b1', 'X', 'A', 'B1', 'KX')
                     PINPT_BERRY%z2_axis(1) = 1
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (parallel to B1)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B1 direction of the reciprocal lattice vector (parallel to B1)'  ; write_msgi
                   case('2','y','b','ky', 'b2', 'Y', 'B', 'B2', 'KY')
                     PINPT_BERRY%z2_axis(1) = 2
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B2 direction of the reciprocal lattice vector (parallel to B2)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B2 direction of the reciprocal lattice vector (parallel to B2)'  ; write_msgi
                   case('3','z','c','kz', 'b3', 'Z', 'C', 'B3', 'KZ')
                     PINPT_BERRY%z2_axis(1) = 3
-                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (parallel to B3)'  ; write_msg
+                    write(message,'(3A)')'   Z2_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  Z2_AXIS: B3 direction of the reciprocal lattice vector (parallel to B3)'  ; write_msgi
                 endselect
 
               endif
@@ -1719,9 +1717,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('GET_CHERN','Z2_CHERN')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_z2_get_chern
             if(PINPT_BERRY%flag_z2_get_chern) then
-              write(message,'(3A)')'GET_CHERN: (Z2 SET) .TRUE. (evaluate Chern number for the bands with ERANGE)'  ; write_msg
+              write(message,'(3A)')'GET_CHERN: (Z2 SET) .TRUE. (evaluate Chern number for the bands with ERANGE)'  ; write_msgi
             else
-              write(message,'(3A)')'GET_CHERN: (Z2 SET) .FALSE.'  ; write_msg
+              write(message,'(3A)')'GET_CHERN: (Z2 SET) .FALSE.'  ; write_msgi
             endif
 
           case('SET_PHASE', 'GET_PHASE', 'PHASE')
@@ -1733,32 +1731,32 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       if(PINPT_BERRY%z2_dimension .eq. 3) then
         if(PINPT_BERRY%z2_nkpath .eq. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msg
-          write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msg
-          write(message,'(A)')'       so we will setup with default =>  Z2_NKPATH = 21'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msgi
+          write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msgi
+          write(message,'(A)')'       so we will setup with default =>  Z2_NKPATH = 21'  ; write_msgi
           PINPT_BERRY%z2_nkpath = 21
         elseif(PINPT_BERRY%z2_nkpath .gt. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msg
-          write(message,'(A, I4,A)')' Z2_NKPATH:',PINPT_BERRY%z2_nkpath,' (division along k-direction for wcc evolution))'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msgi
+          write(message,'(A, I4,A)')' Z2_NKPATH:',PINPT_BERRY%z2_nkpath,' (division along k-direction for wcc evolution))'  ; write_msgi
         endif
         PINPT_BERRY%z2_nplane = 2
       elseif(PINPT_BERRY%z2_dimension .eq. 2) then
         if(PINPT_BERRY%z2_nkpath .eq. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msg
-          write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msg
-          write(message,'(A)')'       so we will setup with default =>  Z2_NKPATH = 21'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msgi
+          write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msgi
+          write(message,'(A)')'       so we will setup with default =>  Z2_NKPATH = 21'  ; write_msgi
           PINPT_BERRY%z2_nkpath = 21
         elseif(PINPT_BERRY%z2_nkpath .gt. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msg
-          write(message,'(A, I4,A)')' Z2_NKPATH:',PINPT_BERRY%z2_nkpath,' (division along k-direction for wcc evolution))'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msgi
+          write(message,'(A, I4,A)')' Z2_NKPATH:',PINPT_BERRY%z2_nkpath,' (division along k-direction for wcc evolution))'  ; write_msgi
         endif
         PINPT_BERRY%z2_nplane = 1
       elseif(PINPT_BERRY%z2_dimension .eq. 1) then
         if(PINPT_BERRY%z2_nkpath .eq. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv,' (division along k-line for wcc))'  ; write_msgi
           PINPT_BERRY%z2_nkpath = 1
         elseif(PINPT_BERRY%z2_nkpath .gt. 0) then
-          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msg
+          write(message,'(A, I4,A)')' Z2_NKDIV: ',PINPT_BERRY%z2_nkdiv, ' (division along k-line for wcc))'  ; write_msgi
           PINPT_BERRY%z2_nkdiv = 1 ! for 1D case, it is forced to be 1. There is no reason to scan other direction.
         endif
         PINPT_BERRY%z2_nplane = 1
@@ -1800,7 +1798,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       ikpath = 0
       ik = 0
 
-      write(message,'(A)')'  GET_WCC: .TRUE. (GET Wannier charge center)'  ; write_msg
+      write(message,'(A)')'  GET_WCC: .TRUE. (GET Wannier charge center)'  ; write_msgi
   set_wann: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -1811,16 +1809,16 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
           case('WCC_ERANGE')  ! get wcc_range
             call strip_off (trim(inputline), PINPT_BERRY%strip_wcc_range, 'WCC_ERANGE', ' ' , 2)
-            write(message,'(3A)')' WCC_RANG:  ',adjustl(trim(PINPT_BERRY%strip_wcc_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msg
+            write(message,'(3A)')' WCC_RANG:  ',adjustl(trim(PINPT_BERRY%strip_wcc_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msgi
           case('WCC_FNAME') ! WCC output file name
             read(inputline,*,iostat=i_continue) desc_str,desc_str
             PINPT_BERRY%wcc_filenm = trim(desc_str)
-            write(message,'(A,A)')' WCC_FNAM:  ',trim(PINPT_BERRY%wcc_filenm)  ; write_msg
+            write(message,'(A,A)')' WCC_FNAM:  ',trim(PINPT_BERRY%wcc_filenm)  ; write_msgi
 
           case('WCC_GAP_FNAME','WCC_FNAME_GAP') ! WCC largest gap output file name
             read(inputline,*,iostat=i_continue) desc_str,desc_str
             PINPT_BERRY%wcc_gap_filenm = trim(desc_str)
-            write(message,'(A,A)')' WCC_GAPF:  (largest gap file)',trim(PINPT_BERRY%wcc_gap_filenm)  ; write_msg
+            write(message,'(A,A)')' WCC_GAPF:  (largest gap file)',trim(PINPT_BERRY%wcc_gap_filenm)  ; write_msgi
 
           ! this option is only for test purpose...
           case('WCC_PATH_SHIFT','WCC_KPATH_SHIFT')
@@ -1829,12 +1827,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('WCC_PATH','WCC_KPATH')
             ikpath = ikpath + 1
             read(inputline,*,iostat=i_continue) desc_str, wcc_kpath_dummy(1:3,1,ikpath), wcc_kpath_dummy(1:3,2,ikpath)
-            write(message,'(A,3F12.8,A,3F12.8,A)')' WCC_PATH: (KPATH) ', wcc_kpath_dummy(1:3,1,ikpath),' --> ', wcc_kpath_dummy(1:3,2,ikpath),' (closed loop for WCC, reci unit)'  ; write_msg
+            write(message,'(A,3F12.8,A,3F12.8,A)')' WCC_PATH: (KPATH) ', wcc_kpath_dummy(1:3,1,ikpath),' --> ', wcc_kpath_dummy(1:3,2,ikpath),' (closed loop for WCC, reci unit)'  ; write_msgi
 
           case('WCC_DIREC','WCC_DIRECT','WCC_DIRECTION')
             PINPT_BERRY%flag_wcc_evolve = .true.
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%wcc_direction
-            write(message,'(3A)')' WCC_DIR :  ',k_direct(PINPT_BERRY%wcc_direction),' (k-direction of WCC evolution)'  ; write_msg
+            write(message,'(3A)')' WCC_DIR :  ',k_direct(PINPT_BERRY%wcc_direction),' (k-direction of WCC evolution)'  ; write_msgi
 
           case('WCC_NKDIV')
             i_dummy = nitems(inputline) -1
@@ -1847,17 +1845,17 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('GET_CHERN','WCC_CHERN')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_get_chern
             if(PINPT_BERRY%flag_wcc_get_chern) then
-              write(message,'(3A)')'GET_CHERN: (WCC SET) .TRUE. (Chern number for the bands with ERANGE)'  ; write_msg
+              write(message,'(3A)')'GET_CHERN: (WCC SET) .TRUE. (Chern number for the bands with ERANGE)'  ; write_msgi
             else
-              write(message,'(3A)')'GET_CHERN: (WCC SET) .FALSE.'  ; write_msg
+              write(message,'(3A)')'GET_CHERN: (WCC SET) .FALSE.'  ; write_msgi
             endif
 
           case('GET_CHERN_SPIN','WCC_CHERN_SPIN', 'GET_SPIN_CHERN', 'WCC_SPIN_CHERN')
             read(inputline,*,iostat=i_continue) desc_str,PINPT_BERRY%flag_wcc_get_chern_spin
             if(PINPT_BERRY%flag_wcc_get_chern_spin) then
-              write(message,'(3A)')'GET_CHERN:  SPIN_CHERN .TRUE. (WCC SET) (spin Chern number for the bands with ERANGE)'  ; write_msg
+              write(message,'(3A)')'GET_CHERN:  SPIN_CHERN .TRUE. (WCC SET) (spin Chern number for the bands with ERANGE)'  ; write_msgi
             else
-              write(message,'(3A)')'GET_CHERN:  SPIN_CHERN .FALSE. (WCC SET)'  ; write_msg
+              write(message,'(3A)')'GET_CHERN:  SPIN_CHERN .FALSE. (WCC SET)'  ; write_msgi
             endif
 
           case('SET_PHASE', 'GET_PHASE', 'PHASE', 'WCC_PHASE')
@@ -1872,12 +1870,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       endif
 
       if(PINPT_BERRY%wcc_nkdiv2 .gt. 1) then
-        write(message,'(A,2I4,3A)')' WCC_KDIV: ',PINPT_BERRY%wcc_nkdiv, PINPT_BERRY%wcc_nkdiv2,' (division along k-line(wcc) and k-direct(evolution along ', k_direct(PINPT_BERRY%wcc_direction),')'  ; write_msg
+        write(message,'(A,2I4,3A)')' WCC_KDIV: ',PINPT_BERRY%wcc_nkdiv, PINPT_BERRY%wcc_nkdiv2,' (division along k-line(wcc) and k-direct(evolution along ', k_direct(PINPT_BERRY%wcc_direction),')'  ; write_msgi
       elseif(PINPT_BERRY%wcc_nkdiv2 .eq. 1) then
-        write(message,'(A, I4,A)')' WCC_KDIV: ',PINPT_BERRY%wcc_nkdiv, ' (division along k-path(wcc))'  ; write_msg
-        write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msg
-        write(message,'(A)')'       so we will setup with default => WCC_DIRECT = 2 ,'  ; write_msg
-        write(message,'(A)')'                                        WCC_KDIV2  = 31'  ; write_msg
+        write(message,'(A, I4,A)')' WCC_KDIV: ',PINPT_BERRY%wcc_nkdiv, ' (division along k-path(wcc))'  ; write_msgi
+        write(message,'(A)')' WARN: The direction of WCC evolution did not provided,'  ; write_msgi
+        write(message,'(A)')'       so we will setup with default => WCC_DIRECT = 2 ,'  ; write_msgi
+        write(message,'(A)')'                                        WCC_KDIV2  = 31'  ; write_msgi
         PINPT_BERRY%wcc_nkdiv2 = 31
         PINPT_BERRY%flag_wcc_evolve = .true.
       endif
@@ -1929,7 +1927,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       ikpath = 0
       ik = 0
 
-      write(message,'(A)')' ZAK_PHAS: .TRUE. (GET ZAK PHASE)'  ; write_msg
+      write(message,'(A)')' ZAK_PHAS: .TRUE. (GET ZAK PHASE)'  ; write_msgi
    set_zak: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
         read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
@@ -1940,19 +1938,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
           case('ZAK_ERANGE')  ! get zak_range
             call strip_off (trim(inputline), PINPT_BERRY%strip_zak_range, 'ZAK_ERANGE', ' ' , 2) 
-            write(message,'(3A)')' ZAK_RANG:  ',adjustl(trim(PINPT_BERRY%strip_zak_range)), ' (ENERGY RANGE TO BE CALCULATED)'  ; write_msg
+            write(message,'(3A)')' ZAK_RANG:  ',adjustl(trim(PINPT_BERRY%strip_zak_range)), ' (ENERGY RANGE TO BE CALCULATED)'  ; write_msgi
 
           case('ZAK_FNAME') ! ZAK phase output file name
             read(inputline,*,iostat=i_continue) desc_str,desc_str
             PINPT_BERRY%zak_filenm = trim(desc_str)
-            write(message,'(A,A)')' ZAK_FNAM:  ',trim(PINPT_BERRY%zak_filenm)  ; write_msg
+            write(message,'(A,A)')' ZAK_FNAM:  ',trim(PINPT_BERRY%zak_filenm)  ; write_msgi
 
           case('ZAK_SEPARATE')
             read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_zak_separate
             if(PINPT%flag_zak_separate) then
-              write(message,'(A)')' ZAK_SEPR: .TRUE. (also separate into each eigenstate)'  ; write_msg
+              write(message,'(A)')' ZAK_SEPR: .TRUE. (also separate into each eigenstate)'  ; write_msgi
             elseif(.not. PINPT%flag_zak_separate) then
-              write(message,'(A)')' ZAK_SEPR: .FALSE. (do not separate into each eigenstate)'  ; write_msg
+              write(message,'(A)')' ZAK_SEPR: .FALSE. (do not separate into each eigenstate)'  ; write_msgi
             endif
 
           ! this option is only for test purpose...
@@ -1962,11 +1960,11 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           case('ZAK_PATH','ZAK_KPATH')
             ikpath = ikpath + 1
             read(inputline,*,iostat=i_continue) desc_str, zak_kpath_dummy(1:3,1,ikpath), zak_kpath_dummy(1:3,2,ikpath)
-            write(message,'(A,3F12.8,A,3F12.8,A)')' ZAK_PATH: (KPATH) ', zak_kpath_dummy(1:3,1,ikpath),' --> ', zak_kpath_dummy(1:3,2,ikpath),' (closed loop for Zak phase, reci unit)'  ; write_msg
+            write(message,'(A,3F12.8,A,3F12.8,A)')' ZAK_PATH: (KPATH) ', zak_kpath_dummy(1:3,1,ikpath),' --> ', zak_kpath_dummy(1:3,2,ikpath),' (closed loop for Zak phase, reci unit)'  ; write_msgi
           case('ZAK_DIREC','ZAK_DIRECT','ZAK_DIRECTION')
             PINPT_BERRY%flag_zak_evolve = .true.
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%zak_direction
-            write(message,'(3A)')' ZAK_DIR :  ',k_direct(PINPT_BERRY%zak_direction),' (k-direction of Zak phase evolution)'  ; write_msg
+            write(message,'(3A)')' ZAK_DIR :  ',k_direct(PINPT_BERRY%zak_direction),' (k-direction of Zak phase evolution)'  ; write_msgi
 
           case('ZAK_NKDIV')
             i_dummy = nitems(inputline) -1
@@ -1988,9 +1986,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       endif
 
       if(PINPT_BERRY%zak_nkdiv2 .gt. 1) then
-        write(message,'(A,2I4,3A)')' ZAK_KDIV: ',PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkdiv2,' (division along k-path(zak_phase) and k-direct(evolution along ', k_direct(PINPT_BERRY%zak_direction),')'  ; write_msg
+        write(message,'(A,2I4,3A)')' ZAK_KDIV: ',PINPT_BERRY%zak_nkdiv,PINPT_BERRY%zak_nkdiv2,' (division along k-path(zak_phase) and k-direct(evolution along ', k_direct(PINPT_BERRY%zak_direction),')'  ; write_msgi
       elseif(PINPT_BERRY%zak_nkdiv2 .eq. 1) then
-        write(message,'(A, I4,A)')' ZAK_KDIV: ',PINPT_BERRY%zak_nkdiv,' (division along k-path(zak_phase))'  ; write_msg
+        write(message,'(A, I4,A)')' ZAK_KDIV: ',PINPT_BERRY%zak_nkdiv,' (division along k-path(zak_phase))'  ; write_msgi
       endif
 
       if(PINPT_BERRY%zak_nkdiv2 .gt. 1) then
@@ -2032,7 +2030,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           PINPT_BERRY%zak_nkpath         = 1
           PINPT_BERRY%zak_kpath(1:3,1,1) = (/0.0d0,0d0,0d0/)+ PINPT_BERRY%zak_kpath_shift(:)
           PINPT_BERRY%zak_kpath(1:3,2,1) = (/1.0d0,0d0,0d0/)+ PINPT_BERRY%zak_kpath_shift(:)
-         write(message,'(A,3F12.8,A,3F12.8)')' ZAK_PATH:  (KPATH,default) ',PINPT_BERRY%zak_kpath(1:3,1,1),'  --> ',PINPT_BERRY%zak_kpath(1:3,2,1)  ; write_msg
+         write(message,'(A,3F12.8,A,3F12.8)')' ZAK_PATH:  (KPATH,default) ',PINPT_BERRY%zak_kpath(1:3,1,1),'  --> ',PINPT_BERRY%zak_kpath(1:3,2,1)  ; write_msgi
         endif
 
       endif
@@ -2062,8 +2060,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%bc_nkdiv(1:2)= 21 ! default
       PINPT_BERRY%bc_nkdiv(3)  = 1  ! default
 
-      write(message,'(A)')' '  ; write_msg
-      write(message,'(A)')' BERRYCRV: .TRUE. (GET BERRY CURVATURE)'  ; write_msg
+      write(message,'(A)')' '  ; write_msgi
+      write(message,'(A)')' BERRYCRV: .TRUE. (GET BERRY CURVATURE)'  ; write_msgi
 
  set_berryc: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -2075,12 +2073,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
           case('BERRYC_ERANGE')
             call strip_off (trim(inputline), PINPT_BERRY%strip_bc_range, 'BERRYC_ERANGE', ' ' , 2) ! get berrycurv_range
-            write(message,'(3A)')'   ERANGE:  ',adjustl(trim(PINPT_BERRY%strip_bc_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msg
+            write(message,'(3A)')'   ERANGE:  ',adjustl(trim(PINPT_BERRY%strip_bc_range)),' (ENERGY RANGE TO BE CALCULATED)'  ; write_msgi
 
           case('BERRYC_FNM','BERRYC_FNAME') ! BERRY CURVATURE output file name
             read(inputline,*,iostat=i_continue) desc_str,desc_str
             PINPT_BERRY%bc_filenm = trim(desc_str)
-            write(message,'(3A)')'   FONAME:  ',trim(PINPT_BERRY%bc_filenm),' (OUTPUT FILE NAME HEADER for BERRY CURVATURE)'  ; write_msg
+            write(message,'(3A)')'   FONAME:  ',trim(PINPT_BERRY%bc_filenm),' (OUTPUT FILE NAME HEADER for BERRY CURVATURE)'  ; write_msgi
             PINPT_BERRY%flag_bc_filenm_provided = .true.
 
           case('BERRYC_METHOD') ! BERRY CURVATURE evalulation method
@@ -2089,20 +2087,20 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               PINPT_BERRY%flag_bc_method_kubo  = .true.
               PINPT_BERRY%flag_bc_method_resta = .false.
               PINPT%flag_get_orbital = .true.
-              write(message,'(A)')'   METHOD:  Berry curvature (Omega) is obtained via Kubo formula, i.e., '  ; write_msg
-              write(message,'(A)')'             Omega_z(k) = -2Im*SIGMA_{m/=m} v_nm,x * v_mn,y / (e_m - e_n)^2'  ; write_msg
-              write(message,'(A)')'                 v_nm,i = <u_nk|dH(k)/dk_i|u_mk> .'  ; write_msg
-              write(message,'(A)')'             See Ref. [Wang et. al., PRB 74, 195118 (2006)]'  ; write_msg
+              write(message,'(A)')'   METHOD:  Berry curvature (Omega) is obtained via Kubo formula, i.e., '  ; write_msgi
+              write(message,'(A)')'             Omega_z(k) = -2Im*SIGMA_{m/=m} v_nm,x * v_mn,y / (e_m - e_n)^2'  ; write_msgi
+              write(message,'(A)')'                 v_nm,i = <u_nk|dH(k)/dk_i|u_mk> .'  ; write_msgi
+              write(message,'(A)')'             See Ref. [Wang et. al., PRB 74, 195118 (2006)]'  ; write_msgi
             elseif(trim(desc_str) .eq. 'RESTA' .or. trim(desc_str) .eq. 'FUKUI') then
               PINPT_BERRY%flag_bc_method_kubo = .false.
               PINPT_BERRY%flag_bc_method_resta = .true.
               PINPT%flag_get_orbital = .true.
-              write(message,'(A)')'   METHOD:  Berry curvature (Omega) is obtained via descritization method,'  ; write_msg
-              write(message,'(A)')'            where PI_i runs over closed loop of k normal to kx,ky plane, i.e.,'  ; write_msg
-              write(message,'(A)')'             Omega_z(k) = -Im ln PI_i det M(k_i, k_i+1) / ka'  ; write_msg
-              write(message,'(A)')'             Here, M is overlap matrix and the matrix element M_mn is as follow'  ; write_msg
-              write(message,'(A)')'             M_mn(k_i, k_i+1) = <u_m(k)|u_n(k+1)>, and ka is area of the closed loop'  ; write_msg
-              write(message,'(A)')'            See Ref. [Resta, J. Phys.: Condens. Matter 12, R107 (2000)]'  ; write_msg
+              write(message,'(A)')'   METHOD:  Berry curvature (Omega) is obtained via descritization method,'  ; write_msgi
+              write(message,'(A)')'            where PI_i runs over closed loop of k normal to kx,ky plane, i.e.,'  ; write_msgi
+              write(message,'(A)')'             Omega_z(k) = -Im ln PI_i det M(k_i, k_i+1) / ka'  ; write_msgi
+              write(message,'(A)')'             Here, M is overlap matrix and the matrix element M_mn is as follow'  ; write_msgi
+              write(message,'(A)')'             M_mn(k_i, k_i+1) = <u_m(k)|u_n(k+1)>, and ka is area of the closed loop'  ; write_msgi
+              write(message,'(A)')'            See Ref. [Resta, J. Phys.: Condens. Matter 12, R107 (2000)]'  ; write_msgi
             endif
 
           case('BERRYC_NKDIV')
@@ -2122,13 +2120,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             call strip_off (trim(inputline), dummy, 'BERRYC_DIMENSION', ' ' , 2)
             i_dummy=index(dummy,'D')
             if(i_dummy .eq. 0) then
-              write(message,'(A)')' !WARN!: BERRYC_DIMENSION should be start with one of following strings:'  ; write_msg
-              write(message,'(A)')'  3D  => BERRYC_DIMENSION 3D'  ; write_msg
-              write(message,'(A)')'  2D  => BERRYC_DIMENSION 2D:z # z is normal direction of surface'  ; write_msg
-              write(message,'(A)')'  1D  => BERRYC_DIMENSION 1D:x # x is parallel direction of 1D system'  ; write_msg
-              write(message,'(A)')'  For 2D and 1D, "x", "y", or "z" indicates the normal and parallel'  ; write_msg
-              write(message,'(A)')'  direction of the system'  ; write_msg
-              write(message,'(A)')'  Exit program anyway... Check your "SET BERRYCURV" in "INCAR-TB" again.'  ; write_msg
+              write(message,'(A)')' !WARN!: BERRYC_DIMENSION should be start with one of following strings:'  ; write_msgi
+              write(message,'(A)')'  3D  => BERRYC_DIMENSION 3D'  ; write_msgi
+              write(message,'(A)')'  2D  => BERRYC_DIMENSION 2D:z # z is normal direction of surface'  ; write_msgi
+              write(message,'(A)')'  1D  => BERRYC_DIMENSION 1D:x # x is parallel direction of 1D system'  ; write_msgi
+              write(message,'(A)')'  For 2D and 1D, "x", "y", or "z" indicates the normal and parallel'  ; write_msgi
+              write(message,'(A)')'  direction of the system'  ; write_msgi
+              write(message,'(A)')'  Exit program anyway... Check your "SET BERRYCURV" in "INCAR-TB" again.'  ; write_msgi
               stop
             endif
 
@@ -2138,7 +2136,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               deallocate(PINPT_BERRY%bc_axis)
               allocate(PINPT_BERRY%bc_axis(3))
               PINPT_BERRY%bc_axis(:) = (/1,2,3/)
-              write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msg
+              write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msgi
 
             elseif(PINPT_BERRY%bc_dimension .eq. 2) then
               deallocate(PINPT_BERRY%bc_axis)
@@ -2146,23 +2144,23 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               i_dummy = index(dummy,':')
               if(i_dummy .eq. 0) then
                 PINPT_BERRY%bc_axis(1) = 3 ! default : third reciprocal axis will be chosen for the WCC surface normal axis
-                write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msg
-                write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (default)'  ; write_msg
+                write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (three direction will be checked)'  ; write_msgi
+                write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (default)'  ; write_msgi
               elseif(i_dummy .ne. 0) then
                 call strip_off (trim(dummy), dummy2, ':', ' ' , 2)
                 select case (trim(dummy2))
                   case('1','x','a','b1', 'X', 'A', 'B1')
                     PINPT_BERRY%bc_axis(1) = 1
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (B2-B3 plane, yz)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (B2-B3 plane, yz)'  ; write_msgi
                   case('2','y','b','b2', 'Y', 'B', 'B2')
                     PINPT_BERRY%bc_axis(1) = 2
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B2 direction of the reciprocal lattice vector (B3-B1 plane, zx)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B2 direction of the reciprocal lattice vector (B3-B1 plane, zx)'  ; write_msgi
                   case('3','z','c','b3', 'Z', 'C', 'B3')
                     PINPT_BERRY%bc_axis(1) = 3
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (B1-B2 plane, xy)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (B1-B2 plane, xy)'  ; write_msgi
                 endselect
               endif
 
@@ -2172,23 +2170,23 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               i_dummy = index(dummy, ':')
               if(i_dummy .eq. 0) then
                 PINPT_BERRY%bc_axis(1) = 1
-                write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (default, parallel to B1)'  ; write_msg
+                write(message,'(3A)')'   BC_DIM: ', trim(dummy), ' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (default, parallel to B1)'  ; write_msgi
               elseif(i_dummy .ne. 0) then
                 call strip_off (trim(dummy), dummy2, ':', ' ' , 2)
                 select case (trim(dummy2))
                   case('1','x','a','kx', 'b1', 'X', 'A', 'B1', 'KX')
                     PINPT_BERRY%bc_axis(1) = 1
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (parallel to B1)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B1 direction of the reciprocal lattice vector (parallel to B1)'  ; write_msgi
                   case('2','y','b','ky', 'b2', 'Y', 'B', 'B2', 'KY')
                     PINPT_BERRY%bc_axis(1) = 2
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B2 direction of the reciprocal lattice vector (parallel to B2)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B2 direction of the reciprocal lattice vector (parallel to B2)'  ; write_msgi
                   case('3','z','c','kz', 'b3', 'Z', 'C', 'B3', 'KZ')
                     PINPT_BERRY%bc_axis(1) = 3
-                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msg
-                    write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (parallel to B3)'  ; write_msg
+                    write(message,'(3A)')'   BC_DIM: ', trim(dummy(1:i_dummy-1)),' mode (Only Berry (Zak) phase will be calculated)'  ; write_msgi
+                    write(message,'( A)')'  BC_AXIS: B3 direction of the reciprocal lattice vector (parallel to B3)'  ; write_msgi
                 endselect
 
               endif
@@ -2241,20 +2239,20 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             if(i_dummy .eq. 4) then
               read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp)
               write(kp_name(nkp),'(A,I0)')'KP',nkp
-              write(message,'(A,3F10.5)')'  SYMM_KP: ', kp(:,nkp), kp_name(nkp)  ; write_msg
+              write(message,'(A,3F10.5)')'  SYMM_KP: ', kp(:,nkp), kp_name(nkp)  ; write_msgi
             elseif(i_dummy .gt. 4) then
               read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp), kp_name(nkp)
               if(.not. flag_number(kp_name(nkp))) then
-                write(message,'(A,3F10.5,2x,A)')'  SYMM_KP: ', kp(:,nkp), trim(kp_name(nkp))  ; write_msg
+                write(message,'(A,3F10.5,2x,A)')'  SYMM_KP: ', kp(:,nkp), trim(kp_name(nkp))  ; write_msgi
               else
-                write(message,'(4A)')'    !WANR! Check SYMMETRY_EIG   SETTING tags ->',trim(desc_str), ' ', trim(func)  ; write_msg
+                write(message,'(4A)')'    !WANR! Check SYMMETRY_EIG   SETTING tags ->',trim(desc_str), ' ', trim(func)  ; write_msgi
                 stop
               endif
             endif
           
           case('SYMMETRY_ORIGIN', 'ORIGIN', 'ORIGIN_SHIFT')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_origin(1:3)
-            write(message,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%symmetry_origin(1:3), ' (used in SYMMETRY_EIG)'  ; write_msg
+            write(message,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%symmetry_origin(1:3), ' (used in SYMMETRY_EIG)'  ; write_msgi
 
           case('SYMM_OP1','SYMMETRY_OP1','ROTATION_MAT1','ROTATION1')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%symmetry_operator(1:3,1)
@@ -2281,7 +2279,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         allocate(PINPT_BERRY%symmetry_kpoint(3,1))
         allocate(PINPT_BERRY%symmetry_kpoint_reci(3,1))
         allocate(PINPT_BERRY%symmetry_kpoint_name(1))
-        write(message,'(A,3F10.5,2x,A)')'SYMMETRY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'  ; write_msg
+        write(message,'(A,3F10.5,2x,A)')'SYMMETRY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'  ; write_msgi
         PINPT_BERRY%symmetry_kpoint_reci(:,1) = (/0d0, 0d0, 0d0/) ! set default
         PINPT_BERRY%symmetry_kpoint_name(1) = 'Gamma'
 
@@ -2296,9 +2294,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         enddo
       endif   
    
-      write(message,'(A,3(F8.5,2x),A)')'[SYMMETRY] [  ', PINPT_BERRY%symmetry_operator(:,1),']                          '  ; write_msg
-      write(message,'(A,3(F8.5,2x),A)')'[OPERATOR]=[  ', PINPT_BERRY%symmetry_operator(:,2),'] => R(inv) = S * ( R - ORIGIN )'  ; write_msg
-      write(message,'(A,3(F8.5,2x),A)')'[    S   ] [  ', PINPT_BERRY%symmetry_operator(:,3),']                          '  ; write_msg
+      write(message,'(A,3(F8.5,2x),A)')'[SYMMETRY] [  ', PINPT_BERRY%symmetry_operator(:,1),']                          '  ; write_msgi
+      write(message,'(A,3(F8.5,2x),A)')'[OPERATOR]=[  ', PINPT_BERRY%symmetry_operator(:,2),'] => R(inv) = S * ( R - ORIGIN )'  ; write_msgi
+      write(message,'(A,3(F8.5,2x),A)')'[    S   ] [  ', PINPT_BERRY%symmetry_operator(:,3),']                          '  ; write_msgi
 
       return
    endsubroutine
@@ -2341,20 +2339,20 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             if(i_dummy .eq. 4) then
               read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp)
               write(kp_name(nkp),'(A,I0)')'KP',nkp
-              write(message,'(A,3F10.5)')'PARITY_KP: ', kp(:,nkp), kp_name(nkp)  ; write_msg
+              write(message,'(A,3F10.5)')'PARITY_KP: ', kp(:,nkp), kp_name(nkp)  ; write_msgi
             elseif(i_dummy .gt. 4) then
               read(inputline,*,iostat=i_continue) desc_str, kp(1:3, nkp), kp_name(nkp)
               if(.not. flag_number(kp_name(nkp))) then
-                write(message,'(A,3F10.5,2x,A)')'PARITY_KP: ', kp(:,nkp), trim(kp_name(nkp))  ; write_msg
+                write(message,'(A,3F10.5,2x,A)')'PARITY_KP: ', kp(:,nkp), trim(kp_name(nkp))  ; write_msgi
               else
-                write(message,'(4A)')'    !WANR! Check PARITY_CHECK SETTING tags ->',trim(desc_str), ' ', trim(func)  ; write_msg
+                write(message,'(4A)')'    !WANR! Check PARITY_CHECK SETTING tags ->',trim(desc_str), ' ', trim(func)  ; write_msgi
                 stop
               endif
             endif
           
           case('PARITY_ORIGIN', 'ORIGIN', 'ORIGIN_SHIFT')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_origin(1:3)
-            write(message,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%parity_origin(1:3), ' (used in PARITY_CHECK)'  ; write_msg
+            write(message,'(A,3F10.5,A)')'   ORIGIN: ', PINPT_BERRY%parity_origin(1:3), ' (used in PARITY_CHECK)'  ; write_msgi
 
           case('PARITY_OP1','SYMMETRY_OP1','ROTATION_MAT1','ROTATION1')
             read(inputline,*,iostat=i_continue) desc_str, PINPT_BERRY%parity_operator(1:3,1)
@@ -2379,7 +2377,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         allocate(PINPT_BERRY%parity_kpoint(3,1))
         allocate(PINPT_BERRY%parity_kpoint_reci(3,1))
         allocate(PINPT_BERRY%parity_kpoint_name(1))
-        write(message,'(A,3F10.5,2x,A)')'PARITY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'  ; write_msg
+        write(message,'(A,3F10.5,2x,A)')'PARITY_KP: ', (/0d0, 0d0, 0d0/),'Gamma'  ; write_msgi
         PINPT_BERRY%parity_kpoint_reci(:,1) = (/0d0, 0d0, 0d0/) ! set default
         PINPT_BERRY%parity_kpoint_name(1) = 'Gamma'
 
@@ -2394,9 +2392,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         enddo
       endif   
    
-      write(message,'(A,3(F8.5,2x),A)')'  PARITY  [  ', PINPT_BERRY%parity_operator(:,1),']                          '  ; write_msg
-      write(message,'(A,3(F8.5,2x),A)')' OPERATOR=[  ', PINPT_BERRY%parity_operator(:,2),'] => R(inv) = P * ( R - ORIGIN )'  ; write_msg
-      write(message,'(A,3(F8.5,2x),A)')'     P    [  ', PINPT_BERRY%parity_operator(:,3),']                          '  ; write_msg
+      write(message,'(A,3(F8.5,2x),A)')'  PARITY  [  ', PINPT_BERRY%parity_operator(:,1),']                          '  ; write_msgi
+      write(message,'(A,3(F8.5,2x),A)')' OPERATOR=[  ', PINPT_BERRY%parity_operator(:,2),'] => R(inv) = P * ( R - ORIGIN )'  ; write_msgi
+      write(message,'(A,3(F8.5,2x),A)')'     P    [  ', PINPT_BERRY%parity_operator(:,3),']                          '  ; write_msgi
 
       return
    endsubroutine
@@ -2415,34 +2413,34 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       if(desc_str(1:6) .eq. 'noncol' .or. desc_str(1:7) .eq. 'non-col' .or. desc_str(1:2) .eq. 'nc') then
         PINPT%flag_noncollinear = .true.
         PINPT%flag_collinear    = .false.
-        write(message,'(A)')'  LNONCOL: .TRUE. (non-collinear = .TRUE.)'  ; write_msg
-        write(message,'(A)')'    ISPIN: 2 (noncollinear = .TRUE.)'  ; write_msg
-        write(message,'(A)')'  ISPINOR: 2 (noncollinear = .TRUE.)'  ; write_msg
+        write(message,'(A)')'  LNONCOL: .TRUE. (non-collinear = .TRUE.)'  ; write_msgi
+        write(message,'(A)')'    ISPIN: 2 (noncollinear = .TRUE.)'  ; write_msgi
+        write(message,'(A)')'  ISPINOR: 2 (noncollinear = .TRUE.)'  ; write_msgi
         PINPT%ispin = 2
         PINPT%ispinor = 2
         PINPT%nspin = 1
       elseif(desc_str(1:6) .eq. 'collin' .or. desc_str(1:3) .eq. 'col' .or. desc_str(1:2) .eq. 'cl') then
         PINPT%flag_collinear    = .true.
         PINPT%flag_noncollinear = .false.
-        write(message,'(A)')'    ISPIN: 2 (collinear = .TRUE.)'  ; write_msg
-        write(message,'(A)')'  ISPINOR: 1 (collinear = .TRUE.)'  ; write_msg
+        write(message,'(A)')'    ISPIN: 2 (collinear = .TRUE.)'  ; write_msgi
+        write(message,'(A)')'  ISPINOR: 1 (collinear = .TRUE.)'  ; write_msgi
         PINPT%ispin = 2
         PINPT%ispinor = 1
         PINPT%nspin =2
       elseif(desc_str(1:6) .eq. 'nonmag' .or. desc_str(1:2) .eq. 'nm' .or. desc_str(1:7) .eq. 'non-mag') then
         PINPT%flag_collinear    = .false.
         PINPT%flag_noncollinear = .false.
-        write(message,'(A)')'    ISPIN: 1 (non-magnetic = .true.)'  ; write_msg
-        write(message,'(A)')'  ISPINOR: 1 (non-magnetic = .true.)'  ; write_msg
+        write(message,'(A)')'    ISPIN: 1 (non-magnetic = .true.)'  ; write_msgi
+        write(message,'(A)')'  ISPINOR: 1 (non-magnetic = .true.)'  ; write_msgi
         PINPT%ispin = 1
         PINPT%ispinor = 1
         PINPT%nspin =1
       else
-        write(message,'(A)')'  !WARNING! TYPMAG is not properly set. '  ; write_msg
-        write(message,'(A)')'  !WARNING! usage: for non-magnetic run : "NM", "NONMAGNETIC", "NON-MAGNETIC" '  ; write_msg
-        write(message,'(A)')'  !WARNING!        for collinear    run : "COLLINEAR", "COL", "CL" '  ; write_msg
-        write(message,'(A)')'  !WARNING!        for noncollinear run : "NONCOLLINEAR", "NON-COLLINEAR", "NC"'  ; write_msg
-        write(message,'(A)')'  !WARNING!        are acceptable (case insensitive). Other option is not allowed. Exit program.'  ; write_msg
+        write(message,'(A)')'  !WARNING! TYPMAG is not properly set. '  ; write_msgi
+        write(message,'(A)')'  !WARNING! usage: for non-magnetic run : "NM", "NONMAGNETIC", "NON-MAGNETIC" '  ; write_msgi
+        write(message,'(A)')'  !WARNING!        for collinear    run : "COLLINEAR", "COL", "CL" '  ; write_msgi
+        write(message,'(A)')'  !WARNING!        for noncollinear run : "NONCOLLINEAR", "NON-COLLINEAR", "NC"'  ; write_msgi
+        write(message,'(A)')'  !WARNING!        are acceptable (case insensitive). Other option is not allowed. Exit program.'  ; write_msgi
         stop
       endif
 
@@ -2460,16 +2458,16 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_soc
       if(PINPT%flag_soc .and. .not. PINPT%flag_collinear) then
-        write(message,'(A)')'    LSORB: .TRUE. (non-collinear = .TRUE. .AND. spin-orbit = .TRUE.)'  ; write_msg
+        write(message,'(A)')'    LSORB: .TRUE. (non-collinear = .TRUE. .AND. spin-orbit = .TRUE.)'  ; write_msgi
         PINPT%ispin = 2
         PINPT%ispinor = 2
         PINPT%flag_noncollinear = .true.
       elseif(.not.PINPT%flag_soc)then
-        write(message,'(A)')'    LSORB: .FALSE. ( spin-orbit = .FALSE.)'  ; write_msg
+        write(message,'(A)')'    LSORB: .FALSE. ( spin-orbit = .FALSE.)'  ; write_msgi
       elseif(PINPT%flag_soc .and. PINPT%flag_collinear) then
-        write(message,'(A)')'  !WARNING! LSORB and TYPMAG is not properly set. '  ; write_msg
-        write(message,'(A)')'  !WARNING! COLLINEAR = .true. and LSORB = .true. which is not proper.'  ; write_msg
-        write(message,'(A)')'  !WARNING! Both option are not available simultaneously. Exit program.'  ; write_msg
+        write(message,'(A)')'  !WARNING! LSORB and TYPMAG is not properly set. '  ; write_msgi
+        write(message,'(A)')'  !WARNING! COLLINEAR = .true. and LSORB = .true. which is not proper.'  ; write_msgi
+        write(message,'(A)')'  !WARNING! Both option are not available simultaneously. Exit program.'  ; write_msgi
         stop
       endif
 
@@ -2505,7 +2503,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         endif
       endif
 
-      write(message,'(A,A)')' PARA_FNM:  ',trim(PPRAM%pfilenm)  ; write_msg
+      write(message,'(A,A)')' PARA_FNM:  ',trim(PPRAM%pfilenm)  ; write_msgi
       
       return
    endsubroutine
@@ -2527,19 +2525,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
         if(flag_kfile_ribbon) then
           PKPTS%kfilenm = PKPTS%ribbon_kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
+          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msgi
         else
           read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msg
+          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msgi
         endif
       elseif(i_dummy .eq. 2) then
         read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm, PKPTS%kline_type  
         if(flag_kfile_ribbon) then
           PKPTS%kfilenm = PKPTS%ribbon_kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msg
+          write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msgi
         else
           read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm
-          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msg
+          write(message,'(A,A)')' KPTS_FNM:  ',trim(PKPTS%kfilenm)  ; write_msgi
         endif
       endif
 
@@ -2563,15 +2561,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         i_dummy = nitems(inputline) -1
         if(i_dummy .eq. 1) then
           read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm
-          write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
+          write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msgi
 
         elseif(i_dummy .ge. 2) then
           read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, desc_str
           call str2logical(trim(desc_str),flag_logical,flag)
           if(flag_logical) then
             read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, PINPT%flag_report_geom
-            write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
-            write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msg
+            write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msgi
+            write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msgi
 
           elseif(.not. flag_logical) then
             if(trim(desc_str) .eq. 'PRINT_GEOM') then
@@ -2579,8 +2577,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               call str2logical(trim(desc_str),flag_logical,flag)
               if(flag_logical) then 
                 read(inputline,*,iostat=i_continue) desc_str, PGEOM%gfilenm, desc_str, PINPT%flag_report_geom
-                write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msg
-                write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msg
+                write(message,'(A,A)')' GEOM_FNM:  ',trim(PGEOM%gfilenm)  ; write_msgi
+                write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msgi
               endif
             endif
           endif
@@ -2592,9 +2590,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         if(flag_logical) then
           read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_report_geom
           if(PINPT%flag_report_geom) then
-            write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msg
+            write(message,'(A  )')'         :  PRINT_GEOM = .TRUE.'  ; write_msgi
           elseif(.not.PINPT%flag_report_geom) then
-            write(message,'(A  )')'         :  PRINT_GEOM = .FALSE.'  ; write_msg
+            write(message,'(A  )')'         :  PRINT_GEOM = .FALSE.'  ; write_msgi
           endif
         endif
       endif
@@ -2610,7 +2608,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_tbparam_out_file'
 
       read(inputline,*,iostat=i_continue) desc_str, PPRAM%pfileoutnm
-      write(message,'(A,A40)')' POUT_FNM:  ',PPRAM%pfileoutnm  ; write_msg
+      write(message,'(A,A40)')' POUT_FNM:  ',PPRAM%pfileoutnm  ; write_msgi
 
       return
    endsubroutine
@@ -2624,9 +2622,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_local_charge
       if(PINPT%flag_local_charge) then
-        write(message,'(A)')'   LOCCHG: .TRUE. (read local charge density from GFILE)'  ; write_msg
+        write(message,'(A)')'   LOCCHG: .TRUE. (read local charge density from GFILE)'  ; write_msgi
       elseif(.not. PINPT%flag_local_charge) then
-        write(message,'(A)')'   LOCCHG: .FALSE.'  ; write_msg
+        write(message,'(A)')'   LOCCHG: .FALSE.'  ; write_msgi
       endif
 
       return
@@ -2641,9 +2639,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str,PINPT%flag_plus_U
       if(PINPT%flag_plus_U) then
-        write(message,'(A)')'   PLUS+U: .TRUE. '  ; write_msg
+        write(message,'(A)')'   PLUS+U: .TRUE. '  ; write_msgi
       elseif(.not. PINPT%flag_plus_U) then
-        write(message,'(A)')'   LOCCHG: .FALSE.'  ; write_msg
+        write(message,'(A)')'   LOCCHG: .FALSE.'  ; write_msgi
       endif
 
       return
@@ -2669,12 +2667,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_load_nntable, NN_TABLE%nnfilenm
           inquire(file=NN_TABLE%nnfilenmo,exist=flag_exist)
           if(.not.flag_exist) then
-            write(message,'(5A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name),'" tag, but the file "', trim(NN_TABLE%nnfilenmo),'" does not exist! Exit...'  ; write_msg
+            write(message,'(5A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name),'" tag, but the file "', trim(NN_TABLE%nnfilenmo),'" does not exist! Exit...'  ; write_msgi
             stop
           endif
 
         elseif(i_dummy .eq. 1) then
-          write(message,'(4A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name), '" tag, but the file name has not been defined. Exit...'  ; write_msg
+          write(message,'(4A)')'  !WARN! You requested a HOPPING file via "', trim(tag_name), '" tag, but the file name has not been defined. Exit...'  ; write_msgi
           stop
         endif
       endif
@@ -2707,12 +2705,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           desc_str = str2lowcase(desc_str_)
           if(trim(desc_str) .eq. 'cutoff'  .or. trim(desc_str) .eq. 'ov_cut') then
             PINPT%band_order_overlap_cutoff = dummy
-            write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',PINPT%band_order_overlap_cutoff  ; write_msg
+            write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',PINPT%band_order_overlap_cutoff  ; write_msgi
           else
-            write(message,'( A)')' '  ; write_msg
-            write(message,'(3A)')'   !!WARN!!  You specified ',trim(desc_str), ' which is not recognized tag.'  ; write_msg
-            write(message,'( A)')'             TBFIT will set OV_CUT to default value: sqrt(2)/2. check: LORDER tag'  ; write_msg
-            write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, ' OV_CUT: ',sqrt(2d0)/2d0  ; write_msg
+            write(message,'( A)')' '  ; write_msgi
+            write(message,'(3A)')'   !!WARN!!  You specified ',trim(desc_str), ' which is not recognized tag.'  ; write_msgi
+            write(message,'( A)')'             TBFIT will set OV_CUT to default value: sqrt(2)/2. check: LORDER tag'  ; write_msgi
+            write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, ' OV_CUT: ',sqrt(2d0)/2d0  ; write_msgi
             PINPT%band_order_overlap_cutoff = sqrt(2d0)/2d0
           endif
         elseif( (i_dummy .eq. 4 .or. i_dummy .eq. 2) .and. index(inputline,'PRINT_ONLY') .ne. 0 ) then
@@ -2727,31 +2725,31 @@ set_rib: do while(trim(desc_str) .ne. 'END')
               desc_str = str2lowcase(desc_str_)
               if(trim(desc_str) .eq. 'cutoff'  .or. trim(desc_str) .eq. 'ov_cut') then
                 PINPT%band_order_overlap_cutoff = dummy
-                write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',PINPT%band_order_overlap_cutoff  ; write_msg
-                write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msg
-                write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msg
+                write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',PINPT%band_order_overlap_cutoff  ; write_msgi
+                write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msgi
+                write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msgi
               else
-                write(message,'( A)')' '  ; write_msg
-                write(message,'(3A)')'   !!WARN!!  You specified ',trim(desc_str_), ' which is not recognized tag.'  ; write_msg
-                write(message,'( A)')'             TBFIT will set OV_CUT to default value: sqrt(2)/2. check: LORDER tag'  ; write_msg
-                write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, ' OV_CUT: ',sqrt(2d0)/2d0  ; write_msg
+                write(message,'( A)')' '  ; write_msgi
+                write(message,'(3A)')'   !!WARN!!  You specified ',trim(desc_str_), ' which is not recognized tag.'  ; write_msgi
+                write(message,'( A)')'             TBFIT will set OV_CUT to default value: sqrt(2)/2. check: LORDER tag'  ; write_msgi
+                write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, ' OV_CUT: ',sqrt(2d0)/2d0  ; write_msgi
                 PINPT%band_order_overlap_cutoff = sqrt(2d0)/2d0
-                write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msg
-                write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msg
+                write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msgi
+                write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msgi
               endif
             case(2)
               read(inputline, *,iostat=i_continue) desc_str, PINPT%flag_get_band_order
-              write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',sqrt(2d0)/2d0  ; write_msg
+              write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',sqrt(2d0)/2d0  ; write_msgi
               PINPT%band_order_overlap_cutoff = sqrt(2d0)/2d0
-              write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msg
-              write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msg
+              write(message,'(A)'         )'   LORDER + PRINT_ONLY requested -> re-order will not work in fitting routines (if TBFIT = .TRUE.)'  ; write_msgi
+              write(message,'(A)'         )'                       but thre re-ordered band will be written at the end of band calculations.'  ; write_msgi
           end select
         elseif(i_dummy .eq. 1) then
-          write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',sqrt(2d0)/2d0  ; write_msg
+          write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order, '    OV_CUT: ',sqrt(2d0)/2d0  ; write_msgi
           PINPT%band_order_overlap_cutoff = sqrt(2d0)/2d0
         endif
       else
-        write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order  ; write_msg
+        write(message,'(A,L,A,F9.4)')'   LORDER: ',PINPT%flag_get_band_order  ; write_msgi
       endif
 
       return
@@ -2794,7 +2792,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             endif
 
           endif
-          write(message,'(A,A)')' EDFT_FNM: ',trim(PWGHT%efilenmu)  ; write_msg
+          write(message,'(A,A)')' EDFT_FNM: ',trim(PWGHT%efilenmu)  ; write_msgi
 
         case('EFILEU')
           i_dummy = nitems(inputline) -1
@@ -2803,7 +2801,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           elseif(i_dummy .eq. 2) then
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmu, PWGHT%read_energy_column_index
           endif
-          write(message,'(A,A)')' EDFT_FNM: spin-up= ',trim(PWGHT%efilenmu)  ; write_msg
+          write(message,'(A,A)')' EDFT_FNM: spin-up= ',trim(PWGHT%efilenmu)  ; write_msgi
 
         case('EFILED')
           i_dummy = nitems(inputline) -1
@@ -2812,7 +2810,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           elseif(i_dummy .eq. 2) then
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%efilenmd, PWGHT%read_energy_column_index_dn
           endif
-          write(message,'(A,A)')' EDFT_FNM: spin-dn= ',trim(PWGHT%efilenmd)  ; write_msg
+          write(message,'(A,A)')' EDFT_FNM: spin-dn= ',trim(PWGHT%efilenmd)  ; write_msgi
 
       end select
 
@@ -2837,7 +2835,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str,        PWGHT%iband
           endif
-          write(message,'(A,I8)')'    IBAND:',PWGHT%iband  ; write_msg
+          write(message,'(A,I8)')'    IBAND:',PWGHT%iband  ; write_msgi
 
         case('FBAND') ! final band of DFT target
           if(index(inputline,'=') .ge. 1) then
@@ -2845,7 +2843,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%fband
           endif
-          write(message,'(A,I8)')'    FBAND:',PWGHT%fband  ; write_msg
+          write(message,'(A,I8)')'    FBAND:',PWGHT%fband  ; write_msgi
 
         case('VBMD') ! valence band of DFT target
           if(index(inputline,'=') .ge. 1) then
@@ -2853,7 +2851,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%vbmd
           endif
-          write(message,'(A,I8)')'     VBMD:',PWGHT%vbmd  ; write_msg
+          write(message,'(A,I8)')'     VBMD:',PWGHT%vbmd  ; write_msgi
 
         case('CBMD') ! conduction band of DFT target
           if(index(inputline,'=') .ge. 1) then
@@ -2861,7 +2859,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmd
           endif
-          write(message,'(A,I8)')'     CBMD:',PWGHT%cbmd  ; write_msg
+          write(message,'(A,I8)')'     CBMD:',PWGHT%cbmd  ; write_msgi
 
         case('VBMT') ! valence band of TBA target
           if(index(inputline,'=') .ge. 1) then
@@ -2869,7 +2867,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%vbmt
           endif
-          write(message,'(A,I8)')'     VBMT:',PWGHT%vbmt  ; write_msg
+          write(message,'(A,I8)')'     VBMT:',PWGHT%vbmt  ; write_msgi
 
         case('CBMT') ! conduction band of TBA target
           if(index(inputline,'=') .ge. 1) then
@@ -2877,14 +2875,23 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           else
             read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmt
           endif
-          write(message,'(A,I8)')'     CBMT:',PWGHT%cbmt  ; write_msg
+          write(message,'(A,I8)')'     CBMT:',PWGHT%cbmt  ; write_msgi
+
+        case('IE_CUTOFF', 'IECUT') ! target band max (experimental, and only used in RL-TBFIT version)
+          if(index(inputline,'=') .ge. 1) then
+            read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%ie_cutoff
+          else
+            read(inputline,*,iostat=i_continue) desc_str,        PWGHT%ie_cutoff
+          endif
+          write(message,'(A,I8)')'IE_CUTOFF:',PWGHT%ie_cutoff  ; write_msgi
+
 !       case('NN') ! arbitral number  
 !         if(index(inputline,'=') .ge. 1) then
 !           read(inputline,*,iostat=i_continue) desc_str, dummy, PWGHT%cbmt
 !         else
 !           read(inputline,*,iostat=i_continue) desc_str, PWGHT%cbmt
 !         endif
-!         write(message,'(A,I8)')'       NN:',PWGHT%cbmt  ; write_msg
+!         write(message,'(A,I8)')'       NN:',PWGHT%cbmt  ; write_msgi
 
       end select
 
@@ -2900,7 +2907,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str, PINPT%i_scissor, PINPT%r_scissor
       PINPT%flag_scissor = .true.
-      write(message,'(A,F8.2,A,I5,A)')'  SCISSOR: .TRUE. => EDFT(n,k) + ',PINPT%r_scissor,' (if n >=',PINPT%i_scissor,')'  ; write_msg
+      write(message,'(A,F8.2,A,I5,A)')'  SCISSOR: .TRUE. => EDFT(n,k) + ',PINPT%r_scissor,' (if n >=',PINPT%i_scissor,')'  ; write_msgi
 
       return
    endsubroutine
@@ -2930,20 +2937,20 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         if(PINPT%flag_print_proj_sum) then
-          write(message,'(A)')'  !!!!WARN: PROJ_SUM tag is activated but atom indext to be summed up '  ; write_msg
-          write(message,'(A)')'            did not specified.'  ; write_msg
-          write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msg
-          write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msg
-          write(message,'(A)')'            PROJ_SUM .TRUE.  1:10 15'  ; write_msg
-          write(message,'(A)')'  Stop program...'  ; write_msg
+          write(message,'(A)')'  !!!!WARN: PROJ_SUM tag is activated but atom indext to be summed up '  ; write_msgi
+          write(message,'(A)')'            did not specified.'  ; write_msgi
+          write(message,'(A)')'            Correct usage is, for example, if you want to resolve'  ; write_msgi
+          write(message,'(A)')'            contribution of atom 1 to 10 and 15, then you can specify as follows'  ; write_msgi
+          write(message,'(A)')'            PROJ_SUM .TRUE.  1:10 15'  ; write_msgi
+          write(message,'(A)')'  Stop program...'  ; write_msgi
           kill_job
         endif
         read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_proj
         if(PINPT%flag_print_proj) then
-          write(message,'(A)')'   L_LDOS: .TRUE. | print out projected orbital weight for each atom'  ; write_msg
+          write(message,'(A)')'   L_LDOS: .TRUE. | print out projected orbital weight for each atom'  ; write_msgi
           PINPT%flag_get_orbital = .true.
         elseif( .not. PINPT%flag_print_proj) then
-          write(message,'(A)')'   L_LDOS: .FALSE.'  ; write_msg
+          write(message,'(A)')'   L_LDOS: .FALSE.'  ; write_msgi
           PINPT%flag_get_orbital = .false.
         endif
 
@@ -2959,7 +2966,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             if(PINPT%nproj_sum .eq. 1) allocate( PINPT%proj_atom(max_dummy2*10,max_dummy2) )
             PINPT%proj_natom(PINPT%nproj_sum) = nitems(dummy1)
             read(dummy1,*,iostat=i_continue) PINPT%proj_atom(1:PINPT%proj_natom(PINPT%nproj_sum), PINPT%nproj_sum)
-            write(message,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)  ; write_msg
+            write(message,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)  ; write_msgi
           elseif(i_dummy1 .ge. 1)then
             i_dummy2 = nitems(dummy1)
             allocate( strip_dummy(i_dummy2) )
@@ -2986,7 +2993,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             PINPT%proj_natom(PINPT%nproj_sum) = ii
             deallocate( strip_dummy )
             PINPT%proj_atom(1:ii,PINPT%nproj_sum) = i_dummyr(1:ii)
-            write(message,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)  ; write_msg
+            write(message,'(A,I0,2A)')' LDOS_SUM: .TRUE. , Atom_index SET ',PINPT%nproj_sum,' = ',trim(dummy1)  ; write_msgi
           endif    
         endif
 
@@ -3009,10 +3016,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       i_dummy = nitems(inputline) - 1
       if(i_dummy .ne. 3) then
         if(PINPT%flag_print_proj_sum) then
-          write(message,'(A)')'  !!!!WARN: CIRC_DICHROISM tag is activated but eigenstate index is not specified correctly '  ; write_msg
-          write(message,'(A)')'            Correct usage is, for example, '; write_msg
-          write(message,'(A)')'            CIRC_DICHROISM .TRUE.  10 11 '  ; write_msg
-          write(message,'(A)')'  Stop program...'  ; write_msg
+          write(message,'(A)')'  !!!!WARN: CIRC_DICHROISM tag is activated but eigenstate index is not specified correctly '  ; write_msgi
+          write(message,'(A)')'            Correct usage is, for example, '; write_msgi
+          write(message,'(A)')'            CIRC_DICHROISM .TRUE.  10 11 '  ; write_msgi
+          write(message,'(A)')'  Stop program...'  ; write_msgi
           kill_job
         endif
 
@@ -3027,7 +3034,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           read(inputline,*,iostat=i_continue) desc_str,dummy, PINPT%circ_dichroism_pair(1:2,PINPT%ncirc_dichroism)
           write(message,'(A,I0,A,I0)')'CIRC_DICH: .TRUE. Circularly polarized light induced interband transition from ', &
                                        PINPT%circ_dichroism_pair(1,PINPT%ncirc_dichroism), ' to ', &
-                                       PINPT%circ_dichroism_pair(2,PINPT%ncirc_dichroism); write_msg
+                                       PINPT%circ_dichroism_pair(2,PINPT%ncirc_dichroism); write_msgi
         endif
 
       endif
@@ -3057,9 +3064,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         if(PINPT%flag_print_orbital) then
           PINPT%flag_get_orbital = .true.
           PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
-          write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msg
+          write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msgi
         elseif( .not. PINPT%flag_print_orbital) then
-          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msg
+          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msgi
           PINPT%flag_get_orbital = .false.
           PINPT%axis_print_mag = 'no' 
         endif
@@ -3078,28 +3085,28 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
         if(PINPT%flag_print_orbital) then
           if(PINPT%axis_print_mag .eq. 're') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'im') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'wf') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
             PINPT%flag_get_orbital = .true.
             PINPT%flag_write_unformatted = .true.
             PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ', PINPT%axis_print_mag  ; write_msgi
           elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'rh') then 
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           endif
         elseif( .not. PINPT%flag_print_orbital) then
-          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msg
+          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msgi
           PINPT%flag_get_orbital = .false.
           PINPT%axis_print_mag = 'no'
         endif
@@ -3120,39 +3127,39 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
         if(PINPT%flag_print_orbital) then
           if(PINPT%axis_print_mag .eq. 're') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out real part of wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'im') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out imag part of wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'wf') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out total wavefnc.: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'bi') then ! write binary format
             PINPT%flag_get_orbital = .true.
             PINPT%flag_write_unformatted = .true.
             PINPT%axis_print_mag = 'rh' ! <phi_ij|psi_nk>, phi_ij : atomic orbital of atom i orbital j
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ',PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight with binary format (unformatted): ',PINPT%axis_print_mag  ; write_msgi
             if(PINPT%flag_print_single) then
-              write(message,'( A)')'                  | with "single" precision as requiested by "bin4" tag'  ; write_msg
+              write(message,'( A)')'                  | with "single" precision as requiested by "bin4" tag'  ; write_msgi
             endif
           elseif(PINPT%axis_print_mag(1:1) .eq. 'm') then
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out magnetization <sigma>: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           elseif(PINPT%axis_print_mag .eq. 'rh') then 
-            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msg
+            write(message,'(2A)')'  L_ORBIT: .TRUE. | print out projected orbital weight: ', PINPT%axis_print_mag  ; write_msgi
             PINPT%flag_get_orbital = .true.
           endif
 
           if(c_dummy(1:2) .eq. 'bi') then
             PINPT%flag_get_orbital = .true.
             PINPT%flag_write_unformatted = .true.
-            write(message,'(1A)')'                  | with binary format (unformatted)'  ; write_msg
-!           write(message,'( A)')'                    with "single" precision as requiested by "bin4" tag'  ; write_msg
+            write(message,'(1A)')'                  | with binary format (unformatted)'  ; write_msgi
+!           write(message,'( A)')'                    with "single" precision as requiested by "bin4" tag'  ; write_msgi
           endif
 
         elseif( .not. PINPT%flag_print_orbital) then
-          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msg
+          write(message,'(A)')'  L_ORBIT: .FALSE.'  ; write_msgi
           PINPT%flag_get_orbital = .false.
           PINPT%axis_print_mag = 'no'
         endif
@@ -3175,10 +3182,10 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PKPTS%kunit=dummy(1:1)
       if(PKPTS%kunit .eq. 'r' .or. PKPTS%kunit .eq. 'R') then
         PKPTS%kunit = 'R'
-        write(message,'(A)')' KPT_UNIT: KPOINT UNIT = Reciprocal'  ; write_msg
+        write(message,'(A)')' KPT_UNIT: KPOINT UNIT = Reciprocal'  ; write_msgi
       elseif(PKPTS%kunit .eq. 'a' .or. PKPTS%kunit .eq. 'A') then
         PKPTS%kunit = 'A'
-        write(message,'(A)')' KPT_UNIT: KPOINT UNIT = Angstrom unit (1/A)'  ; write_msg
+        write(message,'(A)')' KPT_UNIT: KPOINT UNIT = Angstrom unit (1/A)'  ; write_msgi
       endif
 
       return
@@ -3200,11 +3207,11 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_tbfit
           endif
           if(PINPT%flag_tbfit) then
-             write(message,'(A)')'  L_TBFIT: .TRUE.'  ; write_msg
+             write(message,'(A)')'  L_TBFIT: .TRUE.'  ; write_msgi
           elseif(.not. PINPT%flag_tbfit) then
-             write(message,'(A)')'  L_TBFIT: .FALSE.'  ; write_msg
+             write(message,'(A)')'  L_TBFIT: .FALSE.'  ; write_msgi
           else
-             write(message,'(A)')'  L_TBFIT:  unknown input variable.. exit program'  ; write_msg
+             write(message,'(A)')'  L_TBFIT:  unknown input variable.. exit program'  ; write_msgi
              stop
           endif
           
@@ -3212,54 +3219,54 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
           if(PINPT%ls_type .eq. 'LMDIF' .or. PINPT%ls_type .eq. 'lmdif' ) then
             PINPT%ls_type = 'LMDIF'
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'  ; write_msg
+            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'  ; write_msgi
           elseif(PINPT%ls_type .eq. 'PIKAIA' .or. PINPT%ls_type .eq. 'GA' .or. &
                  PINPT%ls_type .eq. 'pikaia' .or. PINPT%ls_type .eq. 'ga' ) then
             PINPT%ls_type = 'GA'
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'  ; write_msg
+            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'  ; write_msgi
           elseif(PINPT%ls_type .eq. 'ga+lmdif' .or. PINPT%ls_type .eq. 'GA+LMDIF' .or. &
                  PINPT%ls_type .eq. 'lmdif+ga' .or. PINPT%ls_type .eq. 'LMDIF+GA') then
             PINPT%flag_ga_with_lmdif=.true.
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based + Levenberg-Marquardt non-linear regression'  ; write_msg
+            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based + Levenberg-Marquardt non-linear regression'  ; write_msgi
             PINPT%ls_type = 'GA'
           else
-            write(message,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,' is not defined or not available in the current version. Exit..'  ; write_msg
+            write(message,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,' is not defined or not available in the current version. Exit..'  ; write_msgi
             stop
           endif
 
         case('PTOL') !set parameter tolerance for iteration step
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ptol
-          write(message,'(A,F15.8)')'    P_TOL:  ',PINPT%ptol  ; write_msg
+          write(message,'(A,F15.8)')'    P_TOL:  ',PINPT%ptol  ; write_msgi
 
         case('FTOL') !set function tolerance for iteration step
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ftol
-          write(message,'(A,F15.8)')'    F_TOL:  ',PINPT%ftol  ; write_msg
+          write(message,'(A,F15.8)')'    F_TOL:  ',PINPT%ftol  ; write_msgi
 
         case('FDIFF') !set function tolerance for fitting step (compared with previous fitting steps)
           read(inputline,*,iostat=i_continue) desc_str, PINPT%fdiff
-          write(message,'(A,F15.8)')'   F_DIFF:  ',PINPT%fdiff  ; write_msg
+          write(message,'(A,F15.8)')'   F_DIFF:  ',PINPT%fdiff  ; write_msgi
 
         case('MITER') !set maximum iteration % maximum # of generations for GA
           if(.not. PINPT%flag_miter_parse) then
             read(inputline,*,iostat=i_continue) desc_str, PINPT%miter
-            write(message,'(A,I8)')' MAX_ITER:  ',PINPT%miter  ; write_msg
+            write(message,'(A,I8)')' MAX_ITER:  ',PINPT%miter  ; write_msgi
           endif     
 
         case('MXFIT') !set maximum number of repeat for LMDIF after achieving local minima
           if(.not. PINPT%flag_mxfit_parse) then
             read(inputline,*,iostat=i_continue) desc_str, PINPT%mxfit
-            write(message,'(A,I8)')'  MAX_FIT:  ',PINPT%mxfit  ; write_msg
+            write(message,'(A,I8)')'  MAX_FIT:  ',PINPT%mxfit  ; write_msgi
           endif
 
           if(PINPT%mxfit .le. 0) then
-            write(message,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'  ; write_msg
-            write(message,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'  ; write_msg
+            write(message,'(A)')'    !WARN! The current MXFIT value, maximum number of LMDIF attempt, is <= 0 .'  ; write_msgi
+            write(message,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'  ; write_msgi
             kill_job
           endif
           
         case('NPOP') ! set number of generation for genetic algorithm
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ga_npop
-          write(message,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop  ; write_msg
+          write(message,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop  ; write_msgi
 
       end select
 
@@ -3287,7 +3294,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_print_only_target'
 
       read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_only_target
-      write(message,'(A,L)')' P_TARGET:',PINPT%flag_print_only_target  ; write_msg
+      write(message,'(A,L)')' P_TARGET:',PINPT%flag_print_only_target  ; write_msgi
 
       return
    endsubroutine
@@ -3300,7 +3307,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_onsite_tol'
 
       read(inputline,*,iostat=i_continue) desc_str, desc_str, NN_TABLE%onsite_tolerance
-      write(message,'(A,F16.4)')'ONSITETOL:',NN_TABLE%onsite_tolerance  ; write_msg
+      write(message,'(A,F16.4)')'ONSITETOL:',NN_TABLE%onsite_tolerance  ; write_msgi
 
       return
    endsubroutine
@@ -3330,11 +3337,11 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case( trim(desc_str) )
           case('EFF_ORB') 
             call strip_off(inputline, PINPT%eff_orb_dummyc, trim(desc_str), ' ',2)
-            write(message,'(A,A)')'  EFF_ORB: ',trim(PINPT%eff_orb_dummyc)  ; write_msg
+            write(message,'(A,A)')'  EFF_ORB: ',trim(PINPT%eff_orb_dummyc)  ; write_msgi
 
           case('EFF_EWINDOW')
             call get_window(init,fina,inputline, desc_str)
-            write(message,'(A,F10.5,A,F10.5,A)')' EFF_WIND: (EFF_EWINDOW) [', init,' : ', fina,']'  ; write_msg
+            write(message,'(A,F10.5,A,F10.5,A)')' EFF_WIND: (EFF_EWINDOW) [', init,' : ', fina,']'  ; write_msgi
             PINPT%eff_emin = init
             PINPT%eff_emax = fina
         endselect
@@ -3357,8 +3364,8 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_gainp'
      
 
-      write(message,'(A,3F10.5,A)')'   * PARAMETERS FOR GENETIC ALGORITHM *'  ; write_msg
-      write(message,'(A,3F10.5,A)')'   -----------------------------------'  ; write_msg
+      write(message,'(A,3F10.5,A)')'   * PARAMETERS FOR GENETIC ALGORITHM *'  ; write_msgi
+      write(message,'(A,3F10.5,A)')'   -----------------------------------'  ; write_msgi
 
   set_pkaia: do while(trim(desc_str) .ne. 'END')
         read(pid_incar,'(A)',iostat=i_continue) inputline
@@ -3375,85 +3382,85 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
 !         case('LMDIF')
 !            read(inputline,*,iostat=i_continue) desc_str, PKAIA%flag_ga_with_lmdif
-!            write(message,'(A,L       )')'    LMDIF: ', PKAIA%flag_ga_with_lmdif  ; write_msg
+!            write(message,'(A,L       )')'    LMDIF: ', PKAIA%flag_ga_with_lmdif  ; write_msgi
 
           case('MGEN')
              read(inputline,*,iostat=i_continue) desc_str, PKAIA%mgen
-             write(message,'(A,I8      )')'     MGEN: ', PKAIA%mgen  ; write_msg
+             write(message,'(A,I8      )')'     MGEN: ', PKAIA%mgen  ; write_msgi
 
           case('NPOP')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%npop
-            write(message,'(A,I8      )')'     NPOP: ', PKAIA%npop  ; write_msg
+            write(message,'(A,I8      )')'     NPOP: ', PKAIA%npop  ; write_msgi
 
           case('NGENE')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%ngene
-            write(message,'(A,I8      )')'    NGENE: ', PKAIA%ngene  ; write_msg
+            write(message,'(A,I8      )')'    NGENE: ', PKAIA%ngene  ; write_msgi
 
           case('PCROSS')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%pcross
-            write(message,'(A, F10.5  )')'   PCROSS: ', PKAIA%pcross  ; write_msg
+            write(message,'(A, F10.5  )')'   PCROSS: ', PKAIA%pcross  ; write_msgi
 
           case('RMUTMIN')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmutmn
-            write(message,'(A, F10.5  )')' MIN_MUTR: ', PKAIA%pmutmn  ; write_msg
+            write(message,'(A, F10.5  )')' MIN_MUTR: ', PKAIA%pmutmn  ; write_msgi
 
           case('RMUTMAX')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmutmx
-            write(message,'(A, F10.5  )')' MAX_MUTR: ', PKAIA%pmutmx  ; write_msg
+            write(message,'(A, F10.5  )')' MAX_MUTR: ', PKAIA%pmutmx  ; write_msgi
 
           case('RMUTINI')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%pmut
-            write(message,'(A, F10.5  )')' INI_MUTR: ', PKAIA%pmut  ; write_msg
+            write(message,'(A, F10.5  )')' INI_MUTR: ', PKAIA%pmut  ; write_msgi
 
           case('MUT_MOD')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%imut
-            write(message,'(A, I8     )')' MUT_MODE: ', PKAIA%imut  ; write_msg
+            write(message,'(A, I8     )')' MUT_MODE: ', PKAIA%imut  ; write_msgi
 
           case('FDIF')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%fdif
-            write(message,'(A, F10.5  )')'     FDIF: ', PKAIA%fdif  ; write_msg
+            write(message,'(A, F10.5  )')'     FDIF: ', PKAIA%fdif  ; write_msgi
 
           case('IREP')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%irep
-            write(message,'(A, I8     )')'     IREP: ', PKAIA%irep  ; write_msg
+            write(message,'(A, I8     )')'     IREP: ', PKAIA%irep  ; write_msgi
 
           case('IELITE')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%ielite
-            write(message,'(A, I8     )')'   IELITE: ', PKAIA%ielite  ; write_msg
+            write(message,'(A, I8     )')'   IELITE: ', PKAIA%ielite  ; write_msgi
 
           case('VERBOSE')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%ivrb  
-            write(message,'(A, I8     )')'  VERBOSE: ', PKAIA%ivrb    ; write_msg
+            write(message,'(A, I8     )')'  VERBOSE: ', PKAIA%ivrb    ; write_msgi
 
           case('CONVTOL')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%convtol
-            write(message,'(A, F10.5  )')'  CONVTOL: ', PKAIA%convtol  ; write_msg
+            write(message,'(A, F10.5  )')'  CONVTOL: ', PKAIA%convtol  ; write_msgi
 
           case('CONVWIN')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%convwin
-            write(message,'(A, I8     )')'  CONVWIN: ', PKAIA%convwin  ; write_msg
+            write(message,'(A, I8     )')'  CONVWIN: ', PKAIA%convwin  ; write_msgi
 
           case('IGUESSF')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iguessf
-            write(message,'(A, F10.5  )')'  IGUESSF: ', PKAIA%iguessf  ; write_msg
+            write(message,'(A, F10.5  )')'  IGUESSF: ', PKAIA%iguessf  ; write_msgi
 
           case('ISEED'  )
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
-            write(message,'(A, I8     )')' RANDSEED: ', PKAIA%iseed    ; write_msg
+            write(message,'(A, I8     )')' RANDSEED: ', PKAIA%iseed    ; write_msgi
 
           case('UBOUND')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%upper_bound
-            write(message,'(A, F10.5  )')'   UBOUND: ', PKAIA%upper_bound  ; write_msg
+            write(message,'(A, F10.5  )')'   UBOUND: ', PKAIA%upper_bound  ; write_msgi
 
           case('LBOUND')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%lower_bound
-            write(message,'(A, F10.5  )')'   LBOUND: ', PKAIA%lower_bound  ; write_msg
+            write(message,'(A, F10.5  )')'   LBOUND: ', PKAIA%lower_bound  ; write_msgi
 
         end select
       enddo set_pkaia
 
-      write(message,'(A,3F10.5,A)')'   * END READING: GENETIC ALGORITHM PARAMETERS*'  ; write_msg
-      write(message,'(A,3F10.5,A)')'   ---------------------------------------------'  ; write_msg
+      write(message,'(A,3F10.5,A)')'   * END READING: GENETIC ALGORITHM PARAMETERS*'  ; write_msgi
+      write(message,'(A,3F10.5,A)')'   ---------------------------------------------'  ; write_msgi
 
       return
    endsubroutine
@@ -3469,19 +3476,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_energy_window'
       PINPT%feast_nemax = -1 ! default
       if(PINPT%flag_erange) then
-        write(message,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'  ; write_msg
-        write(message,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '  ; write_msg
-        write(message,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'  ; write_msg
-        write(message,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '  ; write_msg
-        write(message,'(A)') '           for the dense matrix eigenvalue problem.'  ; write_msg
-        write(message,'(A)') '           Please deactivate one of the tag to proceed.'  ; write_msg
-        write(message,'(A)') '           If you dealing with very large system for the band structure calculation,'  ; write_msg
-        write(message,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'  ; write_msg
-        write(message,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'  ; write_msg
-        write(message,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'  ; write_msg
-        write(message,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'  ; write_msg
-        write(message,'(A)') '           used instead.'  ; write_msg
-        write(message,'(A)') '           Exit program anyway...'  ; write_msg
+        write(message,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'  ; write_msgi
+        write(message,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '  ; write_msgi
+        write(message,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'  ; write_msgi
+        write(message,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '  ; write_msgi
+        write(message,'(A)') '           for the dense matrix eigenvalue problem.'  ; write_msgi
+        write(message,'(A)') '           Please deactivate one of the tag to proceed.'  ; write_msgi
+        write(message,'(A)') '           If you dealing with very large system for the band structure calculation,'  ; write_msgi
+        write(message,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'  ; write_msgi
+        write(message,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'  ; write_msgi
+        write(message,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'  ; write_msgi
+        write(message,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'  ; write_msgi
+        write(message,'(A)') '           used instead.'  ; write_msgi
+        write(message,'(A)') '           Exit program anyway...'  ; write_msgi
         stop
       endif
 
@@ -3512,17 +3519,17 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       
       if(i_dummy .eq. 0) then
         if( nitems(inputline) -1 .eq. 0) then
-          write(message,'(A,A)')'  !WARN! No energy window has been defined! Please check EWINDOW tag atain. Exit... ', func  ; write_msg
+          write(message,'(A,A)')'  !WARN! No energy window has been defined! Please check EWINDOW tag atain. Exit... ', func  ; write_msgi
           stop
         elseif( nitems(inputline) -1 .eq. 2) then
           read(inputline,*,iostat=i_continue) desc_str,PINPT%feast_emin, PINPT%feast_emax
-          write(message,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'  ; write_msg
+          write(message,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'  ; write_msgi
           PINPT%flag_sparse = .true. ! call FEAST algorithom
         else
-          write(message,'(A,A)')'  !WARN! Please check EWINDOW tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msg
-          write(message,'(A,A)')'         Only accept following syntax: EWINDOW EMIN:EMAX  or'  ; write_msg
-          write(message,'(A,A)')'                                       EWINDOW EMIN EMAX '  ; write_msg
-          write(message,'(A,A)')'         Here, EMIN and EMAX are real*8 values for the eigenvalues to be searched.'  ; write_msg
+          write(message,'(A,A)')'  !WARN! Please check EWINDOW tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msgi
+          write(message,'(A,A)')'         Only accept following syntax: EWINDOW EMIN:EMAX  or'  ; write_msgi
+          write(message,'(A,A)')'                                       EWINDOW EMIN EMAX '  ; write_msgi
+          write(message,'(A,A)')'         Here, EMIN and EMAX are real*8 values for the eigenvalues to be searched.'  ; write_msgi
           stop
         endif
 
@@ -3530,26 +3537,26 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         call strip_off(dummy, dummy1,' ',':',0)
         call strip_off(dummy, dummy2,':',' ',2)
         if(len_trim(dummy1) .eq. 0 .or. len_trim(dummy2) .eq. 0) then
-          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msg
-          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msg
-          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msg
-          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msg
+          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msgi
+          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msgi
+          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msgi
+          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msgi
           stop
         endif
         call str2real(dummy1,PINPT%feast_emin)
         call str2real(dummy2,PINPT%feast_emax)
-        write(message,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'  ; write_msg
+        write(message,'(A,F12.5,A,F12.5,A)')' E_WINDOW:  [',PINPT%feast_emin,',',PINPT%feast_emax,'], [emin:emax] (eV)'  ; write_msgi
         PINPT%flag_sparse = .true. ! call FEAST algorithom
       endif
 
       if(PINPT%feast_nemax .ge. 1) then
         ! feast_nemax is upper bound of states to be stored in your output. 
         ! The states, beyond this criteria will be thrown away.
-        write(message,'(A,I0,A)')'   NE_MAX: ', PINPT%feast_nemax, ' (maximum # of states within [emin:emax])'  ; write_msg
+        write(message,'(A,I0,A)')'   NE_MAX: ', PINPT%feast_nemax, ' (maximum # of states within [emin:emax])'  ; write_msgi
       elseif(PINPT%feast_nemax .le. 0) then
-        write(message,'(A,I0,A)')'   NE_MAX: N_ORBIT * ISPINOR [N_ORBIT:number of orbitals ]'  ; write_msg
-        write(message,'(A)')     '                             [ISPINOR:2 for LSORB=.TRUE. ]'  ; write_msg
-        write(message,'(A)')     '                             [       :1 for LSORB=.FALSE.]'  ; write_msg
+        write(message,'(A,I0,A)')'   NE_MAX: N_ORBIT * ISPINOR [N_ORBIT:number of orbitals ]'  ; write_msgi
+        write(message,'(A)')     '                             [ISPINOR:2 for LSORB=.TRUE. ]'  ; write_msgi
+        write(message,'(A)')     '                             [       :1 for LSORB=.FALSE.]'  ; write_msgi
       endif
 
       return
@@ -3567,19 +3574,19 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       character(*), parameter :: func = 'set_energy_range'
 
       if(PINPT%flag_sparse) then
-        write(message,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'  ; write_msg
-        write(message,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '  ; write_msg
-        write(message,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'  ; write_msg
-        write(message,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '  ; write_msg
-        write(message,'(A)') '           for the dense matrix eigenvalue problem.'  ; write_msg
-        write(message,'(A)') '           Please deactivate one of the tag to proceed.'  ; write_msg
-        write(message,'(A)') '           If you dealing with very large system for the band structure calculation,'  ; write_msg
-        write(message,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'  ; write_msg
-        write(message,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'  ; write_msg
-        write(message,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'  ; write_msg
-        write(message,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'  ; write_msg
-        write(message,'(A)') '           used instead.'  ; write_msg
-        write(message,'(A)') '           Exit program anyway...'  ; write_msg
+        write(message,'(A)') '    !WARN! ERANGE tag and EWINDOW tag cannot be used simultaneously.'  ; write_msgi
+        write(message,'(A)') '           EWINDOW tag sets to use extended eigensolver routines based on '  ; write_msgi
+        write(message,'(A)') '           FEAST algorithm for the sparse matrix eigenvalue problem.'  ; write_msgi
+        write(message,'(A)') '           ERANGE tag, on the other hand, sets to use ZHEEVX function in LAPACK routines '  ; write_msgi
+        write(message,'(A)') '           for the dense matrix eigenvalue problem.'  ; write_msgi
+        write(message,'(A)') '           Please deactivate one of the tag to proceed.'  ; write_msgi
+        write(message,'(A)') '           If you dealing with very large system for the band structure calculation,'  ; write_msgi
+        write(message,'(A)') '           it is recommended to use EWINDOW tag rather than ERANGE'  ; write_msgi
+        write(message,'(A)') '           Note that EWINDOW does not applies to the post processings requested by'  ; write_msgi
+        write(message,'(A)') '           various "SET" tags, for example, Z2_INDEX, WCC, ZAK_PHASE, PARITY_CHECK, etc.'  ; write_msgi
+        write(message,'(A)') '           In these routines, ERANGE tags there in will be used and ZHEEVX function will be'  ; write_msgi
+        write(message,'(A)') '           used instead.'  ; write_msgi
+        write(message,'(A)') '           Exit program anyway...'  ; write_msgi
         stop
       endif
 
@@ -3587,22 +3594,22 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       i_dummy=index(dummy,':')
       if(i_dummy .eq. 0) then
         if( nitems(inputline) -1 .eq. 0) then
-          write(message,'(A,A)')'  !WARN! No range has been defined! Please check ERANGE tag atain. Exit... ', func  ; write_msg
+          write(message,'(A,A)')'  !WARN! No range has been defined! Please check ERANGE tag atain. Exit... ', func  ; write_msgi
           stop
         elseif( nitems(inputline) -1 .eq. 1) then
           read(inputline,*,iostat=i_continue) desc_str,PGEOM%init_erange
           PGEOM%fina_erange = PGEOM%init_erange
-          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
+          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msgi
           PINPT%flag_erange = .true.
         elseif( nitems(inputline) -1 .eq. 2) then
           read(inputline,*,iostat=i_continue) desc_str,PGEOM%init_erange, PGEOM%fina_erange
-          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
+          write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msgi
           PINPT%flag_erange = .true.
         else
-          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msg
-          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msg
-          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msg
-          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msg
+          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msgi
+          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msgi
+          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msgi
+          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msgi
           stop
         endif
 
@@ -3610,15 +3617,15 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         call strip_off(dummy, dummy1,' ',':',0)
         call strip_off(dummy, dummy2,':',' ',2)
         if(len_trim(dummy1) .eq. 0 .or. len_trim(dummy2) .eq. 0) then
-          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msg
-          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msg
-          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msg
-          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msg
+          write(message,'(A,A)')'  !WARN! Please check ERANGE tag syntax. Exit... Current setting = ',trim(dummy)  ; write_msgi
+          write(message,'(A,A)')'         Only accept following syntax: ERANGE INIT:FINA  or'  ; write_msgi
+          write(message,'(A,A)')'                                       ERANGE INIT FINA'  ; write_msgi
+          write(message,'(A,A)')'         Here, INIT and FINA are integer values for the eigenvalue index.'  ; write_msgi
           stop
         endif
         call str2int(dummy1,PGEOM%init_erange)
         call str2int(dummy2,PGEOM%fina_erange)
-        write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msg
+        write(message,'(A,I6,A,I6,A)')'  E_RANGE:  FROM ',PGEOM%init_erange,'-th TO ',PGEOM%fina_erange,'-th EIGENSTATES'  ; write_msgi
         PINPT%flag_erange = .true.
       endif
       PGEOM%nband = PGEOM%fina_erange - PGEOM%init_erange + 1
@@ -3635,9 +3642,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_get_band
       if(PINPT%flag_get_band) then
-        write(message,'(A)')'  GET_BND: .TRUE.'  ; write_msg
+        write(message,'(A)')'  GET_BND: .TRUE.'  ; write_msgi
       elseif(.not.PINPT%flag_get_band) then
-        write(message,'(A)')'  GET_BND: .FALSE.'  ; write_msg
+        write(message,'(A)')'  GET_BND: .FALSE.'  ; write_msgi
       endif
       return
    endsubroutine
@@ -3659,13 +3666,13 @@ set_rib: do while(trim(desc_str) .ne. 'END')
 
       if(nitems(inputline) -1 .eq. 3) then
         read(inputline,*,iostat=i_continue) desc_str, PINPT%nn_max(1:3)
-        write(message,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)  ; write_msg
+        write(message,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)  ; write_msgi
       elseif(nitems(inputline) -1 .eq. 1) then
         read(inputline,*,iostat=i_continue) desc_str, i_dummy
         PINPT%nn_max(1:3) = i_dummy
-        write(message,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)  ; write_msg
+        write(message,'(A,3I5)')'   NN_MAX:', PINPT%nn_max(1:3)  ; write_msgi
       else
-        write(message,'(A)')'    !WARN! Error in reading NN_MAX tag. Exit program...'  ; write_msg
+        write(message,'(A)')'    !WARN! Error in reading NN_MAX tag. Exit program...'  ; write_msgi
         stop
       endif
 
@@ -3683,9 +3690,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_spglib
 
       if(PINPT%flag_spglib) then
-        write(message,'(A)')'  LSPGLIB: .TRUE.'  ; write_msg
+        write(message,'(A)')'  LSPGLIB: .TRUE.'  ; write_msgi
       elseif(.not.PINPT%flag_spglib) then
-        write(message,'(A)')'  LSPGLIB: .FALSE.'  ; write_msg
+        write(message,'(A)')'  LSPGLIB: .FALSE.'  ; write_msgi
       endif
 
       return

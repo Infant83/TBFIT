@@ -554,6 +554,8 @@ function f_s(dda_s,d0,d, mode)
    endif
 return
 endfunction
+
+! deprecated.. HJK, 03.Dec.2020
 function f_s2(dda_s, dda_s2, d0, d, mode)
    implicit none
    integer*4 mode

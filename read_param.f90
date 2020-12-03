@@ -24,7 +24,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 
    inquire(file=trim(PPRAM%pfilenm),exist=flag_exist)
    if(.not. flag_exist) then
-     write(message,'(A,A,A)')'    !WARN! Parameter file:',trim(PPRAM%pfilenm),' does not exist!! Exit...' ; write_msg
+     write(message,'(A,A,A)')'    !WARN! Parameter file:',trim(PPRAM%pfilenm),' does not exist!! Exit...' ; write_msgi
      kill_job
    endif
 
@@ -37,8 +37,8 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    endif
 
    ! start reading basic information
-   write(message,*)' '  ; write_msg
-   write(message,*)'*- READING INPUT PARAMER FILE: ',trim(PPRAM%pfilenm)  ; write_msg
+   write(message,*)' '  ; write_msgi
+   write(message,*)'*- READING INPUT PARAMER FILE: ',trim(PPRAM%pfilenm)  ; write_msgi
 
    open(pid_param,FILE=PPRAM%pfilenm,status='old',iostat=i_continue)
 
@@ -50,7 +50,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
      read(pid_param,'(A)',iostat=i_continue) inputline
      if(i_continue<0) exit               ! end of file reached
      if(i_continue>0) then
-       write(message,*)'Unknown error reading file:',trim(PPRAM%pfilenm),func ; write_msg
+       write(message,*)'Unknown error reading file:',trim(PPRAM%pfilenm),func ; write_msgi
      endif
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
@@ -65,7 +65,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    if( i .ne. 0) then
      PPRAM%nparam = i
    elseif ( i .eq. 0 ) then
-     write(message,'(A,A,A)')'Error in reading ',trim(PPRAM%pfilenm),' file. Empty file' ; write_msg
+     write(message,'(A,A,A)')'Error in reading ',trim(PPRAM%pfilenm),' file. Empty file' ; write_msgi
      kill_job
    endif
 
@@ -103,7 +103,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
      read(pid_param,'(A)',iostat=i_continue) inputline
      if(i_continue<0) exit               ! end of file reached
      if(i_continue>0) then 
-       write(message,*)'Unknown error reading file:',trim(PPRAM%pfilenm),func ; write_msg
+       write(message,*)'Unknown error reading file:',trim(PPRAM%pfilenm),func ; write_msgi
      endif
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
@@ -156,12 +156,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          endif
          dummy2= trim(dummy2)
          if(.not.flag_number(dummy2)) then
-           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msg
+           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msgi
            kill_job
          endif
          dummy = trim(dummy)
          if(flag_number(dummy)) then 
-           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msg
+           write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msgi
            kill_job
          endif
          call str2real(dummy2, r_dummy)
@@ -218,12 +218,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
              endif
              dummy2= trim(dummy2)
              if(.not.flag_number(dummy2)) then
-               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
+               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
                kill_job
              endif
              dummy = trim(dummy)
              if(flag_number(dummy)) then
-               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
+               write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
                kill_job
              endif
              call str2real(dummy2, r_dummy)
@@ -237,16 +237,16 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            endif
 
          else
-           write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."    ; write_msg
-           write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
-           write(message,'(A)') "           has been asigned." ; write_msg
+           write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."    ; write_msgi
+           write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msgi
+           write(message,'(A)') "           has been asigned." ; write_msgi
            kill_job
          endif
 
        else
-         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   ; write_msg
-         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
-         write(message,'(A)') "           has been asigned." ; write_msg
+         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE."   ; write_msgi
+         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msgi
+         write(message,'(A)') "           has been asigned." ; write_msgi
          kill_job
        endif
 
@@ -308,12 +308,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          call set_scale_default(param_const(3,i), PPRAM%param_name(i))
          dummy2= trim(dummy2)
          if(.not.flag_number(dummy2)) then 
-           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
+           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
            kill_job
          endif
          dummy = trim(dummy)
          if(flag_number(dummy)) then
-           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msg
+           write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
            kill_job
          endif
          call str2real(dummy2, r_dummy)
@@ -326,9 +326,9 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          endif
 
        elseif( i_dummy .ge. 4) then
-         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE." ; write_msg
-         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msg
-         write(message,'(A)') "           has been asigned." ; write_msg
+         write(message,'(A)') "  !!WARN!! Wrong syntax in PFILE, check your PFILE." ; write_msgi
+         write(message,'(A)') "           You have set SK_SCALE_MODE <= 10, but more than 3 arguments" ; write_msgi
+         write(message,'(A)') "           has been asigned." ; write_msgi
          kill_job
        endif
        param_name = trim(PPRAM%param_name(i))
@@ -375,15 +375,15 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 
    ! Check parameter type and condition
    if(.not. PPRAM%flag_slater_koster .and. PPRAM%flag_use_overlap) then
-     write(message,'(A)')'    !WARN! Construction of overlap matrix is only available within Slakter-Koster method turned on.'              ; write_msg
-     write(message,'(A)')'           Set "USE_OVERLAP .FALSE." in your PARAM_FIT.dat file or set "IS_SK .TRUE." and prepare '    ; write_msg
-     write(message,'(A)')'           proper parameter set for overlap integrals, for example, o_pps_1_CC, o_sps_1_CC, and etc., to proceed' ; write_msg
-     write(message,'(A)')'           Exit program...' ; write_msg
+     write(message,'(A)')'    !WARN! Construction of overlap matrix is only available within Slakter-Koster method turned on.'              ; write_msgi
+     write(message,'(A)')'           Set "USE_OVERLAP .FALSE." in your PARAM_FIT.dat file or set "IS_SK .TRUE." and prepare '    ; write_msgi
+     write(message,'(A)')'           proper parameter set for overlap integrals, for example, o_pps_1_CC, o_sps_1_CC, and etc., to proceed' ; write_msgi
+     write(message,'(A)')'           Exit program...' ; write_msgi
      kill_job
    endif
 
-   write(message,*)'*- END READING PARAMETER FILE ---------------------'  ; write_msg
-   write(message,*)' '  ; write_msg
+   write(message,*)'*- END READING PARAMETER FILE ---------------------'  ; write_msgi
+   write(message,*)' '  ; write_msgi
 
 return
 endsubroutine
@@ -480,7 +480,7 @@ subroutine set_param_const(PPRAM)
          enddo
          cycle
        else
-         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msg
+         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msgi
          kill_job
        endif
      enddo
@@ -540,7 +540,7 @@ subroutine set_param_const(PPRAM)
          enddo
          cycle
        else
-         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msg
+         write(message,'(A)')'  !WARNING! parameter constraint is not properly defined. Please check again. Exit...' ; write_msgi
          kill_job
        endif
      enddo
@@ -660,29 +660,55 @@ subroutine report_param(PINPT, PPRAM)
    use parameters, only : incar, params
    use print_io
    use mpi_setup
+   implicit none
    type(incar)   :: PINPT
    type(params)  :: PPRAM
    integer*4        mpierr
+   integer*4        i
 
    if(PPRAM%flag_slater_koster) then
-     write(message,'(A)')'TYP_PARAM: (parameter type) Slater-Koster'  ; write_msg
+     write(message,'(A)'   )'TYP_PARAM: (parameter type) Slater-Koster'  ; write_msgi
+     write(message,'(A,I0)')'TYP_SCALE: (parameter scaling function) mode = ',PPRAM%slater_koster_type; write_msgi
+
+     select case(PPRAM%slater_koster_type)
+       case(1)
+         write(message,'(A)'   )'           => f_s = Exp( (R0 - D)/(dda_s*R0) ), Ref: PRB 85.195458 (2012)' ; write_msgi
+       case(2)
+         write(message,'(A)'   )'           => f_s = Exp( -(D/R0)**dda_s ), Ref: PRB 92.205108 (2015)' ; write_msgi
+       case(3)
+         write(message,'(A)'   )'           => f_s = (R0/D)**(dda_s), Ref: PRB 51.16772 (1995)' ; write_msgi
+       case(4)
+         write(message,'(A)'   )'           => f_s = Exp( -abs(dda_s) * (D - R0) ), PRB 93.241407 (2016)' ; write_msgi
+       case(11)
+         write(message,'(A)'   )'           => e_onsite = e(1) + e(2) * (rho_at**(2/3)) + e(3) * (rho_at**(4/3)) + e(4) * (rho_at**(2))'; write_msgi
+         write(message,'(A)'   )'           => f_s      = (dda(1)+dda(2)*D+dda(3)*(D**2)) * Exp(-(dda(4)**2) * D) * f_cut'; write_msgi
+         write(message,'(A)'   )'              rho_at   = sum(Exp(-(l_onsite(:)**2) * R_nn(:) ) * f_cut(:))'  ; write_msgi
+         write(message,'(A)'   )'              f_cut    = (1 + Exp( (D - R0)/l_broaden + 5 ) )**(-1) ' ; write_msgi
+     end select
+
+     write(message,'(A)'   )'              D        = distance to neighbor atom'; write_msgi
+     write(message,'(A)'   )'              R0       = reference distance' ;write_msgi
+     write(message,'(A)'   )'           ==> Scaled parameter = PARAM * f_s' ; write_msgi
    else
-     write(message,'(A)')'TYP_PARAM: (parameter type) user defined'  ; write_msg
+     write(message,'(A)')'TYP_PARAM: (parameter type) user defined'  ; write_msgi
    endif
 
-   write(message,'(A,I8)')'  N_PARAM:',PPRAM%nparam ; write_msg
+   write(message,'(A,I8)')'  N_PARAM:',PPRAM%nparam ; write_msgi
    if(PPRAM%slater_koster_type .gt. 10) then
-     write(message,'(A)') '         : NRL TB scheme is applied in parameterization' ; write_msg
-     write(message,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PPRAM%l_broaden ; write_msg
+     write(message,'(A)') '         : NRL TB scheme is applied in parameterization' ; write_msgi
+     write(message,'(A,F9.4)') '           => L_BROADEN (cutoff function) = ', PPRAM%l_broaden ; write_msgi
    endif
 
    do i=1,PPRAM%nparam
      if(PPRAM%slater_koster_type .gt. 10) then
-       write(message,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param_nrl(1:PPRAM%param_nsub(i),i) ; write_msg_file
+       write(message,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param_nrl(1:PPRAM%param_nsub(i),i) ; write_msgi_file
      else
-       write(message,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param(i) ; write_msg_file
+       write(message,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param(i) ; write_msgi_file
+!      write(6,*)"ZZZ ", print_mode
+!      stop
      endif
    enddo
+
 
    return
 endsubroutine

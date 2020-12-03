@@ -404,10 +404,10 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
                   call get_ordered_band(ETBA_FIT(i), PKPTS(i), PGEOM(i), PWGHT(i), PINPT, flag_order_weight, PPRAM%flag_use_overlap)
                   
                   if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%V_ORD, ETBA_FIT(i)%SV_ORD, PGEOM(i)%neig, &
-                                            PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'_ordered')
+                                            PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'_ordered')
                 endif
                 if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, PGEOM(i)%neig, &
-                                          PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'')
+                                          PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'')
               enddo
 
             endif

@@ -171,10 +171,10 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
       allocate(ETBA_FIT(i)%SV_ORD(PGEOM(i)%neig*PINPT%ispin,PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
       allocate(ETBA_FIT(i)%IDX(PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
     endif
-    if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
-      flag_wait_plot = .false.
-      write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
-    endif
+!   if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
+!     flag_wait_plot = .false.
+!     write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
+!   endif
   enddo
 
   fnorm_ = 0d0
@@ -395,22 +395,22 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
             if_main call print_param(PINPT,PPRAM,PWGHT(1),pfileoutnm_temp,.TRUE.) ! only main system will be printed..
             fnorm_ = fnorm ! fnorm of previous step
 
-            if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
+           !if(PINPT%flag_plot_fit ) then ! only activated if plot_fit .true. .or. PINPT%flag_print_energy_diff) then
 
-              do i = 1, PINPT%nsystem
-                call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, &
-                             PGEOM(i)%neig, PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, .false., .false., PINPT%flag_phase)
-                if(PINPT%flag_get_band_order) then 
-                  call get_ordered_band(ETBA_FIT(i), PKPTS(i), PGEOM(i), PWGHT(i), PINPT, flag_order_weight, PPRAM%flag_use_overlap)
-                  
-                  if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%V_ORD, ETBA_FIT(i)%SV_ORD, PGEOM(i)%neig, &
-                                            PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'_ordered')
-                endif
-                if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, PGEOM(i)%neig, &
-                                          PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, PINPT%flag_plot_fit,'')
-              enddo
+           !  do i = 1, PINPT%nsystem
+           !    call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, &
+           !                 PGEOM(i)%neig, PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, .false., .false., PINPT%flag_phase)
+           !    if(PINPT%flag_get_band_order) then 
+           !      call get_ordered_band(ETBA_FIT(i), PKPTS(i), PGEOM(i), PWGHT(i), PINPT, flag_order_weight, PPRAM%flag_use_overlap)
+           !      
+           !      if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%V_ORD, ETBA_FIT(i)%SV_ORD, PGEOM(i)%neig, &
+           !                                PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, .FALSE.,'_ordered')
+           !    endif
+           !    if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, PGEOM(i)%neig, &
+           !                              PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, .FALSE.,'')
+           !  enddo
 
-            endif
+           !endif
 
           endif
         endif

@@ -795,7 +795,7 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
    flag_klinemode = PKPTS%flag_klinemode
    flag_kgridmode = PKPTS%flag_kgridmode
    flag_print_orbital = PINPT%flag_print_orbital
-   flag_print_energy_diff = PINPT%flag_print_energy_diff ! only valid if tbfit = .true. and lorbit = .false. dat
+   flag_print_energy_diff = PINPT%flag_print_energy_diff ! only valid if tbfit = .true. and lorbit = .false. (flag_print_orbital) 
    flag_fit_degeneracy = PINPT%flag_fit_degeneracy
 
    kpoint = PKPTS%kpoint
@@ -810,6 +810,11 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
        call get_degeneracy_serial(E2, D2, nband*PINPT%nspin, PKPTS%nkpoint, PINPT)
      endif
    endif
+
+  !if(flag_print_energy_diff .and. flag_print_orbital) then
+  !  write(message,'(A)')'    !WARN! You have requested both (LORBIT .TRUE.) and (PRTDIFF .TRUE.)' ; write_msg
+  !  write(message,'(A)')'    !WARN! This two function does not work togeter. We deactivate PRTDIFF by default.' ; write_msg
+  !endif
 
    if(flag_klinemode) then
      ikmode = 1
@@ -843,8 +848,10 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
         if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
           call get_fname(fname_headerS, fnameS, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
         endif
-        write(message,'(A)') ' '  ; write_msg
-        write(message,'(2A)')' *- Writing band structure file: ', trim(fname) ; write_msg
+        if(flag_final_step) then
+          write(message,'(A)') ' '  ; write_msg
+          write(message,'(2A)')' *- Writing band structure file: ', trim(fname) ; write_msg
+        endif
         open(pid_energy, file=trim(fname), status = 'unknown')
         if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
           open(pid_energyS, file=trim(fnameS), status = 'unknown')
@@ -885,11 +892,11 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
           endif
       eig:do ie =1, nband !init_e, fina_e
             if(flag_print_energy_diff) then
-              if(.not. flag_fit_degeneracy) write(pid_energy, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,  energy(eV),   EDFT-ETBA'
-              if(      flag_fit_degeneracy) write(pid_energy, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,  energy(eV),   EDFT-ETBA, DTBA_DEGENERACY, DDFT-DTBA'
+              if(.not. flag_fit_degeneracy) write(pid_energy, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,    energy(eV),     EDFT-ETBA     kp    eig'
+              if(      flag_fit_degeneracy) write(pid_energy, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,    energy(eV),   EDFT-ETBA, DTBA_DEGENERACY, DDFT-DTBA'
               if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
-                if(.not. flag_fit_degeneracy) write(pid_energyS, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,  energy(eV),   EDFT-ETBA'
-                if(      flag_fit_degeneracy) write(pid_energyS, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,  energy(eV),   EDFT-ETBA, DTBA_DEGENERACY, DDFT-DTBA'
+                if(.not. flag_fit_degeneracy) write(pid_energyS, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,    energy(eV),   EDFT-ETBA'
+                if(      flag_fit_degeneracy) write(pid_energyS, '(A,I8,A)', ADVANCE = 'yes') trim(kmode), init_e + ie - 1,' -th eigen,    energy(eV),   EDFT-ETBA, DTBA_DEGENERACY, DDFT-DTBA'
               endif
             else
               write(pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'     
@@ -964,8 +971,9 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
                                                                                  E2(ie+nband*(is-1),ik)-E(ie+nband*(is-1),ik), &
                                                                                  D(1,ie+nband*(is-1),ik)
                     elseif(.not. flag_fit_degeneracy) then
-                      write(pid_energy,'(1x,F12.6,24x,2(F14.6,1x))',ADVANCE='NO')kline(ik), E(ie+nband*(is-1),ik), &
-                                                                               E2(ie+nband*(is-1),ik)-E(ie+nband*(is-1),ik)
+                      write(pid_energy,'(1x,F12.6,24x,2(F14.6,1x),2I6)',ADVANCE='NO')kline(ik), E(ie+nband*(is-1),ik), &
+                                                                               E2(ie+nband*(is-1),ik)-E(ie+nband*(is-1),ik), &
+                                                                               ik,ie+nband*(is-1) ! k, eig index
                     endif
                   else
                     write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+nband*(is-1),ik)
@@ -982,8 +990,9 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
               elseif(flag_kgridmode) then
                 if( ie .le. ne_found(is, ik) ) then
                   if(flag_print_energy_diff) then
-                    write(pid_energy,'(1x,3F12.6,2(F12.6,1x))',ADVANCE='NO')kpoint(:,ik), E(ie+nband*(is-1),ik), &
-                                                                            E2(ie+nband*(is-1),ik) - E(ie+nband*(is-1),ik)
+                    write(pid_energy,'(1x,3F12.6,2(F12.6,1x),2I6)',ADVANCE='NO')kpoint(:,ik), E(ie+nband*(is-1),ik), &
+                                                                            E2(ie+nband*(is-1),ik) - E(ie+nband*(is-1),ik) , &
+                                                                            ik,ie+nband*(is-1)
                   else
                     write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik), E(ie+nband*(is-1),ik)
                     if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then

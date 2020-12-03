@@ -43,7 +43,8 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   call init_dos(PINPT_DOS, PINPT)
 
   ! READ INCAR-TB
-  call read_input_tags(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
+  call read_input_tags(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
+                       EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
 
   ! SET BASIC SYSTEM
   call read_tb_param(PINPT, PPRAM, PWGHT)
@@ -57,16 +58,20 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   call set_ldos_atom(PINPT, PGEOM)
 
   if(PINPT%flag_tbfit .and. PINPT%flag_print_energy_diff ) then 
-    if(PINPT%flag_print_orbital) PINPT%flag_print_energy_diff = .false.
+    if(PINPT%flag_print_orbital) then 
+      PINPT%flag_print_energy_diff = .false.
+      write(message,'(A)')'    !WARN! You have requested both (LORBIT .TRUE.) and (PRTDIFF .TRUE.)' ; write_msgi
+      write(message,'(A)')'    !WARN! This two function does not work togeter. We deactivate PRTDIFF by default.' ; write_msgi
+    endif
   else
     PINPT%flag_print_energy_diff = .false.
   endif
 
-  write(message, '(A)' )' ' ; write_msg
-  write(message, '(A)' )'##############################################################';  write_msg
-  write(message, '(2A)')'---- END READING INPUT FILE : ', trim(PINPT%ifilenm(mysystem)) ;  write_msg
-  write(message, '(A)' )'##############################################################';  write_msg
-  write(message, '(A)' )' ' ; write_msg
+  write(message, '(A)' )' ' ; write_msgi
+  write(message, '(A)' )'##############################################################';  write_msgi
+  write(message, '(2A)')'---- END READING INPUT FILE : ', trim(PINPT%ifilenm(mysystem)) ;  write_msgi
+  write(message, '(A)' )'##############################################################';  write_msgi
+  write(message, '(A)' )' ' ; write_msgi
 
 return
 endsubroutine

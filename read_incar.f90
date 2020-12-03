@@ -138,7 +138,7 @@ contains
                 read(inputline,*,iostat=i_continue) desc_str, PWGHT%efile_ef
                 write(message,'(A,F12.5)')'  EDFT_EF:  ', PWGHT%efile_ef ; write_msgi
     
-              case('PLOTFIT')
+              case('PLOTFIT') ! run gnuplot script after fit or post-process
                 if(nitems(inputline) -1 .eq. 1) then
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
                 else
@@ -149,7 +149,7 @@ contains
                   endif
                 endif
     
-              case('PRTDIFF')
+              case('PRTDIFF') ! print also EDFT - EDFT in band_structure_TBA.dat after fit, only active if LORBIT .FALSE.
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
     
               case('PRTSEPK')

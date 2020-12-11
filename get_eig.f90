@@ -285,6 +285,7 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, SV, PINPT, PPRAM, NN_TABLE, kp, neig, 
            call cal_gen_eig(Hk, Sk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
 
            if(flag_vector) then ! calculate V' = Sk|V> which will be used to calculate Mulliken charge rho = <V|Sk|V>
+            !SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
              SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
            endif
 

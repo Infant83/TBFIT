@@ -396,7 +396,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
             fnorm_ = fnorm ! fnorm of previous step
 
            !if(PINPT%flag_plot_fit ) then ! only activated if plot_fit .true. .or. PINPT%flag_print_energy_diff) then
-
            !  do i = 1, PINPT%nsystem
            !    call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, &
            !                 PGEOM(i)%neig, PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, .false., .false., PINPT%flag_phase)

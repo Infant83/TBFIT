@@ -51,7 +51,7 @@ program tbfit
 
   call version_stamp(t_start)
   call parse(PINPT)
-  if_test call test(PINPT)
+  if_test call test()
 
   call get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_BERRY, PINPT_DOS)
     

@@ -28,8 +28,12 @@ module set_default
         PINPT%flag_fit_degeneracy = .false.
         if(.not. PINPT%flag_lorbit_parse) PINPT%flag_get_orbital=.false.
         if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
-        if(.not. PINPT%flag_proj_parse)   PINPT%flag_print_proj=.false.
+
+        PINPT%flag_print_proj=.false.
         PINPT%nproj_sum = 0
+        if(allocated(PINPT%proj_atom))  deallocate(PINPT%proj_atom)
+        if(allocated(PINPT%proj_natom)) deallocate(PINPT%proj_natom)
+
         PINPT%ncirc_dichroism = 0
         PINPT%flag_use_weight = .false.  ! whether read weight factor for fit from PFILE or not
         PINPT%flag_get_dos=.false.
@@ -214,6 +218,7 @@ module set_default
         PWGHT%vbmt  = 0
         PWGHT%cbmt  = 0
         PWGHT%nweight = 0
+        PWGHT%ie_cutoff = 0
         PWGHT%max_len_strip_kp = 0
         PWGHT%max_len_strip_tb = 0
         PWGHT%max_len_strip_df = 0

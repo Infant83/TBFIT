@@ -133,7 +133,7 @@ subroutine get_gofit(ga_pikaia, param, gofit,kpoint,nkpoint,neig, iband, nband, 
                flag_get_orbital, .false., .false., PINPT%flag_phase)
 
   if(.not. flag_get_orbital) then
-    call get_fvec(fvec, E_TBA, E_DFT, 0, neig, iband, nband, PINPT, nkpoint, PWGHT)
+    call get_fvec(fvec, E_TBA, E_DFT, (0d0,0d0), neig, iband, nband, PINPT, nkpoint, PWGHT)
   else
     call get_fvec(fvec, E_TBA, E_DFT, V, neig, iband, nband, PINPT, nkpoint, PWGHT)
   endif

@@ -101,6 +101,7 @@ contains
     real*8,     allocatable :: myORB_TBA(:,:,:), myORB_DFT(:,:,:)
     real*8,     allocatable :: dE_(:), dORB_(:)
     logical                    flag_fit_orbital
+    integer*4                  ie_cutoff
 
     ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
     !               ldjac = nkpoint * nband * PINPT%nspin
@@ -117,6 +118,7 @@ contains
     fvec_     = 0d0 ;  fvec_plain_      = 0d0
     maxgauss  = 1d0/(sigma*sqrt(2d0*pi2)) *real(PGEOM%neig)
     iband     = PGEOM%init_erange
+    ie_cutoff = PWGHT%ie_cutoff
     if(flag_fit_degeneracy) dD= 0d0
     if(flag_weight_orbital) OW= 0d0
     
@@ -216,7 +218,13 @@ contains
             if(flag_weight_orbital) OW = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik)) )
 
             fvec(my_i + ie+(is-1)*PGEOM%nband) = abs(dE) + (sum(abs(dD(:)))) + OW
-            fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+            if(ie_cutoff .gt. 0) then
+              if(ie .le. ie_cutoff) then
+                fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+              endif
+            else
+              fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+            endif
           enddo ! ie
         enddo ! is 
       enddo ! ik
@@ -244,7 +252,13 @@ contains
             endif
 
             cost_func(ie+(is-1)*PGEOM%nband)       = dE + sum(abs(dD)) + OW
-            cost_func_plain(ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+            if(ie_cutoff .gt. 0) then
+              if(ie .le. ie_cutoff) then
+                cost_func_plain(ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+              endif
+            else
+              cost_func_plain(ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+            endif
           enddo
 
         enddo ! is

@@ -124,7 +124,6 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
   !type(params ), dimension(PINPT%nsystem) :: PPRAM_
    type(kpoints), dimension(PINPT%nsystem) :: PKPTS
    type(energy ), dimension(PINPT%nsystem) :: EDFT 
-   type(energy ), dimension(PINPT%nsystem) :: ETBA 
    type(weight ), dimension(PINPT%nsystem) :: PWGHT
    type(poscar ), dimension(PINPT%nsystem) :: PGEOM 
    type(hopping), dimension(PINPT%nsystem) :: NN_TABLE
@@ -133,7 +132,9 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
    type(dos    ), dimension(PINPT%nsystem) :: PINPT_DOS  
 
    type(replot)                             :: PRPLT ! dummy
-   integer*4                                    i
+   integer*4                                   i
+
+   print_mode = 3
 
    do i = 1, PINPT%nsystem
      call read_input(PINPT,PPRAM_,PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i), &
@@ -198,7 +199,7 @@ subroutine report_init(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM)
 
    return
 endsubroutine
-subroutine check_conv_and_constraint(PPRAM, PINPT, ifit, flag_exit, fnorm, fnorm_) 
+subroutine check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_) 
    use parameters, only : params, incar
    use print_io
    use mpi_setup  

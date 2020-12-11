@@ -75,9 +75,9 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    allocate( PPRAM%param_name(PPRAM%nparam) )
    allocate( PPRAM%param_nsub(PPRAM%nparam))
    
-   PPRAM%param(0:PPRAM%nparam  ) = 0d0
+   PPRAM%param(1:PPRAM%nparam  ) = 0d0
 
-   param_const(:,0             ) = 0d0
+  !param_const(:,0             ) = 0d0
    param_const(1,1:PPRAM%nparam) = 0d0  ! is equal to..    !initialize no matter param_const_ is already provided (PFILE is considered in priori)
    param_const(2,1:PPRAM%nparam) = 20d0 ! default upper bound
    param_const(3,1:PPRAM%nparam) =-20d0 ! default lower bound
@@ -87,9 +87,9 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    if(PPRAM%slater_koster_type .gt. 10) then
      allocate( PPRAM%param_nrl(PPRAM%param_nsub_max,PPRAM%nparam) )
 
-     PPRAM%param_nrl(:,  0             ) = 0d0
+     PPRAM%param_nrl(:,1:PPRAM%nparam  ) = 0d0
 
-     param_const_nrl(:,:,0             ) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
+!    param_const_nrl(:,:,0             ) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
      param_const_nrl(1,:,1:PPRAM%nparam) = 0d0      !initialize no matter param_const_ is already provided (PFILE is considered in priori)
      param_const_nrl(2,:,1:PPRAM%nparam) = 1112900d0 ! default upper bound
      param_const_nrl(3,:,1:PPRAM%nparam) =-1112900d0 ! default lower bound
@@ -349,7 +349,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    ! SET PARAMETER CONSTRAINT : from PFILE
    allocate( PPRAM%param_const(5,PPRAM%nparam) )
    !initialize
-    PPRAM%param_const(:,0) = 0d0 ! this value should be zero
+!   PPRAM%param_const(:,0) = 0d0 ! this value should be zero
     PPRAM%param_const(1,:) =param_const(1,1:PPRAM%nparam)  ! if gt 0 and it is "i", param is same as i-th parameter 
     PPRAM%param_const(2,:) =param_const(2,1:PPRAM%nparam)  ! default upper bound 
     PPRAM%param_const(3,:) =param_const(3,1:PPRAM%nparam)  ! default lower bound
@@ -359,7 +359,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    if(PPRAM%slater_koster_type .gt. 10) then
      allocate( PPRAM%param_const_nrl(5,4,PPRAM%nparam) )
      !initialize
-     PPRAM%param_const_nrl(:,:,0) = 0d0 ! this value should be zero
+!    PPRAM%param_const_nrl(:,:,0) = 0d0 ! this value should be zero
      PPRAM%param_const_nrl(1,:,:) =param_const_nrl(1,:,1:PPRAM%nparam)  ! if gt 0 and it is "i", param is same as i-th parameter 
      PPRAM%param_const_nrl(2,:,:) =param_const_nrl(2,:,1:PPRAM%nparam)  ! default upper bound 
      PPRAM%param_const_nrl(3,:,:) =param_const_nrl(3,:,1:PPRAM%nparam)  ! default lower bound

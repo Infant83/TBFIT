@@ -45,9 +45,9 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
     ii=0
     kdist = 0.0
     if(trim(PKPTS%k_name(1)) .eq. "G" .or. trim(PKPTS%k_name(1)) .eq. 'g') then
-      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol G}','"'  ; write_msg
+      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol G}','"'  ; write_msgi
     else
-      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'  ; write_msg
+      write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'  ; write_msgi
     endif
     iline_ = 0
     do iline=1,PKPTS%nline*2, 2
@@ -71,15 +71,15 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
         endif
         if( (iline-1)/2 + 2 .lt. 10) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"','{/Symbol G}','"'  ; write_msg
+            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"','{/Symbol G}','"'  ; write_msgi
           else
-            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
+            write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'   =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msgi
           endif
         elseif(iline .lt. 100) then
           if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"','{/Symbol G}','"'  ; write_msg
+            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"','{/Symbol G}','"'  ; write_msgi
           else
-            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
+            write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',(iline-1)/2 + 2,'= ',kdist, ' ; ','KNAME_',(iline-1)/2 + 2,'  =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msgi
           endif
         endif
       elseif(iline .ge. 1 .and. iline .eq. PKPTS%nline*2-1) then
@@ -89,9 +89,9 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
           kdist=kdist + enorm(3,dk) * real(ndivk)
         endif
         if(trim(PKPTS%k_name(iline+1)) .eq. "G" .or. trim(PKPTS%k_name(iline+1)) .eq. 'g') then
-          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol G}','"'  ; write_msg
+          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"','{/Symbol G}','"'  ; write_msgi
         else
-          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msg
+          write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',kdist,' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(iline+1)),'"'  ; write_msgi
         endif
       endif
 
@@ -120,7 +120,7 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
         write(message,'(2A,i0,A,i0,A)')trim(message),' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
       endif
     enddo
-    write_msg
+    write_msgi
 
   ! k-grid mode
   elseif(PKPTS%flag_kgridmode) then

@@ -13,6 +13,8 @@ module print_io
    character*2048    message_pack(1024) ! just assumed that maximum number of cpus = 1024 (one can increase according to your system))
    integer*4, public, parameter :: pid_log = 17
    integer*4, public            :: iverbose     ! 1: full, 2: no
+   integer*4, public            :: print_mode
+
 contains
    subroutine open_log(fnamelog, myid)
       implicit none
@@ -63,6 +65,13 @@ contains
         case(23)  ! write with advance=no to file
           if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
           if_main write(6      , '(A)', ADVANCE='NO') trim(string)
+
+        case(99) ! return without writing anything
+          return
+
+        case(97) 
+          return
+         !if_main write(pid_log, '(A)') trim(string)
 
       end select
 

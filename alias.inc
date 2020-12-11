@@ -15,6 +15,8 @@
 #define write_msg_file     call write_log(message,1,myid)
 #define write_msg_screen   call write_log(message,2,myid)
 #define write_msg_all      call write_log(message,13,myid)
+#define write_msgi         call write_log(message,print_mode,myid)
+#define write_msgi_file    call write_log(message,print_mode-2,myid)
 #ifdef MPI
 #define kill_job           call MPI_BARRIER(mpi_comm_earth, mpierr); call mpi_finish()
 #else

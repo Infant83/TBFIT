@@ -57,6 +57,7 @@ subroutine parse(PINPT)
    use parameters, only: incar
    use mpi_setup
    use print_io
+   use version
    implicit none
    character*20        option, value
    character*20        dummy
@@ -78,7 +79,7 @@ subroutine parse(PINPT)
    PINPT%flag_miter_parse = .false.
    PINPT%flag_mxfit_parse = .false.
    PINPT%flag_lorbit_parse= .false.
-   PINPT%flag_proj_parse  = .false.
+!  PINPT%flag_proj_parse  = .false.
    PINPT%flag_filenm_gnuplot_parse = .false.
    PINPT%flag_inputcard_fname_parse = .false. ! deprecated
    PINPT%flag_ndiv_line_parse = .false.
@@ -87,6 +88,7 @@ subroutine parse(PINPT)
    PINPT%flag_print_only_target = .false.
    iverbose = 1 ! 1: full, 2: no
    iverbose_= 1
+   print_mode = 3 ! default verbosity 
 
   write(message,*)' '; write_msg
   write(message,*)'---- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS ---------------------'  ; write_msg
@@ -105,7 +107,7 @@ subroutine parse(PINPT)
            elseif(iverbose_ .eq. 2) then
              write(message,'(A)')'  VERBOSE: none'
            endif
-
+    
          elseif(trim(option) .eq. '-fit' .or. trim(option) .eq. '-f') then
            PINPT%flag_tbfit_parse  = .true.
            PINPT%flag_tbfit = .true.
@@ -221,31 +223,32 @@ subroutine parse(PINPT)
              PINPT%flag_get_orbital =.true. 
            endif
 
-         elseif(trim(option) .eq. '-ldos' .or. trim(option) .eq. '-proj') then
-           PINPT%flag_parse = .true.
-           PINPT%flag_lorbit_parse = .true.
-           PINPT%flag_get_orbital = .true.
-           PINPT%flag_print_mag = .false.
-           PINPT%flag_proj_parse = .true.
+         ! deprecated 26. Nov. 2020, HJK
+!        elseif(trim(option) .eq. '-ldos' .or. trim(option) .eq. '-proj') then
+!          PINPT%flag_parse = .true.
+!          PINPT%flag_lorbit_parse = .true.
+!          PINPT%flag_get_orbital = .true.
+!          PINPT%flag_print_mag = .false.
+!          PINPT%flag_proj_parse = .true.
 
-           if(iarg + 1 .le. narg) then 
-             call getarg(iarg+1, value)
-             read(value,*)dummy
-             call str2logical(dummy,flag_logical, flag)
-             if(flag_logical) then 
-               PINPT%flag_print_proj = flag
-             else
-               PINPT%flag_print_proj = .true.
-             endif
-           elseif(iarg + 1 .gt. narg) then
-              PINPT%flag_print_proj = .true.
-           endif
-    
-           if(PINPT%flag_print_proj) then
-             write(message,'(A)')'  L_LDOS: .TRUE. | print out atom projected orbital weight'  ; write_msg
-           elseif(.not. PINPT%flag_print_proj) then
-             write(message,'(A)')'  L_LDOS: .FALSE.'  ; write_msg
-           endif
+!          if(iarg + 1 .le. narg) then 
+!            call getarg(iarg+1, value)
+!            read(value,*)dummy
+!            call str2logical(dummy,flag_logical, flag)
+!            if(flag_logical) then 
+!              PINPT%flag_print_proj = flag
+!            else
+!              PINPT%flag_print_proj = .true.
+!            endif
+!          elseif(iarg + 1 .gt. narg) then
+!             PINPT%flag_print_proj = .true.
+!          endif
+!   
+!          if(PINPT%flag_print_proj) then
+!            write(message,'(A)')'  L_LDOS: .TRUE. | print out atom projected orbital weight'  ; write_msg
+!          elseif(.not. PINPT%flag_print_proj) then
+!            write(message,'(A)')'  L_LDOS: .FALSE.'  ; write_msg
+!          endif
 
          endif
 
@@ -314,8 +317,8 @@ subroutine help()
    write(6,'(A)')"           mx             : enforce to print magnetization mx " 
    write(6,'(A)')"           my             : enforce to print magnetization mz " 
    write(6,'(A)')"           mz             : enforce to print magnetization mz " 
-   write(6,'(A)')"   -ldos .true.  or T     : enforce to print orbital information for each atom in separate file"
-   write(6,'(A)')"         .false. or F     : enforce not to print orbital information"
+!  write(6,'(A)')"   -ldos .true.  or T     : enforce to print orbital information for each atom in separate file"
+!  write(6,'(A)')"         .false. or F     : enforce not to print orbital information"
    write(6,'(A)')"   -test                  : run test routine, for the development perpose only."
    stop                                 
 

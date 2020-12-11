@@ -21,9 +21,24 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
   type(gainp  )                           :: PKAIA ! temp
   integer*4                                  i
   integer*4                                  mpierr
+! integer*4                                  print_mode
+
+ 
+  if(PINPT%flag_tbfit_finish) then
+    ! this print_mode applies to the read_input routine, and make not to print input settings as it reads 
+    ! INCAR-TB again. This constraint make the output report redundunt
+    print_mode = 99
+  endif
 
   do i = 1, PINPT%nsystem
-    call read_input(PINPT,PPRAM(i),PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i),PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i),PKAIA,PRPLT(i), i)
+    write(message,'( A)')' '  ; write_msg
+    write(message,'( A)')' ========================================================'  ; write_msg
+    write(message,'(2A)')'   START POST-PROCESSING PROCEDURE: ',trim(PGEOM(i)%gfilenm) ; write_msg
+    write(message,'( A)')' ========================================================'  ; write_msg
+   !write(message,'( A)')' '  ; write_msg
+
+    call read_input(PINPT,PPRAM(i),PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i),PGEOM(i),PWGHT(i), &
+                    EDFT(i), NN_TABLE(i),PKAIA,PRPLT(i), i)
 
     if(PINPT%flag_tbfit_finish) then
       call init_params(PPRAM(i), PINPT)

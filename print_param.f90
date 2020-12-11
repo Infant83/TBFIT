@@ -118,7 +118,7 @@ subroutine print_param (PINPT, PPRAM, PWGHT, title, flag_print_file)
   do i = 1, im
     
     if(.not. flag_print_file) then 
-      call write_log(trim(message_pack(i)), 3, 0)
+      call write_log(trim(message_pack(i)), print_mode, 0)
     elseif(flag_print_file) then
       write(pid_param_new,'(A)')trim(message_pack(i))//'  '
     endif

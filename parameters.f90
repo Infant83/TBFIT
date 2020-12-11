@@ -72,7 +72,8 @@ module parameters
        logical                       flag_ndiv_line_parse, flag_ndiv_grid_parse
        logical                       flag_fit_degeneracy ! fitting is helped by fitting degeneracy as well.
        logical                       flag_miter_parse, flag_mxfit_parse
-       logical                       flag_lorbit_parse, flag_proj_parse
+       logical                       flag_lorbit_parse
+!      logical                       flag_proj_parse
        logical                       flag_parse
        logical                       flag_tbfit_test
        logical                       flag_inputcard_fname_parse
@@ -93,7 +94,6 @@ module parameters
        logical                       flag_print_energy_diff ! also print energy different between target and tight-binding energies
        logical                       flag_print_orbital  ! activated with LORBIT .TRUE. tag
        logical                       flag_get_orbital    ! whether request wavevector in diagonalize routine
-       logical                       flag_print_proj
        logical                       flag_print_mag
        logical                       flag_print_single ! default .false. (write single precision for wavefunction)
        logical                       flag_load_nntable ! default .false.
@@ -165,6 +165,7 @@ module parameters
        integer*4                     nproj_sum
        integer*4,   allocatable   :: proj_atom(:,:) ! integer array of atom index. maxsize=n_atom
        integer*4,   allocatable   :: proj_natom(:) ! how many atoms to be plotted for projected band
+       logical                       flag_print_proj
        logical                       flag_print_proj_sum
 
        logical                       flag_plot_fit
@@ -398,6 +399,7 @@ module parameters
        integer*4                     iband, fband
        integer*4                     vbmd, cbmd   ! valence and conduction band maximum and minimum: DFT
        integer*4                     vbmt, cbmt   ! valence and conduction band maximum and minimum: TBA
+       integer*4                     ie_cutoff    ! if(ie_cutoff .gt. 0) sum_n=1,ie_cutoff (EDFT_n - ETBA_n) , default = 0
        real*8,      allocatable   :: WT(:,:)
        real*8,      allocatable   :: DEGENERACY_WT(:,:)
        real*8,      allocatable   :: PENALTY_ORB(:,:,:)

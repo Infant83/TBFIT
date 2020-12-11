@@ -32,7 +32,7 @@ subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    endif
 
    if(PINPT%flag_print_proj ) then
-     call print_energy_proj(PKPTS, ETBA%E, ETBA%V, ETBA%SV, PGEOM, PINPT)
+     call print_energy_proj(PKPTS, ETBA%E, ETBA%V, ETBA%SV, PGEOM, PINPT, PPRAM%flag_use_overlap)
    endif
    
     

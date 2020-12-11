@@ -15,7 +15,7 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
   inquire(file=PGEOM%gfilenm,exist=flag_gfile_exist)
 
   if(.not. flag_gfile_exist) then
-    write(message,'(A,A,A)')'  !WARN! ',trim(PGEOM%gfilenm),' does not exist!! Exit...' ; write_msg
+    write(message,'(A,A,A)')'  !WARN! ',trim(PGEOM%gfilenm),' does not exist!! Exit...' ; write_msgi
     kill_job
   endif
 
@@ -23,8 +23,8 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
   if(PGEOM%flag_set_ribbon) call set_ribbon_geom(PGEOM) 
 
   ! read geometry
-  write(message,*)' '  ; write_msg
-  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(PGEOM%gfilenm)  ; write_msg
+  write(message,*)' '  ; write_msgi
+  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(PGEOM%gfilenm)  ; write_msgi
   call read_poscar(PINPT, PGEOM, NN_TABLE)
 
   !set equivalent atom if defined in CONSTRAINT set
@@ -45,9 +45,9 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
         PGEOM%fina_erange = PGEOM%neig*PINPT%ispinor
       elseif(PINPT%feast_nemax .ge. 1) then
         if(PINPT%feast_nemax .gt. PGEOM%neig * PINPT%ispinor) then
-          write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'   ; write_msg
-          write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'           ; write_msg
-          write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'     ; write_msg
+          write(message,'(A,I0,A)')'    !WARN! The NE_MAX (',PINPT%feast_nemax,') of EWINDOW tag is larger than the eigenvalues (NEIG)'   ; write_msgi
+          write(message,'(A,I0,A)')'           of the system (',PGEOM%neig * PINPT%ispinor,'). Hence, we enforce NEMAX = NEIG.'           ; write_msgi
+          write(message,'(A,I0,A)')'           Otherwise, you can reduce the expected NE_MAX within the EWINDOW with a proper guess.'     ; write_msgi
           PGEOM%nband = PGEOM%neig * PINPT%ispinor
           PINPT%feast_nemax = PGEOM%nband
         else
@@ -58,6 +58,8 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
       endif
     endif
   endif
+
+  write(message,'(A,i8)')'    NBAND:',PGEOM%nband  ; write_msgi
 
   ! set orbital index (s,p,d...) according to their name specified in PFILE (only work with flag_slater_koster = .true.)
   if(PPRAM%flag_slater_koster) then
@@ -71,8 +73,8 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
 
   ! setup for effective hamiltonian calculation
   if(PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
-    write(message,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'  ; write_msg
-    write(message,'(A)')'           Exit program...' ; write_msg
+    write(message,'(A)')'    !WARN! The EWINDOW tag and LOWDIN cannot be used simulatneously in the current version.'  ; write_msgi
+    write(message,'(A)')'           Exit program...' ; write_msgi
     kill_job
   elseif(.not. PINPT%flag_sparse .and. PINPT%flag_get_effective_ham) then
     call set_effective_orbital_index(PINPT, PGEOM, NN_TABLE)
@@ -87,44 +89,45 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
      if(PINPT%nspin .eq. 2) then
        allocate(PGEOM%nelect(2))
        PGEOM%nelect = nelect
-       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
-       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
-       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msgi
+       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msgi
+       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msgi
 
        if(nelect(1) .lt. 0d0) then
-         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
-         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msgi
+         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msgi
          kill_job
        else
-         write(message,'(A,F12.5)')'   NELECT: (up)', PGEOM%nelect(1) ; write_msg
-         write(message,'(A,F12.5)')'   NELECT: (dn)', PGEOM%nelect(2) ; write_msg
+         write(message,'(A,F12.5)')'   NELECT: (up)', PGEOM%nelect(1) ; write_msgi
+         write(message,'(A,F12.5)')'   NELECT: (dn)', PGEOM%nelect(2) ; write_msgi
        endif
      else
        allocate(PGEOM%nelect(1))
        PGEOM%nelect = nelect(1)
-       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msg
-       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msg
-       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msg
+       write(message,'(A)')'  L_TOTEN: .TRUE.' ; write_msgi
+       write(message,'(A,F12.5,A)')'   ELTEMP: ', PINPT%electronic_temperature, ' (electronic temperature (in K))' ; write_msgi
+       write(message,'(A,F12.5,A)')'           ', PINPT%electronic_temperature*k_B, ' (gaussian broadening = kB*T)' ; write_msgi
        if(nelect(1) .lt. 0d0) then
-         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msg
-         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msg
+         write(message,'(A)')'    !WARN! The total nergy calculation is requested but number of electons are not explicitly specified. ' ; write_msgi
+         write(message,'(A)')'           Please check NELECT tag for the information. Exit...' ; write_msgi
          kill_job
        else
-         write(message,'(A,F12.5)')'   NELECT: ', PGEOM%nelect(1) ; write_msg
+         write(message,'(A,F12.5)')'   NELECT: ', PGEOM%nelect(1) ; write_msgi
        endif
      endif
    else
-     write(message,'(A)')'  L_TOTEN: .FALSE.' ; write_msg
+     write(message,'(A)')'  L_TOTEN: .FALSE.' ; write_msgi
    endif
 
-  write(message,*)'*- END READING GEOMETRY FILE ---------------------'  ; write_msg
-  write(message,*)' '  ; write_msg
+  write(message,*)'*- END READING GEOMETRY FILE ---------------------'  ; write_msgi
+  write(message,*)' '  ; write_msgi
 
   return
 endsubroutine
 subroutine read_poscar(PINPT,PGEOM,NN_TABLE)
   use parameters,  only : incar, poscar, hopping, pid_geom
   use do_math, only : rotate_vector, inv
+  use print_io
   use mpi_setup
   implicit none
   integer*4, parameter     :: max_orb_temp = 20
@@ -167,7 +170,7 @@ line: do
         read(pid_geom,'(A)',iostat=i_continue) inputline
         if(i_continue<0) exit               ! end of file reached
         if(i_continue>0) then 
-          write(message,*)'Unknown error reading file:',trim(fname),func  ; write_msg
+          write(message,*)'Unknown error reading file:',trim(fname),func  ; write_msgi
         endif
 
         if(linecount .eq. 0) then 
@@ -183,31 +186,31 @@ line: do
         ! head
          if(linecount .eq. 1) then
            PGEOM%system_name = trim(inputline)
-           write(message,'(A,A)')'   SYSTEM:  ', trim(PGEOM%system_name)  ; write_msg
+           write(message,'(A,A)')'   SYSTEM:  ', trim(PGEOM%system_name)  ; write_msgi
            cycle
 
         ! scaling factor
          elseif(linecount .eq. 2) then
            read(inputline,*,iostat=i_continue) PGEOM%a_scale
-           write(message,'(A,F15.8)')'  A_SCALE:  ',PGEOM%a_scale  ; write_msg
+           write(message,'(A,F15.8)')'  A_SCALE:  ',PGEOM%a_scale  ; write_msgi
            cycle
 
         ! lattice parameter
          elseif(linecount .eq. 3 ) then
            backspace(pid_geom)
-           write(message,'(A            )')'          _______________________________________________'; write_msg
+           write(message,'(A            )')'          _______________________________________________'; write_msgi
            do i=1,3
              read(pid_geom,'(A)',iostat=i_continue) inputline
              read(inputline,*,iostat=i_continue) PGEOM%a_latt(1:3,i)
-             write(message,'(A,i1,A,3F15.8)')'  LATT A',i,':  ',PGEOM%a_latt(1:3,i)  ; write_msg
+             write(message,'(A,i1,A,3F15.8)')'  LATT A',i,':  ',PGEOM%a_latt(1:3,i)  ; write_msgi
            enddo
            call get_reci(PGEOM%b_latt(:,1), PGEOM%b_latt(:,2), PGEOM%b_latt(:,3), &
                          PGEOM%a_latt(:,1), PGEOM%a_latt(:,2), PGEOM%a_latt(:,3))
-           write(message,'(A            )')'          –––––––––––––––––––––––––––––––––––––––––––––––'; write_msg
+           write(message,'(A            )')'          –––––––––––––––––––––––––––––––––––––––––––––––'; write_msgi
            do i=1,3
-             write(message,'(A,i1,A,3F15.8)')'  RECI B',i,':  ',PGEOM%b_latt(1:3,i)  ; write_msg
+             write(message,'(A,i1,A,3F15.8)')'  RECI B',i,':  ',PGEOM%b_latt(1:3,i)  ; write_msgi
            enddo
-           write(message,'(A            )')'          ––––——––––––––––––––––––––––––––———––––––––––––'; write_msg
+           write(message,'(A            )')'          ––––——––––––––––––––––––––––––––———––––––––––––'; write_msgi
            linecount = linecount + 2
            cycle
 
@@ -215,7 +218,7 @@ line: do
          elseif(linecount .eq. 6 ) then
            PGEOM%n_spec=nitems(inputline)
            allocate( PGEOM%c_spec(PGEOM%n_spec), PGEOM%i_spec(PGEOM%n_spec) )
-           write(message,'(A,i8)')'   N_SPEC:',PGEOM%n_spec  ; write_msg
+           write(message,'(A,i8)')'   N_SPEC:',PGEOM%n_spec  ; write_msgi
            read(inputline,*,iostat=i_continue) PGEOM%c_spec(1:PGEOM%n_spec)
            read(pid_geom,'(A)',iostat=i_continue) inputline
            linecount = linecount + 1
@@ -230,7 +233,7 @@ line: do
            enddo
            PGEOM%spec_equiv = PGEOM%spec ! initialize. 
 
-           write(message,'(A,i8)')'   N_ATOM:',PGEOM%n_atom  ; write_msg
+           write(message,'(A,i8)')'   N_ATOM:',PGEOM%n_atom  ; write_msgi
            allocate( PGEOM%a_coord(3,PGEOM%n_atom), &
                      PGEOM%a_coord_cart(3,PGEOM%n_atom), &
                      PGEOM%n_orbital(PGEOM%n_atom), &
@@ -245,9 +248,9 @@ line: do
                      temp_orbital_sign = 1d0 ! initialize as unity.
            do i=1,PGEOM%n_spec
              if(i .eq. 1)then
-               write(message,'(A,I2,A,A4,1x,i8)')'   SPEC',i,':',trim(PGEOM%c_spec(i)),PGEOM%i_spec(i)  ; write_msg
+               write(message,'(A,I2,A,A4,1x,i8)')'   SPEC',i,':',trim(PGEOM%c_spec(i)),PGEOM%i_spec(i)  ; write_msgi
              else
-               write(message,'(A,I2,A,A4,1x,i8)')'   SPEC',i,':',trim(PGEOM%c_spec(i)),PGEOM%i_spec(i)  ; write_msg
+               write(message,'(A,I2,A,A4,1x,i8)')'   SPEC',i,':',trim(PGEOM%c_spec(i)),PGEOM%i_spec(i)  ; write_msgi
              endif
            enddo
 
@@ -256,22 +259,22 @@ line: do
            read(inputline,*,iostat=i_continue) desc_str
            if(desc_str(1:1) .eq. 'S' .or. desc_str(1:1) .eq. 's') then 
              PGEOM%flag_selective = .true.
-            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msgi
            elseif(desc_str(1:1) .eq. 'D' .or. desc_str(1:1) .eq. 'd') then 
              PGEOM%flag_selective = .false.
              PGEOM%flag_direct=.true.
              PGEOM%flag_cartesian=.false.
              linecount = linecount + 1
-            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msg
-             write(message,'(A)')' C_CRDTYP:  DIRECT'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .TRUE.'  ; write_msgi
+             write(message,'(A)')' C_CRDTYP:  DIRECT'  ; write_msgi
            elseif(desc_str(1:1) .eq. 'C' .or. desc_str(1:1) .eq. 'c' .or. &
                   desc_str(1:1) .eq. 'K' .or. desc_str(1:1) .eq. 'k') then 
              PGEOM%flag_selective = .false.
              PGEOM%flag_direct=.false.
              PGEOM%flag_cartesian=.true.
              linecount = linecount + 1
-            !write(message,'(A)')' L_CONSTR:  .FALSE.'  ; write_msg
-             write(message,'(A)')' C_CRDTYP:  CARTESIAN'  ; write_msg
+            !write(message,'(A)')' L_CONSTR:  .FALSE.'  ; write_msgi
+             write(message,'(A)')' C_CRDTYP:  CARTESIAN'  ; write_msgi
            endif
          elseif(linecount .eq. 9 ) then
            read(inputline,*,iostat=i_continue) desc_str
@@ -279,11 +282,11 @@ line: do
               desc_str(1:1) .eq. 'K' .or. desc_str(1:1) .eq. 'k') then 
              PGEOM%flag_direct=.false.
              PGEOM%flag_cartesian=.true.
-             write(message,'(A)')' C_CRDTYP:  CARTESIAN'  ; write_msg
+             write(message,'(A)')' C_CRDTYP:  CARTESIAN'  ; write_msgi
            elseif(desc_str(1:1) .eq. 'D' .or. desc_str(1:1) .eq. 'd') then 
              PGEOM%flag_direct=.true.
              PGEOM%flag_cartesian=.false.
-             write(message,'(A)')' C_CRDTYP:  DIRECT'  ; write_msg
+             write(message,'(A)')' C_CRDTYP:  DIRECT'  ; write_msgi
            endif
 
          ! atomic coordinate & atomic orbital information
@@ -366,8 +369,8 @@ line: do
                endif
                i_dummy = nitems(dummy)
                if(i_dummy .ne. PGEOM%n_orbital(i)) then
-                 write(message,'(A,I6)')'  !WARNING! Charge setting is inproper. Number of items should be same as N_ORBITAL(i). iatom=',i  ; write_msg
-                 write(message,'(A)')   '  !WARNING! Please check GFILE. Exit program...'  ; write_msg
+                 write(message,'(A,I6)')'  !WARNING! Charge setting is inproper. Number of items should be same as N_ORBITAL(i). iatom=',i  ; write_msgi
+                 write(message,'(A)')   '  !WARNING! Please check GFILE. Exit program...'  ; write_msgi
                  stop
                else
                  read(dummy,*)local_charge_(ii:ii+PGEOM%n_orbital(i)-1)
@@ -398,8 +401,8 @@ line: do
                i_dummy = nitems(dummy)
                if(PINPT%flag_collinear) then
                  if(i_dummy .ne. PGEOM%n_orbital(i)) then
-                   write(message,'(A)')'  !WARNING! Moment setting is inproper. Number of items should be same as N_ORBITAL(i) in the collinear setting.'  ; write_msg
-                   write(message,'(A,I6)')'  !WARNING! Please check GFILE. Exit program...  iatom=',i  ; write_msg
+                   write(message,'(A)')'  !WARNING! Moment setting is inproper. Number of items should be same as N_ORBITAL(i) in the collinear setting.'  ; write_msgi
+                   write(message,'(A,I6)')'  !WARNING! Please check GFILE. Exit program...  iatom=',i  ; write_msgi
                    stop
                  else 
                    read(dummy,*)local_moment_(1,ii:ii+PGEOM%n_orbital(i)-1)
@@ -407,8 +410,8 @@ line: do
                endif
                if(PINPT%flag_noncollinear) then
                  if(i_dummy .ne. PGEOM%n_orbital(i)*3) then
-                   write(message,'(A)')'  !WARNING! Moment setting is inproper. Number of items should be same as N_ORBITAL(i)*3 in the non-collinear setting.'  ; write_msg
-                   write(message,'(A,I6)')'  !WARNING! N_ORBITAL(i) * 3 = number of items (M, theta, phi) or (Mx,My,Mz). Please check GFILE. Exit program...  iatom=',i  ; write_msg
+                   write(message,'(A)')'  !WARNING! Moment setting is inproper. Number of items should be same as N_ORBITAL(i)*3 in the non-collinear setting.'  ; write_msgi
+                   write(message,'(A,I6)')'  !WARNING! N_ORBITAL(i) * 3 = number of items (M, theta, phi) or (Mx,My,Mz). Please check GFILE. Exit program...  iatom=',i  ; write_msgi
                    stop
                  else
                    read(dummy,*)((local_moment_(j,i_dummy),j=1,3),i_dummy = ii, ii+PGEOM%n_orbital(i)-1)
@@ -421,8 +424,8 @@ line: do
                call strip_off(trim(inputline), dummy, trim(site_index), '', 2)
                i_dummy = nitems(dummy)
                if(i_dummy .ne. 1) then
-                 write(message,'(A)')'  !WARNING! Site_index setting is inproper. Number of items should be one and the data type should be character(20)'  ; write_msg
-                 write(message,'(A,I6)')'  !WARNING! Please check GFILE. Exit program...  iatom=',i  ; write_msg
+                 write(message,'(A)')'  !WARNING! Site_index setting is inproper. Number of items should be one and the data type should be character(20)'  ; write_msgi
+                 write(message,'(A,I6)')'  !WARNING! Please check GFILE. Exit program...  iatom=',i  ; write_msgi
                  stop
                else
                  read(dummy,*)site_c_index_(i)
@@ -474,14 +477,16 @@ line: do
              endif
 
            enddo !n_atom
+           
+           ! number of atomic orbitals (Hamiltonian matrix size)
            PGEOM%neig=sum(PGEOM%n_orbital(1:PGEOM%n_atom))
            PGEOM%neig_total = PGEOM%neig * PINPT%ispin
            PGEOM%nbasis = PGEOM%neig 
 
-           if(PGEOM%neig  == 0) then
-             write(message,'(A)')'  !! Check geometry input file. atomic orbital is not asigned!'  ; write_msg
-           elseif(PGEOM%neig >= 1) then
-             write(message,'(A,i8)')'  N_ORBIT:',PGEOM%neig  ; write_msg
+           if(PGEOM%neig .eq. 0) then
+             write(message,'(A)')'  !! Check geometry input file. atomic orbital is not asigned!'  ; write_msgi
+           elseif(PGEOM%neig .gt. 1) then
+             write(message,'(A,i8)')'  N_ORBIT:',PGEOM%neig  ; write_msgi
              PGEOM%max_orb=maxval( PGEOM%n_orbital(:) )
              allocate( PGEOM%c_orbital(PGEOM%max_orb,PGEOM%n_atom) ) ; PGEOM%c_orbital = '_na_'
              allocate( PGEOM%orb_sign(PGEOM%max_orb,PGEOM%n_atom) )  ; PGEOM%orb_sign = 1d0
@@ -490,18 +495,18 @@ line: do
              do i=1,PGEOM%n_atom
                if(PGEOM%n_orbital(i) .eq. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msg_file
+                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msgi_file
                  endif
                elseif(PGEOM%n_orbital(i) .gt. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msg_file
-                   write(message,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i) ; write_msg_file
+                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msgi_file
+                   write(message,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i) ; write_msgi_file
                  endif
                  if(PINPT%flag_local_charge) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(PINPT%flag_report_geom) then
-                     write(message,'(A,*(F10.4))')'   CHARGE:   ',local_charge_(i_dummy:i_dummy1) ; write_msg_file
+                     write(message,'(A,*(F10.4))')'   CHARGE:   ',local_charge_(i_dummy:i_dummy1) ; write_msgi_file
                    endif
                  endif
 
@@ -509,18 +514,18 @@ line: do
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(PINPT%flag_report_geom) then
-                     write(message,'(A,*(F10.4))')'   MAGMOM:   ',local_moment_(1,i_dummy:i_dummy1) ; write_msg_file
+                     write(message,'(A,*(F10.4))')'   MAGMOM:   ',local_moment_(1,i_dummy:i_dummy1) ; write_msgi_file
                    endif
                  elseif(PINPT%flag_noncollinear) then
                    i_dummy = sum(PGEOM%n_orbital(1:i)) - PGEOM%n_orbital(i) + 1
                    i_dummy1= sum(PGEOM%n_orbital(1:i))
                    if(flag_moment_cart)then
                      if(PINPT%flag_report_geom) then
-                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (Mx,My,Mz) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg_file
+                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (Mx,My,Mz) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msgi_file
                      endif
                    else
                      if(PINPT%flag_report_geom) then
-                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (M,theta,phi) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msg_file
+                       write(message,'(A,*(3F7.3,2x))')'   MAGMOM: (M,theta,phi) ',(local_moment_(1:3,i_dummy2),i_dummy2=i_dummy,i_dummy1) ; write_msgi_file
                      endif
                    endif
                  endif
@@ -528,14 +533,14 @@ line: do
                endif
              enddo
            elseif(PGEOM%neig < 0)then
-             write(message,'(A)')'  !! Check geometry input file. negative number of atomic orbitals ??'  ; write_msg
+             write(message,'(A)')'  !! Check geometry input file. negative number of atomic orbitals ??'  ; write_msgi
            endif
          endif ! linecount
 
          if (  i_continue .ne. 0 ) cycle  ! skip empty line 
 
       enddo line
-  
+
 ! call check_sanity(PINOT,PGEOM) !!!!! for future work
   if(PGEOM%flag_cartesian) then ! cartesian
     t_latt_inv = inv(PGEOM%a_latt)
@@ -547,7 +552,7 @@ line: do
       PGEOM%a_coord(1,i) = dot_product(t_latt_inv(1,:), t_coord(:)) 
       PGEOM%a_coord(2,i) = dot_product(t_latt_inv(2,:), t_coord(:))
       PGEOM%a_coord(3,i) = dot_product(t_latt_inv(3,:), t_coord(:))
-      PGEOM%a_coord(:,i) = PGEOM%a_coord(:,i) - int(PGEOM%a_coord(:,i))
+      PGEOM%a_coord(:,i) = PGEOM%a_coord(:,i) - real(int(PGEOM%a_coord(:,i)))
       PGEOM%a_coord_cart(:,i) = PGEOM%a_coord(1,i) * PGEOM%a_latt(:,1) + &
                                 PGEOM%a_coord(2,i) * PGEOM%a_latt(:,2) + &
                                 PGEOM%a_coord(3,i) * PGEOM%a_latt(:,3)
@@ -582,7 +587,7 @@ line: do
     NN_TABLE%efield_origin_cart(1:3) = NN_TABLE%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
                                        NN_TABLE%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
                                        NN_TABLE%efield_origin(3) * PGEOM%a_latt(1:3,3)
-    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msg
+    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msgi
   elseif(NN_TABLE%flag_efield .and. .not. NN_TABLE%flag_efield_frac .and. .not. NN_TABLE%flag_efield_cart) then
     NN_TABLE%efield_origin(1) = 0
     NN_TABLE%efield_origin(2) = 0
@@ -591,7 +596,7 @@ line: do
     NN_TABLE%efield_origin_cart(1:3) = NN_TABLE%efield_origin(1) * PGEOM%a_latt(1:3,1) + &
                                        NN_TABLE%efield_origin(2) * PGEOM%a_latt(1:3,2) + &
                                        NN_TABLE%efield_origin(3) * PGEOM%a_latt(1:3,3)
-    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msg
+    write(message,'(A,3F12.6)')'EF_ORIGIN:  (in cartesian coord) ',NN_TABLE%efield_origin_cart(1:3)  ; write_msgi
   endif
 
 
@@ -630,7 +635,7 @@ line: do
   endif
 
   if (linecount == 0) then
-    write(message,*)'Attention - empty input file: ',trim(fname),' , ',func  ; write_msg
+    write(message,*)'Attention - empty input file: ',trim(fname),' , ',func  ; write_msgi
 #ifdef MPI
     call MPI_Abort(mpi_comm_earth, 0, mpierr)
 #else

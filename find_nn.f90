@@ -39,10 +39,10 @@ subroutine set_nn_table(NN_TABLE, PINPT, PPRAM, PGEOM, flag_print_nn_table, flag
        call load_nn_table(NN_TABLE, PINPT, PPRAM)
    
      elseif(PINPT%flag_load_nntable .and. (PINPT%flag_tbfit .or. PPRAM%flag_use_overlap) ) then
-       write(message,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure or '    ; write_msg
-       write(message,'(A)')'         with overlap matrix constructions, i.e., using overlap integrals.'               ; write_msg
-       write(message,'(A)')'         Please turn off LOAD_HOP or TBFIT option or do not use overlap integrals in'     ; write_msg
-       write(message,'(A)')'         your PARAM_FIT.dat file. Exit..'                                                 ; write_msg
+       write(message,'(A)')'  !WARN! Reading hopping file cannot be combined with parameter fitting procedure or '    ; write_msgi
+       write(message,'(A)')'         with overlap matrix constructions, i.e., using overlap integrals.'               ; write_msgi
+       write(message,'(A)')'         Please turn off LOAD_HOP or TBFIT option or do not use overlap integrals in'     ; write_msgi
+       write(message,'(A)')'         your PARAM_FIT.dat file. Exit..'                                                 ; write_msgi
        kill_job
      endif
    endif
@@ -171,11 +171,11 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    a2=PGEOM%a_latt(1:3,2)
    a3=PGEOM%a_latt(1:3,3)
 
-   write(message,*)' ' ; write_msg
-   write(message,*)'*- SETUP NEIGHBOR ATOM/ORBITAL PAIR & HOPPING CLASS' ; write_msg
-   write(message,'(A)')' => Hopping pair (NN_PAIR) with following conditions will be searched::' ; write_msg
+   write(message,*)' ' ; write_msgi
+   write(message,*)'*- SETUP NEIGHBOR ATOM/ORBITAL PAIR & HOPPING CLASS' ; write_msgi
+   write(message,'(A)')' => Hopping pair (NN_PAIR) with following conditions will be searched::' ; write_msgi
    do i = 1, PGEOM%n_nn_type
-     write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',PGEOM%nn_pair(i),' R0_max:',PGEOM%nn_dist(i),'   R0:',PGEOM%nn_r0(i)  ; write_msg
+     write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',PGEOM%nn_pair(i),' R0_max:',PGEOM%nn_dist(i),'   R0:',PGEOM%nn_r0(i)  ; write_msgi
    enddo
 
    call time_check(t1,t0,'init')
@@ -422,7 +422,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    NN_TABLE%n_neighbor = nn
    if (nn .gt. max_nn) then
      write(message,'(A,I8,A,A)')'  !WARN! Total number of Neighbor pair is exeed MAX_NN=100*N_ATOM*MAX_ORB=',max_nn, &
-                          ' Exit... Please recompile with larger MAX_NN', func  ; write_msg
+                          ' Exit... Please recompile with larger MAX_NN', func  ; write_msgi
      kill_job
    endif
 
@@ -600,17 +600,17 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    deallocate( NN_TABLE_dummy%plus_U_param_index )
 #endif
 
-   write(message,*)' ' ; write_msg
-   write(message,'(A,I0,A)')'  N_NEIGH: found ',NN_TABLE%n_neighbor, ' hopping pair' ; write_msg
-   write(message,'(A,A   )')'           The hopping information will be written in ', 'hopping'//trim(PINPT%title(NN_TABLE%mysystem))//'.dat'; write_msg
+   write(message,*)' ' ; write_msgi
+   write(message,'(A,I0,A)')'  N_NEIGH: found ',NN_TABLE%n_neighbor, ' hopping pair' ; write_msgi
+   write(message,'(A,A   )')'           The hopping information will be written in ', 'hopping'//trim(PINPT%title(NN_TABLE%mysystem))//'.dat'; write_msgi
    size_NN_TABLE=sizeof(NN_TABLE)
-   if_main call report_memory(int8(size_NN_TABLE), 1, 'NN_TABLE')
+  !if_main call report_memory(int8(size_NN_TABLE), 1, 'NN_TABLE')
 
    call time_check(t1,t0,'end')
-   write(message,'(A,F12.6)')"   TIME for FINDING NEIGBOR PAIRS (s)", t1 ; write_msg
-   write(message,*)' ' ; write_msg
-   write(message,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'  ; write_msg
-   write(message,*)' ' ; write_msg
+   write(message,'(A,F12.6)')"   TIME for FINDING NEIGHBOR PAIRS (s)", t1 ; write_msgi
+   write(message,*)' ' ; write_msgi
+   write(message,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'  ; write_msgi
+   write(message,*)' ' ; write_msgi
 
 return
 endsubroutine
@@ -835,7 +835,7 @@ subroutine print_nn_table(NN_TABLE, PINPT, PPRAM)
        if(NN_TABLE%sk_index_set(i,ii) .eq. 0) i_check = i_check + 1
      enddo
      if (i_check .eq. 0) then
-       write(message,'(A)')'  !WARNING! SK-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msg
+       write(message,'(A)')'  !WARNING! SK-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msgi
        kill_job
      endif
    elseif(.not. flag_slater_koster) then
@@ -843,7 +843,7 @@ subroutine print_nn_table(NN_TABLE, PINPT, PPRAM)
        if(NN_TABLE%cc_index_set(i,ii) .eq. 0) i_check = i_check + 1
      enddo
      if (i_check .eq. 0) then
-       write(message,'(A)')'  !WARNING! CC-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msg
+       write(message,'(A)')'  !WARNING! CC-parameter is not set properly! p_class=',NN_TABLE%p_class(ii),' n_class=',NN_TABLE%n_class(ii) ; write_msgi
        kill_job
      endif
    endif

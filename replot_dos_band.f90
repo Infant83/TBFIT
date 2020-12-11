@@ -222,7 +222,7 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
 
    ! replot pband
    if(flag_replot_proj_band) then
-     if_main call print_replot_energy_proj(PKPTS, E, V2, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
+     if_main call print_replot_energy_proj(PINPT, PKPTS, E, V2, PGEOM, PRPLT, ne_found, emin_band, emax_band, &
                                            ispinor, nband, nspin, ispin, nbasis, &
                                            flag_erange, flag_vector, flag_sparse, &
                                            init_erange, fina_erange, c_mode)

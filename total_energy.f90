@@ -27,7 +27,7 @@ contains
 
       if(flag_report) then
         write(message,'(A)')' ' ; write_msg
-        write(message,'(A)')' ---- START: TOTAL ENERGY EVALUATION -----------' ; write_msg
+        write(message,'(A)')' #--- START: TOTAL ENERGY EVALUATION -----------' ; write_msg
       endif
 
       ! initialize

@@ -65,23 +65,23 @@ contains
       ! evaluate occupation with Fermi level E_F, F_OCC
       call get_occupation(ETBA%E, E_F, ETBA%F_OCC, nband, nspin, nkp, degen, eltemp)
       ! evaluate band energy based on F_OCC
-      ETBA%E_BAND = sum(band_energy(ETBA%E, ETBA%F_OCC))
+      ETBA%E_BAND = sum(band_energy(ETBA%E, ETBA%F_OCC))/nkp
 
       if(flag_report) then
         ! evaluate band energy based on F_OCC with eltemp = 0d0
         call get_occupation(ETBA%E, E_F, OCC, nband, nspin, nkp, degen, 0d0)
-        E0 = sum(band_energy(ETBA%E, OCC))
+        E0 = sum(band_energy(ETBA%E, OCC))/nkp
         
         write(message,'(A,F20.8, A)')      '  -Fermi level E_F (in eV)                    : ', E_F ; write_msg
         write(message,'(A,F20.8, A)')      '  -Number of electrons (with E_F)             : ', sum(ETBA%F_OCC)/nkp ; write_msg
         write(message,'(A,F20.8, A)')      '  -Number of electrons (NELECT)               : ', nelect_ref          ; write_msg
         write(message,'(A)')               '  -Total energy components (in eV)              '              ; write_msg
-        write(message,'(A,F10.4, A,F20.8)')'     *- Band energy (ELTEMP =  ',eltemp,')    : ', ETBA%E_BAND ; write_msg
+        write(message,'(A,F10.4, A,F20.8)')'     *- Band energy (ELTEMP =  ',eltemp,')    : ', ETBA%E_BAND     ; write_msg
         write(message,'(A,F10.4, A,F20.8)')'     *- Band energy (ELTEMP -> ',0.0d0 ,')    : ', E0          ; write_msg
         write(message,'(A      )')         '     __________________________________________' ; write_msg
-        write(message,'(A,F20.8, A)')      '     *- Total energy (in eV)                  : ', ETBA%E_BAND ; write_msg
+        write(message,'(A,F20.8, A)')      '     #- Total energy (in eV)                  : ', ETBA%E_BAND     ; write_msg
         
-        write(message,'(A)')' ---- END: TOTAL ENERGY EVALUATION -----------' ; write_msg
+        write(message,'(A)')' #--- END: TOTAL ENERGY EVALUATION -----------' ; write_msg
         write(message,'(A)')' ' ; write_msg
       endif
 

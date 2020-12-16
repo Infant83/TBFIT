@@ -194,7 +194,7 @@ subroutine get_kgrid(kp,kp_,nk1,nk2,nk3,kshift,PGEOM, flag_gamma)
   a3=PGEOM%a_latt(1:3,3)
   call get_reci(b1,b2,b3, a1,a2,a3)
   if(.not. flag_gamma) then 
-    kshift = kshift + (/0.5d0, 0.5d0, 0.5d0/)
+    kshift = kshift + (/0.5d0*mod(nk1+1,2), 0.5d0*mod(nk2+1,2), 0.5d0*mod(nk3+1,2)/)
   endif
 
   ii = 0

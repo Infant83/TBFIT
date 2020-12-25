@@ -19,3 +19,7 @@ NOTE:
   Hyun-Jung Kim. Tight-binding parameter fitting package (TBFIT)
 
 \* a temporary name
+
+# Install
+* via git clone
+git clone https://github.com/Infant83/TBFIT.git

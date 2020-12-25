@@ -21,5 +21,6 @@ NOTE:
 \* a temporary name
 
 # Install
-* via git clone
-git clone https://github.com/Infant83/TBFIT.git
+* via git clone:
+
+  git clone https://github.com/Infant83/TBFIT.git

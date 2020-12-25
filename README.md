@@ -20,7 +20,7 @@ NOTE:
 
 \* a temporary name
 
-# Install
+# Download
 * via git clone:
 
   git clone https://github.com/Infant83/TBFIT.git

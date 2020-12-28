@@ -155,10 +155,12 @@ endif
 #-----------------------------------
 #$(BIN)/tbfit: $(OBJECTS) 
 
-tbfit.$(VERSION): $(OBJECTS) 
+#tbfit.$(VERSION): $(OBJECTS) 
+tbfit: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
-	cp tbfit.$(VERSION) $(BIN)/tbfit
-	cp tbfit.$(VERSION) ./tbfit.versions
+	cp tbfit $(BIN)/tbfit
+	cp tbfit tbfit.$(VERSION)
+	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION) tbfit.versions ; fi
 
 get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
 	$(F90) -o $@ $^ $(LAPACK)
@@ -167,6 +169,10 @@ get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o
 #poscar2bs: poscar2bs.o
 #	$(F90) -o $@ $^ 
 #	cp poscar2bs $(BIN)/poscar2bs
+
+fl2xyz: fleur2bs.o
+	$(F90) -o $@ $^
+	cp fl2xyz $(BIN)/fl2xyz
 
 pc2xyz: poscar2bs.o
 	$(F90) -o $@ $^

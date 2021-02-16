@@ -36,6 +36,11 @@
 #  Note: possible make command
 #      make tbfit 	# generate tbfit execution file
 #      make tbfitpy_mod # generate tbfit python module 
+#						# To make tbfitpy_mod, f2py, f90wrap should be installed in advance. 
+#						# 	pip install f2py
+#						# 	pip install f90wrap
+#						# For the MPI, mpi4py is also required.
+#						#	pip install mpi4py
 #      make lib 	# generate tbfit library libtbfit.a archiving all subroutines
 #############################################################################
  TBBIN=$(HOME)/code/bin

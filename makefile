@@ -29,7 +29,7 @@
 #                  !!! WARN !!! do not use in the current version: it is upon
 #                               developing stage now.
 #############################################################################
-#FC   = mpif90 
+ FC   = mpif90 
  TBBIN= $(HOME)/code/bin
  VERSION=$(shell date +%Y%m%d)
 #VERSION=0.41

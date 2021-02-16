@@ -52,7 +52,7 @@ subroutine read_kpoint_file(PKPTS, PGEOM, flag_ndiv_line_parse, flag_ndiv_grid_p
   fname                 = trim(PKPTS%kfilenm)
 
   write(message,*)' '  ; write_msgi
-  write(message,*)'*- READING KPOINTS FILE: ',trim(fname)  ; write_msgi
+  write(message,*)'#- READING KPOINTS FILE: ',trim(fname)  ; write_msgi
   open (pid_kpoint, FILE=fname,iostat=i_continue)
   linecount = 0 
 
@@ -199,12 +199,50 @@ subroutine read_kpoint_file(PKPTS, PGEOM, flag_ndiv_line_parse, flag_ndiv_grid_p
      if(idiv_mode .eq. 1) then ! VASP type
        write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
        write(message,'(A,*(I8))')   '  (index):', (PKPTS%ndiv*(ik-1)+1,ik=1,PKPTS%nline) , PKPTS%ndiv*PKPTS%nline ; write_msgi
+
+       allocate( PKPTS%k_name_index(PKPTS%nline+1) )
+       allocate( PKPTS%k_name2(PKPTS%nline+1) )
+       PKPTS%k_name2(1) = trim(PKPTS%k_name(1))
+       do ik = 2, PKPTS%nline+1
+         PKPTS%k_name2(ik) = trim( PKPTS%k_name((ik-1)*2) )
+       enddo
+       do ik = 1, PKPTS%nline
+         PKPTS%k_name_index(ik) = PKPTS%ndiv(1)*(ik-1)+1
+       enddo
+       PKPTS%k_name_index(PKPTS%nline+1) = PKPTS%ndiv(1)*PKPTS%nline
+
      elseif(idiv_mode .eq. 3) then ! AIMS type
        write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
        write(message,'(A,*(I8))')   '  (index):', 1,  (sum(PKPTS%ndiv(1:ik))+1,ik=1,PKPTS%nline-1) , sum(PKPTS%ndiv) ; write_msgi
+
+       allocate( PKPTS%k_name_index(PKPTS%nline+1) )
+       allocate( PKPTS%k_name2(PKPTS%nline+1) )
+       PKPTS%k_name2(1) = trim(PKPTS%k_name(1))
+       PKPTS%k_name_index(1) = 1
+       do ik = 2, PKPTS%nline+1
+         PKPTS%k_name2(ik) = trim( PKPTS%k_name((ik-1)*2) )
+       enddo
+       do ik = 1, PKPTS%nline-1
+         PKPTS%k_name_index(ik+1) = sum(PKPTS%ndiv(1:ik))+1
+       enddo
+       PKPTS%k_name_index(PKPTS%nline+1) = sum(PKPTS%ndiv)
+
+
      elseif(idiv_mode .eq. 2) then ! FLEUR type
        write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
        write(message,'(A,*(I8))')   '  (index):', 1,  (PKPTS%ndiv*ik,ik=1,PKPTS%nline) ; write_msgi
+
+       allocate( PKPTS%k_name_index(PKPTS%nline+1) )
+       allocate( PKPTS%k_name2(PKPTS%nline+1) )
+       PKPTS%k_name2(1) = trim(PKPTS%k_name(1))
+       PKPTS%k_name_index(1) = 1
+       do ik = 2, PKPTS%nline+1
+         PKPTS%k_name2(ik) = trim( PKPTS%k_name((ik-1)*2) )
+       enddo
+       do ik = 1, PKPTS%nline
+         PKPTS%k_name_index(ik+1) = PKPTS%ndiv(1)*ik
+       enddo
+
      endif
   elseif(PKPTS%flag_kgridmode .and. .not. PKPTS%flag_klinemode) then
      PKPTS%nkpoint = PKPTS%ndiv(1)*PKPTS%ndiv(2)*PKPTS%ndiv(3)
@@ -226,7 +264,7 @@ subroutine read_kpoint_file(PKPTS, PGEOM, flag_ndiv_line_parse, flag_ndiv_grid_p
      stop
   endif
 
-  write(message,*)'*- END READING KPOINT FILE ---------------------'  ; write_msgi
+  write(message,*)'#- END READING KPOINT FILE ---------------------'  ; write_msgi
   write(message,*)' '  ; write_msgi
 return
 endsubroutine

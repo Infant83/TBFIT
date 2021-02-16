@@ -347,17 +347,11 @@ module mpi_setup
      integer*4    mynjob
      integer*4    cpuid, mpierr
      integer*4    nresidue
-#ifdef MPI
      integer*4    ourjob(nprocs)
      integer*4    ourjob_disp(0:nprocs-1)
-#else
-     integer*4    ourjob(1)
-     integer*4    ourjob_disp(0)
-#endif
 
      mynjob = floor ( real(njob)/real(nprocs) )
      nresidue = nint (real(njob) - real(mynjob) * real(nprocs))
-
      ourjob = 0
 
      do cpuid = 1, nprocs

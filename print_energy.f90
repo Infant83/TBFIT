@@ -850,7 +850,7 @@ subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, 
         endif
         if(flag_final_step) then
           write(message,'(A)') ' '  ; write_msg
-          write(message,'(2A)')' *- Writing band structure file: ', trim(fname) ; write_msg
+          write(message,'(2A)')' #- Writing band structure file: ', trim(fname) ; write_msg
         endif
         open(pid_energy, file=trim(fname), status = 'unknown')
         if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
@@ -1119,7 +1119,7 @@ spinb:do is = 1, nspin
         endif
         ! write header
         write(message,'(A)') ' '  ; write_msg
-        write(message,'(2A)')' *- Writing band structure file: ', trim(fname) ; write_msg
+        write(message,'(2A)')' #- Writing band structure file: ', trim(fname) ; write_msg
         open(pid_energy, file=trim(fname), form='unformatted', status='unknown')
         write(pid_energy) ikmode, PINPT%flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, & 
                           PINPT%flag_sparse, neig, PKPTS%nkpoint, nband, &

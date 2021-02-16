@@ -67,11 +67,11 @@ contains
       ! evaluate band energy based on F_OCC
       ETBA%E_BAND = sum(band_energy(ETBA%E, ETBA%F_OCC))/nkp
 
-      if(flag_report) then
-        ! evaluate band energy based on F_OCC with eltemp = 0d0
-        call get_occupation(ETBA%E, E_F, OCC, nband, nspin, nkp, degen, 0d0)
-        E0 = sum(band_energy(ETBA%E, OCC))/nkp
+      ! evaluate band energy based on F_OCC with eltemp = 0d0
+      call get_occupation(ETBA%E, E_F, OCC, nband, nspin, nkp, degen, 0d0)
+      E0 = sum(band_energy(ETBA%E, OCC))/nkp
         
+      if(flag_report) then
         write(message,'(A,F20.8, A)')      '  -Fermi level E_F (in eV)                    : ', E_F ; write_msg
         write(message,'(A,F20.8, A)')      '  -Number of electrons (with E_F)             : ', sum(ETBA%F_OCC)/nkp ; write_msg
         write(message,'(A,F20.8, A)')      '  -Number of electrons (NELECT)               : ', nelect_ref          ; write_msg

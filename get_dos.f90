@@ -43,20 +43,17 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
    logical                    flag_sparse, flag_exit_dsum
    logical                    flag_order
    integer*4                  feast_nemax_save
-#ifdef PSPARSE
-   integer*4                  feast_fpm_save(64)
-#else
+
    integer*4                  feast_fpm_save(128)
-#endif
+!#ifdef PSPARSE
+!   integer*4                  feast_fpm_save(64)
+!#else
+!   integer*4                  feast_fpm_save(128)
+!#endif
    integer*4, allocatable  :: feast_ne_save(:,:)
    real*8                     feast_emin_save, feast_emax_save
-#ifdef MPI                  
-  integer*4                   ourjob(nprocs)
-  integer*4                   ourjob_disp(0:nprocs-1)
-#else                        
-  integer*4                   ourjob(1)
-  integer*4                   ourjob_disp(0)
-#endif
+   integer*4                  ourjob(nprocs)
+   integer*4                  ourjob_disp(0:nprocs-1)
 
 #ifdef MPI
    if_main time1 = MPI_Wtime()
@@ -193,7 +190,7 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
  write(message,'(A)')' ... calculating DOS ...'  ; write_msg
  if_main call time_check(time4,time3,'init')
  if(PINPT_DOS%dos_flag_print_ldos) then
-   if_main call report_memory(int8(size(ldos_tot)) * nprocs * 2, 8, 'LDOS(total)   ')
+   if_main call report_memory(int(size(ldos_tot),kind=dp) * nprocs * 2, 8, 'LDOS(total)   ')
  endif
 
 kp:do ik = 1,  nkpoint
@@ -230,7 +227,7 @@ kp:do ik = 1,  nkpoint
          endif
        endif
 
-    sp:do is = 1, nspin
+   spn:do is = 1, nspin
     dsum:do i = 1, ne_found(is,ik) ! init_e, fina_e
 !          dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) * dkv
            dos_ = fgauss(sigma, e_range(ie) - E(i+nband*(is-1),ik) ) / nkpoint
@@ -256,7 +253,7 @@ kp:do ik = 1,  nkpoint
            endif
 
          enddo dsum
-       enddo sp
+       enddo spn
      enddo eig
    enddo kp
 #ifdef MPI

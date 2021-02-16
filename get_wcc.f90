@@ -51,7 +51,7 @@ subroutine get_wcc(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
    call set_berry_kpath (PINPT_BERRY, PGEOM, PINPT, 'wc')
 
    write(message,*)'' ; write_msg
-   write(message,'(A)')'START: WCC EVALUATION' ; write_msg
+   write(message,'(A)')      ' #--- START: WCC EVALUATION' ; write_msg
    write(message,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_wcc_range)) ; write_msg
    ! NOTE : The range of WCC will be [0:1] with the unit of lattice vector. 
    !        To get polarization of i direction, you can multiply lattice parameter a_i of i-direction
@@ -131,7 +131,8 @@ subroutine get_wcc(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
       if(.not. flag_get_chern) then 
         write(message,'(A,I1)')'  Z2 INDEX     =   ',z2_index(:) ; write_msg
       endif
-      write(message,'(A,F12.3)')'END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
+      write(message,'(A,F12.3)')' #--- END: WCC EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
+      write(message,'(A      )')' '; write_msg
    if_main_end
    return
 endsubroutine

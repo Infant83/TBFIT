@@ -143,7 +143,6 @@ subroutine get_optical_transition(optical_selectivity, E, V, dxH, dyH, dzH, msiz
 !    do im = 1, msize
 !      psi_m = 
 !    enddo
-    !write(6,*)"ZZZZ ", psi_n
     !vy_nm = dot_product( psi_n, matmul(dyH,psi_m) )
     !vx_nm = dot_product( psi_n, matmul(dxH,psi_m) )
 

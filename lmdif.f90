@@ -53,11 +53,19 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
     factor = 100.0D+00
     maxfev = PINPT%miter * ( nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.000D+00
-    flag_write_info = .true.
+    if(PINPT%flag_python_module) then
+      if(iverbose .eq. 1) then
+        flag_write_info = .true. 
+      else
+        flag_write_info = .false.
+      endif
+    else
+      flag_write_info = .true.
+    endif
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
                ftol, xtol, gtol, fnorm,maxfev, epsfcn, factor, info, flag_write_info)
    if_main  call infostamp(info,PINPT%ls_type)
-   write(message,*)" End: fitting procedures"  ; write_msg
+  !write(message,*)" End: fitting procedures"  ; write_msg
 
   elseif( PINPT%ls_type == 'GA' ) then
     if ( nparam_free <= 0 ) then
@@ -170,6 +178,17 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
       allocate(ETBA_FIT(i)%V_ORD(PGEOM(i)%neig*PINPT%ispin,PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
       allocate(ETBA_FIT(i)%SV_ORD(PGEOM(i)%neig*PINPT%ispin,PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
       allocate(ETBA_FIT(i)%IDX(PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
+      if(PINPT%flag_python_module) then
+        write(6,'(A)')'    ! WARN ! LORDER tag is not supported with python module. Exit program...'
+        kill_job
+      endif
+    endif
+    if(PINPT%flag_fit_degeneracy) then
+      allocate(ETBA_FIT(i)%D(3, PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint) )
+      if(PINPT%flag_python_module) then
+        write(6,'(A)')'    ! WARN ! DEGENW tag in "SET WEIGHT" is not supported with python module. Exit program...'
+        kill_job
+      endif
     endif
 !   if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
 !     flag_wait_plot = .false.
@@ -395,22 +414,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
             if_main call print_param(PINPT,PPRAM,PWGHT(1),pfileoutnm_temp,.TRUE.) ! only main system will be printed..
             fnorm_ = fnorm ! fnorm of previous step
 
-           !if(PINPT%flag_plot_fit ) then ! only activated if plot_fit .true. .or. PINPT%flag_print_energy_diff) then
-           !  do i = 1, PINPT%nsystem
-           !    call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, &
-           !                 PGEOM(i)%neig, PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, .false., .false., PINPT%flag_phase)
-           !    if(PINPT%flag_get_band_order) then 
-           !      call get_ordered_band(ETBA_FIT(i), PKPTS(i), PGEOM(i), PWGHT(i), PINPT, flag_order_weight, PPRAM%flag_use_overlap)
-           !      
-           !      if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%E_ORD, ETBA_FIT(i)%V_ORD, ETBA_FIT(i)%SV_ORD, PGEOM(i)%neig, &
-           !                                PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, .FALSE.,'_ordered')
-           !    endif
-           !    if_main call print_energy(PKPTS(i), ETBA_FIT(i)%E, ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, PGEOM(i)%neig, &
-           !                              PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT, PWGHT(i), PPRAM%flag_use_overlap, .FALSE.,'')
-           !  enddo
-
-           !endif
-
           endif
         endif
 
@@ -588,7 +591,6 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
       if (h == 0.0D+00 ) h=eps
       PPRAM%param(PPRAM%iparam_free(j)) = temp+h
       call get_dE(wa, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
-
       PPRAM%param(PPRAM%iparam_free(j)) = temp
       fjac(:,j) = ( wa(:) - fvec(:) ) / h
     enddo

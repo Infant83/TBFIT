@@ -1,5 +1,36 @@
 #include "alias.inc"
 
+subroutine parse_very_init_py(PINPT, nsystem, ifilenm_dummy)
+   use parameters, only: incar, max_dummy
+   use mpi_setup
+   implicit none
+   type(incar)       :: PINPT
+   integer*4            narg, iarg, i, nsystem
+   character*132        option, value
+   character*132        ifilenm_dummy(nsystem)
+   character*132        dummy
+   logical, external :: flag_number
+
+   PINPT%fnamelog = 'TBFIT.out' ! default
+   PINPT%nsystem = nsystem
+   PINPT%flag_python_module = .TRUE.
+
+   allocate(PINPT%ifilenm(PINPT%nsystem))
+   allocate(PINPT%title(PINPT%nsystem))
+
+   if(PINPT%nsystem .eq. 1) then  
+     PINPT%ifilenm(1) = trim(ifilenm_dummy(1))
+     PINPT%title(1) = ''
+   elseif(PINPT%nsystem .ge. 2) then
+     do i = 1, PINPT%nsystem
+       PINPT%ifilenm(i) = trim(ifilenm_dummy(i))
+       write(PINPT%title(i),'(A,I0)') '.',i
+     enddo
+   endif
+
+   return
+endsubroutine
+
 subroutine parse_very_init(PINPT)
    use parameters, only: incar, max_dummy
    use mpi_setup
@@ -14,6 +45,7 @@ subroutine parse_very_init(PINPT)
    PINPT%fnamelog = 'TBFIT.out' ! default
    PINPT%nsystem = 0 
    narg = iargc()
+   PINPT%flag_python_module = .FALSE.
 
    do iarg = 1, narg
      call getarg(iarg, option)
@@ -79,19 +111,25 @@ subroutine parse(PINPT)
    PINPT%flag_miter_parse = .false.
    PINPT%flag_mxfit_parse = .false.
    PINPT%flag_lorbit_parse= .false.
-!  PINPT%flag_proj_parse  = .false.
    PINPT%flag_filenm_gnuplot_parse = .false.
    PINPT%flag_inputcard_fname_parse = .false. ! deprecated
    PINPT%flag_ndiv_line_parse = .false.
    PINPT%flag_ndiv_grid_parse = .false.
-   narg = iargc()
    PINPT%flag_print_only_target = .false.
-   iverbose = 1 ! 1: full, 2: no
-   iverbose_= 1
-   print_mode = 3 ! default verbosity 
 
-  write(message,*)' '; write_msg
-  write(message,*)'---- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS ---------------------'  ; write_msg
+   narg = iargc()
+   
+   if(PINPT%flag_python_module) then
+     iverbose = 2 ! 1: full, 2: no
+     iverbose_= 2
+     print_mode = 99 ! default verbosity 
+   else
+     iverbose = 1 ! 1: full, 2: no
+     iverbose_= 1
+     print_mode = 3  ! default verbosity 
+   endif
+   write(message,*)' '; write_msg
+   write(message,*)'#--- READING INPUT TAG FROM: COMMAND-LINE ARGUMENTS ---------------------'  ; write_msg
 
  arg:do iarg = 1, narg
        call getarg(iarg, option)
@@ -162,26 +200,6 @@ subroutine parse(PINPT)
            PINPT%flag_kfile_parse = .true.
            call getarg(iarg+1, PINPT%kfilenm_parse)
            write(message,'(A,A)')' KPTS_FNM:  ',trim(PINPT%kfilenm_parse)  ; write_msg
-!          PINPT%kfilenm_parse = trim(PKPTS%kfilenm)
-
-!        elseif(trim(option) .eq. '-nkp_line') then
-!          PINPT%flag_parse = .true.
-!          PINPT%flag_ndiv_line_parse = .true.
-!          allocate(PKPTS%ndiv(1))
-!          call getarg(iarg+1, value )
-!          read(value, *) PKPTS%ndiv(1)
-!          write(message,'(A,I6)')' N_DIV:',PKPTS%ndiv  ; write_msg
-
-!        elseif(trim(option) .eq. '-nkp_grid') then
-!          PINPT%flag_parse = .true.
-!          PINPT%flag_ndiv_grid_parse = .true.
-!          allocate(PKPTS%ndiv(3))
-!          call getarg(iarg+1, value )
-!          read(value, *) PKPTS%ndiv(1)
-!          call getarg(iarg+2, value )
-!          read(value, *) PKPTS%ndiv(2)
-!          call getarg(iarg+3, value )
-!          read(value, *) PKPTS%ndiv(3)
 
          elseif(trim(option) .eq. '-miter' .or. trim(option) .eq. '-m') then
            PINPT%flag_parse = .true.
@@ -223,33 +241,6 @@ subroutine parse(PINPT)
              PINPT%flag_get_orbital =.true. 
            endif
 
-         ! deprecated 26. Nov. 2020, HJK
-!        elseif(trim(option) .eq. '-ldos' .or. trim(option) .eq. '-proj') then
-!          PINPT%flag_parse = .true.
-!          PINPT%flag_lorbit_parse = .true.
-!          PINPT%flag_get_orbital = .true.
-!          PINPT%flag_print_mag = .false.
-!          PINPT%flag_proj_parse = .true.
-
-!          if(iarg + 1 .le. narg) then 
-!            call getarg(iarg+1, value)
-!            read(value,*)dummy
-!            call str2logical(dummy,flag_logical, flag)
-!            if(flag_logical) then 
-!              PINPT%flag_print_proj = flag
-!            else
-!              PINPT%flag_print_proj = .true.
-!            endif
-!          elseif(iarg + 1 .gt. narg) then
-!             PINPT%flag_print_proj = .true.
-!          endif
-!   
-!          if(PINPT%flag_print_proj) then
-!            write(message,'(A)')'  L_LDOS: .TRUE. | print out atom projected orbital weight'  ; write_msg
-!          elseif(.not. PINPT%flag_print_proj) then
-!            write(message,'(A)')'  L_LDOS: .FALSE.'  ; write_msg
-!          endif
-
          endif
 
        endif
@@ -279,7 +270,7 @@ subroutine parse(PINPT)
      enddo
    enddo
 
-   write(message,*)'---- END READING INPUT FROM: COMMAND-LINE ARGUMENTS ---------------------' ; write_msg
+   write(message,*)'#--- END READING INPUT FROM: COMMAND-LINE ARGUMENTS ---------------------' ; write_msg
    write(message,*)' ' ; write_msg
 
    iverbose = iverbose_

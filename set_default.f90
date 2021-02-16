@@ -58,16 +58,16 @@ module set_default
         PINPT%flag_write_unformatted=.false.
         PINPT%flag_fit_orbital = .false.
         PINPT%orbital_fit_smearing = 0.1d0 ! default
-        PINPT%electronic_temperature = 11.60452251451435653502 ! electronic temp T; default, so that k_B * T = 0.001 eV
+        PINPT%electronic_temperature = 11.60452251451435653502d0 ! electronic temp T; default, so that k_B * T = 0.001 eV
         PINPT%flag_get_total_energy = .false.
 #ifdef SPGLIB
         PINPT%flag_spglib = .false.
 #endif
         if(.not. PINPT%flag_miter_parse) PINPT%miter = 30      ! default 
         if(.not. PINPT%flag_mxfit_parse) PINPT%mxfit = 1       ! default 
-        PINPT%ftol  = 0.00001 ! default 
-        PINPT%ptol  = 0.00001 ! default 
-        PINPT%fdiff = 0.001   ! default
+        PINPT%ftol  = 0.00001d0 ! default 
+        PINPT%ptol  = 0.00001d0 ! default 
+        PINPT%fdiff = 0.001d0   ! default
         PINPT%ispin = 1 ! default (1 : nonmag, 2: collinear & noncollinear)
         PINPT%ispinor = 1 ! default (1 : nonmag, collinear 2: noncollinear)
         PINPT%nspin = 1 ! default (1 : nonmag, 2: collinear, 1: noncollinear)
@@ -195,6 +195,8 @@ module set_default
         if(allocated(PKPTS%kline          ))  deallocate(PKPTS%kline          )
         if(allocated(PKPTS%kpoint_reci    ))  deallocate(PKPTS%kpoint_reci    )
         if(allocated(PKPTS%k_name         ))  deallocate(PKPTS%k_name         )
+        if(allocated(PKPTS%k_name2        ))  deallocate(PKPTS%k_name2        )
+        if(allocated(PKPTS%k_name_index   ))  deallocate(PKPTS%k_name_index   )
 
         return
     endsubroutine

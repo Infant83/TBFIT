@@ -46,10 +46,10 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    call write_info_plot_eig(PINPT)
 
 en:do ie = 1, PINPT%n_eig_print
-     write(message,'(A,I5)')            "   *EIGEN STATE No. : ",PINPT%i_eig_print(ie)  ; write_msg
+     write(message,'(A,I5)')            "   # EIGEN STATE No. : ",PINPT%i_eig_print(ie)  ; write_msg
      iee = PINPT%i_eig_print(ie) - PGEOM%init_erange + 1
  kp: do ik = 1, PINPT%n_kpt_print
-       write(message,'(A,*(I5))'       )"    **  K-POINT No. : ",PINPT%i_kpt_print(ik)  ; write_msg
+       write(message,'(A,*(I5))'       )"    #   K-POINT No. : ",PINPT%i_kpt_print(ik)  ; write_msg
        ikk = PINPT%i_kpt_print(ik)    
 
 #ifdef MPI
@@ -115,9 +115,9 @@ cell_x:do ix = -1,1
    write(message,*)' '  ; write_msg
    write(message,'(A,F10.4,A)')'   TIME for EIGENSTATE PLOT : ',t1, ' (sec)'  ; write_msg
    if(PINPT%flag_plot_wavefunction) then
-     write(message,'(A)')' *- END WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
+     write(message,'(A)')' #- END WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
    elseif(.not. PINPT%flag_plot_wavefunction) then
-     write(message,'(A)')' *- END WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
+     write(message,'(A)')' #- END WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
    endif
 
 
@@ -472,9 +472,9 @@ subroutine set_variable_plot_eig(PINPT, PGEOM, neig, ngrid, nwrite, nline, nresi
 
    write(message,*)' '  ; write_msg
    if(PINPT%flag_plot_wavefunction) then
-     write(message,'(A)')' *- START WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
+     write(message,'(A)')' #- START WRITING: EIGENSTATE WAVEFUNCTION'  ; write_msg
    elseif(.not. PINPT%flag_plot_wavefunction) then
-     write(message,'(A)')' *- START WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
+     write(message,'(A)')' #- START WRITING: EIGENSTATE CHARGE DENSITY'  ; write_msg
    endif
    neig   = PGEOM%neig
    ngrid  = PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3)

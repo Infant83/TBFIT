@@ -62,7 +62,7 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        endif
        
        write(message,*)' '  ; write_msg
-       write(message,*)'*-START SET WEIGHT FOR FITTING  --------------------'; write_msg
+       write(message,*)'#-START SET WEIGHT FOR FITTING  --------------------'; write_msg
        if(PINPT%flag_fit_degeneracy) then
          call get_degeneracy(EDFT, PGEOM%neig*PINPT%ispin,  PKPTS%nkpoint, PINPT)
          do i=1, PWGHT%ndegenw
@@ -92,7 +92,7 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        endif
  
        write(message,*)' '  ; write_msg
-       write(message,*)'*-START SET WEIGHT FOR FITTING  --------------------'; write_msg
+       write(message,*)'#-START SET WEIGHT FOR FITTING  --------------------'; write_msg
        PWGHT%WT(:,:)=0.00001d0 !initialize
        if(PINPT%flag_fit_degeneracy) PWGHT%DEGENERACY_WT(:,:)=0d0       !initialize
  
@@ -152,7 +152,7 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        enddo
      endif
  
-     write(message,*)'*- END SET WEIGHT FOR FITTING --------------------'  ; write_msg
+     write(message,*)'#- END SET WEIGHT FOR FITTING --------------------'  ; write_msg
      write(message,*)' '  ; write_msg
 
    elseif(PINPT%flag_tbfit .and. .not. flag_efile_exist ) then
@@ -230,7 +230,7 @@ subroutine read_energy_vasp(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT) ! read EIG
   open(pid_energy,file=trim(fname), status='old', iostat=i_continue)
 
   write(message,*)' '  ; write_msg
-  write(message,*)'*- READING TARGET ENERGY FILE: ',trim(fname)  ; write_msg
+  write(message,*)'#- READING TARGET ENERGY FILE: ',trim(fname)  ; write_msg
 
   ie_start=PWGHT%itarget_e_start
   line_tot = 0
@@ -359,7 +359,7 @@ subroutine read_energy_vasp(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT) ! read EIG
 
   EDFT_all%E(1:PGEOM%neig_target,1:PKPTS%nkpoint) = EDFT_%E(1:PGEOM%neig_target,1:PKPTS%nkpoint)
 
-  write(message,*)'*- END READING TARGET ENERGY FILE --------------'  ; write_msg
+  write(message,*)'#- END READING TARGET ENERGY FILE --------------'  ; write_msg
   write(message,*)' '  ; write_msg
   close(pid_energy)
   deallocate(EDFT_%E)
@@ -505,9 +505,9 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
 
   write(message,*)' '  ; write_msg
   if(PINPT%flag_collinear) then
-    write(message,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu), ' and ', trim(fnamed)  ; write_msg
+    write(message,*)'#- READING TARGET ENERGY FILE: ',trim(fnameu), ' and ', trim(fnamed)  ; write_msg
   else
-    write(message,*)'*- READING TARGET ENERGY FILE: ',trim(fnameu)  ; write_msg
+    write(message,*)'#- READING TARGET ENERGY FILE: ',trim(fnameu)  ; write_msg
   endif
 
   ie=0
@@ -730,7 +730,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   if(flag_fit_orbital) EDFT_all%ORB(:,1:PGEOM%neig_target,1:PKPTS%nkpoint) = EDFT_%ORB(:,1:PGEOM%neig_target,1:PKPTS%nkpoint)
   if(flag_order) EDFT_all%E_ORD(1:PGEOM%neig_target,1:PKPTS%nkpoint) = EDFT_%E_ORD(1:PGEOM%neig_target,1:PKPTS%nkpoint)
 
-  write(message,*)'*- END READING TARGET ENERGY FILE --------------'  ; write_msg
+  write(message,*)'#- END READING TARGET ENERGY FILE --------------'  ; write_msg
   write(message,*)' '  ; write_msg
   close(pid_energy)
   if(PINPT%flag_collinear) close(pid_energy+1)

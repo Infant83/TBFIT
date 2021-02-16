@@ -20,7 +20,7 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    call set_berry_erange(PINPT_BERRY, PGEOM, PINPT, 'bc')
 
    write(message,*)''  ; write_msg
-   write(message,'(A)')' ---- START: BERRYCURVATURE -----------'   ; write_msg
+   write(message,'(A)')' #--- START: BERRYCURVATURE -----------'   ; write_msg
    call time_check(time2, time1, 'init')
 
    if(PINPT%flag_erange) then
@@ -45,7 +45,7 @@ subroutine get_berry_curvature(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
    call time_check(time2, time1)
    write(message,*)' ' ; write_msg
    write(message,'(A,F12.3)')'   TIME for BERRYCURVATURE CALCULATION (s) ', time2 ; write_msg
-   write(message,'(A      )')' ---- END: BERRYCURVATURE -----------'; write_msg
+   write(message,'(A      )')' #--- END: BERRYCURVATURE -----------'; write_msg
 
    return
 endsubroutine
@@ -85,16 +85,11 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 #ifdef MPI
    integer*4        mpierr
    real*8           omega_(PGEOM%neig*PINPT%ispinor,3,PINPT%nspin,PKPTS%nkpoint)
+#endif
    integer*4        ourjob(nprocs)
    integer*4        ourjob_disp(0:nprocs-1)
    call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
    call report_job_distribution(.true., ourjob)
-#else
-   integer*4        ourjob(1)
-   integer*4        ourjob_disp(0)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
-   call report_job_distribution(.true., ourjob)
-#endif
 
    allocate(PINPT_BERRY%omega(PGEOM%neig*PINPT%ispinor,3,PINPT%nspin,PKPTS%nkpoint))
    PINPT_BERRY%omega = 0d0

@@ -32,13 +32,20 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
 
   do i = 1, PINPT%nsystem
     write(message,'( A)')' '  ; write_msg
-    write(message,'( A)')' ========================================================'  ; write_msg
-    write(message,'(2A)')'   START POST-PROCESSING PROCEDURE: ',trim(PGEOM(i)%gfilenm) ; write_msg
-    write(message,'( A)')' ========================================================'  ; write_msg
+    write(message,'( A)')' #======================================================='  ; write_msg
+    if(PINPT%flag_tbfit_finish) then
+      write(message,'(2A)')'   START POST-PROCESSING PROCEDURE: ',trim(PGEOM(i)%gfilenm) ; write_msg
+    else
+      write(message,'(1A)')'   START POST-PROCESSING PROCEDURE: '                        ; write_msg
+    endif
+    write(message,'( A)')' #======================================================='  ; write_msg
    !write(message,'( A)')' '  ; write_msg
 
-    call read_input(PINPT,PPRAM(i),PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i),PGEOM(i),PWGHT(i), &
-                    EDFT(i), NN_TABLE(i),PKAIA,PRPLT(i), i)
+!   call read_input(PINPT,PPRAM(i),PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i),PGEOM(i),PWGHT(i), &
+!                   EDFT(i), NN_TABLE(i),PKAIA,PRPLT(i), i)
+    call read_input(PINPT,PPRAM(i),PKPTS(i), PGEOM(i), PWGHT(i), EDFT(i), NN_TABLE(i), &
+                    PINPT_DOS(i), PINPT_BERRY(i), PKAIA, PRPLT(i), i)
+
 
     if(PINPT%flag_tbfit_finish) then
       call init_params(PPRAM(i), PINPT)

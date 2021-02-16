@@ -288,13 +288,8 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
    integer*4                   ldos_natom, ldos_atom(maxval(PRPLT%replot_ldos_natom(1:PRPLT%replot_nldos_sum)))
    integer*4                   n_orbital(PGEOM%n_atom)
    real*8                      coord_cart(3,PGEOM%n_atom)
-#ifdef MPI                  
    integer*4                   ourjob(nprocs)
    integer*4                   ourjob_disp(0:nprocs-1)
-#else                        
-   integer*4                   ourjob(1)
-   integer*4                   ourjob_disp(0)
-#endif
    logical                     flag_para_band
    integer*4                   ie_init, ie_fina, i_init, i_fina
 
@@ -984,14 +979,9 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
    real*8          ldos_sum_ntot(PINPT%nspin)
 #ifdef MPI
    real*8          ldos_sum_(PINPT%nspin,PRPLT%replot_dos_nediv,PRPLT%replot_nldos_sum)
+#endif
    integer*4       ourjob(nprocs)
    integer*4       ourjob_disp(0:nprocs-1)
-!  call mpi_job_distribution_chain(PRPLT%replot_ldos_natom, ourjob, ourjob_disp)
-#else
-   integer*4       ourjob(1)
-   integer*4       ourjob_disp(0)
-!  call mpi_job_distribution_chain(PRPLT%replot_ldos_natom, ourjob, ourjob_disp)
-#endif
 
    e_range = PRPLT%replot_dos_erange
    if(PRPLT%replot_dos_nediv .gt. 1) then
@@ -1266,15 +1256,11 @@ subroutine print_bond(PRPLT, PINPT, PGEOM, coord_cart)
    real*8          r0
    integer*4       mpierr
 #ifdef MPI
+   integer*4       ourbond(nprocs)
+#endif
    integer*4       ourjob(nprocs)
    integer*4       ourjob_disp(0:nprocs-1)
-   integer*4       ourbond(nprocs)
    call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
-#else
-   integer*4       ourjob(1)
-   integer*4       ourjob_disp(0)
-   call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
-#endif
 
    filenm = 'BOND.replot.dat'
 

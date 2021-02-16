@@ -35,7 +35,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
 
   if(flag_stat) then
     write(message,'(A)') '  ' ; write_msg
-    write(message,'(A)') ' ---- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
+    write(message,'(A)') ' #--- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
   endif
 
   timer = 'init'
@@ -126,7 +126,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
 
   if(flag_stat) then
-    write(message,'(A)')' ---- END: BAND STRUCTURE EVALUATION -----------' ; write_msg
+    write(message,'(A)')' #--- END: BAND STRUCTURE EVALUATION -----------' ; write_msg
   endif
 
   ! NEED TO BE UPDATED HERE !!! HJ KIM 21.Oct 2020
@@ -288,8 +288,8 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, SV, PINPT, PPRAM, NN_TABLE, kp, neig, 
             !SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
              SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
            endif
-
          endif
+
     enddo sp
 
 return
@@ -406,6 +406,7 @@ subroutine get_hamk_dense(Hk, H0, Hm, Hs, is, kpoint, PINPT, PPRAM, neig, NN_TAB
   flag_set_overlap  = .false. ! in the first run set H
 
   if(is .eq. 1) call set_ham0(H0, kpoint, PPRAM, neig, NN_TABLE, F_IJ, flag_phase, flag_set_overlap, flag_load_nntable)
+
   if(flag_init) then
     if(PINPT%flag_collinear) then
       call set_ham_mag(Hm, NN_TABLE, PPRAM, neig, PINPT%ispinor, PINPT%flag_collinear, PINPT%flag_noncollinear)
@@ -662,12 +663,21 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    ! neig  : number of orbital basis
    ! nspin : 2 for collinear 1 for non-collinear
    ! ispin : 2 for collinear 2 for non-collinear
-   
 
    allocate(ETBA%E(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
-   allocate(ETBA%V(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
-   allocate(ETBA%ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+
+   ! need to find better way to allocate V and SV, since if we don't turn on LORBIT, 
+   ! V and SV is not need to be saved. To save memory one need to make it simpler.
+   ! But, now, just keep this way, to make my life easier. (H.-J. Kim, 01. Feb. 2021)
+   allocate(ETBA%V( PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
    allocate(ETBA%SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+
+   ! This can also be allocated if LROBIT = TRUE in future version (will check later on, H.-J. Kim, 01. Feb. 2021)
+   ! In current version, this information is only used in get_orbital_projection routine which is only called by
+   ! get_dE routine and is activated when PINPT%flag_fit_orbital = .true.
+   if(PINPT%flag_fit_orbital) then
+     allocate(ETBA%ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+   endif
 
    if(PINPT%flag_get_band_order) then
      allocate(ETBA%IDX(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))

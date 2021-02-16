@@ -10,10 +10,6 @@
 #  -DSPGLIB      : printout spacegroup information in the initial stages
 #                : if you want to use this option, please link SPGLIB 
 #                  library path properly in the "Dependencies" section below
-#  -DMPI         : MPI paralallism activation 
-#                  If -DSCALAPACK option is activated: k-point + eigenvalue 
-#                  parallism will be imployed,
-#                  otherwise, only the k-point parallization will be performed.   
 #  -DF08         : Fortran 2008 language is accepted or not
 #  -DMKL_SPARSE  : use MKL_SPARSE library for the sparse matrix routines
 #                  This option will save your memory 'enormously'.
@@ -21,25 +17,39 @@
 #                  mkl_spblas.f90 is exist in $(MKLPATH)/include/mkl_spblas.f90
 #                  If this option is activated, you can use EWINDOW tag in
 #                  your input file. See the manual for the details.
+#				   Important note: if you want to generate python module,
+#				   by "make tbfitpy_mod ", then you should turn of this OPTION 
 #  -DPSPARSE     : use FEAST_MPI with 4.0 version instead of MKL FEAST_SMP 2.0 version.
 #                  This option is only available if -DMKL_SPARSE is activated
 #                  For the details, please go to http://www.ecs.umass.edu/~polizzi/feast/
 #                  NOTE: not a valid option in the current version. On developing now...
+#				   Important note: if you want to generate python module,
+#				   by "make tbfitpy_mod ", then you should turn of this OPTION 
 #  -DSCALAPACK   : use ScaLAPACK library for the eigenvalue parallism 
 #                  !!! WARN !!! do not use in the current version: it is upon
 #                               developing stage now.
+#  MPI_USE       : if "YES" MPI paralallism activation with the k-point parallization.
+#                  IF "YES", with "make tbfit" tbfit.mpi will be compiled, and
+#                            with "make tbfitpy_mod" tbfitpy_mod_mpi will be compiled
+#                  In the future release, if -DSCALAPACK option is activated,
+#                  k-point + eigenvalue parallism will be imployed (not supported now).
+#  Note: possible make command
+#      make tbfit 	# generate tbfit execution file
+#      make tbfitpy_mod # generate tbfit python module 
+#      make lib 	# generate tbfit library libtbfit.a archiving all subroutines
 #############################################################################
- FC   = mpif90 
- TBBIN= $(HOME)/code/bin
+ TBBIN=$(HOME)/code/bin
+ TBLIB=$(HOME)/code/lib
  VERSION=$(shell date +%Y%m%d)
-#VERSION=0.41
  
 # MAC-INTEL COMPILE
- OPTIONS= -fpp -DMPI -DF08 -DSPGLIB -DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
- F90    = $(FC) $(OPTIONS)
- FFLAG  = -O2 -heap-arrays -nogen-interfaces
+ FC     = mpif90
+ OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
+ FFLAG  = -O1 -heap-arrays -nogen-interfaces
+ MPI_USE= YES
+
 # LINUX-gfortran COMPILE
-#OPTIONS= #-DMPI
+#OPTIONS= 
 #F90    = gfortran-mp-8 $(OPTIONS)
 #FFLAG  = -cpp -O2 -ffree-line-length-256 -fmax-stack-var-size=32768
 
@@ -48,6 +58,8 @@
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
 #BIN    = ~/code/bin
 BIN    = $(TBBIN)
+LIB	   = $(TBLIB)
+
 #---------------------------------------------------------------------------|
 
 #-----------------------------------
@@ -85,13 +97,16 @@ SCALAPACK_USE=$(findstring -DSCALAPACK,$(OPTIONS))
 SPARSE_PARA=$(findstring -DPSPARSE,$(OPTIONS))
 
 MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o 
+TBFITPY= tbfitpy_mod.o
+KIND_MAP= kind_map # mapping between Fortran and C types used when ' make tbfitpy_mod ' 
 TEST   = test.o
-MODULE = print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
+MODULE = mykind.o print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
 		 parameters.o set_default.o  element_info.o read_incar.o \
 		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
 		 pikaia_module.o geodesiclm.o kill.o get_parameter.o \
-		 reorder_band.o total_energy.o projected_band.o cost_function.o
+		 reorder_band.o total_energy.o projected_band.o cost_function.o \
+		 ${TBFITPY}
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
@@ -106,6 +121,7 @@ SYMM   = get_symmetry.o
 SPG_INT= spglib_interface.o
 FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o
 
+LIBTOOL= ar src
 ifeq ($(SCALAPACK_USE), -DSCALAPACK)
   SCALAPACK_LIB= $(SCALAPACK)
   SCALAPACK_OBJ= #scalapack_initialize.o
@@ -132,6 +148,15 @@ else
                       $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SYMM)
 endif
 
+OBJECTS_PY= print_io.o $(MPI_MOD)
+
+ifeq ($(MPI_USE), YES)
+  F90  = $(FC) $(OPTIONS) -DMPI
+  F90FLAGS = $(FFLAG)
+else
+  F90  = $(FC) $(OPTIONS)
+  F90FLAGS = $(FFLAG)
+endif
 
 #---------------------------------------------------------------------------|
 
@@ -147,28 +172,45 @@ endif
 %.o: %.f90
 	$(F90) $(FFLAG) -c $<
 
-#$(F90) $(FFLAG) -Wl,-rpath,. -c $<
-
-
 #-----------------------------------
 # Targets                          |
 #-----------------------------------
-#$(BIN)/tbfit: $(OBJECTS) 
 
-#tbfit.$(VERSION): $(OBJECTS) 
+ifeq ($(MPI_USE), YES)
 tbfit: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
-	cp tbfit $(BIN)/tbfit
-	cp tbfit tbfit.$(VERSION)
-	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION) tbfit.versions ; fi
+	cp $@ $(BIN)/$@.mpi
+	cp $@ $@.$(VERSION).mpi
+	if [ -d "./tbfit.versions" ]; then cp $@.$(VERSION).mpi tbfit.versions ; fi
+else
+tbfit: $(OBJECTS) 
+	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
+	cp $@ $(BIN)/$@
+	cp $@ $@.$(VERSION)
+	if [ -d "./tbfit.versions" ]; then cp $@.$(VERSION) tbfit.versions ; fi
+endif
 
 get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
 	$(F90) -o $@ $^ $(LAPACK)
 	cp get_ldos $(BIN)
 
-#poscar2bs: poscar2bs.o
-#	$(F90) -o $@ $^ 
-#	cp poscar2bs $(BIN)/poscar2bs
+libtbfit.a: $(OBJECTS)
+	$(LIBTOOL) $@ $^
+
+lib: $(OBJECTS)
+	$(LIBTOOL) libtbfit.a $^
+
+ifeq ($(MPI_USE), YES)
+tbfitpy_mod: libtbfit.a 
+	f90wrap -m $@_mpi tbfitpy_mod.f90 -k $(KIND_MAP)
+	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(FFLAGS)' --link-lapack  -L. -ltbfit -c f90wrap_tbfitpy_mod.f90 -m _$@_mpi
+	cp _$@_mpi.cpython*.so $@_mpi.py $(LIB)
+else
+tbfitpy_mod: libtbfit.a 
+	f90wrap -m $@ tbfitpy_mod.f90 -k $(KIND_MAP)
+	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(FFLAGS)' --link-lapack  -L. -ltbfit -c f90wrap_tbfitpy_mod.f90 -m _$@
+	cp _$@.cpython*.so $@.py $(LIB)
+endif
 
 fl2xyz: fleur2bs.o
 	$(F90) -o $@ $^
@@ -183,7 +225,7 @@ all: $(OBJECTS)
 	$(F90) -o pc2xyz poscar2bs.f90
 	cp tbfit $(BIN)
 	cp pc2xyz $(BIN)
-
+	
 touch:
 	touch tbfit.f90
 

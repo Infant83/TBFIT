@@ -38,7 +38,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 
    ! start reading basic information
    write(message,*)' '  ; write_msgi
-   write(message,*)'*- READING INPUT PARAMER FILE: ',trim(PPRAM%pfilenm)  ; write_msgi
+   write(message,*)'#- READING INPUT PARAMER FILE: ',trim(PPRAM%pfilenm)  ; write_msgi
 
    open(pid_param,FILE=PPRAM%pfilenm,status='old',iostat=i_continue)
 
@@ -382,7 +382,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
      kill_job
    endif
 
-   write(message,*)'*- END READING PARAMETER FILE ---------------------'  ; write_msgi
+   write(message,*)'#- END READING PARAMETER FILE ---------------------'  ; write_msgi
    write(message,*)' '  ; write_msgi
 
 return
@@ -704,8 +704,6 @@ subroutine report_param(PINPT, PPRAM)
        write(message,'(A,2x,A14,1x,*(F10.5))')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param_nrl(1:PPRAM%param_nsub(i),i) ; write_msgi_file
      else
        write(message,'(A,2x,A14,1x,F10.5)')'  C_PARAM:',PPRAM%param_name(i),PPRAM%param(i) ; write_msgi_file
-!      write(6,*)"ZZZ ", print_mode
-!      stop
      endif
    enddo
 

@@ -50,7 +50,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
 
  fit:do while( .not. flag_exit)
        write(message,'(A)')' '  ; write_msg
-       write(message,'(A,I0,A)')' **START ',ifit+1,'-th LMDIF run'  ; write_msg
+       write(message,'(A,I0,A)')' #-START ',ifit+1,'-th LMDIF run'  ; write_msg
        write(message,'(A)')' '  ; write_msg
 
        call leasqr_lm ( get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM_FIT, PKPTS, PGEOM, fnorm)
@@ -101,18 +101,20 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
         !       we just keep this stratege for the convenience... 31.Oct.2020 HJK
    if_main call print_param (PINPT, PPRAM_FIT, PWGHT(1), PPRAM_FIT%pfileoutnm, .TRUE.)
    if_main call print_param (PINPT, PPRAM_FIT, PWGHT(1),  '   Fitted param(i):', .FALSE.)
+
    write(message,'(A,A)')'  Fitted parameters will be written in ',PPRAM_FIT%pfileoutnm  ; write_msg
 
    write(message,'( A)')' '  ; write_msg
-   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'(2A)')'   END FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg
-   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'( A)')' '  ; write_msg
 
    PINPT%flag_tbfit_finish = .true.
 
    return
 endsubroutine
+
 subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA, PINPT_BERRY, PINPT_DOS)
    use parameters, only : incar, params, kpoints, energy, weight, poscar, hopping, gainp
    use parameters, only : dos, berry, replot
@@ -121,7 +123,6 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
    implicit none
    type(incar  )                           :: PINPT, PINPT_
    type(params )                           :: PPRAM, PPRAM1, PPRAM_
-  !type(params ), dimension(PINPT%nsystem) :: PPRAM_
    type(kpoints), dimension(PINPT%nsystem) :: PKPTS
    type(energy ), dimension(PINPT%nsystem) :: EDFT 
    type(weight ), dimension(PINPT%nsystem) :: PWGHT
@@ -134,12 +135,17 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
    type(replot)                             :: PRPLT ! dummy
    integer*4                                   i
 
-   print_mode = 3
+   if(PINPT%flag_python_module) then
+     print_mode = 99
+   else
+     print_mode = 3
+   endif
 
    do i = 1, PINPT%nsystem
-     call read_input(PINPT,PPRAM_,PINPT_DOS(i),PINPT_BERRY(i),PKPTS(i), &
-                     PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i),PKAIA(i),PRPLT, i)
+     call read_input(PINPT,PPRAM_,PKPTS(i), PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i), &
+                     PINPT_DOS(i),PINPT_BERRY(i),PKAIA(i),PRPLT, i)
 
+     ! save main input PINPT and PPRAM for other systems
      if(i .eq. 1) then
        PINPT_ = PINPT  ! main input tags are read from system 1
        PPRAM1 = PPRAM_  ! main parameters are read from system 1
@@ -171,9 +177,9 @@ subroutine report_init(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM)
    character*80                                fname
 
    write(message,'( A)')' '  ; write_msg
-   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'(2A)')'   START FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg
-   write(message,'( A)')' ====================================================='  ; write_msg
+   write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'( A)')' '  ; write_msg
    write(message,'( A,I0)')'  N_PARAM (free)  : ', PPRAM%nparam_free  ; write_msg
    write(message,'( A,I0)')'  N_SYSTEM        : ', PINPT%nsystem      ; write_msg
@@ -213,8 +219,9 @@ subroutine check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm
    flag_conv = .true.
    ifit = ifit + 1
 
+   write(message,'(A)')' '  ; write_msg
    write(message,'(A,I0,A)')'           Check constraint: upper and lower bounds'  ; write_msg
-   write(message,'(A,I0,A)')'    =========================================================='  ; write_msg
+   write(message,'(A,I0,A)')'    #========================================================='  ; write_msg
 
    do j = 1, PPRAM%nparam
 
@@ -297,8 +304,9 @@ subroutine check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm
    enddo
 
    if(flag_conv) then
+   write(message,'(A)')' '  ; write_msg
      write(message,'(A)')'           Check fitness function updates '  ; write_msg
-     write(message,'(A)')'    ============================================='  ; write_msg
+     write(message,'(A)')'    #============================================'  ; write_msg
      ! 2. check fitness function updates
      fdiff = sqrt((fnorm_ - fnorm)**2)/fnorm*100
      if( fdiff .le. PINPT%fdiff) then

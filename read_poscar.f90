@@ -24,7 +24,7 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
 
   ! read geometry
   write(message,*)' '  ; write_msgi
-  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(PGEOM%gfilenm)  ; write_msgi
+  write(message,*)'#- READING INPUT GEOMETRY FILE: ',trim(PGEOM%gfilenm)  ; write_msgi
   call read_poscar(PINPT, PGEOM, NN_TABLE)
 
   !set equivalent atom if defined in CONSTRAINT set
@@ -119,7 +119,7 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
      write(message,'(A)')'  L_TOTEN: .FALSE.' ; write_msgi
    endif
 
-  write(message,*)'*- END READING GEOMETRY FILE ---------------------'  ; write_msgi
+  write(message,*)'#- END READING GEOMETRY FILE ---------------------'  ; write_msgi
   write(message,*)' '  ; write_msgi
 
   return
@@ -661,10 +661,9 @@ subroutine set_orbital_index(PGEOM, lmmax)
    integer*4                   iatom, iorb, imatrix, lmmax
    integer*4, allocatable   :: orb_index(:)
    character*8                 orb
-   integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1), mpierr
+   integer*4                   ourjob(nprocs), ourjob_disp(0:nprocs-1), mpierr
 
    call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
-
    allocate(PGEOM%orb_index(PGEOM%neig))
    allocate(orb_index(PGEOM%neig))
    PGEOM%orb_index = 0 ; orb_index = 0
@@ -738,16 +737,9 @@ subroutine set_effective_nuclear_charge(PGEOM)
   integer*4, allocatable ::   orb_n_quantum_(:,:)
   real*8,    allocatable ::   n_quantum_(:) ! just set to "real" for the convinience.
   real*8,    allocatable ::   z_eff_nuc_(:,:)
-
-#ifdef MPI
   integer*4  ourjob(nprocs)
   integer*4  ourjob_disp(0:nprocs-1)
   call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
-#else
-  integer*4  ourjob(1)
-  integer*4  ourjob_disp(0)
-  call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
-#endif
 
   allocate(PGEOM%n_quantum(PGEOM%n_atom), &
                 n_quantum_(PGEOM%n_atom) ) ! n=1, 2, ...?

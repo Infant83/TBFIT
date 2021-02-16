@@ -282,30 +282,7 @@ subroutine vcross(a,b,c)
   a(3)=b(1)*c(2)-b(2)*c(1)
 return
 end subroutine vcross
-subroutine check_here_c(check_flag)
-  implicit none
-  character(*) check_flag
 
-  write(6,*)'  !!**!! ',trim(check_flag)
-
-return
-endsubroutine
-subroutine check_here_i(check_flag)
-  implicit none
-  integer*4   check_flag
-
-  write(6,*)'  !!**!! ',check_flag
-
-return
-endsubroutine
-subroutine check_here_r(check_flag)
-  implicit none
-  real*8   check_flag
-
-  write(6,*)'  !!**!! ',check_flag
-
-return
-endsubroutine
 subroutine get_window(init,fina,inputline,desc_str)
   use mpi_setup
   use print_io
@@ -590,15 +567,6 @@ function int2str(w) result(string)
 
   return
 endfunction
-!subroutine int2str(w,string)
-! implicit none
-! character(*), intent(out) :: string
-! integer*4,    intent(in)  :: w
-
-! write(string,*) w
-
-! return
-!endsubroutine
 subroutine str2int(string,w)
   implicit none
   character(*),intent(in) :: string
@@ -721,25 +689,4 @@ FUNCTION str2lowcase( string )
     IF ( n /= 0 ) str2lowcase(i:i) = LOWER_CASE(n:n) 
   END DO 
 END FUNCTION str2lowcase
-
-! return index of original 2D array from reshaped 1D array index from 2D array
-!function idx2Di(idx1D, ni) result(i)
-!   implicit none
-!   integer*4    i, ni
-!   integer*4    idx1D
-!   
-!   i = floor( real(idx1D)/real(ni) ) + 1
-!!  j = mod( idx1D, ni )
-!return
-!endfunction
-!function idx2Dj(idx1D, ni) result(j)
-!  implicit none
-!  integer*4    j, ni 
-!  integer*4    idx1D
-
-!!  i = floor( real(idx1D)/real(ni) ) + 1
-!  j = mod( idx1D, ni )
-!return
-!endfunction
-
 

@@ -720,7 +720,7 @@ subroutine read_geom(PINPT,PGEOM,fname)
   pos_index = 0
 
   write(message,*)' ' ; write_msg
-  write(message,*)'*- READING INPUT GEOMETRY FILE: ',trim(fname) ; write_msg
+  write(message,*)' #- READING INPUT GEOMETRY FILE: ',trim(fname) ; write_msg
   open (pid_geom, FILE=fname,iostat=i_continue)
   linecount = 0
   ii = 0
@@ -1162,7 +1162,7 @@ line: do
   close(pid_geom)
 
 
-  write(message,*)'*- END READING GEOMETRY FILE ---------------------' ; write_msg
+  write(message,*)' #- END READING GEOMETRY FILE ---------------------' ; write_msg
   write(message,*)' ' ; write_msg
 return
 endsubroutine

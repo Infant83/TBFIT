@@ -12,10 +12,15 @@ module print_io
    character*2048    message9
    character*2048    message_pack(1024) ! just assumed that maximum number of cpus = 1024 (one can increase according to your system))
    integer*4, public, parameter :: pid_log = 17
-   integer*4, public            :: iverbose     ! 1: full, 2: no
-   integer*4, public            :: print_mode
-
-contains
+   integer*4, public            :: iverbose     ! verbosity 1: full, 2: no
+   integer*4, public            :: print_mode   ! this is used to control verbosity when 
+                                                ! calling write_log subroutine
+                                                ! In some subroutines, one needs to write only
+                                                ! to the output log file, not to screen.
+                                                ! In this case, one use "print_mode" instead of
+                                                ! "iverbose" parameter when calling write_log
+                                                ! subroutine. 
+contains        
    subroutine open_log(fnamelog, myid)
       implicit none
       character(len=*)     :: fnamelog

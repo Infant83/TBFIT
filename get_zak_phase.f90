@@ -66,7 +66,7 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
    iband  = erange(1)
 
    write(message,*)'' ; write_msg
-   write(message,'(A)')'START: ZAK PHASE EVALUATION' ; write_msg
+   write(message,'(A)')' #--- START: ZAK PHASE EVALUATION' ; write_msg
    write(message,'(A,A)')'  BAND INDEX: ',adjustl(trim(PINPT_BERRY%strip_zak_range)) ; write_msg
 
    do ikpath = 1, nkpath
@@ -100,7 +100,8 @@ subroutine get_zak_phase(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
 #else
    call cpu_time(time2)
 #endif
-   write(message,'(A,F12.3)')'END: ZAK PHASE EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
+   write(message,'(A,F12.3)')' #--- END: ZAK PHASE EVALUATION. TIME ELAPSED (s) =',time2-time1 ; write_msg
+   write(message,*)'' ; write_msg
 
    return
 endsubroutine

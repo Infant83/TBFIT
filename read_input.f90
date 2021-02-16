@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PKAIA, PRPLT, mysystem)
+subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_DOS, PINPT_BERRY, PKAIA, PRPLT, mysystem)
   use parameters
   use read_incar
   use berry_phase
@@ -14,7 +14,6 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   integer*4                 mysystem
   character*132             inputline
   character*40              desc_str
-  logical                   flag_kfile_ribbon
   integer*4, external    :: nitems
   type(incar)            :: PINPT
   type(params)           :: PPRAM
@@ -28,9 +27,10 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   type(gainp)            :: PKAIA
   type(replot)           :: PRPLT
   character(*),parameter :: func = 'read_input'
+  logical                   flag_write_nntable
+  
+  flag_write_nntable = (.not. PINPT%flag_python_module)
 
-  flag_kfile_ribbon=.false.
- 
   call init_incar(PINPT)
   call init_params(PPRAM, PINPT)
   call init_berry(PINPT_BERRY, PINPT)
@@ -41,7 +41,6 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   call init_gainp(PKAIA)
   call init_replot(PRPLT)
   call init_dos(PINPT_DOS, PINPT)
-
   ! READ INCAR-TB
   call read_input_tags(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
                        EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
@@ -50,7 +49,7 @@ subroutine read_input(PINPT, PPRAM, PINPT_DOS, PINPT_BERRY, PKPTS, PGEOM, PWGHT,
   call read_tb_param(PINPT, PPRAM, PWGHT)
   call read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
   call read_kpoint(PKPTS, PINPT, PGEOM)
-  call set_nn_table(NN_TABLE, PINPT, PPRAM, PGEOM, .true., PRPLT%flag_replot)
+  call set_nn_table(NN_TABLE, PINPT, PPRAM, PGEOM, flag_write_nntable, PRPLT%flag_replot)
   call set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
 
   ! SET input arguments for post-processings

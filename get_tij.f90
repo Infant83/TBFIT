@@ -70,6 +70,7 @@ function tij_sk(NN_TABLE,ii,PPRAM,tol,flag_set_overlap)
     lmm      = ll - mm
   endif
 
+
   if(flag_set_overlap .and. NN_TABLE%n_class(ii)  .eq.                    0    .and.  &
                             NN_TABLE%i_matrix(ii) .eq. NN_TABLE%j_matrix(ii)  ) then
     e  = 1d0
@@ -535,7 +536,7 @@ function f_s(dda_s,d0,d, mode)
 !    f_s=(d0/d)^(SFACTOR(1))
 !  4 = see PRB 93.241407 (2016)
 !    f_s=exp( (d0-d) * SFACTOR(1) )
-!  5 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
+!  6 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
 !      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c
 !    f_s=(d0/d)^(SFACTOR(1))*exp(SFACTOR(1)*( -(d/SFACTOR(2))^(SFACTOR(3)) + -(d0/SFACTOR(2))^(SFACTOR(3)) ))
 
@@ -549,7 +550,10 @@ function f_s(dda_s,d0,d, mode)
    elseif(mode .eq. 4) then
     !f_s = Exp( (d0 - d)*dda_s )
      f_s = Exp( -abs(dda_s) * (d - d0) )
-!  elseif(mode .eq. 5)
+   elseif(mode .eq. 5) then
+     f_s = (1 - dda_s * (d - d0) )
+
+!  elseif(mode .eq. 6)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
    endif
 return

@@ -172,7 +172,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    a3=PGEOM%a_latt(1:3,3)
 
    write(message,*)' ' ; write_msgi
-   write(message,*)'*- SETUP NEIGHBOR ATOM/ORBITAL PAIR & HOPPING CLASS' ; write_msgi
+   write(message,*)'#- SETUP NEIGHBOR ATOM/ORBITAL PAIR & HOPPING CLASS' ; write_msgi
    write(message,'(A)')' => Hopping pair (NN_PAIR) with following conditions will be searched::' ; write_msgi
    do i = 1, PGEOM%n_nn_type
      write(message,'(A,A12,2(A,1F8.4))')'  NN_PAIR:  ',PGEOM%nn_pair(i),' R0_max:',PGEOM%nn_dist(i),'   R0:',PGEOM%nn_r0(i)  ; write_msgi
@@ -609,7 +609,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    call time_check(t1,t0,'end')
    write(message,'(A,F12.6)')"   TIME for FINDING NEIGHBOR PAIRS (s)", t1 ; write_msgi
    write(message,*)' ' ; write_msgi
-   write(message,*)'*- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'  ; write_msgi
+   write(message,*)'#- END SETUP NEIGHBOR ATOM PAIR & HOPPING CLASS'  ; write_msgi
    write(message,*)' ' ; write_msgi
 
 return

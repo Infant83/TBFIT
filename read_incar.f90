@@ -67,8 +67,8 @@ contains
               case('GET_BAND', 'BAND')
                 call set_get_band(PINPT,inputline, desc_str)
     
-              case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT', 'FDIFF')
-                call set_tbfit(PINPT, inputline, desc_str)
+              case('TBFIT','LSTYPE','PTOL','FTOL','MITER','MXFIT', 'NPOP', 'FDIFF', 'PSO_NP', 'PSO_OPT')
+                call set_tbfit(PINPT, PPRAM, inputline, desc_str)
     
               case('EWINDOW')
                 call set_energy_window(PINPT, inputline, desc_str)
@@ -3191,14 +3191,16 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
-   subroutine set_tbfit(PINPT, inputline, input_tag)
+   subroutine set_tbfit(PINPT, PPRAM, inputline, input_tag)
       type(incar  )  ::  PINPT
+      type(params )  ::  PPRAM
       integer*4     i_continue
       character*132 inputline
       character*40  desc_str
       character*40  input_tag
       integer*4     mpierr
       character(*), parameter :: func = 'set_tbfit'
+      integer*4, external :: nitems
 
       select case(input_tag)
 
@@ -3217,20 +3219,27 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           
         case('LSTYPE') !set non-linear regression scheme
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
-          if(PINPT%ls_type .eq. 'LMDIF' .or. PINPT%ls_type .eq. 'lmdif' ) then
+          if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif' ) then
             PINPT%ls_type = 'LMDIF'
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Levenberg-Marquardt with finite-difference for Jacobian'  ; write_msgi
-          elseif(PINPT%ls_type .eq. 'PIKAIA' .or. PINPT%ls_type .eq. 'GA' .or. &
-                 PINPT%ls_type .eq. 'pikaia' .or. PINPT%ls_type .eq. 'ga' ) then
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Levenberg-Marquardt with finite-difference for Jacobian'  ; write_msgi
+          elseif(trim(PINPT%ls_type) .eq. 'PIKAIA' .or. trim(PINPT%ls_type) .eq. 'GA' .or. &
+                 trim(PINPT%ls_type) .eq. 'pikaia' .or. trim(PINPT%ls_type).eq. 'ga' ) then
             PINPT%ls_type = 'GA'
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based on PIKAIA library'  ; write_msgi
-          elseif(PINPT%ls_type .eq. 'ga+lmdif' .or. PINPT%ls_type .eq. 'GA+LMDIF' .or. &
-                 PINPT%ls_type .eq. 'lmdif+ga' .or. PINPT%ls_type .eq. 'LMDIF+GA') then
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Genetic algorithm based on PIKAIA library'  ; write_msgi
+          elseif(trim(PINPT%ls_type) .eq. 'ga+lmdif' .or. trim(PINPT%ls_type) .eq. 'GA+LMDIF' .or. &
+                 trim(PINPT%ls_type) .eq. 'lmdif+ga' .or. trim(PINPT%ls_type) .eq. 'LMDIF+GA') then
             PINPT%flag_ga_with_lmdif=.true.
-            write(message,'(A,A8,A)')'  LS_TYPE:  ',PINPT%ls_type,', Genetic algorithm based + Levenberg-Marquardt non-linear regression'  ; write_msgi
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Genetic algorithm based + Levenberg-Marquardt non-linear regression'  ; write_msgi
             PINPT%ls_type = 'GA'
+          elseif(trim(PINPT%ls_type) .eq. 'pso' .or. trim(PINPT%ls_type) .eq. 'PSO') then
+            PINPT%ls_type = 'PSO'
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Particle swarm optimization method'  ; write_msgi
+          elseif(trim(PINPT%ls_type) .eq. 'pso+lmdif' .or. trim(PINPT%ls_type) .eq. 'PSO+LMDIF') then
+            PINPT%ls_type = 'PSO'
+            PINPT%flag_pso_with_lmdif=.true.
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Particle swarm optimization method + Levenberg-Marquardt non-linear regression'  ; write_msgi
           else
-            write(message,'(A,A6,A)')'  LS_TYPE:  ',PINPT%ls_type,' is not defined or not available in the current version. Exit..'  ; write_msgi
+            write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),' is not defined or not available in the current version. Exit..'  ; write_msgi
             stop
           endif
 
@@ -3263,7 +3272,24 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             write(message,'(A)')'           Please make sure that MXFIT > 0 in your input tag.'  ; write_msgi
             kill_job
           endif
-          
+
+        case('PSO_NP') ! set number of particles (parameters) used in particle swarm optimization method
+          read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_nparticles
+          write(message,'(A,I8)')'   PSO_NP:  ',PPRAM%pso_nparticles  ; write_msgi
+
+        case('PSO_OPT') ! set c1, c2, w defines cognitive, social, and inertia factor of PSO method
+          if(nitems(inputline) - 1 .ne. 3) then
+            write(message,'(A)')     '    !WARN! You should provide three real values for PSO control parameters: w, c1, and c2'  ; write_msgi
+            write(message,'(A,I0,A)')'           Here, you only provided',nitems(inputline) - 1,' parameters. Please check your input tag PSO_OPT.'; write_msgi
+            write(message,'(A)')     '           Exit program...';write_msgi
+            kill_job
+          endif
+
+          read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_c1, PPRAM%pso_c2, PPRAM%pso_w
+          write(message,'(A,F15.8)')'   PSO_C1: (cognitive factor) ',PPRAM%pso_c1  ; write_msgi
+          write(message,'(A,F15.8)')'   PSO_C2: (social    factor) ',PPRAM%pso_c2  ; write_msgi
+          write(message,'(A,F15.8)')'   PSO_W : (inertia   factor) ',PPRAM%pso_w   ; write_msgi
+
         case('NPOP') ! set number of generation for genetic algorithm
           read(inputline,*,iostat=i_continue) desc_str, PINPT%ga_npop
           write(message,'(A,I8)')'  GA_NPOP:  ',PINPT%ga_npop  ; write_msgi

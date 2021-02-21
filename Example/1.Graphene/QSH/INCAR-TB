@@ -1,0 +1,45 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+                                                              # if ISPIN = 2, two files, for up & down should be provided together
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE.    #orbital decomposed output (write absolute value of wavefunction coefficient to band_structure file)
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         C--C  : 2.5    R0 2.4500  # cutoff dist for 2nd nearest neighbor between C-C bond 
+         C---C : 2.9    R0 2.8290  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    END  NN_CLASS
+
+    SET  WCC # setup for Wannier charge center evaluation
+         WCC_ERANGE 1:8  # up to occupied states!! (very important)
+         WCC_FNAME      Z2.WCC.0.0-B3.dat #output FNAME "name"
+         WCC_FNAME_GAP  Z2.GAP.0.0-B3.dat #output FNAME "name"
+         WCC_KPATH   0. 0.00  0.    1.  0.00  0.  # hybrid wcc integration along kx
+         WCC_KPATH_SHIFT 0 0 0.0  # 0.5 shifted along kz
+         WCC_DIREC    2     # wcc evolution along ky (2) 
+         WCC_NKDIV   11 1611  # number of division of the k-path (odd number suggested)
+         GET_CHERN   .FALSE. # 1st Chern number of given bands defined with ERANGE
+    END  WCC
+
+
+# band decomposed chargedensity
+#   SET EIGPLOT              # evaluate wavefunction of eigenstates with the following tags
+#       IEIG 3               # which eigenvalues are ploted? (array of integer values)
+#       IKPT 1               # which k-points are used? (array of integer values)
+##      NGRID  40  40  80    # GRID for CHGCAR output (if not provided, defualt is set to be delta_grid ~ 0.1 ang)
+##      RORIGIN 0.0 0.0 0.0  # shift of the origin of the cube file, for some convenience of the visualization 
+#   END EIGPLOT
+

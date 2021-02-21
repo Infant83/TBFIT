@@ -1,0 +1,55 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+                                                              # if ISPIN = 2, two files, for up & down should be provided together
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_GRID  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE.    #orbital decomposed output (write absolute value of wavefunction coefficient to band_structure file)
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         C--C  : 2.5    R0 2.4500  # cutoff dist for 2nd nearest neighbor between C-C bond 
+         C---C : 2.9    R0 2.8290  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    END  NN_CLASS
+
+    SET  REPLOT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         REPLOT_DOS    .TRUE.
+         REPLOT_LDOS   .TRUE.  1:2  # following number indicates atom index to be resolved
+         DOS_EWINDOW   -20.0:10.0   # energy window
+         NEDOS         2000
+         SMEARING      0.080        # gaussian smearing. Default = 0.025
+
+#        REPLOT_SLDOS  .TRUE.       # spatial LDOS within EWINDOW
+#        REPEAT_CELL  20 20 1  # if REPLOT_SLDOS = .TRUE., cell periodicity for visualization
+#        RORIGIN       0 0 0   # shift of origin of atomic coordinates (fractional)
+#        BOND_CUT      1.8     # bond length <= bond_cut will not be written in BOND.replot.dat Default: 3.0 (ang)
+    END  REPLOT
+
+
+#  SET DOS
+#      GKGRID     100 100 1  # set Monkhorst-Pack grid; if set by GKGRID gamma-centered scheme will be applied
+#      KSHIFT       0  0 0
+#      PRINT_KPTS  .TRUE.  IBZKPT-DOS_TB # print out kpoints information into given kpoint file: default = IBZKPT-TB_DOS
+#      PRINT_EIG   .FALSE. 1:2 3         # print out eigenstate energy   into given ensurf file: default = ENSURF.EIG.NEIG.dat
+#      PRINT_UNIT  RECIPROCAL            # kpoint unit : RECIPROCAL (fractional) or ANGSTROM (1/A); default = RECIPROCAL
+#      NEDOS       2000      
+#      SMEARING    0.030     # gaussian smearing. Default = 0.025
+#      DOS_ERANGE  -20.:10   # energy range
+#      DOS_NRANGE   1:NEIG   # eigenvalue index range. Single ':' without numbers indicate all eigenvalues will be considered
+#                            # NEIG is total number of orbital states in the system by default.
+#      DOS_FNAME   DOS_TB_projected.dat  # output file name for DOS calculation
+#      PRINT_LDOS  .TRUE. 1:2 # print local density of states for atom 1 to 2
+#      LDOS_FNAME  LDOS_TB_projected  # output file name header for LDOS. Atom index will be appended after this.
+#  END DOS
+

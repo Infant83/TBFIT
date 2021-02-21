@@ -80,7 +80,8 @@ module parameters
        logical                       flag_parse
        logical                       flag_tbfit_test
        logical                       flag_inputcard_fname_parse
-       logical                       flag_ga_with_lmdif ! default = PKAIA%flag_ga_with_lmdif
+       logical                       flag_ga_with_lmdif ! use lmdif method for local optimization in GA method, default = .false.
+       logical                       flag_pso_with_lmdif ! use lmdif method for local optimization in PSO method, default = .false.
        logical                       flag_write_unformatted ! default = .false.
        logical                       flag_report_geom
    
@@ -104,7 +105,7 @@ module parameters
                                                     ! re, im (real or imag part), 
                                                     ! wf (full wf), bi (enforce to write wf with binary format)
 
-       character(len=8)                   ls_type   ! fitting method
+       character(len=10)                   ls_type   ! fitting method
        integer(kind=sp)                     nn_max(3)          ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
        logical                       flag_use_weight    ! if true use "weight" information written in PFILE and 
                                                         ! replace it with SET WEIGHT info of INCAR-TB file after fitting procedures
@@ -239,6 +240,15 @@ module parameters
                                                               ! 4: NRL type of e_, ssp_, pds_,...(with s_, o_, os_ )-> onsite, hopping, hopping_scale, 
                                                               !                                               hopping(overlap),hopping_scale(overlap)
                                                               ! 1: other parameters -> local_U, lrashba_, lambda_, lsoc_, stoner_I_ , ..., etc.
+       integer(kind=sp)                     niter ! number of iteractions performed
+
+       integer(kind=sp)                     pso_nparticles    ! number of particles (parameters) used in particle swarm optimization method
+       real(kind=dp)                        pso_c1            ! c1, c2, w defines cognitive, social, and inertia factor of PSO method  
+       real(kind=dp)                        pso_c2            ! vel = w * vel + c1 * rand() * (pbest - x) + c2 * rand() * (gbest - x)
+       real(kind=dp)                        pso_w 
+       real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
+       real(kind=dp),      allocatable   :: cost_history(:)  ! save cost function history w.r.t. the iteration in LMDIF method. size:(miter)
+
   endtype params
 
   type poscar !PGEOM
@@ -330,15 +340,15 @@ module parameters
        integer(kind=sp)                     spg_n_operations ! nsym, number of symmetry operations
        character(len=12)            spg_international
        character(len=18)            spg_hall_symbol
-       character(len=6 )            spg_choice
-       character(len=7 )            spg_point_group
+       character(len=6)             spg_choice
+       character(len=7)             spg_point_group
        character(len=12)            spg_crystal_system
        integer(kind=sp),   allocatable   :: spg_rotations(:,:,:)   ! {->w,   t} (3,3,spg_n_operations)
        real(kind=dp),      allocatable   :: spg_translations(:,:) !  {  w, ->t} (3,spg_n_operations)
        integer(kind=sp),   allocatable   :: spg_wyckoffs(:)
        integer(kind=sp),   allocatable   :: spg_equivalent_atoms(:) 
        real(kind=dp),      allocatable   :: spg_a_coord_operated(:,:,:) ! (3,n_atom,spg_n_operations)
-       character(len=7  )            spg_schoenflies
+       character(len=7)                     spg_schoenflies
        real(kind=dp)                        spg_a_latt_primitive(3,3)
        real(kind=dp),      allocatable   :: spg_a_coord_primitive(:,:) !(3,spg_n_atom_primitive)
        integer(kind=sp),   allocatable   :: spg_spec_primitive(:)      !(  spg_n_atom_primitive)
@@ -353,7 +363,7 @@ module parameters
 
        character(len=132)            kfilenm            ! kpoint file
        character(len=132)            ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
-       character(len=8  )            kline_type ! FHI-AIMS, VASP, FLEUR
+       character(len=8)              kline_type ! FHI-AIMS, VASP, FLEUR
        integer(kind=sp)                     nkpoint,nline
        integer(kind=sp)                     n_ndiv
        integer(kind=sp)                     idiv_mode ! kpath division mode
@@ -367,13 +377,13 @@ module parameters
        real(kind=dp),      allocatable   :: kpoint(:,:),kline(:,:)
        real(kind=dp),      allocatable   :: kpoint_reci(:,:)
        real(kind=dp)                        k_shift(3)
-       character(len=8  ), allocatable   :: k_name(:)
-       character(len=8  ), allocatable   :: k_name2(:)
-       integer(kind=sp  ), allocatable   :: k_name_index(:)
+       character(len=8),   allocatable   :: k_name(:)
+       character(len=8),   allocatable   :: k_name2(:)
+       integer(kind=sp),   allocatable   :: k_name_index(:)
        logical                       flag_klinemode
        logical                       flag_kgridmode, flag_gamma
        logical                       flag_reciprocal, flag_cartesianK
-       character(len=1  )            kunit
+       character(len=1)            kunit
   endtype kpoints
 
   type energy !EDFT / ETBA / ETBA_DOS
@@ -397,12 +407,14 @@ module parameters
        real(kind=dp),      allocatable   :: E_TOT(:)   ! total energy of the system for each spin (nspin)
        real(kind=dp),      allocatable   :: F_OCC(:,:) ! Fermi-dirac occupation function (ispin*nband, nkp)
        real(kind=dp)                        E_F        ! Fermi level
+
+!      real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
   endtype energy
 
   type weight !PWGHT
        integer(kind=sp)                     mysystem   ! my system index
        character(len=132)            efilenmu,efilenmd  ! target energy file (spin up & dn)
-       character(len=16 )            efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
+       character(len=16)             efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
        real(kind=dp)                        efile_ef           ! fermi level for efile (energy shift: energy - efile_ef will be applied when reading efile)
        integer(kind=sp)                     itarget_e_start    ! from which energy level TBFIT read as target energy from target file?
        integer(kind=sp)                     read_energy_column_index, read_energy_column_index_dn ! which column of the target file should be read?

@@ -33,7 +33,7 @@ contains
 
     do i = 1, PINPT%nsystem
       flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
-      if(imode .eq. 1 .or. imode .eq. 11) then
+      if(imode .eq. 1 .or. imode .eq. 11 .or. imode .eq. 13) then
         my_ldjac = PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
       elseif(imode .eq. 2 .or. imode .eq. 12) then
         my_ldjac = PKPTS(i)%nkpoint
@@ -46,7 +46,6 @@ contains
                    ETBA_FIT(i)%E, ETBA_FIT(i)%V, ETBA_FIT(i)%SV, &
                    PGEOM(i)%neig, PGEOM(i)%init_erange, PGEOM(i)%nband, &
                    flag_get_orbital, .false., .false., PINPT%flag_phase)
-
       ! Evaluate degeneracy information for TBA band : after calling get_eig
       call get_degeneracy(ETBA_FIT(i), PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint, PINPT)
 
@@ -60,7 +59,7 @@ contains
       call get_cost_function(fvec(ildjac:fldjac), fvec_plain(ildjac:fldjac), &
                              ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), my_ldjac, imode, flag_order)
     enddo
-    
+
     return
   endsubroutine
 
@@ -160,8 +159,15 @@ contains
     !               ldjac = nkpoint * nband * PINPT%nspin
     ! imode : 2, if ldjac > nparam -> usual cases
     !               ldjac = nkpoint
-    ! if imode = 10 + 1 or 10 + 2, ETBA_FIT%dE will be filled in return, 
-    !            and ldjac = 1 by default, fvec and fvec_plain will not be evaluated.
+
+    ! Important NOTE:
+    ! imode = 1       ldjac != 1 : return fvec, fvec_plain (ldjac = nkpoint * nband)
+    ! imode = 2       ldjac != 1 : return fvec, fvec_plain (ldjac = nkpoint)
+    ! imode = 11 with ldjac != 1 : return ETBA%dE, fvec, fvec_plain (ldjac = nkpoint * nband)
+    ! imode = 12 with ldjac != 1 : return ETBA%dE, fvec, fvec_plain (ldjac = nkpoint)
+    ! imode = 13 with ldjac  = 1 : return ETBA%dE 
+    ! imode = 13 with ldjac != 1 : return          fvec, fvec_plain (ldjac = nkpoint * nband)
+    ! imode = 1 and imode =13 is similar but imode =13 does not contain ortbial part and etc. (much faster)
 
     flag_fit_degeneracy = PINPT%flag_fit_degeneracy
     flag_fit_orbital    = PINPT%flag_fit_orbital   
@@ -169,8 +175,12 @@ contains
 
     dE        = 0d0 ;  sigma            = PINPT%orbital_fit_smearing   ! default 
     cost_func = 0d0 ;  cost_func_plain  = 0d0 
-    fvec      = 0d0 ;  fvec_plain       = 0d0
-    fvec_     = 0d0 ;  fvec_plain_      = 0d0
+   !if(imode .lt. 10 .and. imode .eq. 13) then
+    if(ldjac .ne. 1) then
+      fvec      = 0d0 ;  fvec_plain       = 0d0
+      fvec_     = 0d0 ;  fvec_plain_      = 0d0
+    endif
+   !endif
     maxgauss  = 1d0/(sigma*sqrt(2d0*pi2)) *real(PGEOM%neig)
     iband     = PGEOM%init_erange
     ie_cutoff = PWGHT%ie_cutoff
@@ -329,6 +339,31 @@ contains
         endif
       enddo ! ik
 
+    elseif(imode .eq. 13) then
+      do ik = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+        my_i = (ik - 1) * PGEOM%nband * PINPT%nspin
+        do is = 1, PINPT%nspin
+          do ie = 1, PGEOM%nband
+            ie_      = ie + iband - 1 + (is-1) * PGEOM%neig
+            dE_plain = E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(ie_,ik)
+            dE       = dE_plain * PWGHT%WT(ie_,ik)
+            dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
+
+            if(ldjac .ne. 1) then
+              if(ie_cutoff .gt. 0) then
+                if(ie .le. ie_cutoff) then
+                  fvec(my_i + ie+(is-1)*PGEOM%nband) = abs(dE) 
+                  fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+                endif
+              else
+                fvec(my_i + ie+(is-1)*PGEOM%nband) = abs(dE) 
+                fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+              endif
+            endif
+
+          enddo
+        enddo
+      enddo
     endif ! IMODE ?
 
     if(imode .lt. 10) then
@@ -339,11 +374,33 @@ contains
     fvec_plain = fvec_plain_
 #endif
 
-    elseif(imode .gt. 10) then
+    elseif(imode .gt. 10 .and. imode .le. 12) then
 #ifdef MPI
       call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+      if(ldjac .ne. 1) then
+        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        fvec = fvec_
+        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        fvec_plain = fvec_plain_
+      endif
 #else
       ETBA_FIT%dE = dE_TBA
+#endif
+    elseif(imode .ge. 13) then
+#ifdef MPI
+      if(ldjac .ne. 1) then
+       !call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        fvec = fvec_
+        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        fvec_plain = fvec_plain_
+      elseif(ldjac .eq. 1) then
+        call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+      endif
+#else
+      if(ldjac .eq. 1) then
+        ETBA_FIT%dE = dE_TBA
+      endif
 #endif
     endif
 

@@ -611,8 +611,11 @@ function enorm ( n, x )
   real*8 x(n),enorm
 
  !enorm = sqrt ( sum ( x(1:n) ** 2 ))
-  enorm = sqrt ( sum ( x(1:n) ** 2 ))
 ! enorm = abs  ( sum ( abs (x(1:n)) ))
+
+  enorm = sqrt ( sum ( x(1:n) ** 2 ))
+
+! enorm = sum( abs(x) )
   return
 end
 subroutine kronprod(A,B,row_a,col_a,row_b,col_b,AB) 

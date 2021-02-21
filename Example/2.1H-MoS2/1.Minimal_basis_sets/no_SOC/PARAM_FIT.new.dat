@@ -1,0 +1,27 @@
+ 
+# PARAM_FIT.new.dat
+# E_TARGET FILE NAME : DOS_atom_projected_nosoc.dat
+    # KRANGE                    :    TB_RANGE                    :    DF_RANGE          IBAND:FBAND      WEIGHT                    1
+              e_dz2_Mo       -0.27330832  
+              e_dx2_Mo       -0.34416420  
+              e_dxy_Mo       -0.34416420  
+              e_dxz_Mo        0.57865382  
+              e_dyz_Mo        0.57865382  
+                e_pz_S       -3.05740567  
+                e_px_S       -1.75400771  
+                e_py_S       -1.75400771  
+                 e_s_S      -11.13072577  
+            dds_1_MoMo       -0.89445926  
+            ddp_1_MoMo        0.39687903  
+            ddd_1_MoMo       -0.00082823  
+              pps_1_SS        0.64049415  
+              ppp_1_SS       -0.02170188  
+             pds_1_MoS       -2.01312704  
+             pdp_1_MoS        0.95960246  
+              sss_1_SS       -0.45554709  
+              sps_1_SS       -0.21857564  
+              sss_2_SS       -0.45573348  
+              sps_2_SS       -0.21906117  
+             sds_1_MoS        2.35836410  
+           lambda_d_Mo        0.00000000  Fixed
+            lambda_p_S        0.00000000  Fixed

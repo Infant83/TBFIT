@@ -28,16 +28,22 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
     nparam_free = PPRAM%nparam_free ! total number of free parameters
   endif
 
-  if( sum(PKPTS(:)%nkpoint) .lt. nparam_free ) then
-    imode = 1
-    ldjac = 0
-    do i = 1, PINPT%nsystem
-      ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
-    enddo
-  elseif( sum(PKPTS(:)%nkpoint) .gt. nparam_free ) then
-    imode = 2
-    ldjac = sum(PKPTS(:)%nkpoint)
-  endif
+  imode = 13
+  ldjac = 0
+  do i =1, PINPT%nsystem
+    ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+  enddo
+
+! if( sum(PKPTS(:)%nkpoint) .lt. nparam_free ) then
+!   imode = 1
+!   ldjac = 0
+!   do i = 1, PINPT%nsystem
+!     ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+!   enddo
+! elseif( sum(PKPTS(:)%nkpoint) .gt. nparam_free ) then
+!   imode = 2
+!   ldjac = sum(PKPTS(:)%nkpoint)
+! endif
 
   if( PINPT%ls_type == 'LMDIF' ) then
    write(message,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'  ; write_msg
@@ -52,6 +58,7 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
     endif
     factor = 100.0D+00
     maxfev = PINPT%miter * ( nparam_free + 1 )
+   !maxfev = 2000 * ( nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.000D+00
     if(PINPT%flag_python_module) then
       if(iverbose .eq. 1) then
@@ -161,10 +168,15 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   integer*4     i_dummy
   character*132 gnu_command
   logical       flag_wait_plot
-  logical       flag_order, flag_order_weight
+  logical       flag_order, flag_order_weight, flag_cost_history
   integer*4     mpierr
 
-
+  if(allocated(PPRAM%cost_history)) then 
+    flag_cost_history = .TRUE.
+  else
+    flag_cost_history = .FALSE.
+  endif
+    
   flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
   flag_order_weight   = .false. ! experimental feature
 
@@ -190,17 +202,14 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
         kill_job
       endif
     endif
-!   if(PINPT%flag_plot_fit .or. PINPT%flag_print_energy_diff) then
-!     flag_wait_plot = .false.
-!     write(gnu_command, '(A,A)')'gnuplot ', trim(PINPT%filenm_gnuplot)
-!   endif
   enddo
 
   fnorm_ = 0d0
   i_dummy = 0
   epsmch = epsilon ( epsmch )
   info = 0 ; nfev = 0
-  
+  fvec = 0d0; fvec_plain = 0d0
+
   if (ftol < 0.0D+00 .or. xtol < 0.0D+00 .or. gtol < 0.0D+00 .or. maxfev <= 0) go to 300
 
 ! Evaluate degeneracy information for DFT band : in the beginning
@@ -209,16 +218,19 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   enddo
 
   call get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS) 
+
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
 
 !  Initialize Levenberg-Marquardt parameter and iteration counter.
   iter = 1 ; par = 0.0D+00
+  if(flag_cost_history) PPRAM%cost_history(iter) = fnorm
 
   if(flag_write_info) then
     write(message,'(A)')' '  ; write_msg
-    write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm, &
-                                                      ', (EDFT-ETBA) = ', enorm ( ldjac , fvec_plain )   ; write_msg
+    write(message,'(A)')'    # dE: (EDFT - ETBA), WT= weight '
+    write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                       ', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
 
 30 continue   !  Beginning of the outer loop.
@@ -406,10 +418,15 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
           xnorm = enorm ( nparam_free, wa2 )
           fnorm = fnorm1
           iter = iter + 1
+          if(iter .le. PINPT%miter .and. flag_cost_history)  then
+            PPRAM%cost_history(iter) = fnorm
+            PPRAM%niter              = iter
+          endif
           if(flag_write_info) then
             write(message,'(A)')' '  ; write_msg
-            write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,',(EDFT-ETBA)*WEIGHT = ',fnorm, &
-                                                              ', (EDFT-ETBA) = ', enorm ( ldjac , fvec_plain )   ; write_msg
+
+            write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                               ', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
             if_main write(pfileoutnm_temp,'(A,A)')trim(PPRAM%pfileoutnm),'_temp'
             if_main call print_param(PINPT,PPRAM,PWGHT(1),pfileoutnm_temp,.TRUE.) ! only main system will be printed..
             fnorm_ = fnorm ! fnorm of previous step

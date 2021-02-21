@@ -76,6 +76,7 @@ module set_default
         PINPT%lmmax=9 ! default 9 => s(1),p(2-4),d(5-9), 3 => s(1), p(2), d(3)
 
         PINPT%flag_ga_with_lmdif=.false.
+        PINPT%flag_pso_with_lmdif=.false.
         PINPT%flag_report_geom = .true.
 
         return
@@ -100,6 +101,11 @@ module set_default
         PPRAM%l_broaden = 0.15 ! angstrong unit, default for cutoff-function broadening
         PPRAM%nparam= 0 ! number of TB parameters
         PPRAM%nparam_const = 0 ! number of constratint acting on parameters
+        PPRAM%niter = 0 ! number of interations performed in fitting procedures
+        PPRAM%pso_nparticles                          = 50
+        PPRAM%pso_c1                                  = 0.3d0
+        PPRAM%pso_c2                                  = 0.4d0
+        PPRAM%pso_w                                   = 0.2d0
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
@@ -111,6 +117,8 @@ module set_default
         if(allocated(PPRAM%param_const_nrl)) deallocate(PPRAM%param_const_nrl)
         if(allocated(PPRAM%param_nsub))      deallocate(PPRAM%param_nsub)
 
+        if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_historY)
+        if(allocated(PPRAM%cost_history))     deallocate(PPRAM%cost_historY)
         return
     endsubroutine
 

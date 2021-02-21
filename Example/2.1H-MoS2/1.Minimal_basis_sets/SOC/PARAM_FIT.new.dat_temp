@@ -1,0 +1,29 @@
+ 
+# PARAM_FIT.new.dat_temp
+# E_TARGET FILE NAME : DOS_atom_projected.dat
+    # KRANGE                    :    TB_RANGE                    :    DF_RANGE          IBAND:FBAND      WEIGHT        1
+    # KRANGE                    :    TB_RANGE                17:20    DF_RANGE                17:20      WEIGHT        6
+    # KRANGE        20:60 100:140    TB_RANGE                17:20    DF_RANGE                17:20      WEIGHT       20
+              e_dz2_Mo       -0.34634915  
+              e_dx2_Mo       -0.70447180  
+              e_dxy_Mo       -0.70447180  
+              e_dxz_Mo       -0.17917853  
+              e_dyz_Mo       -0.17917853  
+                e_pz_S       -2.96498586  
+                e_px_S       -1.47869073  
+                e_py_S       -1.47869073  
+                 e_s_S      -10.51154090  
+            dds_1_MoMo       -1.04599922  
+            ddp_1_MoMo        0.44727848  
+            ddd_1_MoMo        0.10243513  
+              pps_1_SS        0.62321203  
+              ppp_1_SS        0.03249615  
+             pds_1_MoS       -2.32395736  
+             pdp_1_MoS        0.97228257  
+              sss_1_SS       -0.57285924  
+              sps_1_SS       -0.33260846  
+              sss_2_SS       -0.45573348  
+              sps_2_SS       -0.21906117  
+             sds_1_MoS        2.66102656  
+           lambda_d_Mo        0.08010343  
+            lambda_p_S        0.07587839  

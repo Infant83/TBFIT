@@ -1,0 +1,52 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ LSTYPE  LMDIF   # Levenberg-Marquardt method using finite-difference for Jacobian
+  MITER  50    # maximum number of iteration for the fitting procedures
+   PTOL  0.000000001   # convergence criteria for SK parameters to be fitted
+   FTOL  0.000000001   # convergence criteria for band structure for each fitting iterations
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+  EFILE  DOS_atom_projected.dat  # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE.
+# EFILE  DOS_atom_projected_nosoc.dat  # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE.
+  PFILE  PARAM_FIT.dat    # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+  IS_SK  .TRUE.          # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
+
+  GFILE  POSCAR-TB      # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+
+ LOCCHG  .FALSE.    # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE.     # set orbital decomposed band structure
+#ERANGE  1 1
+
+# set weight and constraint for fitting : valid only if TBFIT .TRUE. 
+    IBAND  1
+    FBAND  26
+#   SCISSOR  29 0.2    # EDFT(n,k) + r_scissor if n >= i_scissor, only valid if TBFIT = .true.
+    SET  WEIGHT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         KRANGE   :             TBABND :     DFTBND IBAND:FBAND  WEIGHT  1
+         KRANGE   :             TBABND 17:20 DFTBND 17:20        WEIGHT  6 
+         KRANGE  20:60 100:140  TBABND 17:20 DFTBND 17:20        WEIGHT  20 
+    END  WEIGHT   #PRINT_ONLY  # following PRINT_ONLY tag make program to write target data and stops
+##########################################################################################################
+
+    SET  CONSTRAINT TBPARAM
+        e_dxy_Mo = e_dx2_Mo  # e_px_Ge is same as e_pz_Ge # currently it applies only to the onsite parameters
+        e_dyz_Mo = e_dxz_Mo  # e_px_Ge is same as e_pz_Ge # currently it applies only to the onsite parameters
+        e_py_S   = e_px_S
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         Mo-Mo  : 3.2    R0 3.171634  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         S-S    : 3.28   R0 3.171634  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         S--S   : 3.2    R0 3.193724  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         Mo-S   : 2.5    R0 2.429624  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+    END  NN_CLASS
+
+    SET  EFIELD
+         EFIELD     0 0 0.00
+         EF_ORIGIN  0 0  .5   # or EF_CENTER (in fractional coordinate)
+    END  EFIELD
+

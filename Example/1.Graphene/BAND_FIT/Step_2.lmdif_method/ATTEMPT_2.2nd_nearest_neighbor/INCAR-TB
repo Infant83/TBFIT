@@ -1,0 +1,38 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  T       #
+ LSTYPE  LMDIF    # Levenberg-Marquardt method using finite-difference for Jacobian
+  MITER  200     # maximum number of iteration for the fitting procedures
+   PTOL  0.0000000001   # convergence criteria for SK parameters to be fitted
+   FTOL  0.0000000001   # convergence criteria for band structure for each fitting iterations
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+  EFILE  DFT_BAND.dat                # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE. 
+                                                              # if ISPIN = 2, two files, for up & down should be provided together
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE.    #orbital decomposed output (write absolute value of wavefunction coefficient to band_structure file)
+
+# set weight and constraint for fitting : valid only if TBFIT .TRUE. 
+    SET  WEIGHT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         KRANGE   :         TBABND 1:8     DFTBND 1:8                         WEIGHT 10
+         KRANGE  12:50      TBABND 5:10    DFTBND 5:10                        WEIGHT 27 
+    END  WEIGHT  # PRINT_ONLY  # following PRINT_ONLY tag make program to write target data and stops
+#   PRINT_ONLY .TRUE. 
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         C--C  : 2.5    R0 2.4500  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    #    C---C : 2.9    R0 2.8290  # cutoff dist for 3rd nearest neighbor between C-C bond 
+    END  NN_CLASS
+

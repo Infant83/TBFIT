@@ -1,0 +1,22 @@
+set term post portrait  enhanced color "Helvetica,18"
+fout='COST_HISTORY.TB.eps'; set output fout
+
+#set title "Energy band MoTe2" font "Curier Bold,18,"
+#generated from BAND-VASP.sh 
+
+ set size nosquare 1,0.55 ;
+ set xrange[0:30 ]
+#set yrange[-20 :10 ]
+set ylabel "Cost " font "Helvetica,24" offset 1,0
+
+set size nosquare 0.8,0.55
+
+ plot "COST_HISTORY.lmdif.dat"        u 1:2  w lp pt 7 lw 1 lc rgb 'black' ti 'lmdif',\
+      "COST_HISTORY.mypso.P50.dat"    u 1:2  w lp pt 4 lw 1 lc rgb 'red'   ti 'mypso, P:50',\
+      "COST_HISTORY.mypso.P100.dat"   u 1:2  w lp pt 5 lw 1 lc rgb 'red'   ti 'mypso, P:100',\
+      "COST_HISTORY.mypso.P200.dat"   u 1:2  w lp pt 6 lw 1 lc rgb 'red'   ti 'mypso, P:200',\
+      "COST_HISTORY.mypso.P500.dat"   u 1:2  w lp pt 7 lw 1 lc rgb 'red'   ti 'mypso, P:500',\
+      "COST_HISTORY.mypso.P1000.dat"  u 1:2  w lp pt 8 lw 1 lc rgb 'red'   ti 'mypso, P:1000',\
+
+ system(sprintf("eps2eps %s a.eps; mv a.eps %s; cp %s ~/Desktop",fout, fout, fout))
+

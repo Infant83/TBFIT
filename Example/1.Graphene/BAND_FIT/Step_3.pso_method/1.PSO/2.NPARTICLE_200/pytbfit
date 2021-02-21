@@ -1,0 +1,25 @@
+#!/local/th1/iff003/kim/anaconda3/bin/python
+import sys
+from mpi4py import MPI
+import tbfitpy as tbfit
+import time
+
+# initialize MPI
+comm = MPI.COMM_WORLD ; nprocs = comm.Get_size() ; myid = comm.Get_rank() 
+
+# set mytb 
+mytb = tbfit.pytbfit(mpicomm=comm)
+
+# test for particle swarm optimization method
+for n_particles in [50, 100] :
+	method='mypso' ; title = method+'.P'+str(n_particles)
+	mytb.init( myid = myid)
+	pso_options={'c1': 0.3, 'c2': 0.4, 'w':0.2}
+	mytb.fit(verbose=True, method=method, miter = 30, n_particles=n_particles, pso_options=pso_options, iseed = 123)
+	mytb.save(title=title , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+
+# test for Levenberg-Marquardt method
+method='lmdif'
+mytb.init( myid = myid )
+mytb.fit(verbose=True , method=method, miter=100)
+mytb.save(title=method , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)

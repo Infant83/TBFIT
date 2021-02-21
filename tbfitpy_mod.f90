@@ -5,6 +5,7 @@ module pyfit
     use print_io
     use mykind
     use do_math
+    use,intrinsic :: iso_fortran_env
     implicit none
 
     type incar_py  ! copied from parameters.f90: type incar
@@ -51,7 +52,7 @@ module pyfit
        integer(kind=sp)                   nproj_sum
        integer(kind=sp)                   iverbose
        integer(kind=sp)                   i_scissor
-       character(len=8)                   ls_type 
+       character(len=10)                  ls_type 
        character(len=40)                  fnamelog       
 
        integer(kind=sp),   allocatable :: proj_atom(:,:) 
@@ -70,6 +71,9 @@ module pyfit
        logical                            flag_slater_koster       
        logical                            flag_nrl_slater_koster   
        real(kind=dp)                      l_broaden                
+       real(kind=dp)                      pso_c1
+       real(kind=dp)                      pso_c2
+       real(kind=dp)                      pso_w 
        integer(kind=sp)                   slater_koster_type       
        integer(kind=sp)                   nparam                   
        integer(kind=sp)                   nparam_const             
@@ -77,6 +81,7 @@ module pyfit
        integer(kind=sp)                   nparam_nrl_free          
        integer(kind=sp)                   param_nsub_max           
        integer(kind=sp)                   nparam_free              
+       integer(kind=sp)                   pso_nparticles
        character(len=132)                 pfilenm
        character(len=132)                 pfileoutnm       
 
@@ -89,6 +94,10 @@ module pyfit
        integer(kind=sp),  allocatable  :: iparam_free_nrl(:)       
        character(len=40), allocatable  :: param_name(:)
        character(len=40), allocatable  :: c_const(:,:)
+
+       real(kind=dp),    allocatable   :: pso_cost_history(:)
+       real(kind=dp),    allocatable   ::     cost_history(:)
+       integer(kind=sp)                   niter
   endtype params_py
     
   type kpoints_py !PKPTS_PY
@@ -105,15 +114,15 @@ module pyfit
        integer(kind=sp)                   kreduce 
        character(len=132)                 kfilenm            
        character(len=132)                 ribbon_kfilenm     
-       character(len=8  )                 kline_type 
-       character(len=1  )                 kunit
+       character(len=8)                 kline_type 
+       character(len=1)                 kunit
 
        real(kind=dp),      allocatable :: kpoint(:,:)
        real(kind=dp),      allocatable :: kline(:,:)
        real(kind=dp),      allocatable :: kpoint_reci(:,:)
        integer(kind=sp),   allocatable :: ndiv(:)
-       character(len=8  ), allocatable :: k_name(:)
-       character(len=8  ), allocatable :: k_name2(:)
+       character(len=8),   allocatable :: k_name(:)
+       character(len=8),   allocatable :: k_name2(:)
        integer(kind=sp),   allocatable :: k_name_index(:)
 
        real(kind=dp),      allocatable :: kdist(:) ! only for python module
@@ -130,7 +139,7 @@ module pyfit
        integer(kind=sp)                   ie_cutoff    
        character(len=132)                 efilenmu
        character(len=132)                 efilenmd  
-       character(len=16 )                 efile_type         
+       character(len=16)                  efile_type         
 
        real(kind=dp),      allocatable :: WT(:,:)
   endtype weight_py
@@ -224,6 +233,7 @@ module pyfit
        real(kind=dp),    allocatable   :: E_TOT(:)
        real(kind=dp),    allocatable   :: F_OCC(:,:)
        real(kind=dp)                   :: E_F       
+       
   endtype 
 
 contains
@@ -273,7 +283,7 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     allocate(ETBA%dE( size(ETBA%E(:,1)) , size(ETBA%E(1,:)) )) 
     ETBA%E = 0d0 ; ETBA%V = 0d0 ; ETBA%SV = 0d0 ; ETBA%dE=0d0
     if(PINPT%flag_fit_orbital) ETBA%ORB = 0d0
- 
+
     if(PKPTS%flag_klinemode) then
       if(allocated(PKPTS_PY%kdist)) deallocate(PKPTS_PY%kdist)
       allocate(PKPTS_PY%kdist(PKPTS%nkpoint))
@@ -291,6 +301,258 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
 
     return
 end subroutine init
+
+subroutine pso(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_PY, EDFT_PY, ETBA_PY, iseed_, ilmdif)
+    use cost_function, only: get_dE, get_cost_function, get_dE12
+    use random_mod
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY
+    type(poscar_py),      intent(inout)         :: PGEOM_PY
+    type(weight_py),      intent(inout)         :: PWGHT_PY
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY
+    type(energy_py),      intent(inout)         :: ETBA_PY
+    type(energy_py),      intent(inout)         :: EDFT_PY
+    integer,              intent(inout)         :: comm
+    integer,              intent(inout)         :: iseed_  ! randome seed
+    integer,              intent(inout)         :: ilmdif  ! if 1 : flag_with_lmdif = TRUE, 0: false
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+!   type(kpoints )                              :: PKPTS
+!   type(weight  )                              :: PWGHT 
+!   type(poscar  )                              :: PGEOM 
+!   type(hopping )                              :: NN_TABLE
+!   type(energy  )                              :: ETBA, EDFT 
+    type(kpoints ), dimension(PINPT_PY%nsystem) :: PKPTS
+    type(weight  ), dimension(PINPT_PY%nsystem) :: PWGHT
+    type(poscar  ), dimension(PINPT_PY%nsystem) :: PGEOM
+    type(hopping ), dimension(PINPT_PY%nsystem) :: NN_TABLE
+    type(energy  ), dimension(PINPT_PY%nsystem) :: EDFT, ETBA
+    logical                                        flag_stat
+    integer(kind=sp)                               n_particles, nparam_free
+    integer(kind=sp)                               iparam, iter, iptcl
+    real(kind=dp), allocatable                  :: fvec(:), fvec_plain(:)
+    real(kind=dp), allocatable                  :: vel(:,:), pos(:,:)
+    real(kind=dp), allocatable                  :: pbest(:,:), gbest(:)
+    real(kind=dp), allocatable                  :: cpbest(:)
+    real(kind=dp)                               :: cgbest, cost
+    real(kind=dp), allocatable                  :: costs(:)
+    integer(kind=sp)                               i, imode, ldjac
+    integer(kind=sp)                               min_loc(1)
+    logical                                        flag_order, flag_go
+    real(kind=dp)                                  c1, c2, w, r1, r2
+    integer(kind=sp)                               iseed
+    integer(kind=sp)                               mpierr
+    real(kind=dp), external                     :: enorm
+    real(kind=dp)                                  fnorm
+    external                                       get_eig
+    integer(kind=sp)                               info, maxfev
+    real(kind=dp)                                  epsfcn, factor, xtol, ftol, gtol
+    logical                                        flag_with_lmdif
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+    call set_verbose(PINPT_PY%iverbose)
+    
+    if(iverbose .eq. 1) then
+        flag_stat = .TRUE.
+    else
+        flag_stat = .FALSE.
+    endif
+    if(ilmdif .eq. 1) then
+      flag_with_lmdif = .TRUE.
+    else
+      flag_with_lmdif = .FALSE.
+    endif
+
+    iseed      = iseed_
+    call random_init(iseed)
+    flag_order = .FALSE.
+    imode      = 13
+    n_particles= PPRAM_PY%pso_nparticles
+    nparam_free= PPRAM_PY%nparam_free
+    c1    = PPRAM_PY%pso_c1
+    c2    = PPRAM_PY%pso_c2
+    w     = PPRAM_PY%pso_w 
+    r1    = 1d0  ; r2    = 1d0
+
+    factor = 100.0D+00
+    maxfev = 100 * ( PPRAM_PY%nparam_free + 1 )
+    ftol = PINPT_PY%ftol    ;xtol = PINPT_PY%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
+
+    if(allocated(PPRAM_PY%pso_cost_history)) deallocate(PPRAM_PY%pso_cost_history)
+    allocate(PPRAM_PY%pso_cost_history(PINPT_PY%miter))
+    PPRAM_PY%pso_cost_history = 0d0
+
+    allocate(vel(  n_particles, nparam_free))
+    allocate(pos(  n_particles, nparam_free))
+    allocate(pbest(n_particles, nparam_free))
+    allocate(gbest(              nparam_free))
+    allocate(cpbest(n_particles             ))
+    allocate(costs(n_particles              ))
+    costs = 0.d0
+    vel   = 0.d0 ; pos   = 0.d0 ; pbest = 0.d0 ; gbest = 0.d0
+                                 cpbest = 0.d0 ;cgbest = 0.d0 
+                                
+    call copy_incar(PINPT_PY, PINPT, 2)
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_hopping(NN_TABLE_PY, NN_TABLE(1), 2)
+    call copy_energy(ETBA_PY, ETBA(1), 2)
+    call copy_energy(EDFT_PY, EDFT(1), 2)
+    call copy_kpoints(PKPTS_PY, PKPTS(1), 2)
+    call copy_poscar(PGEOM_PY, PGEOM(1), 2)
+    call copy_weight(PWGHT_PY, PWGHT(1),2)
+
+    ldjac      = 0
+    do i = 1, PINPT_PY%nsystem
+        ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+    enddo
+   !if(imode .eq. 13) then
+   !  ldjac = ldjac + PKPTS(1)%nkpoint * PGEOM(1)%nband * PINPT%nspin
+   !elseif(imode .eq. 2) then
+   !  ldjac = PKPTS(1)%nkpoint
+   !endif
+    if(ldjac .ne. 1) then
+      allocate(fvec(ldjac))
+      allocate(fvec_plain(ldjac))
+    endif
+    fvec = 0d0 ; fvec_plain = 0d0
+
+    ! initialize parameters with random noise
+    do iptcl = 1, n_particles
+      do iparam = 1, nparam_free
+         flag_go = .FALSE.
+         do while (.not. flag_go)
+#ifdef MPI
+           if_main r1 = (random()*2d0 - 1d0) * 5d0
+           call MPI_BCAST(r1, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#else
+           r1 = (random()*2d0 - 1d0) * 5d0
+#endif
+           pos(iptcl, iparam) = PPRAM_PY%param( PPRAM_PY%iparam_free(iparam) ) + r1
+           vel(iptcl, iparam) = r1
+           if( pos(iptcl, iparam) .ge. PPRAM_PY%param_const(2,iparam) .or. &
+               pos(iptcl, iparam) .le. PPRAM_PY%param_const(3,iparam) ) then
+               flag_go = .FALSE.
+           else
+               flag_go = .TRUE. 
+           endif
+
+         enddo
+      enddo
+    enddo   
+
+    ! prepare initial costs with initial parameters
+    do iptcl = 1, n_particles
+      PPRAM%param(PPRAM%iparam_free(:)) = pos(iptcl, :)
+      if(.not. flag_with_lmdif) then
+        call get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+       !call get_eig(NN_TABLE(1), PKPTS(1)%kpoint, PKPTS(1)%nkpoint, PINPT, PPRAM, &
+       !             ETBA(1)%E, ETBA(1)%V, ETBA(1)%SV, PGEOM(1)%neig, PGEOM(1)%init_erange, PGEOM(1)%nband, &
+       !             PINPT%flag_get_orbital, PINPT%flag_sparse, .FALSE., PINPT%flag_phase)
+       !call get_cost_function(fvec, fvec_plain, ETBA(1), EDFT(1), PGEOM(1), &
+       !                       PINPT, PKPTS(1), PWGHT(1), ldjac, imode, flag_order)
+        costs(iptcl) = enorm(ldjac, fvec)
+      elseif(flag_with_lmdif) then
+        call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+                 ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, .FALSE.)
+        costs(iptcl) = fnorm
+      endif
+    enddo
+    min_loc = minloc(costs(:))
+    gbest = pos(min_loc(1),:)
+    cgbest= costs(min_loc(1))
+    pbest = pos
+    cpbest= costs
+
+    ! main loop
+    do iter = 1, PINPT_PY%miter
+
+      ! update particle velocity and position
+      do iptcl = 1, n_particles
+        do iparam = 1, nparam_free
+#ifdef MPI
+          if_main r1 = random() 
+          if_main r2 = random()
+          call MPI_BCAST(r1, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+          call MPI_BCAST(r2, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#else
+          r1 = random() ; r2 = random()
+#endif
+          vel(iptcl, iparam) = w * vel(iptcl, iparam) + c1 * r1 * (pbest(iptcl, iparam) - pos(iptcl, iparam)) &
+                                                      + c2 * r2 * (gbest(iparam)        - pos(iptcl, iparam))
+        enddo
+      enddo
+      pos = pos + vel
+
+      ! get cost for each particle 
+      costs = 0d0
+      do iptcl = 1, n_particles
+        PPRAM%param(PPRAM%iparam_free(:)) = pos(iptcl, :)
+        if(.not. flag_with_lmdif) then
+          call get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+         !call get_eig(NN_TABLE(1), PKPTS(1)%kpoint, PKPTS(1)%nkpoint, PINPT, PPRAM, &
+         !             ETBA(1)%E, ETBA(1)%V, ETBA(1)%SV, PGEOM(1)%neig, PGEOM(1)%init_erange, PGEOM(1)%nband, &
+         !             PINPT%flag_get_orbital, PINPT%flag_sparse, .FALSE., PINPT%flag_phase)
+         !call get_cost_function(fvec, fvec_plain, ETBA(1), EDFT(1), PGEOM(1), &
+         !                       PINPT, PKPTS(1), PWGHT(1), ldjac, imode, flag_order)
+          costs(iptcl) = enorm(ldjac, fvec)
+        elseif(flag_with_lmdif) then
+          call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+                   ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, .FALSE.)
+          costs(iptcl) = fnorm
+        endif
+      enddo
+
+      ! update gbest, pbest
+      min_loc = minloc(costs(:))
+      if( costs(min_loc(1)) .lt. cgbest) then
+        cgbest = costs(min_loc(1))
+        gbest  = pos(min_loc(1),:)
+      endif
+      do iptcl = 1, n_particles
+        if( costs(iptcl) .lt. cpbest(iptcl) ) then
+          cpbest(iptcl)   = costs(iptcl)
+           pbest(iptcl,:) = pos(iptcl,:)
+        endif
+      enddo
+
+      PPRAM%pso_cost_history(iter) = cgbest
+      PPRAM%niter                  = iter
+
+      if(flag_stat) then
+        if_main write(6,'(A, i5, A, F20.8)')" PSO STATUS: iter=",iter, " GBest COST = ", cgbest
+      endif
+
+    enddo
+
+    ! calculate with final parameters and save costs ETBA%dE
+    PPRAM%param(PPRAM%iparam_free(:)) = gbest(:)
+    if(.not. flag_with_lmdif) then
+      ldjac = 1
+        call get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+       !call get_eig(NN_TABLE(1), PKPTS(1)%kpoint, PKPTS(1)%nkpoint, PINPT, PPRAM, &
+       !             ETBA(1)%E, ETBA(1)%V, ETBA(1)%SV, PGEOM(1)%neig, PGEOM(1)%init_erange, PGEOM(1)%nband, &
+       !             PINPT%flag_get_orbital, PINPT%flag_sparse, .FALSE., PINPT%flag_phase)
+       !call get_cost_function(fvec, fvec_plain, ETBA(1), EDFT(1), PGEOM(1), &
+       !                       PINPT, PKPTS(1), PWGHT(1), ldjac, imode, flag_order)
+    elseif(flag_with_lmdif) then
+      call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+               ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, .FALSE.)
+      call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+    endif
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_energy(ETBA_PY, ETBA(1), 1)
+
+#ifdef MPI
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
+
+    return
+endsubroutine
 
 subroutine eig(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PGEOM_PY, NN_TABLE_PY, ETBA_PY)
     type(incar_py),       intent(inout)         :: PINPT_PY
@@ -422,9 +684,10 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     logical                                        flag_exit
     real(kind=dp)                                  fnorm, fnorm_
     external                                       get_eig
-    logical                                        flag_order, flag_get_orbital
+    logical                                        flag_order, flag_get_orbital, flag_write_info
     integer(kind=sp)                               mpierr 
-
+    integer(kind=sp)                               info, maxfev, ldjac, imode, nparam_free
+    real(kind=dp)                                  epsfcn, factor, xtol, ftol, gtol
 #ifdef MPI
     mpi_comm_earth = comm
     call get_my_task()
@@ -434,7 +697,17 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     flag_order       = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
     flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
 
+    if(allocated(PPRAM_PY%cost_history)) deallocate(PPRAM_PY%cost_history)
+    allocate(PPRAM_PY%cost_history(PINPT_PY%miter))
+    PPRAM_PY%cost_history = 0d0
+
     call set_verbose(PINPT_PY%iverbose)
+
+    if(iverbose .eq. 1) then
+      flag_write_info = .true.
+    else
+      flag_write_info = .false.
+    endif
 
     ! init system
     ! NOTE: in this subroutine, we assume that nsystem = 1.
@@ -448,7 +721,25 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     call copy_energy(EDFT_PY, EDFT(1), 2)
     call copy_energy(ETBA_PY, ETBA(1), 2)
     
-    call leasqr_lm ( get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM, fnorm)
+    nparam_free = PPRAM%nparam_free ! total number of free parameters. Note: nrl parameterization is not supported yet.
+    imode  = 13 !
+    factor = 100.0D+00
+    maxfev = PINPT_PY%miter * ( PPRAM_PY%nparam_free + 1 )
+    ftol = PINPT_PY%ftol    ;xtol = PINPT_PY%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00    
+    ldjac = 0
+
+    if(imode .eq. 13) then
+      do i = 1, PINPT_PY%nsystem
+          ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+      enddo
+    elseif(imode .eq. 2) then
+      ldjac = sum(PKPTS(:)%nkpoint)
+    endif
+
+    call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+               ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, flag_write_info)
+
+!   call leasqr_lm ( get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM, fnorm)
     call check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
     ! before return calculate again with final parameter to get get energy and dE
@@ -456,11 +747,6 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
 
     call copy_incar(PINPT_PY, PINPT, 1)
     call copy_params(PPRAM_PY, PPRAM, 1)
-    call copy_kpoints(PKPTS_PY, PKPTS(1), 1)
-    call copy_poscar(PGEOM_PY, PGEOM(1), 1)
-    call copy_weight(PWGHT_PY, PWGHT(1), 1)
-    call copy_hopping(NN_TABLE_PY, NN_TABLE(1), 1)
-    call copy_energy(EDFT_PY, EDFT(1), 1)
     call copy_energy(ETBA_PY, ETBA(1), 1)
 
 #ifdef MPI
@@ -474,7 +760,7 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     type(incar_py)                         PINPT_PY
     type(incar   )                      :: PINPT
     integer(kind=sp),     intent(in)    :: nsystem
-    character(len =132),  intent(in)    :: ifilenm(nsystem)
+    character(len=132),   intent(in)    :: ifilenm(nsystem)
     integer(kind=sp)                       i, j, mpierr
     logical                                flag_ifile_exist
 
@@ -716,6 +1002,11 @@ function init_params_py() result(PPRAM_PY)
     PPRAM_PY%slater_koster_type                      = 1 
     PPRAM_PY%nparam_nrl                              = 0
     PPRAM_PY%nparam_nrl_free                         = 0
+    PPRAM_PY%pso_nparticles                          = 50
+    PPRAM_PY%pso_c1                                  = 2.0d0
+    PPRAM_PY%pso_c2                                  = 2.0d0
+    PPRAM_PY%pso_w                                   = 0.9d0
+    PPRAM_PY%niter                                   = 0
 
     if(allocated(PPRAM_PY%param))           deallocate(PPRAM_PY%param)
     if(allocated(PPRAM_PY%param_nrl))       deallocate(PPRAM_PY%param_nrl)
@@ -727,6 +1018,8 @@ function init_params_py() result(PPRAM_PY)
     if(allocated(PPRAM_PY%param_const_nrl)) deallocate(PPRAM_PY%param_const_nrl)
     if(allocated(PPRAM_PY%param_nsub))      deallocate(PPRAM_PY%param_nsub)
 
+    if(allocated(PPRAM_PY%pso_cost_history)) deallocate(PPRAM_PY%pso_cost_history )
+    if(allocated(PPRAM_PY%cost_history))     deallocate(PPRAM_PY%cost_history )
     return
 endfunction
 
@@ -751,6 +1044,11 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM_PY%nparam_free                   =      PPRAM%nparam_free
        PPRAM_PY%pfilenm                       =      PPRAM%pfilenm
        PPRAM_PY%pfileoutnm                    =      PPRAM%pfileoutnm
+       PPRAM_PY%pso_nparticles                =      PPRAM%pso_nparticles
+       PPRAM_PY%pso_c1                        =      PPRAM%pso_c1        
+       PPRAM_PY%pso_c2                        =      PPRAM%pso_c2        
+       PPRAM_PY%pso_w                         =      PPRAM%pso_w         
+       PPRAM_PY%niter                         =      PPRAM%niter 
 
        if(allocated( PPRAM_PY%param         ))         deallocate(PPRAM_PY%param         )
        if(allocated( PPRAM_PY%param_nrl     ))         deallocate(PPRAM_PY%param_nrl     )
@@ -761,6 +1059,8 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        if(allocated( PPRAM_PY%iparam_free_nrl))        deallocate(PPRAM_PY%iparam_free_nrl)
        if(allocated( PPRAM_PY%param_name    ))         deallocate(PPRAM_PY%param_name    )
        if(allocated( PPRAM_PY%c_const       ))         deallocate(PPRAM_PY%c_const       )
+       if(allocated( PPRAM_PY%pso_cost_history  ))     deallocate(PPRAM_PY%pso_cost_history )
+       if(allocated( PPRAM_PY%cost_history  ))         deallocate(PPRAM_PY%cost_history )
 
        if(allocated(PPRAM%param                 )) then
           n1 = size(PPRAM%param) 
@@ -788,6 +1088,16 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           n1 = size(PPRAM%param_name)
           allocate(PPRAM_PY%param_name(n1)         )
                    PPRAM_PY%param_name = PPRAM%param_name
+       endif
+
+       if(allocated(PPRAM%pso_cost_history  )) then
+          n1 = size(PPRAM%pso_cost_history(:))
+           allocate(PPRAM_PY%pso_cost_history(n1) ) ; PPRAM_PY%pso_cost_history =  PPRAM%pso_cost_history
+       endif
+
+       if(allocated(PPRAM%cost_history  )) then
+          n1 = size(PPRAM%cost_history(:))
+           allocate(PPRAM_PY%cost_history(n1) ) ; PPRAM_PY%cost_history =  PPRAM%cost_history
        endif
 
        if(allocated(PPRAM%param_nrl             )) then
@@ -827,6 +1137,11 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM%nparam_free                   =      PPRAM_PY%nparam_free
        PPRAM%pfilenm                       =      PPRAM_PY%pfilenm
        PPRAM%pfileoutnm                    =      PPRAM_PY%pfileoutnm
+       PPRAM%pso_nparticles                =      PPRAM_PY%pso_nparticles
+       PPRAM%pso_c1                        =      PPRAM_PY%pso_c1      
+       PPRAM%pso_c2                        =      PPRAM_PY%pso_c2      
+       PPRAM%pso_w                         =      PPRAM_PY%pso_w       
+       PPRAM%niter                         =      PPRAM_PY%niter 
 
        if(allocated( PPRAM%param         ))         deallocate(PPRAM%param         )
        if(allocated( PPRAM%param_nrl     ))         deallocate(PPRAM%param_nrl     )
@@ -837,6 +1152,8 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        if(allocated( PPRAM%iparam_free_nrl))        deallocate(PPRAM%iparam_free_nrl)
        if(allocated( PPRAM%param_name    ))         deallocate(PPRAM%param_name    )
        if(allocated( PPRAM%c_const       ))         deallocate(PPRAM%c_const       )
+       if(allocated( PPRAM%pso_cost_history  ))     deallocate(PPRAM%pso_cost_history )
+       if(allocated( PPRAM%cost_history  ))         deallocate(PPRAM%cost_history )
 
        if(allocated(PPRAM_PY%param                 )) then
           n1 = size(PPRAM_PY%param)
@@ -864,6 +1181,16 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           n1 = size(PPRAM_PY%param_name)
           allocate(PPRAM%param_name(n1)         )
                    PPRAM%param_name = PPRAM_PY%param_name
+       endif
+
+       if(allocated(PPRAM_PY%pso_cost_history  )) then
+          n1 = size(PPRAM_PY%pso_cost_history(:))
+           allocate(PPRAM%pso_cost_history(n1) ) ; PPRAM%pso_cost_history =  PPRAM_PY%pso_cost_history
+       endif
+
+       if(allocated(PPRAM_PY%cost_history  )) then
+          n1 = size(PPRAM_PY%cost_history(:))
+           allocate(PPRAM%cost_history(n1) ) ; PPRAM%cost_history =  PPRAM_PY%cost_history
        endif
 
        if(allocated(PPRAM_PY%param_nrl             )) then       
@@ -1817,6 +2144,7 @@ subroutine copy_energy(E_PY, E, imode)
            allocate( E%E_TOT(n1)       ) ; E%E_TOT =  E_PY%E_TOT
        endif
 
+
        if(allocated( E_PY%F_OCC             )) then
           n1 = size( E_PY%F_OCC(:,1)         ) ; n2 = size( E_PY%F_OCC(1,:)       )
            allocate( E%F_OCC(n1,n2)    ) ; E%F_OCC =  E_PY%F_OCC
@@ -2018,4 +2346,37 @@ subroutine set_verbose(iverbose_mod)
    
     return
 endsubroutine
+
+subroutine update_free_param(param, nparam_free, PPRAM)
+    implicit none
+    type(params)                                :: PPRAM
+    integer(kind=sp)                               nparam_free
+    real(kind=dp)                                  param(nparam_free)
+    integer(kind=sp)                               iparam
+
+    do iparam = 1, nparam_free
+        PPRAM%param(PPRAM%iparam_free(iparam))  = param(iparam)
+    enddo
+
+    return
+endsubroutine
+
+!function random() result(r)
+!    implicit none
+!    real(kind=dp) :: r
+!    call random_number(r)
+!endfunction
+
+!subroutine random_init(iseed)
+!    implicit none
+!    integer(kind=sp), intent(in) :: iseed
+!    integer(kind=sp),allocatable :: seed(:)
+!    integer(kind=sp)             :: n
+!    call random_seed(size=n)
+!    allocate(seed(n))
+!    seed = iseed
+!    call random_seed(put=seed)
+!    deallocate(seed)
+!endsubroutine
+
 endmodule

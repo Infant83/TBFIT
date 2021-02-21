@@ -1,0 +1,32 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+                                                              # if ISPIN = 2, two files, for up & down should be provided together
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE. mz
+ LORBIT  .TRUE.    #orbital decomposed output (write absolute value of wavefunction coefficient to band_structure file)
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         C--C  : 2.5    R0 2.4500  # cutoff dist for 2nd nearest neighbor between C-C bond 
+         C---C : 2.9    R0 2.8290  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    END  NN_CLASS
+
+    SET  Z2_INDEX # setup for evaluating topological index
+         Z2_ERANGE    1:8   # up to occupied states!! (very important)
+         Z2_DIMENSION 2D:B3 # or 3D or 2D:b3, 1D:b1
+         Z2_NKDIV    21 411 # number of division of the k-path (odd number suggested)
+         GET_CHERN   .TRUE. # 1st Chern number of given bands defined with ERANGE. 
+    END  Z2

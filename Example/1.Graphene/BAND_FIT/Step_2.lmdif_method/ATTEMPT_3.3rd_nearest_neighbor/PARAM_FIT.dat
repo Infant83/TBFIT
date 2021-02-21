@@ -1,0 +1,27 @@
+ 
+# PARAM_FIT.new.dat
+# E_TARGET FILE NAME : DFT_BAND.dat
+    # KRANGE                    :      TBABND                  1:8      DFTBND                  1:8      WEIGHT       10
+    # KRANGE                12:50      TBABND                 5:10      DFTBND                 5:10      WEIGHT       27
+ PRINT_INDEX .FALSE.
+                 e_s_C       -4.82918162  
+                e_px_C        0.04908054  
+                e_py_C        0.04908054  
+                e_pz_C        0.04908054  
+              sss_1_CC        4.59415285  
+              sps_1_CC        4.71311563  
+              pps_1_CC       -4.10463449  
+              ppp_1_CC        2.45364437  
+              sss_2_CC       -0.13498643  
+              sps_2_CC       -0.09369304  
+              pps_2_CC        0.20793641  
+              ppp_2_CC       -0.10023055  
+              sss_3_CC        0.00000000       
+              sps_3_CC        0.00000000       
+              pps_3_CC        0.00000000       
+              ppp_3_CC        0.00000000       
+          stoner_I_s_C        0.00000000  Fixed
+          stoner_I_p_C        0.00000000  Fixed
+           local_U_p_C        0.00000000  Fixed
+            plus_U_p_C        0.00000000  Fixed
+            lambda_p_C        0.00000000  Fixed

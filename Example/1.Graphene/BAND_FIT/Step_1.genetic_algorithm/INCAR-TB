@@ -1,0 +1,60 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  T       #
+ LSTYPE  GA       # Levenberg-Marquardt method using finite-difference for Jacobian
+  MITER  200     # maximum number of iteration for the fitting procedures
+   PTOL  0.0000000001   # convergence criteria for SK parameters to be fitted
+   FTOL  0.0000000001   # convergence criteria for band structure for each fitting iterations
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+  EFILE  DFT_BAND.dat                # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE. 
+                                                              # if ISPIN = 2, two files, for up & down should be provided together
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE.    #orbital decomposed output (write absolute value of wavefunction coefficient to band_structure file)
+
+# set weight and constraint for fitting : valid only if TBFIT .TRUE. 
+    SET  WEIGHT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         KRANGE   :         TBABND 1:8     DFTBND 1:8                         WEIGHT 10
+         KRANGE  12:50      TBABND 5:10    DFTBND 5:10                        WEIGHT 27 
+    END  WEIGHT  # PRINT_ONLY  # following PRINT_ONLY tag make program to write target data and stops
+#   PRINT_ONLY .TRUE. 
+
+    SET  GA  # genetic algorithm for the parameter fitting
+         NPOP    200    # number of individuals in a population (default:100)
+         NGENE   6      # number of genes in chromosomal encoding (default:6)
+         PCROSS  0.25   # crossover probability (0.0 ~ 1.0, default:0.85)
+         RMUTMIN 0.0005 # minimum mutation rate (0.0 ~ 1.0, default:0.0005)
+         RMUTMAX 0.05   # maximum mutation rate (0.0 ~ 1.0, default:0.25)
+         RMUTINI 0.005  # initial mutation rate (0.0 ~ 1.0, default:0.005)
+         MUT_MOD 3      # mutation mode (mutation only  mode 1: fixed rate, 2: fitness dependent, 3: distance dependent
+                        # default:2      mutation+creep mode 4: fixed rate, 5: fitness dependent, 6: distance dependent)
+         FDIF    1.0    # relative fitness differential (0.0 ~ 1.0) (default:1.0)
+         IREP    3      # reproduction plan (1:Full generational replacement,
+                        #                    2:Steady-state-replace-random, 
+                        #                    3:Steady-state-replace-worst (default)
+         IELITE  0      # elitism flag; 0/1=off/on (default is 0), (Applies only to reproduction plans 1 and 2)
+         VERBOSE 1      # printed output 0/1/2=None/Minimal/Verbose  (default : 0)
+         CONVTOL 0.0001 # convergence tolerance; must be > 0.0 (default: 0.0001)
+         CONVWIN 20     # convergence window; must be >= 0 (default:20)
+                        # The number of consecutive solutions within the tolerance for convergence to be declared
+         IGUESSF 0.1    # fraction of the initial population to set equal to the initial guess. (0.0 ~ 1.0) (default:0.1)
+         ISEED   119    # random seed value; must be > 0 (default:999)
+    END  GA
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+    #    C--C  : 2.5    R0 2.4500  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    #    C---C : 2.9    R0 2.8290  # cutoff dist for 2nd nearest neighbor between C-C bond 
+    END  NN_CLASS
+

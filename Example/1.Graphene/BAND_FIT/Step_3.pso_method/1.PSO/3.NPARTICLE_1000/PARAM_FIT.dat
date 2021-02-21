@@ -1,0 +1,32 @@
+  
+# PARAM_FIT.new.dat  
+# E_TARGET FILE NAME : DFT_BAND.dat  
+# KRANGE     :  TBABND 1:18  DFTBND 1:18  WEIGHT         10  
+# KRANGE 41:48  TBABND  1:4  DFTBND  1:4  WEIGHT         10  
+       PRINT_INDEX      .FALSE.  
+       USE_OVERLAP      .FALSE.  
+     SK_SCALE_MODE            1  
+  
+
+                 e_s_C           -0.00000000
+                e_px_C            0.00000000
+                e_py_C            0.00000000
+                e_pz_C            0.00000000
+              sss_1_CC            0.00000100
+              sps_1_CC            0.00000100
+              pps_1_CC           -0.00000100
+              ppp_1_CC            0.00000100
+              sss_2_CC            0.22000000 F
+              sps_2_CC            1.22000000 F
+              pps_2_CC            0.00000000 F
+              ppp_2_CC            0.00000000 F
+            o_sss_1_CC            0.1      F
+            o_sps_1_CC            0.1      F
+            o_pps_1_CC            0.1      F
+            o_ppp_1_CC            0.1      F
+            o_sss_2_CC            0.1      F
+            o_sps_2_CC            0.1      F
+            o_pps_2_CC            0.1      F
+            o_ppp_2_CC            0.1      F
+
+              stoner_I_p_C 0

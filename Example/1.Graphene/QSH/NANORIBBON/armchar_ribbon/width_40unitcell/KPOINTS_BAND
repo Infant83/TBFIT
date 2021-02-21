@@ -1,0 +1,9 @@
+k-points along high symmetry lines
+50     # NDIV ; should be set carefully if TBFIT = .TRUE. Make sure that this value is exactly same as target energy 
+Line-mode
+rec
+0 0 0                                           G
+0.0000000  0.500000000 0                       Y
+
+0.00000000  0.500000000 0                       Y
+0 1 0                                           G

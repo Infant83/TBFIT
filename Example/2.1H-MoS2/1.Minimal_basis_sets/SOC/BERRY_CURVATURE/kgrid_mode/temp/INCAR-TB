@@ -1,0 +1,62 @@
+# Non-linear least squares minimiation method and its input variables
+  TBFIT  F       #
+ LSTYPE  LMDIF   # Levenberg-Marquardt method using finite-difference for Jacobian
+  MITER  100   # maximum number of iteration for the fitting procedures
+   PTOL  0.000000001   # convergence criteria for SK parameters to be fitted
+   FTOL  0.000000001   # convergence criteria for band structure for each fitting iterations
+ K_UNIT  Angstrm # kpoint unit for output file: RECIPROCAL (fractional) or ANGSTROM (1/A); default = Angstrom
+  EFILE  DOS_atom_projected.dat  # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE.
+  PFILE  PARAM_FIT.dat    # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+  IS_SK  .TRUE.   # parameter type: is it 'Slater-Koster;sk' type (.true.)? or is it explicitly defined (.false.) ?
+
+  GFILE  POSCAR-TB     # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND_2D  # default: KPOINTS_BAND
+# KFILE  KPOINTS_BAND        # default: KPOINTS_BAND
+
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+ LORBIT  .TRUE. mz     # set orbital decomposed band structure
+ 
+#ERANGE  1 1
+
+# set NN-pair information
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         Mo-Mo  : 3.2    R0 3.171634  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         S-S    : 3.28   R0 3.171634  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         S--S   : 3.2    R0 3.193724  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+         Mo-S   : 2.5    R0 2.429624  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+    END  NN_CLASS
+  
+#   SET  BERRY_CURVATURE
+#        BERRYC_METHOD    RESTA        # KUBO: Kubo's response function method, RESTA or FUKUI: descretize method of k-grid
+#        BERRYC_ERANGE    17:18       # integer energy range to be calculated 
+#        BERRYC_FNAME     BERRYCURV.17-18  # FNAME header for BC output 'FNAME'.dat will be written.
+#        BERRYC_KGRID     21 21 1     # not implemented yet..
+#        BERRYC_DIMENSION 2D          # if '2D' -> z component will be evaluated, if '3D' -> x,y,z compoent 
+#                                     # not implemented yet..
+#   END  BERRY_CURVATURE
+
+    SET  BERRY_CURVATURE
+         BERRYC_METHOD    KUBO        # KUBO: Kubo's response function method, RESTA or FUKUI: descretize method of k-grid
+         BERRYC_ERANGE    17:18       # integer energy range to be calculated 
+         BERRYC_FNAME     BERRYCURV.17-18  # FNAME header for BC output 'FNAME'.dat will be written.
+         BERRYC_DIMENSION 2D:B3       # if '2D' -> z component will be evaluated, if '3D' -> x,y,z compoent 
+    END  BERRY_CURVATURE
+
+
+#   SET  ZAK_PHASE
+#        ZAK_ERANGE 17:18
+#        ZAK_FNAME  ZAK_PHASE.17-18
+#        ZAK_KPATH   -0.5 0 0  0.5 0 0 
+#   END  ZAK_PHASE
+
+ ## set ribbon geometry ###################################################################################
+#   SET  RIBBON
+#        NSLAB    1 20  1    # multiplication of unitcell along each direction
+#        VACUUM   0 20  0     # apply vacuum region along each direction 
+#        KFILE_R KPOINTS_BAND_R_GX # KPOINTS file for ribbon band structure
+#        PRINT_ONLY_R .TRUE.
+#   END
+ #########################################################################################################
+

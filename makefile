@@ -36,11 +36,6 @@
 #  Note: possible make command
 #      make tbfit 	# generate tbfit execution file
 #      make tbfitpy_mod # generate tbfit python module 
-#						# To make tbfitpy_mod, f2py, f90wrap should be installed in advance. 
-#						# 	pip install f2py
-#						# 	pip install f90wrap
-#						# For the MPI, mpi4py is also required.
-#						#	pip install mpi4py
 #      make lib 	# generate tbfit library libtbfit.a archiving all subroutines
 #############################################################################
  TBBIN=$(HOME)/code/bin
@@ -50,8 +45,8 @@
 # MAC-INTEL COMPILE
  FC     = mpif90
  OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
- FFLAG  = -O1 -heap-arrays -nogen-interfaces
- MPI_USE= YES
+ FFLAG  = -O2 -heap-arrays -nogen-interfaces
+ MPI_USE= NO
 
 # LINUX-gfortran COMPILE
 #OPTIONS= 
@@ -106,7 +101,7 @@ TBFITPY= tbfitpy_mod.o
 KIND_MAP= kind_map # mapping between Fortran and C types used when ' make tbfitpy_mod ' 
 TEST   = test.o
 MODULE = mykind.o print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
-		 parameters.o set_default.o  element_info.o read_incar.o \
+		 parameters.o set_default.o  random_mod.o element_info.o read_incar.o \
 		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
 		 pikaia_module.o geodesiclm.o kill.o get_parameter.o \
@@ -124,7 +119,7 @@ GET    = get_tij.o get_eig.o get_dos.o get_soc.o get_param_class.o \
 		 post_process.o
 SYMM   = get_symmetry.o 
 SPG_INT= spglib_interface.o
-FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o
+FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o pso.o
 
 LIBTOOL= ar src
 ifeq ($(SCALAPACK_USE), -DSCALAPACK)

@@ -1,0 +1,71 @@
+#!/local/th1/iff003/kim/anaconda3/bin/python
+import sys
+from mpi4py import MPI
+import tbfitpy as tbfit
+import time
+
+# initialize MPI
+comm = MPI.COMM_WORLD ; nprocs = comm.Get_size() ; myid = comm.Get_rank() 
+
+# set mytb 
+mytb = tbfit.pytbfit(mpicomm=comm)
+
+
+'''
+method='leastsq' ; mytb.init(myid = myid) ; 
+for _ in range(10):
+	mytb.fit(method=method)
+mytb.save(title=method , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+'''
+
+'''
+method='pso' ; mytb.init(myid = myid) ; 
+pso_options={'c1': 1.2, 'c2': 0.5, 'w':0.2} ; n_particles=50
+mytb.fit(method=method, miter = 100)
+mytb.save(title=method , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+'''
+'''
+method='gbest.pso' ; mytb.init(myid = myid) ; 
+pso_options={'c1': 0.2, 'c2': 0.5, 'w':0.2} ; n_particles=20
+mytb.fit(method=method, miter = 20 )
+mytb.save(title=method , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+'''
+
+import tbfitpy as tbfit
+#mytb = tbfit.pytbfit()
+mytb = tbfit.pytbfit(mpicomm=comm)
+mytb.init( myid = myid )
+import numpy as np
+
+'''
+for _ in range(100 ):
+	#mytb.init( myid = myid )
+	mytb.fit(verbose=False , method='lmdif', miter=40)
+	print(np.sum(abs(mytb.etba.de)))
+'''
+'''
+
+for n_particles in [50, 100, 200, 500, 1000] :
+	method='mypso' ; title = method+'.P'+str(n_particles)
+	mytb.init( myid = myid)
+	pso_options={'c1': 0.3, 'c2': 0.4, 'w':0.2}
+	mytb.fit(verbose=True, method=method, miter = 30, n_particles=n_particles, pso_options=pso_options, iseed = 123)
+	mytb.save(title=title , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+
+	method='pso' ; title = method+'.P'+str(n_particles)
+	mytb.init( myid = myid)
+	pso_options={'c1': 0.3, 'c2': 0.4, 'w':0.2}
+	mytb.fit(verbose=True , method=method, miter = 30, n_particles=n_particles, pso_options=pso_options, iseed = 123)
+	mytb.save(title=title , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+'''
+'''
+method='mypso' ; n_particles = 10000; title = method+'.P'+str(n_particles)
+mytb.init( myid = myid)
+pso_options={'c1': 0.3, 'c2': 0.4, 'w':0.2}
+mytb.fit(verbose=True, method=method, miter = 10, n_particles=n_particles, pso_options=pso_options, iseed = 123)
+mytb.save(title=title , plot_fit=True, target=False, band=False, param=True , weight=False, cost_history=True)
+'''
+
+mytb.init( myid = myid )
+mytb.fit(verbose=True  , method='lmdif', miter=40)
+mytb.save(title='test' , plot_fit=True, target=False, band=False, param=True , weight=True , cost_history=False)

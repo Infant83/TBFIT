@@ -5,6 +5,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    use mpi_setup
    use kill
    use print_io
+   use time
    implicit none
    integer*4         mpierr
    external          get_eig
@@ -23,7 +24,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    integer*4                                  ifit
    integer*4                                  i
    real*8                                     fnorm, fnorm_
- 
+
    ! Important note: In this routine, we assume that PPRAM applies to all system,
    !                 so we just use only PPRAM(1).
    !                 This policy can be changed afterwards on the purpose if needed but at this moment
@@ -37,6 +38,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    endif
 
    fnorm_ = 0d0        ; flag_exit = .false. ;    ifit = 0
+   call time_check(t1, t0, 'init')
 
    call initialize_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA, PINPT_BERRY, PINPT_DOS)
 
@@ -45,7 +47,6 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    call report_init(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM)
 
 
- ! ############# LMDIF ALGORITHM ################################################################################################################
    if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif') then
 
  fit:do while( .not. flag_exit)
@@ -53,22 +54,29 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
        write(message,'(A,I0,A)')' #-START ',ifit+1,'-th LMDIF run'  ; write_msg
        write(message,'(A)')' '  ; write_msg
 
+       if(allocated(PPRAM_FIT%cost_history)) deallocate(PPRAM_FIT%cost_history)
+       allocate(PPRAM_FIT%cost_history(PINPT%miter))
+       PPRAM_FIT%cost_history = 0d0
+
        call leasqr_lm ( get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM_FIT, PKPTS, PGEOM, fnorm)
 
        call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
      enddo fit
     
-!    if(PINPT%nsystem .gt. 1) then
-!      do i = 2, PINPT%nsystem
-!        call init_params(PPRAM, PINPT)
-!        PPRAM(i) = PPRAM(1)
-!      enddo
-!    endif
- !############# LMDIF ALGORITHM ################################################################################################################
+   elseif(trim(PINPT%ls_type) .eq. 'PSO'    .or. trim(PINPT%ls_type) .eq. 'pso') then
+       write(message,'(A)')' '  ; write_msg
+       write(message,'(A,I0,A)')' #-START ',ifit+1,'-th PSO run'  ; write_msg
+       write(message,'(A)')' '  ; write_msg
+     
+       if(allocated(PPRAM_FIT%pso_cost_history)) deallocate(PPRAM_FIT%pso_cost_history)
+       allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
+       PPRAM_FIT%pso_cost_history = 0d0
+       
+       call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT )
 
+      !call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
- !############# GENETIC ALGORITHM ################################################################################################################
    elseif(trim(PINPT%ls_type) .eq. 'PIKAIA' .or. trim(PINPT%ls_type) .eq. 'GA' .or. &
           trim(PINPT%ls_type) .eq. 'pikaia' .or. trim(PINPT%ls_type) .eq. 'ga' ) then
 
@@ -82,15 +90,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
        call gen_algo  ( get_eig, NN_TABLE(1), EDFT(1)%E, PWGHT(1), PINPT, PPRAM_FIT, PKPTS(1), PGEOM(1), PKAIA(1))
      endif
 
-!    if(PINPT%nsystem .gt. 1) then
-!      do i = 2, PINPT%nsystem
-!        call init_params(PPRAM, PINPT)
-!        PPRAM(i) = PPRAM(1)
-!      enddo
-!    endif
-
    endif
- !############# GENETIC ALGORITHM ################################################################################################################
 
 !  ! print fitted parameters to file
         ! NOTE: only PWGHT(1) info is printed along with
@@ -104,6 +104,9 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
 
    write(message,'(A,A)')'  Fitted parameters will be written in ',PPRAM_FIT%pfileoutnm  ; write_msg
 
+   call time_check(t1, t0)
+   write(message,*)' ' ; write_msg
+   write(message,'(A,F12.6)')"  TIME ELAPSED for FITTING (s)", t1 ; write_msg
    write(message,'( A)')' '  ; write_msg
    write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'(2A)')'   END FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg

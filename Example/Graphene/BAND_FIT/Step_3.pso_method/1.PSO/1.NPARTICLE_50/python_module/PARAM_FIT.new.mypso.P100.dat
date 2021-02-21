@@ -1,0 +1,28 @@
+# PARAM_FIT.new.mypso.P100.dat
+# FITTED PARAMETERS FROM TBFITPY_MOD
+       PRINT_INDEX      .FALSE.
+       USE_OVERLAP      .FALSE.
+             IS_SK       .TRUE.
+     SK_SCALE_MODE            1
+ 
+                 e_s_C            0.04251197
+                e_px_C            0.01695832
+                e_py_C            0.01695832
+                e_pz_C            0.01695832
+              sss_1_CC            2.93674026
+              sps_1_CC            5.10140264
+              pps_1_CC           -1.84781121
+              ppp_1_CC            4.30655213
+              sss_2_CC            0.22000000       Fixed
+              sps_2_CC            1.22000000       Fixed
+              pps_2_CC            0.00000000       Fixed
+              ppp_2_CC            0.00000000       Fixed
+            o_sss_1_CC            0.10000000       Fixed
+            o_sps_1_CC            0.10000000       Fixed
+            o_pps_1_CC            0.10000000       Fixed
+            o_ppp_1_CC            0.10000000       Fixed
+            o_sss_2_CC            0.10000000       Fixed
+            o_sps_2_CC            0.10000000       Fixed
+            o_pps_2_CC            0.10000000       Fixed
+            o_ppp_2_CC            0.10000000       Fixed
+          stoner_I_p_C            2.15735541

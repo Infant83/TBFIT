@@ -1,0 +1,63 @@
+
+   ITER=       1, rt(sum((dE*WT)^2)) =     14092.572887, rt(sum(dE^2)) =       324.675387
+
+   ITER=       2, rt(sum((dE*WT)^2)) =     14092.119506, rt(sum(dE^2)) =       324.666241
+
+   ITER=       3, rt(sum((dE*WT)^2)) =     14091.247384, rt(sum(dE^2)) =       324.649325
+
+   ITER=       4, rt(sum((dE*WT)^2)) =     14089.555676, rt(sum(dE^2)) =       324.616266
+
+   ITER=       5, rt(sum((dE*WT)^2)) =     14086.785849, rt(sum(dE^2)) =       324.557723
+
+   ITER=       6, rt(sum((dE*WT)^2)) =     14081.247690, rt(sum(dE^2)) =       324.437398
+
+   ITER=       7, rt(sum((dE*WT)^2)) =     14070.067012, rt(sum(dE^2)) =       324.198417
+
+   ITER=       8, rt(sum((dE*WT)^2)) =     14047.842911, rt(sum(dE^2)) =       323.722558
+
+   ITER=       9, rt(sum((dE*WT)^2)) =     14003.819401, rt(sum(dE^2)) =       322.777316
+
+   ITER=      10, rt(sum((dE*WT)^2)) =     13916.654931, rt(sum(dE^2)) =       320.869346
+
+   ITER=      11, rt(sum((dE*WT)^2)) =     13742.958099, rt(sum(dE^2)) =       317.134397
+
+   ITER=      12, rt(sum((dE*WT)^2)) =     13407.921797, rt(sum(dE^2)) =       309.939031
+
+   ITER=      13, rt(sum((dE*WT)^2)) =     12784.232187, rt(sum(dE^2)) =       296.467230
+
+   ITER=      14, rt(sum((dE*WT)^2)) =     11582.409474, rt(sum(dE^2)) =       269.731834
+
+   ITER=      15, rt(sum((dE*WT)^2)) =      9266.874653, rt(sum(dE^2)) =       218.882726
+
+   ITER=      16, rt(sum((dE*WT)^2)) =      5272.430515, rt(sum(dE^2)) =       128.632708
+
+   ITER=      17, rt(sum((dE*WT)^2)) =      2960.603011, rt(sum(dE^2)) =        89.089234
+
+   ITER=      18, rt(sum((dE*WT)^2)) =      2492.758746, rt(sum(dE^2)) =        85.490622
+
+   ITER=      19, rt(sum((dE*WT)^2)) =      2459.210080, rt(sum(dE^2)) =        90.493828
+
+   ITER=      20, rt(sum((dE*WT)^2)) =      2458.621899, rt(sum(dE^2)) =        89.141528
+
+   ITER=      21, rt(sum((dE*WT)^2)) =      2458.534783, rt(sum(dE^2)) =        89.902713
+
+   ITER=      22, rt(sum((dE*WT)^2)) =      2458.514004, rt(sum(dE^2)) =        89.535322
+
+   ITER=      23, rt(sum((dE*WT)^2)) =      2458.508923, rt(sum(dE^2)) =        89.719576
+
+   ITER=      24, rt(sum((dE*WT)^2)) =      2458.507661, rt(sum(dE^2)) =        89.628003
+
+   ITER=      25, rt(sum((dE*WT)^2)) =      2458.507349, rt(sum(dE^2)) =        89.673594
+
+   ITER=      26, rt(sum((dE*WT)^2)) =      2458.507272, rt(sum(dE^2)) =        89.650891
+
+   ITER=      27, rt(sum((dE*WT)^2)) =      2458.507252, rt(sum(dE^2)) =        89.662195
+
+  Termination INFO= 1 , condition: |actred|,prered <= ftol, ratio <= 2 : actred= 0.1560944E-07 prered= 0.3110420E-07 ratio= 0.5018434E+00
+
+           Check constraint: upper and lower bounds
+    #=========================================================
+
+           Check fitness function updates
+    #============================================
+  FDIFF(      0.00100000)<=    100.00000000

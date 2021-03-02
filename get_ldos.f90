@@ -190,7 +190,7 @@ program get_ldos
    do igy=0,ig(2)-1
    do igx=0,ig(1)-1
      ik_shift=(igx+igy+igz)*nkp
-     call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+     call mpi_job_distribution_chain(nkp, nprocs, ourjob, ourjob_disp)
      gg = PGEOM%b_latt(:,1) * real(igx) + PGEOM%b_latt(:,2) * real(igy) + PGEOM%b_latt(:,3) * real(igz) ! G vector 
      do k = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
        my_k = k - sum(ourjob(1:myid))

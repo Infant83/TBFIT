@@ -3,7 +3,7 @@
 subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_BERRY, PINPT_DOS)
    use parameters
    use mpi_setup
-   use kill
+!  use kill
    use print_io
    use time
    implicit none
@@ -23,8 +23,9 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    logical                                    flag_exit
    integer*4                                  ifit
    integer*4                                  i
+   integer*4                                  iseed   ! random seed, default = 123
    real*8                                     fnorm, fnorm_
-
+   
    ! Important note: In this routine, we assume that PPRAM applies to all system,
    !                 so we just use only PPRAM(1).
    !                 This policy can be changed afterwards on the purpose if needed but at this moment
@@ -69,11 +70,11 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
        write(message,'(A,I0,A)')' #-START ',ifit+1,'-th PSO run'  ; write_msg
        write(message,'(A)')' '  ; write_msg
      
-       if(allocated(PPRAM_FIT%pso_cost_history)) deallocate(PPRAM_FIT%pso_cost_history)
-       allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
-       PPRAM_FIT%pso_cost_history = 0d0
-       
-       call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT )
+      !if(allocated(PPRAM_FIT%pso_cost_history)) deallocate(PPRAM_FIT%pso_cost_history)
+      !allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
+      !PPRAM_FIT%pso_cost_history = 0d0
+       iseed  = 123 
+       call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed, PINPT%miter  )
 
       !call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
@@ -436,3 +437,53 @@ subroutine check_tbfit_true(PINPT)
 
    return
 endsubroutine
+
+    subroutine check_kill_tbfit(PINPT,PPRAM, PWGHT)
+      use parameters, only: incar, weight, params
+      use print_io
+      use mpi_setup
+      logical        flag_exist
+      integer*4      mpierr
+      type(incar)                            :: PINPT
+      type(params)                           :: PPRAM
+      type(weight), dimension(PINPT%nsystem) :: PWGHT
+
+      inquire(file="KILLFIT",exist=flag_exist)
+
+#ifdef MPI
+      if(COMM_KOREA%flag_split) then
+        call MPI_BCAST(flag_exist, 1, MPI_LOGICAL, 0, COMM_KOREA%mpi_comm, mpierr)
+      elseif(.not. COMM_KOREA%flag_split) then
+        call MPI_BCAST(flag_exist, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
+      endif
+#endif
+
+      if(flag_exist) then
+
+        if( PPRAM%slater_koster_type .gt. 10) then
+          call update_param_nrl( PPRAM )
+        else
+          call update_param( PPRAM )
+        endif
+
+        if_main call execute_command_line('\rm -f KILLFIT')
+
+        ! NOTE: only PWGHT(1) info is printed along with
+        !       even though PINPT%nsystem > 1, this is because we just consider PPRAM to be applied
+        !       for entire systems in fitting process. 
+        !       To avoid any confusion, in the future release, this could be 
+        !       corrected or other approach in printing PPRAM can be considered, but in this version
+        !       we just keep this stratege for the convenience... 31.Oct.2020 HJK
+        if_main call print_param (PINPT, PPRAM, PWGHT(1), PPRAM%pfileoutnm, .TRUE.)
+        write(message,'(A)') ' '  ; write_msg
+        write(message,'(A)') ' Termination of job is requested by providing KILLFIT file.' ; write_msg
+        write(message,'(2A)') ' The latest updates of PARAMETERS will be written in ', trim(PPRAM%pfileoutnm) ; write_msg
+        write(message,'(A)') ' Kill the job now...' ; write_msg
+        write(message,'(A)') ' '  ; write_msg
+
+        kill_job
+
+      endif
+      return
+    endsubroutine
+

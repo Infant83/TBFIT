@@ -28,7 +28,7 @@ contains
      sizebuff = PGEOM%neig*PINPT%ispinor*PGEOM%nband*PINPT%nspin
      ETBA%ORB = 0d0
 
-     call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
+     call mpi_job_distribution_chain(PKPTS%nkpoint, nprocs, ourjob, ourjob_disp)
      allocate(myV(PGEOM%neig*PINPT%ispinor,PGEOM%nband*PINPT%nspin,ourjob(myid+1)))
 
 #ifdef MPI

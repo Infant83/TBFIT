@@ -162,7 +162,7 @@ contains
 
       occ_ = 0d0
 
-      call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+      call mpi_job_distribution_chain(nkp, nprocs, ourjob, ourjob_disp)
 
       do ik = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
         do is = 1, nspin
@@ -193,7 +193,7 @@ contains
       real*8       E_F
       integer*4    ourjob(nprocs), ourjob_disp(0:nprocs-1)
 
-      call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+      call mpi_job_distribution_chain(nkp, nprocs, ourjob, ourjob_disp)
 
       dos_tot = 0d0
 
@@ -224,7 +224,7 @@ contains
       real*8       E_F
       integer*4    ourjob(nprocs), ourjob_disp(0:nprocs-1)
 
-      call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
+      call mpi_job_distribution_chain(nkp, nprocs, ourjob, ourjob_disp)
 
       grad_nelect  = 0d0
 

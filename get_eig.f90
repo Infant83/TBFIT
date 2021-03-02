@@ -31,29 +31,41 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                                               ! be added up and constructed along with the k_loop due to the total number 
                                               ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
   integer*4  feast_ne(PINPT%nspin, nkp)
-  integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
+ !integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
+  integer*4  ncpu, id
+  integer*4, allocatable :: ourjob(:), ourjob_disp(:)
 
   if(flag_stat) then
     write(message,'(A)') '  ' ; write_msg
     write(message,'(A)') ' #--- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
   endif
-
   timer = 'init'
-  call mpi_job_distribution_chain(nkp, ourjob, ourjob_disp)
-  call report_job_distribution(flag_stat, ourjob)
 
-  call initialize_all (EE, neig, nband, nkp, ourjob(myid+1), PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
+  if(COMM_KOREA%flag_split) then
+    ncpu = COMM_KOREA%nprocs
+    id   = COMM_KOREA%myid
+  else
+    ncpu = nprocs
+    id   = myid
+  endif
+  allocate(ourjob(ncpu))
+  allocate(ourjob_disp(0:ncpu-1))
+
+  call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
+  if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
+  call initialize_all (EE, neig, nband, nkp, ourjob(id+1), PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
                        ii, iadd, t1, t0, flag_init)
   if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
-                                   flag_stat, flag_sparse, nprocs)
+                                   flag_stat, flag_sparse, ncpu)
   if(flag_stat) then 
     write(message,'(A)'             ) ' ' ; write_msg
     write(message,'(A)') '   STATUS: ' 
     call write_log(trim(message), 1, myid)
     call write_log(trim(message),22, myid)
   endif
- k_loop:do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
-    my_ik = ik - sum(ourjob(1:myid))
+
+ k_loop:do ik= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
+    my_ik = ik - sum(ourjob(1:id))
     if(flag_sparse) then
       if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then 
         EE%V(:,:,my_ik) = EE%V(:,:,my_ik-1)
@@ -81,7 +93,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                              neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
     endif
 
-    if(flag_stat .and. myid .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
+    if(flag_stat .and. id .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
     if(PINPT%flag_print_energy_singlek ) call print_energy_singlek(EE%E(:,ik), EE%V(:,:,my_ik), EE%SV(:,:,my_ik), &
                                                                    neig, iband, nband, ik, kp(:,ik), &
                                                                    PINPT, NN_TABLE%mysystem)
@@ -93,26 +105,46 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
     write(message,'(A)')'   Gathering all results to main node 0 ...' 
     call write_log(trim(message), 23, myid)
   endif
-  call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
-  if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) then
-    call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
-                     ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                     ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
-                     MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
-    if(PPRAM%flag_use_overlap) then
-      call MPI_GATHERV(EE%SV,size(EE%SV), MPI_COMPLEX16, SV, &
+  if(.not. COMM_KOREA%flag_split) then
+    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+    if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) then
+      call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
                        ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
                        ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
-                       MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
+                       MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
+      if(PPRAM%flag_use_overlap) then
+        call MPI_GATHERV(EE%SV,size(EE%SV), MPI_COMPLEX16, SV, &
+                         ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                         MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
+      endif
+    endif                     
+  elseif(COMM_KOREA%flag_split) then
+    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
+    if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) then
+      call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
+                       ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                       ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                       MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)  ! only main node keep wave vector information
+      if(PPRAM%flag_use_overlap) then
+        call MPI_GATHERV(EE%SV,size(EE%SV), MPI_COMPLEX16, SV, &
+                         ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+                         MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)  ! only main node keep overlap matrix information
+      endif
     endif
-  endif                     
+  endif
   if(flag_stat) then
     write(message,'(A)')'  done!' ; write_msg
     write(message,'(A  )')' ' ; write_msg
   endif
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
-    call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+    if(.not.COMM_KOREA%flag_split) then
+      call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+    elseif(COMM_KOREA%flag_split) then
+      call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+    endif
     PINPT%feast_ne = feast_ne
     if(flag_stat) then
       write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
@@ -664,22 +696,30 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    ! nspin : 2 for collinear 1 for non-collinear
    ! ispin : 2 for collinear 2 for non-collinear
 
+   if(allocated(ETBA%E)) deallocate(ETBA%E)
    allocate(ETBA%E(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
 
    ! need to find better way to allocate V and SV, since if we don't turn on LORBIT, 
    ! V and SV is not need to be saved. To save memory one need to make it simpler.
    ! But, now, just keep this way, to make my life easier. (H.-J. Kim, 01. Feb. 2021)
+   if(allocated(ETBA%V)) deallocate(ETBA%V)
    allocate(ETBA%V( PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+   if(allocated(ETBA%SV)) deallocate(ETBA%SV)
    allocate(ETBA%SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
 
    ! This can also be allocated if LROBIT = TRUE in future version (will check later on, H.-J. Kim, 01. Feb. 2021)
    ! In current version, this information is only used in get_orbital_projection routine which is only called by
    ! get_dE routine and is activated when PINPT%flag_fit_orbital = .true.
    if(PINPT%flag_fit_orbital) then
+     if(allocated(ETBA%ORB)) deallocate(ETBA%ORB)
      allocate(ETBA%ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
    endif
 
    if(PINPT%flag_get_band_order) then
+     if(allocated(ETBA%IDX)) deallocate(ETBA%IDX)
+     if(allocated(ETBA%E_ORD)) deallocate(ETBA%E_ORD)
+     if(allocated(ETBA%V_ORD)) deallocate(ETBA%V_ORD)
+     if(allocated(ETBA%SV_ORD)) deallocate(ETBA%SV_ORD)
      allocate(ETBA%IDX(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
      allocate(ETBA%E_ORD(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
      allocate(ETBA%V_ORD(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
@@ -687,6 +727,9 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    endif
 
    if(PINPT%flag_get_total_energy) then
+     if(allocated(ETBA%F_OCC)) deallocate(ETBA%F_OCC)
+     if(allocated(ETBA%E_BAND)) deallocate(ETBA%E_BAND)
+     if(allocated(ETBA%E_TOT)) deallocate(ETBA%E_TOT)
      allocate(ETBA%F_OCC(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
      allocate(ETBA%E_BAND(PINPT%nspin))
      allocate(ETBA%E_TOT (PINPT%nspin))

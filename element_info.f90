@@ -366,16 +366,26 @@ contains
     character*2  orb
     real*8       Zeff
 
+    Zeff = -1.0d0
+
     write(orb,'(I0,A1)')orb_n, angular(l)
 
     select case (ispec)
 
+      ! Just set to 1.0
       case(1) !'H'   
         if(orb .eq. '1s') Zeff = 1d0
 
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_2.html#helium
       case(2) !'He'
         if(orb .eq. '1s') Zeff = 1.6875d0
-        
+
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge.html#carbon  
+      case(6) !'C'
+        if(orb .eq. '1s') Zeff =  5.6727d0
+        if(orb .eq. '2s') Zeff =  3.21660
+        if(orb .eq. '2p') Zeff =  3.13580
+
       ! http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_4.html#sulfur
       case(16) !'S'
         if(orb .eq. '1s') Zeff = 15.5409d0
@@ -384,6 +394,44 @@ contains
         if(orb .eq. '3s') Zeff =  6.3669d0
         if(orb .eq. '3p') Zeff =  5.4819d0
 
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_3.html#selenium
+      case(34) !'Se'
+        if(orb .eq. '1s') Zeff = 33.2622d0
+        if(orb .eq. '2s') Zeff = 24.8884d0
+        if(orb .eq. '2p') Zeff = 30.0652d0
+        if(orb .eq. '3s') Zeff = 19.4030d0
+        if(orb .eq. '3p') Zeff = 18.7050d0
+        if(orb .eq. '4s') Zeff =  9.7576d0
+        if(orb .eq. '3d') Zeff = 18.4770d0
+        if(orb .eq. '4p') Zeff =  8.2872d0
+      
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_4.html#sulfur
+      case(41) !'Nb'
+        if(orb .eq. '1s') Zeff = 40.1423d0
+        if(orb .eq. '2s') Zeff = 30.1252d0
+        if(orb .eq. '2p') Zeff = 36.9822d0
+        if(orb .eq. '3s') Zeff = 25.1720d0
+        if(orb .eq. '3p') Zeff = 24.6160d0
+        if(orb .eq. '4s') Zeff = 15.2830d0
+        if(orb .eq. '3d') Zeff = 26.2470d0
+        if(orb .eq. '4p') Zeff = 14.0840d0
+        if(orb .eq. '5s') Zeff =  5.9210d0
+        if(orb .eq. '4d') Zeff = 11.2380d0
+
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_2.html#molybdenum
+      case(42) !'Mo'
+        if(orb .eq. '1s') Zeff = 41.1256d0
+        if(orb .eq. '2s') Zeff = 30.8768d0
+        if(orb .eq. '2p') Zeff = 37.9718d0
+        if(orb .eq. '3s') Zeff = 25.9820d0
+        if(orb .eq. '3p') Zeff = 25.4740d0
+        if(orb .eq. '4s') Zeff = 16.0960d0
+        if(orb .eq. '3d') Zeff = 27.2280d0
+        if(orb .eq. '4p') Zeff = 14.9770d0
+        if(orb .eq. '5s') Zeff =  6.1060d0
+        if(orb .eq. '4d') Zeff = 11.3920d0
+
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge.html#bismuth
       case(83) !'Bi'
         if(orb .eq. '1s') Zeff = 81.3982d0
         if(orb .eq. '2s') Zeff = 61.1760d0
@@ -400,19 +448,6 @@ contains
         if(orb .eq. '4f') Zeff = 45.0692d0
         if(orb .eq. '5d') Zeff = 24.2440d0
         if(orb .eq. '6p') Zeff = 13.3400d0
-
-      case(42) !'Mo'
-        if(orb .eq. '1s') Zeff = 41.1256d0
-        if(orb .eq. '2s') Zeff = 30.8768d0
-        if(orb .eq. '2p') Zeff = 37.9718d0
-        if(orb .eq. '3s') Zeff = 25.9820d0
-        if(orb .eq. '3p') Zeff = 25.4740d0
-        if(orb .eq. '4s') Zeff = 16.0960d0
-        if(orb .eq. '3d') Zeff = 27.2280d0
-        if(orb .eq. '4p') Zeff = 14.9770d0
-        if(orb .eq. '5s') Zeff =  6.1060d0
-        if(orb .eq. '4d') Zeff = 11.3920d0
-
 
     endselect
 

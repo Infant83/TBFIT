@@ -40,13 +40,15 @@
 #############################################################################
  TBBIN=$(HOME)/code/bin
  TBLIB=$(HOME)/code/lib
- VERSION=$(shell date +%Y%m%d)
+#VERSION=$(shell date +%Y%m%d)
+ VERSION=0.5.1
  
 # MAC-INTEL COMPILE
+#FC     = mpiifort
  FC     = mpif90
  OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
- MPI_USE= NO
+ MPI_USE= YES
 
 # LINUX-gfortran COMPILE
 #OPTIONS= 
@@ -100,11 +102,11 @@ MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o
 TBFITPY= tbfitpy_mod.o
 KIND_MAP= kind_map # mapping between Fortran and C types used when ' make tbfitpy_mod ' 
 TEST   = test.o
-MODULE = mykind.o print_io.o $(MPI_MOD) memory.o time.o version.o $(SP_MOD) \
+MODULE = mykind.o print_io.o $(MPI_MOD) kill.o memory.o time.o version.o $(SP_MOD) \
 		 parameters.o set_default.o  random_mod.o element_info.o read_incar.o \
 		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
-		 pikaia_module.o geodesiclm.o kill.o get_parameter.o \
+		 pikaia_module.o geodesiclm.o get_parameter.o \
 		 reorder_band.o total_energy.o projected_band.o cost_function.o \
 		 ${TBFITPY}
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
@@ -177,17 +179,17 @@ endif
 #-----------------------------------
 
 ifeq ($(MPI_USE), YES)
-tbfit: $(OBJECTS) 
+tbfit.mpi: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
-	cp $@ $(BIN)/$@.mpi
-	cp $@ $@.$(VERSION).mpi
-	if [ -d "./tbfit.versions" ]; then cp $@.$(VERSION).mpi tbfit.versions ; fi
+	cp $@ $(BIN)/tbfit.mpi
+	cp $@ tbfit.$(VERSION).mpi
+	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION).mpi tbfit.versions ; fi
 else
-tbfit: $(OBJECTS) 
+tbfit.serial: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
-	cp $@ $(BIN)/$@
-	cp $@ $@.$(VERSION)
-	if [ -d "./tbfit.versions" ]; then cp $@.$(VERSION) tbfit.versions ; fi
+	cp $@ $(BIN)/tbfit.serial
+	cp $@ tbfit.$(VERSION).serial
+	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION).serial tbfit.versions ; fi
 endif
 
 get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 

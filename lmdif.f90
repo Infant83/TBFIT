@@ -18,7 +18,7 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
   real*8                                      epsfcn,factor, tol, xtol, ftol, gtol
   external                                    get_eig
   logical                                     flag_write_info
-  real*8                                      fnorm  ! fnorm of last step
+  real*8                                      fnorm, fnorm_plain ! fnorm of last step
   
   if(PPRAM%slater_koster_type .gt. 10) then
     nparam_free = PPRAM%nparam_nrl_free ! total number of free parameters
@@ -70,7 +70,7 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
       flag_write_info = .true.
     endif
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm,maxfev, epsfcn, factor, info, flag_write_info)
+               ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, flag_write_info)
    if_main  call infostamp(info,PINPT%ls_type)
   !write(message,*)" End: fitting procedures"  ; write_msg
 
@@ -89,13 +89,13 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
     flag_write_info = .false. 
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, flag_write_info)
+               ftol, xtol, gtol, fnorm, fnorm_plain,  maxfev, epsfcn, factor, info, flag_write_info)
   endif
 
   return
 endsubroutine
 subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-                 ftol, xtol, gtol, fnorm, maxfev, epsfcn, factor, info, flag_write_info)
+                 ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, flag_write_info)
 
 !*****************************************************************************80
 !
@@ -135,7 +135,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   use parameters
   use cost_function
   use mpi_setup
-  use kill
+! use kill
   use reorder_band
   use print_io
   use projected_band
@@ -158,7 +158,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   real*8        fvec(ldjac)
   real*8        fvec_plain(ldjac)
   real*8        wa4(ldjac)
-  real*8        fnorm,fnorm1,fnorm_, ftol,gnorm,gtol,par
+  real*8        fnorm,fnorm1,fnorm_,fnorm_plain,ftol,gnorm,gtol,par
   real*8        pnorm,prered,qtf(nparam_free),ratio,sum2,temp,temp1,temp2,xnorm,xtol
   real*8        wa1(nparam_free),wa2(nparam_free),wa3(nparam_free)
   real*8        wa2_temp(nparam_free)
@@ -221,7 +221,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
-
+  fnorm_plain = enorm(ldjac, fvec_plain)
 !  Initialize Levenberg-Marquardt parameter and iteration counter.
   iter = 1 ; par = 0.0D+00
   if(flag_cost_history) PPRAM%cost_history(iter) = fnorm
@@ -230,7 +230,8 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
     write(message,'(A)')' '  ; write_msg
     write(message,'(A)')'    # dE: (EDFT - ETBA), WT= weight '
     write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                       ', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
+                                                       ', rt(sum(dE^2)) = ', fnorm_plain   ; write_msg
+                                                      !', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
 
 30 continue   !  Beginning of the outer loop.
@@ -417,16 +418,19 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
           fvec(1:ldjac) = wa4(1:ldjac)
           xnorm = enorm ( nparam_free, wa2 )
           fnorm = fnorm1
+          fnorm_plain = enorm ( ldjac , fvec_plain )
+
           iter = iter + 1
           if(iter .le. PINPT%miter .and. flag_cost_history)  then
             PPRAM%cost_history(iter) = fnorm
             PPRAM%niter              = iter
           endif
+
           if(flag_write_info) then
             write(message,'(A)')' '  ; write_msg
 
             write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                               ', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
+                                                               ', rt(sum(dE^2)) = ', fnorm_plain  ; write_msg
             if_main write(pfileoutnm_temp,'(A,A)')trim(PPRAM%pfileoutnm),'_temp'
             if_main call print_param(PINPT,PPRAM,PWGHT(1),pfileoutnm_temp,.TRUE.) ! only main system will be printed..
             fnorm_ = fnorm ! fnorm of previous step
@@ -456,7 +460,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
 !  check kill
         call check_kill_tbfit(PINPT,PPRAM, PWGHT)
-
 !  End of the outer loop.
      go to 30
 300 continue

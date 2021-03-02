@@ -10,7 +10,7 @@ module mpi_setup
    integer, allocatable :: task_list(:)
    type(mpicomm), target:: COMM_EARTH
    type(mpicomm), target:: COMM_ASIA
-   type(mpicomm), target:: COMM_KOREA
+   type(mpicomm), public, target:: COMM_KOREA
 
 #else
    integer*4, public            :: myid   = 0
@@ -26,13 +26,18 @@ module mpi_setup
    integer*4, public            :: mycol = 0
 
    type mpicomm
-        integer, public            :: myid = 0
-        integer, public            :: nprocs = 1
+        integer, public         :: myid = 0
+        integer, public         :: nprocs = 1
+        logical, public         :: flag_split = .FALSE.
+    
+        integer, public         :: key = 0
+        integer, public         :: color = 0
+        integer, public, allocatable :: group_main(:)
    endtype
 
    type(mpicomm), target:: COMM_EARTH
    type(mpicomm), target:: COMM_ASIA
-   type(mpicomm), target:: COMM_KOREA
+   type(mpicomm), public, target:: COMM_KOREA
 
 #endif
 
@@ -123,20 +128,21 @@ module mpi_setup
      call MPI_COMM_RANK(COMM%mpi_comm, COMM%myid, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
        write(message,'(A)')' Error in MPI_COMM_RANK : mpi_init_comm' ; write_msg
-       kill_job
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
      endif
      call MPI_COMM_SIZE(COMM%mpi_comm, COMM%nprocs, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
        write(message,'(A)')' Error in MPI_COMM_SIZE : mpi_init_comm' ; write_msg
-
-       kill_job
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
      endif
 
      call MPI_BARRIER(COMM%mpi_comm, mpierr)
      if(mpierr .ne. MPI_SUCCESS) then
        write(message,'(A)')' Error in MPI_BARRIER : mpi_init_comm' ; write_msg
-       kill_job
-
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
      endif
 
      return
@@ -198,7 +204,8 @@ module mpi_setup
 
      if(COMM_EARTH%npar > COMM_EARTH%nprocs) then 
        write(message, '(A)')' Error in mpi_divide: NPAR >= NPROCS' ; write_msg
-       kill_job
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
      endif
 
      ! create new communicator for parents with cartesian topology [dim1, dim2]
@@ -211,7 +218,8 @@ module mpi_setup
      if(COMM_EARTH%dims(1) * COMM_EARTH%dims(2) .ne. COMM_EARTH%nprocs) then
        write(message,'(A,I0,A,I0)') " mpi_divide: can't subdivide ",COMM_EARTH%nprocs,' cpus by ', COMM_EARTH%npar    ; write_msg
        write(message,'(A,A,I0,A,I0,A)')' Please check your NPAR setting. Exit...', ' DIM(1:2)= (',COMM_EARTH%dims(1),',', COMM_EARTH%dims(2),')' ; write_msg
-       kill_job
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
      endif
      call MPI_CART_CREATE(COMM_EARTH%mpi_comm, ndims,(/COMM_EARTH%dims(1), COMM_EARTH%dims(2)/), &
                           flag_period,reorder, COMM_MARS%mpi_comm, mpierr)
@@ -234,54 +242,6 @@ module mpi_setup
      return
    endsubroutine
 
-   subroutine get_npar_kpar()
-     integer*4      pid
-     integer*4      i_continue, linecount, mpierr
-     character*132  inputline
-     character*40   desc_str
-     logical        flag_fail
-
-     flag_fail = .false.
-     pid = 78
-
-     ! set default values
-     npar = 1
-     kpar = 1
-
-     if(myid .eq. 0) then
-       open (pid, file='INCAR-TB', iostat=i_continue)
-       do
-         read(pid, '(A)', iostat=i_continue) inputline
-         if(i_continue < 0) exit
-         if(i_continue > 0) then
-           write(message,'Unknown error reading file: mpi_division' ; write_msg_all
-           flag_fail = .true. ; exit
-         endif
-
-         read(inputline,*,iostat=i_continue) desc_str
-         if(i_continue .ne. 0) cycle              ! skip empty line
-         if (desc_str(1:1).eq.'#') cycle  ! skip comment
-
-         select case (desc_str)
-           case('NPAR')
-             read(inputline,*,iostat=i_continue) desc_str, npar
-           case('KPAR')
-             read(inputline,*,iostat=i_continue) desc_str, kpar
-         endselect
-
-       enddo
-       close(pid)
-     endif
-
-     call MPI_BCAST(flag_fail, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
-     call MPI_BCAST(npar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
-     call MPI_BCAST(kpar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
-     if(flag_fail) then
-       kill_job
-     endif
-
-     return
-   endsubroutine
 #endif
 
    subroutine get_my_task()
@@ -321,6 +281,42 @@ module mpi_setup
 
 #endif  
 !!!!!!! end if_def MPI
+
+   ! NOTE: Anmeldung (Deutsch) = registration 
+   ! This subroutine split current world communicator mpi_comm_earth into several group.
+   ! As I'm come from Korea and working at Geermany, I need to registrate my color of eye
+   ! and get the id. This is just for fun, kind of joke but inspiring my identity and
+   ! refreshing wonderful working environment in Germany :) H.-J. Kim (FZJ, 25. Feb. 2021)
+   subroutine mpi_comm_anmeldung(COMM_KOREA, ngroup, mygroup)
+     implicit none
+     type(mpicomm)::COMM_KOREA
+     integer*4      ngroup, mpierr
+     integer*4      ourgroup(ngroup)
+     integer*4      mygroup(0:nprocs-1)
+     integer*4      i, group_main(ngroup)
+
+     COMM_KOREA%color = mygroup(myid)
+     COMM_KOREA%key   = myid
+     COMM_KOREA%flag_split = .TRUE.
+
+     call MPI_COMM_SPLIT(mpi_comm_earth, COMM_KOREA%color, COMM_KOREA%key, COMM_KOREA%mpi_comm, mpierr)
+     call MPI_COMM_RANK(COMM_KOREA%mpi_comm, COMM_KOREA%myid, mpierr)
+     call MPI_COMM_SIZE(COMM_KOREA%mpi_comm, COMM_KOREA%nprocs, mpierr)
+
+     if(allocated(COMM_KOREA%group_main)) deallocate(COMM_KOREA%group_main)
+     allocate(COMM_KOREA%group_main(npar)) 
+     COMM_KOREA%group_main = 0
+     do i = 0, ngroup - 1
+       if(COMM_KOREA%color .eq. i .and. COMM_KOREA%myid .eq. 0) then
+         COMM_KOREA%group_main(i+1) = myid
+       endif
+     enddo
+     
+     call MPI_ALLREDUCE(COMM_KOREA%group_main, group_main, ngroup, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+     COMM_KOREA%group_main = group_main
+     return
+   endsubroutine
+
    subroutine mpi_job_ourjob(njob, ourjob)
      implicit none 
      integer*4     njob, mynjob
@@ -341,20 +337,64 @@ module mpi_setup
 
    endsubroutine
 
-   subroutine mpi_job_distribution_chain(njob, ourjob, ourjob_disp)
+   subroutine mpi_job_distribution_group(ngroup, njob, ourgroup, mygroup, ourjob)
      implicit none
-     integer*4    njob
+     integer*4      ngroup, nmember, nresidue
+     integer*4      njob,   ngroupjob, nresidue_
+     integer*4      groupid, cpuid, id
+     integer*4      ourgroup(ngroup), mygroup(0:nprocs-1)
+     integer*4      ourjob(ngroup)
+     integer*4      mpierr
+
+     ! ncpus per each group
+     nmember   = floor( real(nprocs)/real(ngroup) )
+     nresidue  = nint ( real(nprocs) - real(nmember) * real(ngroup) )
+
+     ! njobs per each group
+     ngroupjob = floor( real(njob)/real(ngroup) )
+     nresidue_ = nint ( real(njob) - real(ngroupjob) * real(ngroup) )
+
+     ! each group have nmember + alpha, alpha is the distributed from nresidue over groups
+     do groupid = 1, ngroup
+       if(groupid .le. nresidue) then
+         ourgroup(groupid) = nmember + 1
+       else
+         ourgroup(groupid) = nmember
+       endif
+     enddo
+
+     do groupid = 1, ngroup
+       if(groupid .le. nresidue_) then
+         ourjob(groupid) = ngroupjob + 1
+       else
+         ourjob(groupid) = ngroupjob
+       endif
+     enddo 
+    
+     cpuid = 0
+     do groupid = 0, ngroup - 1
+       do id = 1, ourgroup(groupid+1)
+         mygroup(cpuid) = groupid
+         cpuid = cpuid + 1
+       enddo
+     enddo
+
+     return
+   endsubroutine
+   subroutine mpi_job_distribution_chain(njob, ncpu, ourjob, ourjob_disp)
+     implicit none
+     integer*4    njob, ncpu
      integer*4    mynjob
      integer*4    cpuid, mpierr
      integer*4    nresidue
-     integer*4    ourjob(nprocs)
-     integer*4    ourjob_disp(0:nprocs-1)
+     integer*4    ourjob(ncpu)
+     integer*4    ourjob_disp(0:ncpu-1)
 
-     mynjob = floor ( real(njob)/real(nprocs) )
-     nresidue = nint (real(njob) - real(mynjob) * real(nprocs))
+     mynjob = floor ( real(njob)/real(ncpu) )
+     nresidue = nint (real(njob) - real(mynjob) * real(ncpu))
      ourjob = 0
 
-     do cpuid = 1, nprocs
+     do cpuid = 1, ncpu
        if( cpuid .le. nresidue ) then
           ourjob(cpuid) = mynjob + 1
        else
@@ -364,16 +404,73 @@ module mpi_setup
 
     ourjob_disp(0) = 0
 #ifdef MPI
-    do cpuid = 1, nprocs-1
+    do cpuid = 1, ncpu-1
       ourjob_disp(cpuid)= ourjob_disp(cpuid - 1) + ourjob(cpuid)
     enddo
 #endif
 
    endsubroutine
 
+   subroutine get_npar_kpar()
+     integer*4      pid
+     integer*4      i_continue, linecount, mpierr
+     character*132  inputline
+     character*40   desc_str
+     logical        flag_fail
+
+     flag_fail = .false.
+     pid = 78
+
+     ! set default values
+     npar = 1
+     kpar = 1
+
+     if(myid .eq. 0) then
+       open (pid, file='INCAR-TB', iostat=i_continue)
+       do
+         read(pid, '(A)', iostat=i_continue) inputline
+         if(i_continue < 0) exit
+         if(i_continue > 0) then
+           write(message,'(A)') 'Unknown error reading file: get_npar_kpar' ; write_msg_all
+           flag_fail = .true. ; exit
+         endif
+
+         read(inputline,*,iostat=i_continue) desc_str
+         if(i_continue .ne. 0) cycle              ! skip empty line
+         if (desc_str(1:1).eq.'#') cycle  ! skip comment
+
+         select case (desc_str)
+           case('NPAR')
+             read(inputline,*,iostat=i_continue) desc_str, npar
+           case('KPAR')
+             read(inputline,*,iostat=i_continue) desc_str, kpar
+         endselect
+
+       enddo
+       close(pid)
+     endif
+
+     if(nprocs .eq. 1 .and. npar .gt. 1) then
+       write(message,'(A)') ' !WARN! NPROCS = 1 and NPAR > NPROCS --> enforce NPAR = 1 ' ; write_msg_all
+       npar = 1
+     endif
+
+#ifdef MPI
+     call MPI_BCAST(flag_fail, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
+     call MPI_BCAST(npar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
+     call MPI_BCAST(kpar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
+#endif
+     if(flag_fail) then
+       call MPI_BARRIER(mpi_comm_earth, mpierr)
+       call mpi_finish()
+     endif
+
+     return
+   endsubroutine
+
 subroutine report_job_distribution(flag_stat, ourjob, jobname)
    implicit none
-   integer*4    mpierr, i
+   integer*4    mpierr, i, id
    integer*4    ourjob(nprocs)
    logical      flag_stat
    character(len=80), optional, intent(in) :: jobname

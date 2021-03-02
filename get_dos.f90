@@ -62,7 +62,7 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
 #endif
 
    write(message,*)''  ; write_msg
-   write(message,'(A)')'START: DOS EVALUATION'  ; write_msg
+   write(message,'(A)')' #---- START: DOS EVALUATION -----------'; write_msg
 
    ! setup atom index for projected band only if not allocated already
    if(PINPT_DOS%dos_flag_print_ldos .and. PINPT_DOS%dos_ldos_natom .eq. 0) then
@@ -95,7 +95,7 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
 
    iadd       = 10 ; iaddk = 8  ; inck = 1
 
-   call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(nediv, nprocs, ourjob, ourjob_disp)
 
    if(PINPT%flag_noncollinear) then ! set default fband if fband has not been pre-defined
      if(fband .eq. 999999) fband = neig * 2
@@ -148,6 +148,10 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
    allocate( E(nband*nspin,nkpoint) )
    if_main allocate( V(neig*ispin,nband*nspin,nkpoint) )
    allocate( myV(neig*ispin,nband*nspin) )
+   if(PPRAM%flag_use_overlap) then
+     if_main allocate(SV(neig*ispin,nband*nspin,nkpoint) )
+     allocate(mySV(neig*ispin,nband*nspin) )
+   endif
    allocate( kpoint(3,nkpoint) )
    allocate( kpoint_reci(3,nkpoint) )
    allocate( PINPT_DOS%dos_kpoint(3,nkpoint) )
@@ -171,7 +175,7 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
    endif
 
    call get_eig(NN_TABLE,kpoint,nkpoint,PINPT, PPRAM, E, V, SV, neig, iband, nband, &
-                PINPT%flag_get_orbital, flag_sparse, .true., .true.) !, flag_order)
+                PINPT_DOS%dos_flag_print_ldos, flag_sparse, .true., .true.) !, flag_order)
 
    if(flag_sparse) then
      allocate(ne_found(PINPT%nspin, nkpoint))
@@ -187,7 +191,7 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
 
    ! main routine for DOS evaluation
 !kp:do ik = 1 + myid, nkpoint, nprocs
- write(message,'(A)')' ... calculating DOS ...'  ; write_msg
+ write(message,'(A)')'     Calculating DOS ...'  ; write_msg
  if_main call time_check(time4,time3,'init')
  if(PINPT_DOS%dos_flag_print_ldos) then
    if_main call report_memory(int(size(ldos_tot),kind=dp) * nprocs * 2, 8, 'LDOS(total)   ')
@@ -272,7 +276,7 @@ kp:do ik = 1,  nkpoint
    endif
 #endif
    if_main call time_check(time4,time3)
-   write(message,'(A,F10.4,A)')' ... calculating DOS ... DONE  : ',time4, ' (sec)'  ; write_msg
+   write(message,'(A,F10.4,A)')'     Calculating DOS ... DONE  : ',time4, ' (sec)'  ; write_msg
 
 
    ! NOTE: if flag_sparse = .true. dos_flag_print_eigen will not be activated due to the eigenvalue 
@@ -280,7 +284,7 @@ kp:do ik = 1,  nkpoint
    if(PINPT_DOS%dos_flag_print_eigen .and. myid .eq. 0 .and. .not. flag_sparse) then
      allocate(E_(nspin,nkpoint))
      allocate(V_(neig*ispin,nspin,nkpoint))
-
+     if(PPRAM%flag_use_overlap) allocate(SV_(neig*ispin,nspin,nkpoint))
      do i = 1, PINPT_DOS%dos_n_ensurf
        call get_ensurf_fname_header(PINPT_DOS%dos_ensurf(i), fname_header)
        do is = 1, nspin
@@ -414,15 +418,9 @@ subroutine print_ldos(PINPT_DOS, PINPT, PGEOM)
    integer*4       my_pid_ldos
    real*8          e_range(PINPT_DOS%dos_nediv)
    character*40    filenm
-#ifdef MPI
    integer*4       ourjob(nprocs)
    integer*4       ourjob_disp(0:nprocs-1)
-   call mpi_job_distribution_chain(PINPT_DOS%dos_ldos_natom, ourjob, ourjob_disp)   
-#else
-   integer*4  ourjob(1)
-   integer*4  ourjob_disp(0)
-   call mpi_job_distribution_chain(PINPT_DOS%dos_ldos_natom, ourjob, ourjob_disp)
-#endif
+   call mpi_job_distribution_chain(PINPT_DOS%dos_ldos_natom, nprocs, ourjob, ourjob_disp)   
 
    e_range = PINPT_DOS%dos_erange
 

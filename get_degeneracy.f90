@@ -52,7 +52,11 @@ subroutine get_degeneracy(EN, n, nkp, PINPT)
    enddo
 
 #ifdef MPI
-   call MPI_ALLREDUCE(D, EN%D, size(D), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+   if(COMM_KOREA%flag_split) then
+     call MPI_ALLREDUCE(D, EN%D, size(D), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+   elseif(.not. COMM_KOREA%flag_split) then
+     call MPI_ALLREDUCE(D, EN%D, size(D), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+   endif
 #else
    EN%D = D
 #endif

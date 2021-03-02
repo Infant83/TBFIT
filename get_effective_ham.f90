@@ -41,11 +41,11 @@ subroutine get_eig_downfold(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE)
 #ifdef MPI
    integer*4     ourjob(nprocs)
    integer*4     ourjob_disp(0:nprocs-1)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp) 
+   call mpi_job_distribution_chain(PKPTS%nkpoint, nprocs, ourjob, ourjob_disp) 
 #else
    integer*4     ourjob(1)
    integer*4     ourjob_disp(0)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PKPTS%nkpoint, nprocs, ourjob, ourjob_disp)
 #endif
 
 !  NOTE: This subroutine has not been MPI parallized in the current version, 

@@ -57,7 +57,7 @@ subroutine get_circular_dichroism(NN_TABLE, PINPT, PGEOM, PKPTS, ETBA)
    circ_dichroism = 0d0            ; circ_dichroism_ = 0d0
    flag_phase     = .TRUE.         ; spin(:)         = (/'up','dn'/)! default
    sizebuff       = neig*ispin*nband*nspin
-   call mpi_job_distribution_chain(nkpoint, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(nkpoint, nprocs, ourjob, ourjob_disp)
    call report_job_distribution(.true., ourjob)
    if_main call report_memory( int8(sizebuff*nkpoint*2), 16, 'Eigen vectors')
 

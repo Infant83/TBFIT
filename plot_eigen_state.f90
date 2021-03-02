@@ -27,6 +27,8 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    complex*16   phi_r(PGEOM%neig)
    complex*16   psi_r_up(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
    complex*16   psi_r_dn(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
+   complex*16   psi_r_up_(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
+   complex*16   psi_r_dn_(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
    complex*16   V(PGEOM%neig*PINPT%ispin,PINPT%nspin)
    real*8       time1, time2
    logical      flag_exist_up, flag_exist_dn
@@ -84,11 +86,15 @@ en:do ie = 1, PINPT%n_eig_print
        endif
        call initialize_psi_r(psi_r_up,psi_r_dn, ngrid,PINPT%ispin, flag_exist_up, flag_exist_dn)
 
+#ifdef MPI
+       call MPI_BARRIER(mpi_comm_earth,mpierr)
+#endif
 cell_z:do iz = -1,1
 cell_y:do iy = -1,1
 cell_x:do ix = -1,1
          call reset_orbital_origin(origin_reset, origin, neig, a1, a2, a3, ix, iy, iz)
-  grid_z:do i3=0,ng3-1
+ !grid_z:do i3=0,ng3-1
+  grid_z:do i3=0+myid,ng3-1, nprocs
   grid_y:do i2=0,ng2-1
   grid_x:do i1=0,ng1-1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
@@ -102,6 +108,24 @@ cell_x:do ix = -1,1
        enddo cell_x 
        enddo cell_y
        enddo cell_z
+
+#ifdef MPI
+       call MPI_BARRIER(mpi_comm_earth,mpierr)
+       if(PINPT%nspin .eq. 1) then
+         call MPI_ALLREDUCE(psi_r_up, psi_r_up_, size(psi_r_up_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+         psi_r_up = psi_r_up_
+         if(PINPT%ispinor .eq. 2) then
+           call MPI_ALLREDUCE(psi_r_dn, psi_r_dn_, size(psi_r_dn_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+           psi_r_dn = psi_r_dn_ 
+         endif
+       elseif(PINPT%nspin .eq. 2) then
+         call MPI_ALLREDUCE(psi_r_up, psi_r_up_, size(psi_r_up_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+         call MPI_ALLREDUCE(psi_r_dn, psi_r_dn_, size(psi_r_dn_), MPI_COMPLEX16, MPI_SUM, mpi_comm_earth, mpierr)
+         psi_r_up = psi_r_up_
+         psi_r_dn = psi_r_dn_
+       endif
+       call MPI_BARRIER(mpi_comm_earth,mpierr)
+#endif
 
        if_main call write_rho_main(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nresi, psi_r_up, psi_r_dn, &
                                    PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%flag_plot_wavefunction, &

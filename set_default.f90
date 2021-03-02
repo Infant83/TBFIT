@@ -92,6 +92,7 @@ module set_default
         PPRAM%flag_use_overlap=.false.
         PPRAM%flag_pfile_index=.false.
         PPRAM%flag_set_param_const=.false.
+        PPRAM%flag_fit_plain = .FALSE.
         if( .not. PINPT%flag_pfile_parse) then
           PPRAM%pfilenm='PARAM_FIT.dat' !default
         elseif(PINPT%flag_pfile_parse) then
@@ -106,6 +107,7 @@ module set_default
         PPRAM%pso_c1                                  = 0.3d0
         PPRAM%pso_c2                                  = 0.4d0
         PPRAM%pso_w                                   = 0.2d0
+        PPRAM%pso_max_noise_amplitude                 = 5.0d0
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
@@ -166,6 +168,7 @@ module set_default
         if(allocated(PINPT_BERRY%z2_erange ))           deallocate(PINPT_BERRY%z2_erange )
         if(allocated(PINPT_BERRY%z2_axis   ))           deallocate(PINPT_BERRY%z2_axis   )
         if(allocated(PINPT_BERRY%z2_kpoint ))           deallocate(PINPT_BERRY%z2_kpoint )
+        if(allocated(PINPT_BERRY%z2_kpoint_reci))       deallocate(PINPT_BERRY%z2_kpoint_reci )
         if(allocated(PINPT_BERRY%z2_wcc    ))           deallocate(PINPT_BERRY%z2_wcc    )
         if(allocated(PINPT_BERRY%z2_chern  ))           deallocate(PINPT_BERRY%z2_chern  )
         if(allocated(PINPT_BERRY%z2_polarization))      deallocate(PINPT_BERRY%z2_polarization)
@@ -273,6 +276,7 @@ module set_default
         if(allocated(PGEOM%site_cindex          )) deallocate(PGEOM%site_cindex          )
         if(allocated(PGEOM%spec                 )) deallocate(PGEOM%spec                 )
         if(allocated(PGEOM%spec_equiv           )) deallocate(PGEOM%spec_equiv           )
+!       if(allocated(PGEOM%spec_define          )) deallocate(PGEOM%spec_define          )
         if(allocated(PGEOM%a_coord              )) deallocate(PGEOM%a_coord              )
         if(allocated(PGEOM%a_coord_cart         )) deallocate(PGEOM%a_coord_cart         )
         if(allocated(PGEOM%o_coord              )) deallocate(PGEOM%o_coord              )

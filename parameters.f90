@@ -105,6 +105,7 @@ module parameters
                                                     ! re, im (real or imag part), 
                                                     ! wf (full wf), bi (enforce to write wf with binary format)
 
+       integer(kind=sp)                    npar      ! number of group for k-point parallelization
        character(len=10)                   ls_type   ! fitting method
        integer(kind=sp)                     nn_max(3)          ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
        logical                       flag_use_weight    ! if true use "weight" information written in PFILE and 
@@ -210,6 +211,7 @@ module parameters
        logical                       flag_pfile_index         ! whether put numbering in PARAM_FIT.dat after fitting
        logical                       flag_use_overlap         ! whether setup overlap hamiltonian. Automatically activated if the overlap integral parameters
                                                               ! are provided in the PARAM_FIT.dat file in priori (start with o_ )
+       logical                       flag_fit_plain           ! take costfunction without multiplying weight factor for PSO scheme
        real(kind=dp)                 l_broaden                ! broadening of the cutoff-function for NRL type SK parameters (used if SK_SCALE_MODE > 10 in PFILE)
        logical                       flag_slater_koster       ! default .true.
        logical                       flag_nrl_slater_koster   ! default .false.
@@ -246,6 +248,7 @@ module parameters
        real(kind=dp)                        pso_c1            ! c1, c2, w defines cognitive, social, and inertia factor of PSO method  
        real(kind=dp)                        pso_c2            ! vel = w * vel + c1 * rand() * (pbest - x) + c2 * rand() * (gbest - x)
        real(kind=dp)                        pso_w 
+       real(kind=dp)                        pso_max_noise_amplitude ! random noize amplitude
        real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
        real(kind=dp),      allocatable   :: cost_history(:)  ! save cost function history w.r.t. the iteration in LMDIF method. size:(miter)
 
@@ -284,7 +287,8 @@ module parameters
        logical,     allocatable   :: flag_site_cindex(:) ! flag site indicator has been defined or not
        character(len=20),allocatable   :: site_cindex(:)  ! site indicator. NOTE: same as site_cindex of NN_TABLE 
        integer(kind=sp),   allocatable   :: spec(:)        ! species information for each atom (1:n_atom). The order of appearance in the POSCAR
-       integer(kind=sp),   allocatable   :: spec_equiv(:)  ! species information specifying equivalent atom species
+       integer(kind=sp),   allocatable   :: spec_equiv(:)  ! species information specifying equivalent atom species in the system (n_atom)
+!      integer(kind=sp),   allocatable   :: spec_define(:)  ! species information specifying equivalent atom species in periodic table (n_atom)
        real(kind=dp),      allocatable   :: a_coord(:,:) ! atomic  coordinate (1:3, 1:n_atom) (direct, fractional)
        real(kind=dp),      allocatable   :: a_coord_cart(:,:) ! atomic  coordinate (1:3, 1:n_atom) (cartesian)
        real(kind=dp),      allocatable   :: o_coord(:,:) ! orbital coordinate (1:3, 1:neig) (direct, fractional)

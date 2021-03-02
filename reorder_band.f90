@@ -54,7 +54,7 @@ contains
       logical          flag_use_overlap
       integer*4        ourjob(nprocs), ourjob_disp(0:nprocs-1)
      
-      call mpi_job_distribution_chain(PKPTS%nkpoint-1, ourjob, ourjob_disp)
+      call mpi_job_distribution_chain(PKPTS%nkpoint-1, nprocs,  ourjob, ourjob_disp)
 
       msize = PGEOM%nband*PINPT%nspin
       R = diagonal(msize)

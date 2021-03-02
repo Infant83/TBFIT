@@ -42,7 +42,7 @@ contains
       call set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
 
       open (pid_incar, FILE=trim(PINPT%ifilenm(mysystem)),iostat=i_continue) ;  linecount = 0
-     
+
      line: do
             read(pid_incar,'(A)',iostat=i_continue) inputline
             if(i_continue<0) exit               ! end of file reached
@@ -105,6 +105,7 @@ contains
               case('NN_MAX')
                call set_nn_max(PINPT,inputline,desc_str)
     
+               
               !where to write fitted TB-parameter to POFILE
               case('POFILE')
                call set_tbparam_out_file(PPRAM, inputline)
@@ -138,6 +139,14 @@ contains
                 read(inputline,*,iostat=i_continue) desc_str, PWGHT%efile_ef
                 write(message,'(A,F12.5)')'  EDFT_EF:  ', PWGHT%efile_ef ; write_msgi
     
+              case('FIT_PLAIN') ! flag whether we consider weight factor or not in cost function evaluation. Yes: not include, NO: include
+                read(inputline,*,iostat=i_continue) desc_str, PPRAM%flag_fit_plain
+                write(message,'(A,L)')'PSO_PLAIN: (take best w/o weighted cost) ', PPRAM%flag_fit_plain
+
+              case('PSO_NOISE') ! amplitude of randome noise on the initial parameters
+                read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_max_noise_amplitude
+                write(message,'(A,L)')'PSO_NOISE: (max. randome noise amplitude) ', PPRAM%pso_max_noise_amplitude
+
               case('PLOTFIT') ! run gnuplot script after fit or post-process
                 if(nitems(inputline) -1 .eq. 1) then
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
@@ -3233,6 +3242,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             PINPT%ls_type = 'GA'
           elseif(trim(PINPT%ls_type) .eq. 'pso' .or. trim(PINPT%ls_type) .eq. 'PSO') then
             PINPT%ls_type = 'PSO'
+            PINPT%flag_pso_with_lmdif=.false.
             write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Particle swarm optimization method'  ; write_msgi
           elseif(trim(PINPT%ls_type) .eq. 'pso+lmdif' .or. trim(PINPT%ls_type) .eq. 'PSO+LMDIF') then
             PINPT%ls_type = 'PSO'

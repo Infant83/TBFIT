@@ -143,7 +143,6 @@ contains
     real*8                     sigma, maxgauss
     real*8                     enorm
     external                   enorm
-    integer*4                  ourjob(nprocs), ourjob_disp(0:nprocs-1), my_i
     logical                    flag_weight_orbital, flag_fit_degeneracy
     logical                    flag_order
     real*8                     E_TBA(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
@@ -154,6 +153,9 @@ contains
     real*8,     allocatable :: dE_(:), dORB_(:)
     logical                    flag_fit_orbital
     integer*4                  ie_cutoff
+   !integer*4                  ourjob(nprocs), ourjob_disp(0:nprocs-1), my_i
+    integer*4                  ncpu, id
+    integer*4,  allocatable :: ourjob(:), ourjob_disp(:), my_i
 
     ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
     !               ldjac = nkpoint * nband * PINPT%nspin
@@ -188,19 +190,35 @@ contains
     if(flag_weight_orbital) OW= 0d0
     if(imode .gt. 10) dE_TBA = 0d0
 
-    call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
+    if(COMM_KOREA%flag_split) then
+      ncpu = COMM_KOREA%nprocs
+      id   = COMM_KOREA%myid
+    else
+      ncpu = nprocs
+      id   = myid
+    endif
+    allocate(ourjob(ncpu))
+    allocate( ourjob_disp(0:ncpu-1))
+
+    call mpi_job_distribution_chain(PKPTS%nkpoint, ncpu, ourjob, ourjob_disp)
     
     if(flag_order) then
       E_TBA = ETBA_FIT%E_ORD
       E_DFT = EDFT%E_ORD
       if(flag_weight_orbital) then
         sizebuff = PGEOM%neig*PINPT%ispinor*PGEOM%nband*PINPT%nspin
-        allocate(myV(PGEOM%neig*PINPT%ispinor, PGEOM%nband*PINPT%nspin, ourjob(myid+1)))
+        allocate(myV(PGEOM%neig*PINPT%ispinor, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
 #ifdef MPI
         ! Distribute wavefunction data to neighboring nodes
-        call MPI_SCATTERV(ETBA_FIT%V_ORD, ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_COMPLEX16, myV, ourjob(myid+1)*sizebuff, &
-                          MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+        if(COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%V_ORD, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_COMPLEX16, myV, ourjob(id+1)*sizebuff, &
+                            MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)
+        elseif(.not. COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%V_ORD, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_COMPLEX16, myV, ourjob(id+1)*sizebuff, &
+                            MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+        endif
 #else
         myV = ETBA_FIT%V_ORD
 #endif
@@ -208,19 +226,28 @@ contains
 
       if(flag_fit_orbital) then
         sizebuff = PINPT%lmmax * PGEOM%nband*PINPT%nspin
-        allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(myid+1)))
-        allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(myid+1))) 
+        allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
+        allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1))) 
         ! note: the size of second column, nband*PINPT%nspin is differ from read_energy routine
         !       but should work anyway, since ERANGE or EWINDOW tag should not be applied if
         !       fitting is requested by TBFIT tag of INCAR
 #ifdef MPI
         ! Distribute orbital info to neighboring nodes
-        call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_REAL8, myORB_TBA, ourjob(myid+1)*sizebuff, &
-                          MPI_REAL8, 0, mpi_comm_earth, mpierr)
-        call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_REAL8, myORB_DFT, ourjob(myid+1)*sizebuff, &
-                          MPI_REAL8, 0, mpi_comm_earth, mpierr)
+        if(COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_TBA, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, COMM_KOREA%mpi_comm, mpierr)
+          call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_DFT, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, COMM_KOREA%mpi_comm, mpierr)
+        elseif(.not. COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_TBA, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, mpi_comm_earth, mpierr)
+          call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_DFT, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, mpi_comm_earth, mpierr)
+        endif
 #else
         myORB_TBA = ETBA_FIT%ORB
         myORB_DFT = EDFT%ORB
@@ -232,12 +259,19 @@ contains
       E_DFT = EDFT%E
       if(flag_weight_orbital) then
         sizebuff = PGEOM%neig*PINPT%ispinor*PGEOM%nband*PINPT%nspin
-        allocate(myV(PGEOM%neig*PINPT%ispinor, PGEOM%nband*PINPT%nspin, ourjob(myid+1)))
+        allocate(myV(PGEOM%neig*PINPT%ispinor, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
 #ifdef MPI
         ! Distribute wavefunction data to neighboring nodes
-        call MPI_SCATTERV(ETBA_FIT%V, ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_COMPLEX16, myV, ourjob(myid+1)*sizebuff, &
-                          MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+        if(COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%V, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_COMPLEX16, myV, ourjob(id+1)*sizebuff, &
+                            MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)
+        elseif(.not. COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%V, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_COMPLEX16, myV, ourjob(id+1)*sizebuff, &
+                            MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+        endif
+
 #else    
         myV = ETBA_FIT%V
 #endif
@@ -247,19 +281,28 @@ contains
         sizebuff = PINPT%lmmax * PGEOM%nband*PINPT%nspin
         allocate(dE_(PGEOM%nband*PINPT%nspin))
         allocate(dORB_(PGEOM%nband*PINPT%nspin))
-        allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(myid+1)))
-        allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(myid+1))) 
+        allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
+        allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1))) 
         ! note: the size of second column, nband*PINPT%nspin is differ from read_energy routine
         !       but should work anyway, since ERANGE or EWINDOW tag should not be applied if
         !       fitting is requested by TBFIT tag of INCAR
 #ifdef MPI
         ! Distribute orbital info to neighboring nodes
-        call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_REAL8, myORB_TBA, ourjob(myid+1)*sizebuff, &
-                          MPI_REAL8, 0, mpi_comm_earth, mpierr)
-        call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
-                          MPI_REAL8, myORB_DFT, ourjob(myid+1)*sizebuff, &
-                          MPI_REAL8, 0, mpi_comm_earth, mpierr)
+        if(flag_weight_orbital) then
+          call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_TBA, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, COMM_KOREA%mpi_comm, mpierr)
+          call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_DFT, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, COMM_KOREA%mpi_comm, mpierr)
+        elseif(.not. COMM_KOREA%flag_split) then
+          call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_TBA, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, mpi_comm_earth, mpierr)
+          call MPI_SCATTERV(EDFT%ORB    , ourjob*sizebuff, ourjob_disp*sizebuff, &
+                            MPI_REAL8, myORB_DFT, ourjob(id+1)*sizebuff, &
+                            MPI_REAL8, 0, mpi_comm_earth, mpierr)
+        endif
 #else
         myORB_TBA = ETBA_FIT%ORB
         myORB_DFT = EDFT%ORB
@@ -270,9 +313,9 @@ contains
 !#### IMODE = 1 : if nkpoint is less than number of free parameters to be fitted, this routine works
     if(imode .eq. 1 .or. imode .eq. 11) then
 
-      do ik = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+      do ik = sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
         my_i = (ik - 1) * PGEOM%nband * PINPT%nspin
-        my_ik= ik - sum(ourjob(1:myid))
+        my_ik= ik - sum(ourjob(1:id))
         do is = 1, PINPT%nspin
           do ie = 1, PGEOM%nband
             ie_ = ie + iband - 1 + (is-1)*PGEOM%neig
@@ -299,8 +342,8 @@ contains
 
 !#### IMODE = 2 ; ldjac > nparam -> usual cases
     elseif(imode .eq. 2 .or. imode .eq. 12) then
-      do ik = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
-        my_ik = ik - sum(ourjob(1:myid))
+      do ik = sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
+        my_ik = ik - sum(ourjob(1:id))
         do is = 1, PINPT%nspin
 
           do ie = 1, PGEOM%nband
@@ -340,7 +383,7 @@ contains
       enddo ! ik
 
     elseif(imode .eq. 13) then
-      do ik = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+      do ik = sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
         my_i = (ik - 1) * PGEOM%nband * PINPT%nspin
         do is = 1, PINPT%nspin
           do ie = 1, PGEOM%nband
@@ -368,34 +411,59 @@ contains
 
     if(imode .lt. 10) then
 #ifdef MPI
-    call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-    fvec = fvec_
-    call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-    fvec_plain = fvec_plain_
+      if(COMM_KOREA%flag_split) then
+        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+      elseif(.not. COMM_KOREA%flag_split) then
+        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+      endif
+      fvec = fvec_
+      fvec_plain = fvec_plain_
 #endif
 
     elseif(imode .gt. 10 .and. imode .le. 12) then
 #ifdef MPI
-      call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-      if(ldjac .ne. 1) then
-        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-        fvec = fvec_
-        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-        fvec_plain = fvec_plain_
+      if(COMM_KOREA%flag_split) then
+        call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+        if(ldjac .ne. 1) then
+          call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+          fvec = fvec_
+          call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+          fvec_plain = fvec_plain_
+        endif
+      elseif(.not. COMM_KOREA%flag_split) then
+        call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        if(ldjac .ne. 1) then
+          call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+          fvec = fvec_
+          call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+          fvec_plain = fvec_plain_
+        endif
       endif
 #else
       ETBA_FIT%dE = dE_TBA
 #endif
     elseif(imode .ge. 13) then
 #ifdef MPI
-      if(ldjac .ne. 1) then
-       !call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-        call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-        fvec = fvec_
-        call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-        fvec_plain = fvec_plain_
-      elseif(ldjac .eq. 1) then
-        call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+      if(COMM_KOREA%flag_split) then
+        if(ldjac .ne. 1) then
+          call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+          fvec = fvec_
+          call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+          fvec_plain = fvec_plain_
+        elseif(ldjac .eq. 1) then
+          call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+        endif
+      elseif(.not. COMM_KOREA%flag_split) then
+        if(ldjac .ne. 1) then
+          call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+          fvec = fvec_
+          call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+          fvec_plain = fvec_plain_
+        elseif(ldjac .eq. 1) then
+          call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        endif
       endif
 #else
       if(ldjac .eq. 1) then

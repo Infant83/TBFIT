@@ -88,7 +88,7 @@ subroutine get_bc_kubo(NN_TABLE, PINPT, PINPT_BERRY, PGEOM, PKPTS, ETBA)
 #endif
    integer*4        ourjob(nprocs)
    integer*4        ourjob_disp(0:nprocs-1)
-   call mpi_job_distribution_chain(PKPTS%nkpoint, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PKPTS%nkpoint, nprocs, ourjob, ourjob_disp)
    call report_job_distribution(.true., ourjob)
 
    allocate(PINPT_BERRY%omega(PGEOM%neig*PINPT%ispinor,3,PINPT%nspin,PKPTS%nkpoint))

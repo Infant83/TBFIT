@@ -369,7 +369,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
      inc = 1
 
      if(.not. flag_para_band) then
-       call mpi_job_distribution_chain(nediv, ourjob, ourjob_disp)
+       call mpi_job_distribution_chain(nediv, nprocs, ourjob, ourjob_disp)
        ie_init = sum(ourjob(1:myid)) + 1 ; ie_fina  = sum(ourjob(1:myid+1))
      elseif(flag_para_band) then
        ie_init = 1                       ; ie_fina  = nediv
@@ -400,7 +400,7 @@ subroutine get_dos_ldos(PINPT, PGEOM, PRPLT, ne_found, E, V2, nspin, nbasis, nba
          if(.not. flag_para_band) then
            i_init  = 1                       ; i_fina   = ne_found(is,ik)
          elseif(flag_para_band) then
-           call mpi_job_distribution_chain(ne_found(is,ik), ourjob, ourjob_disp)
+           call mpi_job_distribution_chain(ne_found(is,ik), nprocs, ourjob, ourjob_disp)
            i_init  = sum(ourjob(1:myid)) + 1 ; i_fina   = sum(ourjob(1:myid+1))
          endif
 
@@ -1009,7 +1009,7 @@ subroutine print_replot_ldos(PRPLT, PINPT, PGEOM)
         write(message,'(A)')' '  ; write_msg
         write(message,'(3A)')'   WRITING.... local density of states (LDOS): ',trim(filenm_sum),' ... '  ; write_msg
         
-        call mpi_job_distribution_chain(ldos_natom, ourjob, ourjob_disp)
+        call mpi_job_distribution_chain(ldos_natom, nprocs, ourjob, ourjob_disp)
    atom:do ia = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
           iatom = ldos_atom(ia)
           my_pid_ldos = pid_ldos + myid + 1
@@ -1181,7 +1181,7 @@ subroutine print_replot_sldos(PRPLT, PINPT, PGEOM, nkp, coord_cart, flag_sum)
                           trim(PRPLT%replot_didv_fname),trim(PINPT%title(PRPLT%mysystem)),'.??? ...'  ; write_msg
      call system('mkdir -p ./didv')
 
-     call mpi_job_distribution_chain(PRPLT%replot_dos_nediv, ourjob, ourjob_disp)
+     call mpi_job_distribution_chain(PRPLT%replot_dos_nediv, nprocs, ourjob, ourjob_disp)
 
      !do ie = 1, PRPLT%replot_dos_nediv
      do ie = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
@@ -1260,7 +1260,7 @@ subroutine print_bond(PRPLT, PINPT, PGEOM, coord_cart)
 #endif
    integer*4       ourjob(nprocs)
    integer*4       ourjob_disp(0:nprocs-1)
-   call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PGEOM%n_atom, nprocs, ourjob, ourjob_disp)
 
    filenm = 'BOND.replot.dat'
 

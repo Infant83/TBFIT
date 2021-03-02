@@ -28,7 +28,7 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
   call read_poscar(PINPT, PGEOM, NN_TABLE)
 
   !set equivalent atom if defined in CONSTRAINT set
-  call set_equiv_atom(PPRAM, PGEOM)
+  call set_equiv_spec(PPRAM, PGEOM)
 
   !set nband and initial band if flag_erange = .false.
   if(.not.PINPT%flag_erange) then
@@ -68,7 +68,7 @@ subroutine read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
 
   ! set effective nunclear charge which will be used in eigen state plot or stm plot
   if(PPRAM%flag_slater_koster .and. (PINPT%flag_plot_stm_image .or. PINPT%flag_plot_eigen_state) ) then
-    call set_effective_nuclear_charge(PGEOM)
+    call set_effective_nuclear_charge(PPRAM, PGEOM)
   endif
 
   ! setup for effective hamiltonian calculation
@@ -206,11 +206,11 @@ line: do
            enddo
            call get_reci(PGEOM%b_latt(:,1), PGEOM%b_latt(:,2), PGEOM%b_latt(:,3), &
                          PGEOM%a_latt(:,1), PGEOM%a_latt(:,2), PGEOM%a_latt(:,3))
-           write(message,'(A            )')'          –––––––––––––––––––––––––––––––––––––––––––––––'; write_msgi
+           write(message,'(A            )')'          -----------------------------------------------'; write_msgi
            do i=1,3
              write(message,'(A,i1,A,3F15.8)')'  RECI B',i,':  ',PGEOM%b_latt(1:3,i)  ; write_msgi
            enddo
-           write(message,'(A            )')'          ––––——––––––––––––––––––––––––––———––––––––––––'; write_msgi
+           write(message,'(A            )')'          _______________________________________________'; write_msgi
            linecount = linecount + 2
            cycle
 
@@ -228,6 +228,7 @@ line: do
 
            allocate( PGEOM%spec(PGEOM%n_atom) )
            allocate( PGEOM%spec_equiv(PGEOM%n_atom) )
+!          allocate( PGEOM%spec_define(PGEOM%n_atom) )
            do i=1,PGEOM%n_spec
              PGEOM%spec( sum(PGEOM%i_spec(1:i)) -PGEOM%i_spec(i)+1 : sum(PGEOM%i_spec(1:i)) ) = i
            enddo
@@ -663,7 +664,7 @@ subroutine set_orbital_index(PGEOM, lmmax)
    character*8                 orb
    integer*4                   ourjob(nprocs), ourjob_disp(0:nprocs-1), mpierr
 
-   call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+   call mpi_job_distribution_chain(PGEOM%n_atom, nprocs, ourjob, ourjob_disp)
    allocate(PGEOM%orb_index(PGEOM%neig))
    allocate(orb_index(PGEOM%neig))
    PGEOM%orb_index = 0 ; orb_index = 0
@@ -721,25 +722,28 @@ subroutine set_orbital_index(PGEOM, lmmax)
    return
 endsubroutine
 
-subroutine set_effective_nuclear_charge(PGEOM)
-  use parameters,  only : poscar
+subroutine set_effective_nuclear_charge(PPRAM, PGEOM)
+  use parameters,  only : poscar, params
   use mpi_setup
   use element_info, only : z_eff
+  use print_io
   implicit none
   type (poscar)            :: PGEOM
+  type (params)            :: PPRAM
   integer*4                   iatom, jorb
-  character*8                 spec
+  character*8                 spec, spec_
   character*8                 orb
-  integer*4                   ispec, n, l, orb_n
-  integer*4                   mpierr
+  integer*4                   ii, ispec, n, l, orb_n
+  integer*4                   mpierr, ierror
   integer*4, allocatable ::   ispec_(:)
   integer*4, allocatable ::   l_quantum_(:,:)
   integer*4, allocatable ::   orb_n_quantum_(:,:)
   real*8,    allocatable ::   n_quantum_(:) ! just set to "real" for the convinience.
   real*8,    allocatable ::   z_eff_nuc_(:,:)
-  integer*4  ourjob(nprocs)
-  integer*4  ourjob_disp(0:nprocs-1)
-  call mpi_job_distribution_chain(PGEOM%n_atom, ourjob, ourjob_disp)
+  character*40                dummy1, dummy2
+  integer*4                   ourjob(nprocs)
+  integer*4                   ourjob_disp(0:nprocs-1)
+  call mpi_job_distribution_chain(PGEOM%n_atom, nprocs, ourjob, ourjob_disp)
 
   allocate(PGEOM%n_quantum(PGEOM%n_atom), &
                 n_quantum_(PGEOM%n_atom) ) ! n=1, 2, ...?
@@ -754,29 +758,48 @@ subroutine set_effective_nuclear_charge(PGEOM)
   l_quantum_ = 0; orb_n_quantum_=0;z_eff_nuc_=0d0 ;n_quantum_ = 0d0 
   ispec_ = 0
 
-  do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
-    spec=adjustl(trim(PGEOM%c_spec( PGEOM%spec(iatom) )))
-    call find_spec(spec, ispec,n)
-    ispec_(iatom) = ispec
-    n_quantum_(iatom) = real(n)
-    do jorb = 1, PGEOM%n_orbital(iatom)
-      orb = adjustl(trim(PGEOM%c_orbital(jorb,iatom)))
-      call find_lmom(ispec, orb, l, orb_n)
-      l_quantum_(jorb,iatom)     = l
-      orb_n_quantum_(jorb,iatom) = orb_n
-
-      ! WARN ! Be sure that the effective nuclear charge information has not been fully stored
-             ! in z_eff function in element_info module. Please update the database based on
-             ! the information tabulated in following link: http://www.knowledgedoor.com
-             ! 
-             ! Ref.1: Clementi, E., and D. L. Raimondi. "Atomic Screening Constants from SCF Functions." 
-             !        Journal of Chemical Physics, volume 38, number 11, 1963, pp. 2686–2689. doi:10.1063/1.1733573
-             ! Ref.2: Clementi, E., D. L. Raimondi, and W. P. Reinhardt. "Atomic Screening Constants from SCF Functions. II. Atoms with 37 to 86 Electrons." 
-             !        Journal of Chemical Physics, volume 47, number 4, 1967, pp. 1300–1307. doi:10.1063/1.1712084
-
-      z_eff_nuc_(jorb,iatom) = z_eff(ispec, orb_n, l)
-    enddo
-  enddo
+lp1:do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
+      spec_=adjustl(trim(PGEOM%c_spec( PGEOM%spec(iatom) )))
+      call find_spec_const(PPRAM, PGEOM, spec_, spec)
+      call find_spec(spec, ispec,n)
+      if(ispec .eq. -1) then
+        write(6,'(A,I0,3A)')'   !WARN! The ',iatom,'-th atom(',trim(spec),') cannot be identified in the periodic table.'
+        write(6,'(A)')     '          You should define the species information in the "SET CONSTRAINT" in your INCAR-TB'
+        write(6,'(A)')     '          For example, if your atom "Nb1" is actually meant to be Neobium (Nb),'
+        write(6,'(A)')     '          then you cann add following line in the "CONSTRAINT" section as follows'
+        write(6,'(A)')     '          SET CONSTRAINT '
+        write(6,'(A)')     '            ... other constraint ...'
+        write(6,'(A)')     '            ... ... '
+        write(6,'(A)')     '            atom_Nb1 = spec_Nb '
+        write(6,'(A)')     '          END CONSTRAINT '
+        write(6,'(A)')     ' '
+        write(6,'(A)')     '          Exit program...'
+        stop
+      endif
+      ispec_(iatom) = ispec
+      n_quantum_(iatom) = real(n)
+      do jorb = 1, PGEOM%n_orbital(iatom)
+        orb = adjustl(trim(PGEOM%c_orbital(jorb,iatom)))
+        call find_lmom(ispec, orb, l, orb_n)
+        l_quantum_(jorb,iatom)     = l
+        orb_n_quantum_(jorb,iatom) = orb_n
+        z_eff_nuc_(jorb,iatom) = z_eff(ispec, orb_n, l)
+        if( z_eff_nuc_(jorb,iatom) .lt. 0.d0) then
+          write(6,'(A,2A)')   '   ! WARN ! Be sure that the effective nuclear charge information for atom "',trim(spec),'" has not been stored'
+          write(6,'(A)')      '            in "z_eff" function in element_info.f90 module. Please update the database based on'
+          write(6,'(A)')      '            the information tabulated in following link: http://www.knowledgedoor.com'
+          write(6,'(A)')      '            For example, if you want to incode "Helium" information, you can use following link:'
+          write(6,'(A)')      '            http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_2.html#helium '
+          write(6,'(A)')      '            Ref.1: Clementi, E., and D. L. Raimondi. "Atomic Screening Constants from SCF Functions.'
+          write(6,'(A)')      '                   Journal of Chemical Physics, volume 38, number 11, 1963, pp. 2686–2689. doi:10.1063/1.1733573'
+          write(6,'(A)')      '            Ref.2: Clementi, E., D. L. Raimondi, and W. P. Reinhardt. "Atomic Screening Constants from SCF Functions. II. Atoms with 37 to 86 Electrons.'
+          write(6,'(A)')      '                   Journal of Chemical Physics, volume 47, number 4, 1967, pp. 1300–1307. doi:10.1063/1.1712084'
+          write(6,'(A)')      ' '
+          write(6,'(A)')      '            Exit program...'
+          stop
+        endif
+      enddo
+    enddo lp1
 
 #ifdef MPI
   call MPI_ALLREDUCE(ispec_,         PGEOM%ispec,         size(PGEOM%ispec),         MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
@@ -831,8 +854,9 @@ subroutine find_spec(spec,ispec,n)
   character*8   spec
   character*2   ele
   integer*4     n, ispec
-  integer*4     i, le, ls
-
+  integer*4     i, le, ls, mpierr
+  
+   ispec = -1
   l1:do i = 1, 112
        ele = adjustl(trim(element(i)))
        le = len_trim(ele)
@@ -843,11 +867,11 @@ subroutine find_spec(spec,ispec,n)
          exit l1   
        endif
      enddo l1
-
+  
   return
 endsubroutine
 
-subroutine set_equiv_atom(PPRAM, PGEOM)
+subroutine set_equiv_spec(PPRAM, PGEOM)
   use parameters, only: params, poscar
   implicit none
   type (params)            :: PPRAM
@@ -860,7 +884,7 @@ lp1:do i = 1, PPRAM%nparam_const
       if ( trim(PPRAM%c_const(2,i)) .eq. '=' ) then
         dummy1 = trim(PPRAM%c_const(3,i))
         dummy2 = trim(PPRAM%c_const(1,i))
-        if(dummy1(1:4) .eq. 'spec' .and. dummy2(1:4) .eq. 'spec') then
+        if(dummy1(1:4) .eq. 'atom' .and. dummy2(1:4) .eq. 'atom') then
           call strip_off(dummy1, c_spec_i, '_',' ',2)
           call strip_off(dummy2, c_spec_j, '_',' ',2)
           spec_i = 0
@@ -891,12 +915,39 @@ lp1:do i = 1, PPRAM%nparam_const
           else
             cycle lp1
           endif ! if spec_i
-
         else
           cycle lp1
         endif ! if atom
 
       endif ! if '='
+    enddo lp1
+
+  return
+endsubroutine
+
+subroutine find_spec_const(PPRAM, PGEOM, spec, target_spec)
+  use parameters, only: params, poscar
+  implicit none
+  type (params)            :: PPRAM
+  type (poscar)            :: PGEOM
+  integer*4                   i, ia, ja, ispec, jspec, spec_i, spec_j
+  character*40                dummy1, dummy2
+  character*8                 c_spec_i, c_spec_j
+  character*8                 spec, target_spec
+
+lp1:do i = 1, PPRAM%nparam_const
+        if ( trim(PPRAM%c_const(2,i)) .eq. '=' ) then
+          dummy1 = trim(PPRAM%c_const(3,i))
+          dummy2 = trim(PPRAM%c_const(1,i))
+          if(dummy1(1:4) .eq. 'spec' .and. dummy2(1:4) .eq. 'atom') then
+            call strip_off(dummy1, c_spec_i, '_',' ',2)
+            call strip_off(dummy2, c_spec_j, '_',' ',2)
+            if(trim(c_spec_j) .eq. trim(spec)) then
+              target_spec = c_spec_i
+              exit lp1
+            endif
+          endif
+       endif
     enddo lp1
 
   return

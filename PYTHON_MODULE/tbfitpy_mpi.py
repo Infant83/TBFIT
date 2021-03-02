@@ -8,7 +8,9 @@ import warnings
 from tqdm import tqdm 
 import time
 import sys
-from tbfitpy_mod import pyfit
+from mpi4py import MPI
+from tbfitpy_mod_mpi import pyfit
+#from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
 # IMPORT NOTE:

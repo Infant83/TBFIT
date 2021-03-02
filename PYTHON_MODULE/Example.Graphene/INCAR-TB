@@ -1,0 +1,41 @@
+#NOTE: with python module, this information also can be changed 
+########################################################
+  TBFIT  T       #
+#LSTYPE  PSO+LMDIF # Levenberg-Marquardt method using finite-difference for Jacobian
+ LSTYPE  LMDIF
+  MITER  100    # maximum number of iteration for the fitting procedures
+   PTOL  1E-7       # convergence criteria for SK parameters to be fitted
+   FTOL  1E-7       # convergence criteria for band structure for each fitting iterations
+ PSO_NP  50         # number of particles (parameters) used in PSO
+PSO_OPT  0.3 0.4 0.2 # c1, c2, w defines cognitive, social, and inertia factor in PSO velocity update
+   NPAR  3          # divide CPU into two groups in PSO routine
+#######################################################
+
+
+  EFILE  DFT_BAND.dat                # target band structure to be fitted to (EDFT). Must be provided if TBFIT=.TRUE. 
+  GFILE  POSCAR-TB  # name of GEOMETRY & TB-parameter files. default: POSCAR-TB
+  KFILE  KPOINTS_BAND  # default: KPOINTS_BAND
+  PFILE  PARAM_FIT.dat  # initial sk-parameter will be read from this file
+ POFILE  PARAM_FIT.new.dat  # fitted sk-parameter will be written here
+PRTDIFF  .TRUE.
+ LORBIT  .FALSE.
+
+ LOCCHG  .TRUE.     # set local charge neutrality. if collinear or NM: m_tot
+ TYPMAG  noncoll    # set type of magnetic moment: nonmagnetic, collinear, noncollinear
+  LSORB  .TRUE.     # set spin orbit interaction with 1st-order perturbation theory
+
+# set weight and constraint for fitting : valid only if TBFIT .TRUE. 
+    SET  WEIGHT  # possible index: ALL, NKP=nkpoint, NEIG, IBAND, FBAND
+         KRANGE   :         TBABND 1:16     DFTBND 1:16             WEIGHT 10
+         KRANGE   :         TBABND  1:10    DFTBND 1:10             WEIGHT 50
+         KRANGE   :         TBABND  7:10    DFTBND 7:10             WEIGHT 90
+    END  WEIGHT  # PRINT_ONLY  # following PRINT_ONLY tag make program to write target data and stops
+
+    SET  CONSTRAINT TBPARAM
+         e_px_C = e_pz_C    # e_px_C is same as e_pz_C # currently it applies only to the onsite parameters
+         e_py_C = e_pz_C    # e_py_C is same as e_pz_C
+    END  CONSTRAINT TBPARAM
+
+    SET  NN_CLASS  # if R0 is not provided (sigle value is provided), R0=NN-dist and Max R0 will be R0*1.1
+         C-C   : 1.5    R0 1.4145  # cutoff dist for 1st nearest neighbor between C-C bond (Rcut=1.5, R0= 1.4145)
+    END  NN_CLASS

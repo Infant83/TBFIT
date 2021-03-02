@@ -1,0 +1,24 @@
+# How to run?
+
+#serial version
+	$ python pytbfit
+
+#MPI version: depending on your system
+	$ mpirun -np 32 pytbfit
+
+	or
+	$ srun --mpi=pmi2 -ntasks=32 pytbfit
+
+	or
+	$ srun pytbfit
+
+
+# NOTE:
+	After successful compilation of python module (make tbfitpy_mod),
+	in your $TBBIN path, 
+	tbfitpy_mod_mpi.py (MPI=YES) or tbfitpy_mod.py (MPI=NO) will be generated.
+
+	Then, copy tbfitpy_mpi.py (MPI=YES) or tbfitpy.py file to $TBBIN.
+
+	Make sure that the $TBBIN is in your $PYTHONPATH.
+	export PYTHONPATH=$PYTHONPATH:$TBBIN

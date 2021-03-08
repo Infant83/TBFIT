@@ -12,7 +12,8 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
    integer*4        mpierr
    integer*4        i
    logical          flag_efile_exist, flag_efileu_exist, flag_efiled_exist
- 
+   character*80     fname
+
    if(PINPT%flag_tbfit_finish) return   
    if(.not. PINPT%flag_tbfit) return
 
@@ -74,10 +75,11 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
          enddo
        endif
        if(PINPT%flag_print_only_target ) then
+         fname = 'band_structure_DFT'//trim(PINPT%title(EDFT%mysystem))//'.dat'
          if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
-                                   'band_structure_DFT.dat',PINPT%flag_get_band_order)
-         write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'         ; write_msg
-         write(message,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..'  ; write_msg
+                                           fname,PINPT%flag_get_band_order)
+         write(message,'(A    )')'  !WARN! PRINT_ONLY_TARGET requested..'         ; write_msg
+         write(message,'(A,A,A)')'  !WARN! check ', trim(fname), ' Exit..'  ; write_msg
          kill_job
        endif
  
@@ -124,11 +126,12 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        !PWGHT%WT = PWGHT%WT / sum(PWGHT%WT)
  
        if(PINPT%flag_print_only_target ) then
+         fname = 'band_structure_DFT'//trim(PINPT%title(EDFT%mysystem))//'.dat'
          if_main call print_energy_weight( PKPTS%kpoint, PKPTS%nkpoint, EDFT, PWGHT, PGEOM%neig, PINPT, &
-                                          'band_structure_DFT.dat',PINPT%flag_get_band_order)
+                                           fname,PINPT%flag_get_band_order)
  
-         write(message,'(A,A,A)')'  !WARN! PRINT_ONLY_TARGET requested..'        ; write_msg
-         write(message,'(A,A,A)')'  !WARN! check band_structure_DFT.dat  Exit..' ; write_msg
+         write(message,'(A    )')'  !WARN! PRINT_ONLY_TARGET requested..'        ; write_msg
+         write(message,'(A,A,A)')'  !WARN! check ', trim(fname), ' Exit..' ; write_msg
          kill_job
        endif
  

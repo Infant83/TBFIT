@@ -119,8 +119,11 @@ module set_default
         if(allocated(PPRAM%param_const_nrl)) deallocate(PPRAM%param_const_nrl)
         if(allocated(PPRAM%param_nsub))      deallocate(PPRAM%param_nsub)
 
-        if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_historY)
+        if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_history)
+        if(allocated(PPRAM%pso_cost_history_i)) deallocate(PPRAM%pso_cost_history_i)
+        if(allocated(PPRAM%pso_pbest_history)) deallocate(PPRAM%pso_pbest_history)
         if(allocated(PPRAM%cost_history))     deallocate(PPRAM%cost_historY)
+
         return
     endsubroutine
 

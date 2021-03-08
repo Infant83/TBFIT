@@ -20,7 +20,8 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     real(kind=dp), allocatable                  :: fvec(:), fvec_plain(:)
     real(kind=dp), allocatable                  :: vel(:,:), pos(:,:)
     real(kind=dp), allocatable                  :: pbest(:,:), gbest(:)
-    real(kind=dp), allocatable                  :: cpbest(:)
+    real(kind=dp), allocatable                  :: pbest_history(:,:,:)
+    real(kind=dp), allocatable                  :: cpbest(:), cpbest_plain(:)
     real(kind=dp)                               :: cgbest, cgbest_plain, cost
     real(kind=dp), allocatable                  :: costs(:), costs_plain(:)
     real(kind=dp), allocatable                  :: costs_(:), costs_plain_(:)
@@ -82,8 +83,11 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
 
     if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_history)
+    if(allocated(PPRAM%pso_cost_history_i)) deallocate(PPRAM%pso_cost_history_i)
     allocate(PPRAM%pso_cost_history(pso_miter))
+    allocate(PPRAM%pso_cost_history_i(pso_miter,n_particles))
     PPRAM%pso_cost_history = 0d0
+    PPRAM%pso_cost_history_i = 0d0
 
     do i = 1, PINPT%nsystem
       call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i))
@@ -95,8 +99,11 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     allocate(vel(  n_particles, nparam_free))
     allocate(pos(  n_particles, nparam_free))
     allocate(pbest(n_particles, nparam_free))
+    if(allocated(PPRAM%pso_pbest_history)) deallocate(PPRAM%pso_pbest_history)
+    allocate(PPRAM%pso_pbest_history(pso_miter, n_particles, nparam_free))
     allocate(gbest(              nparam_free))
     allocate(cpbest(n_particles             ))
+    allocate(cpbest_plain(n_particles             ))
     allocate(costs(n_particles              ))
     allocate(costs_plain(n_particles        ))
     allocate(costs_(n_particles              ))
@@ -104,8 +111,10 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     costs = 0.d0 ; costs_plain = 0.d0 ; costs_ = 0.d0 ; costs_plain_ = 0.d0
     vel   = 0.d0 ; pos   = 0.d0 
     pbest = 0.d0 ; gbest = 0.d0
-    cpbest = 0.d0 ;cgbest = 0.d0 ; cgbest_plain = 0.d0
-                                
+    cpbest = 0.d0 ; cpbest_plain = 0.d0
+    cgbest = 0.d0 ; cgbest_plain = 0.d0
+    PPRAM%pso_pbest_history = 0d0
+                            
     ldjac      = 0
     do i = 1, PINPT%nsystem
         ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
@@ -141,13 +150,12 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
            endif
            pos(iptcl, iparam) = PPRAM%param( PPRAM%iparam_free(iparam) )*r2 + r1
            vel(iptcl, iparam) = r1
-           if( pos(iptcl, iparam) .ge. PPRAM%param_const(2,iparam) .or. &
-               pos(iptcl, iparam) .le. PPRAM%param_const(3,iparam) ) then
+           if( pos(iptcl, iparam) .ge. PPRAM%param_const(2, PPRAM%iparam_free(iparam) ) .or. &
+               pos(iptcl, iparam) .le. PPRAM%param_const(3, PPRAM%iparam_free(iparam) )) then
                flag_go = .FALSE.
            else
                flag_go = .TRUE. 
            endif
-
          enddo
       enddo
     enddo   
@@ -166,8 +174,13 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                  ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, .FALSE.)
         costs(iptcl) = fnorm
         costs_plain(iptcl) = fnorm_plain
+       !pos(iptcl, :) = PPRAM%param(PPRAM%iparam_free(:))
       endif
-
+      if(COMM_KOREA%flag_split) then
+        if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
+      else
+        if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
+      endif
     enddo
 
 #ifdef MPI
@@ -178,12 +191,21 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                       MPI_REAL8, 0, 111, mpi_comm_earth, mpierr)
         call MPI_SEND(costs_plain(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1))), ourjob(groupid+1), &
                       MPI_REAL8, 0, 222, mpi_comm_earth, mpierr)
+        if(flag_with_lmdif) then
+          call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
+                        MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
+        endif
+       
       elseif( myid .eq. 0 ) then
         do i = 1, npar - 1
             call MPI_RECV(costs(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                           MPI_REAL8, COMM_KOREA%group_main(i+1), 111, mpi_comm_earth, mpistat, mpierr)
             call MPI_RECV(costs_plain(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                           MPI_REAL8, COMM_KOREA%group_main(i+1), 222, mpi_comm_earth, mpistat, mpierr)
+            if(flag_with_lmdif) then
+                call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+                MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
+            endif
         enddo
       endif
     endif
@@ -191,7 +213,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
 #endif
     ! report initial cost
     do iptcl = 1, n_particles
-      write(message,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg
+      write(message,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg_file
     enddo
 
     if(myid .eq. 0) then
@@ -204,12 +226,9 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
       gbest = pos(min_loc(1),:)
       cgbest= costs(min_loc(1))
       cgbest_plain = costs_plain(min_loc(1))
+      cpbest = costs
+      cpbest_plain = costs_plain
       pbest = pos
-      if(.not. PPRAM%flag_fit_plain) then
-        cpbest= costs
-      elseif(PPRAM%flag_fit_plain) then
-        cpbest= costs_plain
-      endif
     endif
 
 #ifdef MPI
@@ -262,6 +281,12 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                    ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, .FALSE.)
           costs(iptcl) = fnorm
           costs_plain(iptcl) = fnorm_plain
+          pos(iptcl, :) = PPRAM%param(PPRAM%iparam_free(:))
+        endif
+        if(COMM_KOREA%flag_split) then
+          if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
+        else
+          if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
         endif
       enddo ptcl
 
@@ -274,12 +299,16 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                         MPI_REAL8, 0, 333, mpi_comm_earth, mpierr)
           call MPI_SEND(costs_plain(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1))), ourjob(groupid+1), &
                         MPI_REAL8, 0, 444, mpi_comm_earth, mpierr)
+          call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)),:), ourjob(groupid+1)*PPRAM%nparam_free, &
+                        MPI_REAL8, 0, 330, mpi_comm_earth, mpierr)
         elseif( myid .eq. 0 ) then
           do i = 1, npar - 1
               call MPI_RECV(costs(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 333, mpi_comm_earth, mpistat, mpierr)
               call MPI_RECV(costs_plain(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 444, mpi_comm_earth, mpistat, mpierr)
+              call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+                            MPI_REAL8, COMM_KOREA%group_main(i+1), 330, mpi_comm_earth, mpistat, mpierr)
           enddo
         endif
       endif
@@ -287,7 +316,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
 #endif
       ! report initial cost
       do iptcl = 1, n_particles
-        write(message,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg
+        write(message,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg_file
       enddo
 
       ! update gbest, pbest
@@ -303,6 +332,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
           do iptcl = 1, n_particles
             if( costs(iptcl) .lt. cpbest(iptcl) ) then
               cpbest(iptcl)   = costs(iptcl)
+              cpbest_plain(iptcl)   = costs_plain(iptcl)
                pbest(iptcl,:) = pos(iptcl,:)
             endif
           enddo
@@ -312,11 +342,13 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
             cgbest = costs(min_loc(1))
             cgbest_plain = costs_plain(min_loc(1))
             gbest  = pos(min_loc(1),:)
+            min_id = min_loc(1)
           endif
           do iptcl = 1, n_particles
-            if( costs_plain(iptcl) .lt. cpbest(iptcl) ) then
-              cpbest(iptcl)   = costs_plain(iptcl)
-               pbest(iptcl,:) = pos(iptcl,:)
+            if( costs_plain(iptcl) .lt. cpbest_plain(iptcl) ) then
+              cpbest(iptcl)         = costs(iptcl)
+              cpbest_plain(iptcl)   = costs_plain(iptcl)
+              pbest(iptcl,:) = pos(iptcl,:)
             endif
           enddo
         endif
@@ -332,9 +364,12 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
 
       if(.not. PPRAM%flag_fit_plain) then
         PPRAM%pso_cost_history(iter) = cgbest
+        PPRAM%pso_cost_history_i(iter,:) = cpbest
       elseif(PPRAM%flag_fit_plain) then
         PPRAM%pso_cost_history(iter) = cgbest_plain
+        PPRAM%pso_cost_history_i(iter,:) = cpbest_plain
       endif
+      PPRAM%pso_pbest_history(iter,:,:) = pbest
       PPRAM%niter                  = iter
 
       write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &

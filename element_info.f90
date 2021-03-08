@@ -405,7 +405,7 @@ contains
         if(orb .eq. '3d') Zeff = 18.4770d0
         if(orb .eq. '4p') Zeff =  8.2872d0
       
-      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_4.html#sulfur
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_3.html#niobium
       case(41) !'Nb'
         if(orb .eq. '1s') Zeff = 40.1423d0
         if(orb .eq. '2s') Zeff = 30.1252d0
@@ -430,6 +430,23 @@ contains
         if(orb .eq. '4p') Zeff = 14.9770d0
         if(orb .eq. '5s') Zeff =  6.1060d0
         if(orb .eq. '4d') Zeff = 11.3920d0
+
+      !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge_part_4.html#tungsten  
+      case(74) !'W '
+        if(orb .eq. '1s') Zeff = 72.5657d0
+        if(orb .eq. '2s') Zeff = 54.6698d0
+        if(orb .eq. '2p') Zeff = 69.5742d0
+        if(orb .eq. '3s') Zeff = 51.8700d0
+        if(orb .eq. '3p') Zeff = 52.6176d0
+        if(orb .eq. '4s') Zeff = 40.5588d0
+        if(orb .eq. '3d') Zeff = 60.4524d0
+        if(orb .eq. '4p') Zeff = 39.5480d0
+        if(orb .eq. '5s') Zeff = 23.5420d0
+        if(orb .eq. '4d') Zeff = 37.1730d0
+        if(orb .eq. '5p') Zeff = 21.3260d0
+        if(orb .eq. '6s') Zeff =  9.8544d0
+        if(orb .eq. '4f') Zeff = 34.7110d0
+        if(orb .eq. '5d') Zeff = 16.7420d0
 
       !http://www.knowledgedoor.com/2/elements_handbook/clementi-raimondi_effective_nuclear_charge.html#bismuth
       case(83) !'Bi'

@@ -18,7 +18,19 @@
 	in your $TBBIN path, 
 	tbfitpy_mod_mpi.py (MPI=YES) or tbfitpy_mod.py (MPI=NO) will be generated.
 
-	Then, copy tbfitpy_mpi.py (MPI=YES) or tbfitpy.py file to $TBBIN.
+	Then, copy tbfitpy_serial.py (if MPI=NO) or tbfitpy.py (if MPI=YES) file to $TBBIN.
 
 	Make sure that the $TBBIN is in your $PYTHONPATH.
 	export PYTHONPATH=$PYTHONPATH:$TBBIN
+
+	Then from python you can load python module as follows:
+
+		# for MPI version
+		import tbfitpy as tbfit
+
+	or 
+
+		# for serial version
+		import tbfitpy_serial as tbfit
+
+

@@ -65,8 +65,8 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
       ! POST PROCESSING
       if(PINPT%flag_get_berry_curvature) call get_berry_curvature(NN_TABLE(i), PINPT, PINPT_BERRY(i), PGEOM(i), PKPTS(i), ETBA(i))
       if(PINPT%flag_get_circ_dichroism)  call get_circular_dichroism(NN_TABLE(i), PINPT, PGEOM(i), PKPTS(i), ETBA(i))
-      if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM(i),PKPTS(i), ETBA(i))
-      if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM(i),PKPTS(i), ETBA(i))
+      if(PINPT%flag_plot_stm_image)      call plot_stm_image(PINPT,PGEOM(i),PKPTS(i), ETBA(i), PPRAM(i)%flag_use_overlap)
+      if(PINPT%flag_plot_eigen_state)    call plot_eigen_state(PINPT,PGEOM(i),PKPTS(i), ETBA(i), PPRAM(i)%flag_use_overlap)
       if(PINPT%flag_get_effective_ham)   call get_eig_downfold(PINPT,PPRAM(i),PKPTS(i),PGEOM(i),NN_TABLE(i)) ! NOTE: THIS IS EXPERIMENTAL, BUT WORKS ANYWAY.
     endif
 

@@ -11,6 +11,7 @@
         implicit none
         integer(kind=sp)    mpierr
 
+#ifdef MPI
         if(COMM_KOREA%flag_split) then
             call MPI_BARRIER(COMM_KOREA%mpi_comm, mpierr)
             call mpi_finish()
@@ -18,7 +19,12 @@
             call MPI_BARRIER(mpi_comm_earth, mpierr)
             call mpi_finish()
         endif
-        
+#else
+
+        stop
+
+#endif        
+
     endsubroutine
 
 !endmodule

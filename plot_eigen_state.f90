@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
+subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA, flag_use_overlap)
    use parameters, only : incar, poscar, kpoints, energy
    use orbital_wavefunction, only : psi_rho
    use mpi_setup
@@ -30,8 +30,10 @@ subroutine plot_eigen_state(PINPT, PGEOM, PKPTS, ETBA)
    complex*16   psi_r_up_(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
    complex*16   psi_r_dn_(PGEOM%ngrid(1)*PGEOM%ngrid(2)*PGEOM%ngrid(3))
    complex*16   V(PGEOM%neig*PINPT%ispin,PINPT%nspin)
+   complex*16   SV(PGEOM%neig*PINPT%ispin,PINPT%nspin)
    real*8       time1, time2
    logical      flag_exist_up, flag_exist_dn
+   logical      flag_use_overlap
    real*8        t0, t1
    character*4   timer
    real*8        zeff(PGEOM%neig)
@@ -56,16 +58,31 @@ en:do ie = 1, PINPT%n_eig_print
 
 #ifdef MPI
        if(PINPT%nspin .eq. 1) then
-         if_main V(:,1)=ETBA%V(:,iee,ikk)
+         if_main  V(:,1)=ETBA%V( :,iee,ikk)
+         if(flag_use_overlap) then
+           if_main SV(:,1)=ETBA%SV(:,iee,ikk)
+         endif
        elseif(PINPT%nspin .eq. 2) then
-         if_main V(:,:)=ETBA%V(:,(/iee,iee+PGEOM%nband/),ikk)
+         if_main  V(:,:)=ETBA%V( :,(/iee,iee+PGEOM%nband/),ikk)
+         if(flag_use_overlap) then
+           if_main SV(:,:)=ETBA%SV(:,(/iee,iee+PGEOM%nband/),ikk)
+         endif
        endif
        call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+       if(flag_use_overlap) then
+         call MPI_BCAST(SV, size(SV), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+       endif
 #else
        if(PINPT%nspin .eq. 1) then
          V(:,1)=ETBA%V(:,iee,ikk)
+         if(flag_use_overlap) then
+           SV(:,1)=ETBA%SV(:,iee,ikk)
+         endif
        elseif(PINPT%nspin .eq. 2) then
          V(:,:)=ETBA%V(:,(/iee,iee+PGEOM%nband/),ikk)
+         if(flag_use_overlap) then
+           SV(:,:)=ETBA%SV(:,(/iee,iee+PGEOM%nband/),ikk)
+         endif
        endif
 #endif
 
@@ -100,8 +117,8 @@ cell_x:do ix = -1,1
            igrid = i1+1+i2*ng1+i3*ng1*ng2
            call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, PGEOM%ngrid, a1, a2, a3, i1,i2,i3)
            call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, PINPT%flag_plot_wavefunction, zeff, nqnum, lqnum, orb)
-           call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
-                          flag_exist_up, flag_exist_dn)
+           call get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,neig,phi_r,V,SV,PINPT%ispin,PINPT%nspin,PINPT%flag_plot_wavefunction, &
+                          flag_exist_up, flag_exist_dn, flag_use_overlap)
          enddo grid_x
          enddo grid_y
          enddo grid_z
@@ -160,8 +177,8 @@ subroutine initialize_psi_r(psi_r_up,psi_r_dn, ngrid, ispin, flag_exist_up, flag
 
    return
 endsubroutine
-subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,ispin,nspin,flag_plot_wavefunction, &
-                     flag_exist_up, flag_exist_dn)
+subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,SV,ispin,nspin,flag_plot_wavefunction, &
+                     flag_exist_up, flag_exist_dn,flag_use_overlap)
    use parameters, only : incar, energy
    use orbital_wavefunction, only: psi_rho
    type(incar) :: PINPT
@@ -172,19 +189,21 @@ subroutine get_psi_r(psi_r_up,psi_r_dn,igrid,ngrid,nbasis,phi_r,V,ispin,nspin,fl
    complex*16   psi_r_up(ngrid)
    complex*16   psi_r_dn(ngrid)
    complex*16   V(nbasis*ispin,nspin)
+   complex*16   SV(nbasis*ispin,nspin)
    logical      flag_plot_wavefunction
    logical      flag_exist_up, flag_exist_dn
+   logical      flag_use_overlap
 
    if(flag_exist_up) then
-     psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1), flag_plot_wavefunction, 'up') 
+     psi_r_up(igrid) = psi_r_up(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1),SV(:,1), flag_plot_wavefunction, 'up',flag_use_overlap) 
    endif
 
    if(flag_exist_dn) then
      if(ispin .eq. 2) then ! we calculate dn(or beta)-spin part if coll. or noncol. case
-       if(nspin .eq. 1) then
-         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1), flag_plot_wavefunction, 'dn') 
-       elseif(nspin .eq. 2) then
-         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,2), flag_plot_wavefunction, 'dn') 
+       if(nspin .eq. 1) then  ! noncollinear
+         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,1),SV(:,1), flag_plot_wavefunction, 'dn', flag_use_overlap) 
+       elseif(nspin .eq. 2) then ! collinear
+         psi_r_dn(igrid) = psi_r_dn(igrid) + psi_rho(phi_r, nbasis, ispin, V(:,2),SV(:,2), flag_plot_wavefunction, 'dn', flag_use_overlap) 
        endif
      endif
    endif

@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
+subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA, flag_use_overlap)
    use parameters, only : incar, poscar, kpoints, energy
    use orbital_wavefunction, only : psi_rho
    use mpi_setup
@@ -31,6 +31,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    complex*16    psi_r_up(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3) )
    complex*16    psi_r_dn(PGEOM%stm_ngrid(1)*PGEOM%stm_ngrid(2)*PGEOM%stm_ngrid(3) )
    complex*16    V(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin)
+   complex*16    SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin)
    character*8   corb(PGEOM%neig)
    integer*4     stm_erange(PGEOM%nband,PINPT%nspin), stm_neig(PINPT%nspin)
    character*2   spin_index_c(2)
@@ -40,6 +41,7 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
    real*8        nqnum(PGEOM%neig)
    integer*4     lqnum(PGEOM%neig)
    character*2   orb(PGEOM%neig)
+   logical       flag_use_overlap
 
    timer = 'init'
    spin_index_c(1) = 'up' 
@@ -80,13 +82,22 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
 #ifdef MPI
              if_main V=ETBA%V(:,:,ikk)
              call MPI_BCAST(V, size(V), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+             if(flag_use_overlap) then
+               if_main SV=ETBA%SV(:,:,ikk)
+               call MPI_BCAST(SV, size(SV), MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+             endif
 #else
              V=ETBA%V(:,:,ikk)
+             if(flag_use_overlap) then
+               SV=ETBA%SV(:,:,ikk)
+             endif
 #endif
 
 #ifdef MPI
            ! THIS MPI ROUTINE ONLY WORKS FOR NON-SPIN_POLARIZED SYTEMS IN CURRENT VERSION: 2018 July 2 KHJ.
            ! It is due to the V(:,iee) is only for "up" part. For "dn" part, V(:,iee + nband)
+           ! Note: I think above statement is obsolote as of 2020.
+           !       However, one should carefully check it again. 2021. March 08 KHJ.
            call MPI_Barrier(mpi_comm_earth,mpierr)
 #endif
      band: do ie = 1, stm_neig(is)
@@ -102,10 +113,12 @@ subroutine plot_stm_image(PINPT, PGEOM, PKPTS, ETBA)
                 igrid = i1+1+i2*ng1+i3*ng1*ng2
                 call get_rxyz(rx,ry,rz, grid_a1, grid_a2, grid_a3, origin_reset, neig, ngrid, a1, a2, a3, i1,i2,i3)
                 call get_orbital_wavefunction_phi_r(phi_r, rx,ry,rz, corb, neig, PINPT%rcut_orb_plot, .false., zeff, nqnum, lqnum, orb)
-                if(PINPT%nspin .eq. 1) then
-                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),is,PINPT%ispinor,PINPT%nspin)
-                elseif(PINPT%nspin .eq. 2) then
-                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,(/iee,iee+PGEOM%nband/)),is,PINPT%ispinor,PINPT%nspin)
+                if(PINPT%nspin .eq. 1) then ! non-mag or noncollinear
+                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,iee),SV(:,iee), &
+                                     is,PINPT%ispinor,PINPT%nspin, flag_use_overlap)
+                elseif(PINPT%nspin .eq. 2) then ! collinear
+                  call get_psi_r_stm(psi_r_up(igrid),psi_r_dn(igrid),neig,PINPT%ispin,phi_r,V(:,(/iee,iee+PGEOM%nband/)),SV(:,(/iee,iee+PGEOM%nband/)), &
+                                     is,PINPT%ispinor,PINPT%nspin, flag_use_overlap)
                 endif
               enddo grid_x
               enddo grid_y
@@ -192,7 +205,7 @@ subroutine write_rho_main_stm(pid_chg_up, pid_chg_dn, ngrid, nline, nwrite, nres
    return
 endsubroutine
 
-subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,is,ispinor,nspin)
+subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,SV,is,ispinor,nspin, flag_use_overlap)
    use parameters, only : energy
    use orbital_wavefunction, only: psi_rho
    implicit none
@@ -202,14 +215,16 @@ subroutine get_psi_r_stm(psi_r_up,psi_r_dn,nbasis,ispin,phi_r,V,is,ispinor,nspin
    complex*16   psi_r_up, psi_r_dn
    complex*16   phi_r(nbasis)
    complex*16   V(nbasis*ispin,nspin)
+   complex*16   SV(nbasis*ispin,nspin)
+   logical      flag_use_overlap
 
    if    (is .eq. 1 .and. ispinor .eq. 1) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'up')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1),SV(:,1), .false., 'up', flag_use_overlap)
    elseif(is .eq. 1 .and. ispinor .eq. 2) then
-     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'up')
-     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,1), .false., 'dn')
+     psi_r_up = psi_r_up + psi_rho(phi_r, nbasis, ispin, V(:,1),SV(:,1), .false., 'up', flag_use_overlap)
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,1),SV(:,1), .false., 'dn', flag_use_overlap)
    elseif(is .eq. 2 .and. ispinor .eq. 1) then
-     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,2), .false., 'dn')
+     psi_r_dn = psi_r_dn + psi_rho(phi_r, nbasis, ispin, V(:,2),SV(:,2), .false., 'dn', flag_use_overlap)
    endif
 
    return

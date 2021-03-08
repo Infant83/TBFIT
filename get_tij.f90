@@ -534,7 +534,7 @@ function f_s(dda_s,d0,d, mode)
 !    f_s=exp( -(d/d0)^(SFACTOR(1)) )
 !  3 = see PRB 51.16772 (1995): for s-p or p-p interaction of Silicon or Germanium crystal
 !    f_s=(d0/d)^(SFACTOR(1))
-!  4 = see PRB 93.241407 (2016)
+!  4 = see PRB 93.241407 (2016) : In-Si case
 !    f_s=exp( (d0-d) * SFACTOR(1) )
 !  6 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
 !      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c

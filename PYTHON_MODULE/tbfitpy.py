@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from lmfit import minimize, Parameters
 import pyswarms as ps
 from pyswarms.utils.plotters import plot_cost_history
@@ -8,7 +9,9 @@ import warnings
 from tqdm import tqdm 
 import time
 import sys
-from tbfitpy_mod import pyfit
+from mpi4py import MPI
+from tbfitpy_mod_mpi import pyfit
+#from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
 # IMPORT NOTE:
@@ -196,26 +199,29 @@ class pytbfit:
 
         if method == 'lmdif' :
             self.cost_history = np.full( (self.pinpt.miter), 0.0)
+            self.pinpt.flag_tbfit = True
             pyfit.fit(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                   self.pgeom, self.hopping, self.edft, self.etba)
 
             self.cost_history = self.ppram.cost_history
 
         elif method == 'mypso' or method == 'mypso.lmdif':
-            # iseed : random seed
+            self.pinpt.flag_tbfit = True
             if iseed is None: iseed = 123
-            ilmdif = 1 if method == 'mypso.lmdif' else 0
-
-            self.cost_history = np.full( (self.pinpt.miter), 0.0)
+            self.pinpt.flag_pso_with_lmdif = True if method == 'mypso.lmdif' else False
+            pso_miter = self.pinpt.miter
             self.ppram.pso_c1 = pso_options['c1']
             self.ppram.pso_c2 = pso_options['c2']
             self.ppram.pso_w  = pso_options['w' ]
             self.ppram.pso_nparticles = self.n_particles
+            self.cost_history   = np.full( (self.pinpt.miter), 0.0)
+            self.cost_history_particle = np.full( (self.pinpt.miter, self.n_particles), 0.0)
             
             pyfit.pso(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
-                                  self.pgeom, self.hopping, self.edft, self.etba, iseed, ilmdif)
+                                  self.pgeom, self.hopping, self.edft, self.etba, iseed, pso_miter)
 
-            self.cost_history = self.ppram.pso_cost_history
+            self.cost_history   = self.ppram.pso_cost_history
+            self.cost_history_particle = self.ppram.pso_cost_history_i
 
         elif method == 'pso' or method == 'pso.leastsq':
            # initialize
@@ -371,7 +377,12 @@ class pytbfit:
             print('Time elapsed for ',method,' method :', time.time() - t0, ' sec')
             sys.stdout.flush()
 
-    def get_eig(self):
+    def get_eig(self, verbose=None):
+        if verbose is True:
+            self.pinpt.iverbose = 1
+        else :
+            self.pinpt.iverbose = 2
+
         pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts, 
                               self.pgeom, self.hopping, self.etba)
 
@@ -439,6 +450,113 @@ class pytbfit:
         #plt.savefig(fout,bbox_inches='tight',transparent=False,pad_inches=0)
         plt.savefig(fout,bbox_inches='tight',pad_inches=0)
 
+        plt.clf()
+
+    def plot_pso_cost_history(self, figsize=(5,6), yin=-20,yen=20, ystep=5.,
+                                    title=' ', ylabel='Best cost function', xlabel='PSO iteration', fout='COST_HISTORY.pdf', bestn=5):
+        yin  = np.min(self.cost_history_particle)
+        yen  = np.max(self.cost_history_particle)
+        delta = yen  - yin 
+        yin  = yin - delta*0.05
+        yen  = yen + delta*0.05
+        plt.figure(figsize=figsize)
+        plt.ylim(yin, yen)
+        plt.ylabel(ylabel)
+        plt.xlabel(xlabel)
+        plt.title(title.strip())
+        best_particle_index = self.cost_history_particle[-1,:].argmin()
+        worst_particle_index = self.cost_history_particle[-1,:].argmax()
+        best_nparticle_index = self.cost_history_particle[-1,:].argsort()[:bestn]
+        worst_nparticle_index = self.cost_history_particle[-1,:].argsort()[::-1][:bestn]
+        cmap = mpl.cm.GnBu
+        cmap_best = mpl.cm.get_cmap('autumn_r')
+        cmap_worst= mpl.cm.get_cmap('Greys_r')
+
+        for i in range( self.n_particles ):
+            if i == worst_particle_index :
+                lw = 1
+                zorder = 555
+                color  = 'black'
+                mylabel= None
+            elif i in best_nparticle_index:
+                lw = 1
+                order, = np.where(best_nparticle_index == i) ; order = int(order)
+                zorder = 999-order
+                color = cmap_best(            order/float(bestn))
+                if order < 5 :
+                    mylabel = 'best:'+str(order)+'-th,ID:'+str(i)
+                    plt.text(-self.ppram.niter*0.05, self.cost_history_particle[0,i], str(i), fontsize=5, zorder=zorder)
+                    if order == 0:
+                        lw = 2
+                else:
+                    mylabel = None
+            else:
+                lw = 1
+                zorder = 1
+                color  = cmap(i/ float(self.n_particles))
+                mylabel= None
+
+            plt.plot( range( self.ppram.niter ), 
+                      self.cost_history_particle[:,i],'-',linewidth=.6*lw,color= color,zorder=zorder, label=mylabel)
+        plt.legend()
+        plt.savefig(fout,bbox_inches='tight',pad_inches=0)
+        plt.clf()
+
+    def plot_pso_pbest(self, figsize=(5,6), yin=-20, yen=20, ystep=5.,
+                             title=' ', ylabel='PSO Iteration', xlabel='Parameter index', 
+                              fout='PARAM_particles.pdf', bestn=5):
+        zin  = np.min(self.ppram.param)
+        zen  = np.max(self.ppram.param)
+        delta = zen  - zin
+        zin  = zin - delta*0.05
+        zen  = zen + delta*0.05
+
+        best_particle_index = self.cost_history_particle[-1,:].argmin()
+        worst_particle_index = self.cost_history_particle[-1,:].argmax()
+        best_nparticle_index = self.cost_history_particle[-1,:].argsort()[:bestn]
+        worst_nparticle_index = self.cost_history_particle[-1,:].argsort()[::-1][:bestn]
+        cmap = mpl.cm.GnBu
+        cmap_best = mpl.cm.get_cmap('autumn_r')
+        cmap_worst= mpl.cm.get_cmap('Greys_r')
+
+        plt.figure(figsize=figsize)
+        plt.ylim(zin, zen)
+        plt.ylabel('Parameter values')
+        plt.xlabel(xlabel)
+        plt.title(title.strip())
+        for i in range( self.n_particles ):
+            if i in best_nparticle_index:
+                lw = 1
+                order, = np.where(best_nparticle_index == i) ; order = int(order)
+                zorder = 999-order
+                color = cmap_best( order/float(bestn))
+                if order < 5:
+                    mylabel = 'best:'+str(order)+'-th,ID:'+str(i)
+                    plt.text((-self.ppram.nparam_free)*0.05, self.ppram.pso_pbest_history[-1,i,0], str(i), fontsize=5, zorder=zorder)
+                    if order == 0:
+                        lw = 2
+                else:
+                    mylabel = None
+            elif i in worst_nparticle_index:
+                lw = 1
+                order, = np.where(worst_nparticle_index == i) ; order = int(order)
+                zorder = 555-order
+                color = cmap_worst( order/float(bestn))
+                mylabel= None
+                if order == 0:
+                    lw = 2
+            else:
+                lw = 1
+                zorder = 1
+                color  = cmap(i/ float(self.n_particles))
+                mylabel= None
+
+            plt.plot( range( self.ppram.nparam_free ), 
+                self.ppram.pso_pbest_history[-1,i,:],'-',linewidth=.6*lw,color= color ,zorder=zorder, label=mylabel)
+        plt.legend()
+        plt.savefig(fout,bbox_inches='tight',pad_inches=0)
+        plt.clf()
+
     def print_param(self, param_out=None):
         if param_out is not None:
             pfileoutnm = param_out+' '*(132-len(param_out))
@@ -463,6 +581,22 @@ class pytbfit:
 
         self.pwght.wt = np.loadtxt(wfileinnm).T
 
+    def select_param(self, param_set, i):
+        k = round(self.ppram.param_const[0,i])
+        if k == 0 :
+            ifix = round(self.ppram.param_const[3, i])
+            if ifix == 1 :
+                params =  self.ppram.param_const[4,i]
+            else:
+                params =  param_set[i]
+        elif k >= 1 :
+            ifix = round(self.ppram.param_const[3, i])
+            if ifix == 1:
+                params = self.ppram.param_const[4,i]
+            else:
+                params = param_set[ k-1 ]
+        return params
+
     def print_fit(self, suffix='None'):
         # print target band structure
         if suffix is not None:
@@ -482,7 +616,8 @@ class pytbfit:
         pyfit.print_etba(self.pinpt, self.pkpts, self.etba, self.edft, self.pwght, self.pgeom, 
                          suffixx, use_overlap)
     
-    def save(self, title=None, plot_fit=None, target=None, band=None, param=None, weight=None, cost_history=None ):
+    def save(self, title=None, plot_fit=None, target=None, band=None, param=None, weight=None, 
+                   cost_history=None, cost_history_particle=None , pso_param_history = None):
         if self.myid != 0:
             return
 
@@ -542,3 +677,62 @@ class pytbfit:
             for ii in range(niter):
                 cost_out.write(" %d    %.9f \n" %(ii, self.cost_history[ii]))
             cost_out.close()
+
+        if cost_history_particle is True:
+            if title is not None:
+                cost_out_dat = 'COST_HISTORY_particles.'+title.strip()+'.dat'
+                cost_out_pdf = 'COST_HISTORY_particles.'+title.strip()+'.pdf'
+            else:
+                cost_out_dat = 'COST_HISTORY_particles.dat'
+                cost_out_pdf = 'COST_HISTORY_particles.pdf'
+            if self.ppram.niter == 0:
+                niter = self.pinpt.miter
+            else:
+                niter = self.ppram.niter
+            
+            bestn = int(self.n_particles * 0.2)
+            if(bestn > 5 ): bestn = 5 
+            self.plot_pso_cost_history(title=title.strip(), fout = cost_out_pdf, bestn=bestn)
+
+            cost_out = open(cost_out_dat, 'w+')
+            for jj in range(self.n_particles):
+                cost_out.write("# Particle : %d  \n" %(jj))
+                for ii in range(niter):
+                    cost_out.write("%d  %.9f \n"%(ii, self.cost_history_particle[ii,jj]))
+                cost_out.write("  \n")
+            cost_out.close()
+
+        if pso_param_history is True:
+            if title is not None:
+                param_out_dat = 'PARAM_best_particles.'+title.strip()+'.dat'
+                param_out_pdf = 'PARAM_best_particles.'+title.strip()+'.pdf'
+            else:
+                param_out_dat = 'PARAM_best_particles.dat'
+                param_out_pdf = 'PARAM_best_particles.pdf'
+            if self.ppram.niter == 0:
+                niter = self.pinpt.miter
+            else:
+                niter = self.ppram.niter
+
+            bestn_ = int(self.n_particles * 0.2)
+            if(bestn_ > 5 ): 
+                bestn = 5 
+            else:
+                bestn = bestn_
+
+            self.plot_pso_pbest(title=title.strip(), fout = param_out_pdf, bestn=bestn)
+
+            best_nparticle_index = self.cost_history_particle[-1,:].argsort()[:bestn_]
+            param_out = open(param_out_dat, 'w+')
+            for i in range( bestn_):
+                ii = best_nparticle_index[i]
+                cost = self.cost_history_particle[-1,ii]
+                param_out.write("# Best Particle : rank=%d , ID=%d, COST=%.9f  \n" %(i, ii, cost))
+                param_set = self.ppram.param 
+                for ip in range(self.ppram.nparam_free):
+                    param_set[self.ppram.iparam_free[ip]-1] = self.ppram.pso_pbest_history[-1,ii,ip]
+                for j in range( self.ppram.nparam):
+                    pj = self.select_param(param_set, j)
+                    param_out.write("%5d  %20.9f   # %5d %20.9f\n" %(j+1, pj, ii, cost))
+                param_out.write("  \n")
+            param_out.close()

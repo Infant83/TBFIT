@@ -250,6 +250,8 @@ module parameters
        real(kind=dp)                        pso_w 
        real(kind=dp)                        pso_max_noise_amplitude ! random noize amplitude
        real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
+       real(kind=dp),      allocatable   :: pso_cost_history_i(:,:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter, pso_nparticles)
+       real(kind=dp),      allocatable   :: pso_pbest_history(:,:,:) ! parameter history in PSO method (miter, pso_nparticles, nparam)
        real(kind=dp),      allocatable   :: cost_history(:)  ! save cost function history w.r.t. the iteration in LMDIF method. size:(miter)
 
   endtype params

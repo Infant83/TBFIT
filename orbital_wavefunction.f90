@@ -4,29 +4,38 @@ module orbital_wavefunction
 contains
 
 !function psi_rho(phi_r, nbasis, iee, ikk, ETBA, flag_plot_wavefunction, spin_index)
-function psi_rho(phi_r, nbasis, ispin, V, flag_plot_wavefunction, spin_index)
+function psi_rho(phi_r, nbasis, ispin, V,SV, flag_plot_wavefunction, spin_index, flag_use_overlap)
    use parameters, only : incar, energy
    type(energy)  :: ETBA
    integer*4        nbasis, ispin
    complex*16       phi_r(nbasis)
    complex*16       psi_rho
    complex*16       V(nbasis*ispin)
+   complex*16       SV(nbasis*ispin)
    character*2      spin_index
-   logical          flag_plot_wavefunction
+   logical          flag_plot_wavefunction, flag_use_overlap
 
    select case(spin_index)
      case('up')
        if(flag_plot_wavefunction) then
          psi_rho = sum( phi_r(:)*V(1:nbasis) )
        elseif(.not. flag_plot_wavefunction) then
-         psi_rho = sum( phi_r(:)*V(1:nbasis)*conjg(V(1:nbasis)) )
+         if(.not. flag_use_overlap) then
+           psi_rho = sum( phi_r(:)*V(1:nbasis)*conjg(V(1:nbasis)) )
+         else
+           psi_rho = sum( phi_r(:)*V(1:nbasis)*conjg(SV(1:nbasis)) )
+         endif
        endif
 
      case('dn') 
        if(flag_plot_wavefunction) then
          psi_rho = sum( phi_r(:)*V(1+nbasis:nbasis*2) )
        elseif(.not. flag_plot_wavefunction) then
-         psi_rho = sum( phi_r(:)*V(1+nbasis:nbasis*2)*conjg(V(1+nbasis:nbasis*2)) )
+         if(.not. flag_use_overlap) then
+           psi_rho = sum( phi_r(:)*V(1+nbasis:nbasis*2)*conjg(V(1+nbasis:nbasis*2)) )
+         else
+           psi_rho = sum( phi_r(:)*V(1+nbasis:nbasis*2)*conjg(SV(1+nbasis:nbasis*2)) )
+         endif
        endif
 
    end select

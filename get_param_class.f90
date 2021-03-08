@@ -220,6 +220,13 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
    else
      imode = 0
    endif
+   ! ab_ij (a,b : orbital class (s, p, d..), i, j : atom index(atom i and j)
+   ! imode = 0 : no orbital found in atom i and j          -> no matching orbital 
+   ! imode = 1 : ex : sp_WH  =>  Tungsten:d, Hydrogen:s)   -> no matching orbital
+   ! imode = 2 : ex : sd_WSe =>  Selenium:s, Tungsten:d)   -> 1  matching orbital
+   ! imode = 3 : ex : sp_SeW =>  Selenium:sp, Tungsten:sd) -> 1  matching orbital
+   ! imode = 4 : ex : sp_CSi =>  Carbon:sp, Silicon:sp)    -> 2  matching orbital
+   !                  sp_SiC =>  Carbon:sp, Silicon:sp)       we need to distinguish this case
 
    if(.not.flag_use_site_cindex) then
 
@@ -467,6 +474,9 @@ loop1:do i_atempt = 0, 1
        enddo loop2
      endif
    elseif(imode .eq. 4) then
+     ! sp_AB where A and B has either s and p
+     ! if A != B parameter should be distinguished. => sp_AB != sp_BA
+     ! if A  = B parameter can be defined without distinguish => sp_AA = ps_AA
      call get_param_name(param_name, param_class, trim(param_type), nn_class, ci_atom, cj_atom, flag_scale, flag_use_overlap)
      call get_param_index(PPRAM, param_name, param_index)
      if(param_index .gt. 0) return

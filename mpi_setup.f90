@@ -299,10 +299,11 @@ module mpi_setup
      COMM_KOREA%key   = myid
      COMM_KOREA%flag_split = .TRUE.
 
+#ifdef MPI
      call MPI_COMM_SPLIT(mpi_comm_earth, COMM_KOREA%color, COMM_KOREA%key, COMM_KOREA%mpi_comm, mpierr)
      call MPI_COMM_RANK(COMM_KOREA%mpi_comm, COMM_KOREA%myid, mpierr)
      call MPI_COMM_SIZE(COMM_KOREA%mpi_comm, COMM_KOREA%nprocs, mpierr)
-
+#endif
      if(allocated(COMM_KOREA%group_main)) deallocate(COMM_KOREA%group_main)
      allocate(COMM_KOREA%group_main(npar)) 
      COMM_KOREA%group_main = 0
@@ -312,8 +313,11 @@ module mpi_setup
        endif
      enddo
      
+#ifdef MPI
      call MPI_ALLREDUCE(COMM_KOREA%group_main, group_main, ngroup, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
      COMM_KOREA%group_main = group_main
+#endif
+
      return
    endsubroutine
 
@@ -459,11 +463,11 @@ module mpi_setup
      call MPI_BCAST(flag_fail, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
      call MPI_BCAST(npar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
      call MPI_BCAST(kpar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
-#endif
      if(flag_fail) then
        call MPI_BARRIER(mpi_comm_earth, mpierr)
        call mpi_finish()
      endif
+#endif
 
      return
    endsubroutine

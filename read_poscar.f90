@@ -763,10 +763,10 @@ lp1:do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
       call find_spec_const(PPRAM, PGEOM, spec_, spec)
       call find_spec(spec, ispec,n)
       if(ispec .eq. -1) then
-        write(6,'(A,I0,3A)')'   !WARN! The ',iatom,'-th atom(',trim(spec),') cannot be identified in the periodic table.'
-        write(6,'(A)')     '          You should define the species information in the "SET CONSTRAINT" in your INCAR-TB'
-        write(6,'(A)')     '          For example, if your atom "Nb1" is actually meant to be Neobium (Nb),'
-        write(6,'(A)')     '          then you cann add following line in the "CONSTRAINT" section as follows'
+        write(6,'(A,I0,3A)')'   !WARN! The ',iatom,'-th atom(',trim(spec_),') cannot be identified in the periodic table.'
+        write(6,'(A)')     '          You should define the species information in the "SET CONSTRAINT" in your INCAR-TB.'
+        write(6,'(A)')     '          For example, if your atom "Nb1" is actually meant to be Niobium (Nb),'
+        write(6,'(A)')     '          then you can add following line in the "CONSTRAINT" section as follows:'
         write(6,'(A)')     '          SET CONSTRAINT '
         write(6,'(A)')     '            ... other constraint ...'
         write(6,'(A)')     '            ... ... '
@@ -785,7 +785,7 @@ lp1:do iatom = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
         orb_n_quantum_(jorb,iatom) = orb_n
         z_eff_nuc_(jorb,iatom) = z_eff(ispec, orb_n, l)
         if( z_eff_nuc_(jorb,iatom) .lt. 0.d0) then
-          write(6,'(A,2A)')   '   ! WARN ! Be sure that the effective nuclear charge information for atom "',trim(spec),'" has not been stored'
+          write(6,'(A,2A)')   '   ! WARN ! Be sure that the effective nuclear charge information for species "',trim(spec_),'" has not been stored'
           write(6,'(A)')      '            in "z_eff" function in element_info.f90 module. Please update the database based on'
           write(6,'(A)')      '            the information tabulated in following link: http://www.knowledgedoor.com'
           write(6,'(A)')      '            For example, if you want to incode "Helium" information, you can use following link:'
@@ -935,6 +935,7 @@ subroutine find_spec_const(PPRAM, PGEOM, spec, target_spec)
   character*8                 c_spec_i, c_spec_j
   character*8                 spec, target_spec
 
+  target_spec = spec
 lp1:do i = 1, PPRAM%nparam_const
         if ( trim(PPRAM%c_const(2,i)) .eq. '=' ) then
           dummy1 = trim(PPRAM%c_const(3,i))

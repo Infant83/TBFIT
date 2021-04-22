@@ -409,6 +409,19 @@ sk: select case ( NN_TABLE%p_class(ii) )
           stop
         endif
 
+      case ('sf', 'fs') ! need to be updated. 19.04.2020 (KHJ)
+        if    (ci_orb(1:2) .eq. 'px'  .and. cj_orb(1:3) .eq. 'dz2' ) then
+          tij_sk = l*(nn-0.5d0*lmp)*s - 2d0*sin(pi/3d0)*l*nn*p
+        elseif(ci_orb(1:3) .eq. 'dz2' .and. cj_orb(1:2) .eq. 'px'  ) then
+          tij_sk =-l*(nn-0.5d0*lmp)*s + 2d0*sin(pi/3d0)*l*nn*p
+
+        else
+          write(message,'(A)')' !WARNING! SK energy integral is not properly defined or orbital name is improper.' ; write_msg
+          write(message,'(A,A)')' !WARNING! CI_ORB = ',trim(ci_orb) ; write_msg
+          write(message,'(A,A)')' !WARNING! CJ_ORB = ',trim(cj_orb),' Exit...' ; write_msg
+          stop
+        endif
+
       ! set up interatomic hopping parameter for the customized (user defined) function
       case ('xx')
         ! xp1 = phi1 = dz2

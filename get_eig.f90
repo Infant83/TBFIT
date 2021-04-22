@@ -57,6 +57,15 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                        ii, iadd, t1, t0, flag_init)
   if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
                                    flag_stat, flag_sparse, ncpu)
+
+  if(flag_vector) then
+    if( size(EE%V, kind=8) .gt. int8(int8(2)**int8(31)-int8(1))) then
+      write(message,'(A)')'    !WARN! The eigenvector array size exeeds 2**31-1. We cannot handle such a huge matrix in a single cpu.'
+      write(message,'(A)')'           Please use "PRTSEPK .TRUE." tag in your INCAR-TB. The output band structure will be seperaterated'
+      write(message,'(A)')'           into each k-point. This will reduce required memory by factor of ncpu.'
+    endif
+  endif
+
   if(flag_stat) then 
     write(message,'(A)'             ) ' ' ; write_msg
     write(message,'(A)') '   STATUS: ' 
@@ -79,7 +88,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
       !             k-dependent   if .not. slater_koster 
       call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,my_ik), PINPT, PPRAM, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
-                             PINPT%feast_ne(1:PINPT%nspin,ik),ik, &
+                             PINPT%feast_ne(1:PINPT%nspin,ik),&
                              flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
       
 #else
@@ -94,10 +103,8 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
     endif
 
     if(flag_stat .and. id .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
-    if(PINPT%flag_print_energy_singlek ) call print_energy_singlek(EE%E(:,ik), EE%V(:,:,my_ik), EE%SV(:,:,my_ik), &
-                                                                   neig, iband, nband, ik, kp(:,ik), &
-                                                                   PINPT, NN_TABLE%mysystem)
   enddo k_loop
+
 
 #ifdef MPI
   if(flag_stat .and. myid .eq. 0) then
@@ -106,30 +113,30 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
     call write_log(trim(message), 23, myid)
   endif
   if(.not. COMM_KOREA%flag_split) then
-    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
-    if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) then
-      call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
-                       ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                       ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+    call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+    if(flag_vector .and. nkp .ne. 1) then
+      call MPI_GATHERV(EE%V,size(EE%V, kind=4), MPI_COMPLEX16, V, &
+                       ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                       ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
                        MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
       if(PPRAM%flag_use_overlap) then
-        call MPI_GATHERV(EE%SV,size(EE%SV), MPI_COMPLEX16, SV, &
-                         ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                         ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+        call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
+                         ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                         ourjob_disp *     neig*PINPT%ispin*nband*PINPT%nspin , &
                          MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
       endif
     endif                     
   elseif(COMM_KOREA%flag_split) then
-    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
-    if(flag_vector .and. .not. PINPT%flag_print_energy_singlek) then
-      call MPI_GATHERV(EE%V,size(EE%V), MPI_COMPLEX16, V, &
-                       ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                       ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+    call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
+    if(flag_vector .and. nkp .ne. 1) then
+      call MPI_GATHERV(EE%V,size(EE%V,kind=4), MPI_COMPLEX16, V, &
+                       ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                       ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
                        MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)  ! only main node keep wave vector information
       if(PPRAM%flag_use_overlap) then
-        call MPI_GATHERV(EE%SV,size(EE%SV), MPI_COMPLEX16, SV, &
-                         ourjob     *neig*PINPT%ispin*nband*PINPT%nspin, &
-                         ourjob_disp*neig*PINPT%ispin*nband*PINPT%nspin, &
+        call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
+                         ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
                          MPI_COMPLEX16, 0, COMM_KOREA%mpi_comm, mpierr)  ! only main node keep overlap matrix information
       endif
     endif
@@ -153,6 +160,207 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
 #endif
 #else
   E = EE%E ; if(flag_vector) V = EE%V
+#ifdef MKL_SPARSE
+  if(flag_stat) then
+    write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
+  endif
+#endif
+#endif
+
+  call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
+
+  if(flag_stat) then
+    write(message,'(A)')' #--- END: BAND STRUCTURE EVALUATION -----------' ; write_msg
+  endif
+
+return
+endsubroutine
+
+subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, flag_vector, flag_sparse, flag_stat, flag_phase)
+  use parameters, only: hopping, incar, energy, spmat, params
+  use mpi_setup
+  use time
+  use memory
+  use reorder_band
+  use print_io
+  implicit none
+  type (hopping) :: NN_TABLE
+  type (incar  ) :: PINPT
+  type (params ) :: PPRAM
+  type (energy ) :: EE
+  type (spmat  ) :: SHm, SHs
+  integer*4  mpierr, iadd, ii
+  integer*4  ik, neig, ijob
+  integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
+  integer*4  nkp, is, ie,fe, im, fm
+  integer*4  ne_prev(PINPT%nspin)
+  real*8     percent, kp(3,nkp)
+  real*8     E(nband*PINPT%nspin, nkp)
+  complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)
+  complex*16 SV(neig*PINPT%ispin,nband*PINPT%nspin) ! overlap integeral multiplied S * V
+  complex*16 Hm(neig*PINPT%ispinor,neig*PINPT%ispinor) ! collinear magnetism hamiltonian (k-independent)
+  complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
+  logical, intent(in) :: flag_vector, flag_stat
+  real*8     t0, t1
+  character*4 timer
+  character*80 fname_header, fname
+  character*20,external ::   int2str
+  logical    flag_file_exist
+  logical    flag_phase, flag_init, flag_sparse
+  logical    flag_sparse_SHm, flag_sparse_SHs ! if .false. sparse Hamiltonian SHm(collinear magnetic) and SHs(SOC) will not
+                                              ! be added up and constructed along with the k_loop due to the total number 
+                                              ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
+  integer*4  feast_ne(PINPT%nspin, nkp)
+ !integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
+  integer*4  ncpu, id
+  integer*4, allocatable :: ourjob(:), ourjob_disp(:)
+  integer*4, allocatable :: non_skip_list(:)
+  integer*4                 n_non_skip
+
+  if(flag_stat) then
+    write(message,'(A)') '  ' ; write_msg
+    write(message,'(A)') ' #--- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
+  endif
+  timer = 'init'
+
+  EE%E = 0d0
+  if(flag_vector) V = (0.d0,0.d0)
+  if(flag_vector .and. PPRAM%flag_use_overlap) SV = (0.d0,0.d0)
+
+  if(COMM_KOREA%flag_split) then
+    ncpu = COMM_KOREA%nprocs
+    id   = COMM_KOREA%myid
+  else
+    ncpu = nprocs
+    id   = myid
+  endif
+  allocate(ourjob(ncpu))
+  allocate(ourjob_disp(0:ncpu-1))
+
+  ! check non-skip list
+  allocate(non_skip_list(nkp)) ; non_skip_list = 0 ; n_non_skip = 0
+  do ik = 1, nkp
+    ! check if the calculation is already done.. check restart
+    fname_header = 'band_structure_TBA'//trim(PINPT%title(NN_TABLE%mysystem))//'.kp_'//trim(ADJUSTL(int2str(ik)))
+    if(.not. PINPT%flag_write_unformatted) then
+      call get_fname(fname_header, fname, 1, PINPT%flag_collinear, PINPT%flag_noncollinear)
+    elseif(PINPT%flag_write_unformatted) then
+      call get_fname_bin(fname_header, fname, 1, PINPT%flag_collinear, PINPT%flag_noncollinear)
+    endif
+    inquire(file=trim(fname),exist=flag_file_exist)
+    if(flag_file_exist) then
+        write(message,'(A,A,A,I0)')'    Band structure file:', trim(fname),' is already exist => skip to calculate KPT: ',ik ; write_msg
+    else
+        n_non_skip = n_non_skip + 1
+        non_skip_list(n_non_skip) = ik
+        cycle
+    endif
+    
+    if(PINPT%nspin .eq. 2 .and. flag_file_exist) then
+      if(.not. PINPT%flag_write_unformatted) then
+        call get_fname(fname_header, fname, 2, PINPT%flag_collinear, PINPT%flag_noncollinear)
+      elseif(PINPT%flag_write_unformatted) then
+        call get_fname_bin(fname_header, fname, 2, PINPT%flag_collinear, PINPT%flag_noncollinear)
+      endif
+      inquire(file=trim(fname),exist=flag_file_exist)
+      if(flag_file_exist) then
+        write(message,'(A,A,A,I0)')'    Band structure file:', trim(fname),' is already exist => skip to calculate KPT: ',ik ; write_msg
+      else
+        n_non_skip = n_non_skip + 1
+        non_skip_list(n_non_skip) = ik
+        cycle
+      endif
+    endif
+  enddo
+
+  call mpi_job_distribution_chain(n_non_skip, ncpu, ourjob, ourjob_disp)
+ !call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
+  if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
+  call initialize_all (EE, neig, nband, nkp, ourjob(id+1), PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
+                       ii, iadd, t1, t0, flag_init)
+  if_main call report_memory_singlek(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
+                                   flag_stat, flag_sparse, ncpu)
+
+  if(flag_stat) then
+    write(message,'(A)'             ) ' ' ; write_msg
+    write(message,'(A)') '   STATUS: '
+    call write_log(trim(message), 1, myid)
+    call write_log(trim(message),22, myid)
+  endif
+
+!k_loop:do ik= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
+ k_loop:do ijob= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
+    ik = non_skip_list(ijob)
+
+    if(flag_sparse) then
+      if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then
+        ne_prev = PINPT%feast_ne(1:PINPT%nspin,ik-1)
+      else
+        ne_prev = 0
+      endif
+
+#ifdef MKL_SPARSE
+      !NOTE: SHm is k-independent -> keep unchankged from first call
+      !      SHs is k-independent if flag_slater_koster
+      !             k-dependent   if .not. slater_koster 
+      call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), V, PINPT, PPRAM, NN_TABLE, kp(:,ik), &
+                             neig, nband, flag_vector, flag_init, flag_phase, &
+                             PINPT%feast_ne(1:PINPT%nspin,ik), &
+                             flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
+
+#else
+
+      write(message,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
+      write(message,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'  ; write_msg
+      kill_job
+#endif
+    elseif(.not.flag_sparse) then
+      call cal_eig_Hk_dense ( Hm,  Hs, EE%E(:,ik), V, SV, PINPT, PPRAM, NN_TABLE, kp(:,ik), &
+                             neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
+    endif
+
+    if(flag_stat .and. id .eq. 0) call print_eig_status(ijob, ii, iadd, ourjob)
+    call print_energy_singlek(EE%E(:,ik), V, SV, neig, iband, nband, ik, kp(:,ik), &
+                              PINPT, PPRAM%flag_use_overlap, NN_TABLE%mysystem)
+  enddo k_loop
+
+#ifdef MPI
+  if(flag_stat .and. myid .eq. 0) then
+    write(message,'(A)')'  ' ; write_msg
+    write(message,'(A)')'   Gathering all results to main node 0 ...'
+    call write_log(trim(message), 23, myid)
+  endif
+  if(.not. COMM_KOREA%flag_split) then
+    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+  elseif(COMM_KOREA%flag_split) then
+    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
+  endif
+  if(flag_stat) then
+    write(message,'(A)')'  done!' ; write_msg
+    write(message,'(A  )')' ' ; write_msg
+  endif
+#ifdef MKL_SPARSE
+  if(flag_sparse) then
+    if(.not.COMM_KOREA%flag_split) then
+      call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+    elseif(COMM_KOREA%flag_split) then
+      call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+    endif
+    PINPT%feast_ne = feast_ne
+    if(flag_stat) then
+      write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
+    endif
+  endif
+#endif
+#else
+
+  E = EE%E 
+#ifdef MKL_SPARSE
+  if(flag_stat) then
+    write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
+  endif
+#endif
+
 #endif
 
   call finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
@@ -163,8 +371,10 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
 
   ! NEED TO BE UPDATED HERE !!! HJ KIM 21.Oct 2020
   if(PINPT%flag_print_energy_singlek) then
-    write(message,'(A)')'    !WARN! Band structure information is printed into separate file "band_structure_TBA.kp_*'//trim(PINPT%title(NN_TABLE%mysystem))//'.dat" by request.' ; write_msg
+    write(message,'(A)')'    !WARN! The calculation finished sucessfully. ' ; write_msg
+    write(message,'(A)')'           Band structure information is printed into separate file "band_structure_TBA.kp_*'//trim(PINPT%title(NN_TABLE%mysystem))//'.dat" by request.' ; write_msg
     write(message,'(A)')'           However, due to some technical things, program will stop at this point. In the future release it will be updated.' ; write_msg
+    write(message,'(A)')'          ' ; write_msg
     write(message,'(A)')'           Program stops...' ; write_msg
     kill_job
   endif
@@ -172,9 +382,70 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
 return
 endsubroutine
 
+subroutine get_eig_singlek(NN_TABLE, kp, ik, PINPT, PPRAM, E, V, SV, neig, iband, nband, ne_found, &
+                           flag_vector, flag_sparse, flag_stat, flag_phase)
+  use parameters, only: hopping, incar, energy, spmat, params
+  use mpi_setup
+  use time
+  use memory
+  use reorder_band
+  use print_io
+  implicit none
+  type (hopping) :: NN_TABLE
+  type (incar  ) :: PINPT
+  type (params ) :: PPRAM
+  type (energy ) :: EE
+  type (spmat  ) :: SHm, SHs
+  integer*4  mpierr, iadd, ii
+  integer*4  ik, neig, ijob
+  integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
+  integer*4  is, ie,fe, im, fm
+  real*8     kp(3)
+  real*8     E(nband*PINPT%nspin)
+  complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)
+  complex*16 SV(neig*PINPT%ispin,nband*PINPT%nspin) ! overlap integeral multiplied S * V
+  complex*16 Hm(neig*PINPT%ispinor,neig*PINPT%ispinor) ! collinear magnetism hamiltonian (k-independent)
+  complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
+  logical, intent(in) :: flag_vector, flag_stat
+  character*4 timer
+  character*80 fname_header, fname
+  character*20,external ::   int2str
+  logical    flag_file_exist
+  logical    flag_phase, flag_init, flag_sparse
+  logical    flag_sparse_SHm, flag_sparse_SHs ! if .false. sparse Hamiltonian SHm(collinear magnetic) and SHs(SOC) will not
+                                              ! be added up and constructed along with the k_loop due to the total number 
+                                              ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
+  integer*4  ne_prev(PINPT%nspin), ne_found(PINPT%nspin)
+
+  flag_init = .true. 
+  timer     = 'off'
+
+    if(flag_sparse) then
+#ifdef MKL_SPARSE
+      ne_prev  = ne_found
+      ne_found = 0
+      call cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, &
+                             neig, nband, flag_vector, flag_init, flag_phase, &
+                             ne_found, flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
+#else
+      write(message,'(A)')'    !WARN! Compile with SPARSE library!'
+      write(message,'(A)')'           The sparse eigensolver routine is requiested but it is not compoled with '
+      write(message,'(A)')'           MKL_SPARSE option. Please check program instructor.'
+      write(message,'(A)')'           Exit program....'
+      kill_job
+#endif
+    elseif(.not.flag_sparse) then
+      call cal_eig_Hk_dense ( Hm,  Hs, E, V, SV, PINPT, PPRAM, NN_TABLE, kp, &
+                             neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
+    endif
+
+return
+endsubroutine
+
+
 #ifdef MKL_SPARSE
 subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
-                             nemax, flag_vector, flag_init, flag_phase, ne_found,ik, &
+                             nemax, flag_vector, flag_init, flag_phase, ne_found,&
                              flag_sparse_SHm, flag_sparse_SHs,ne_prev, timer)
   use parameters, only : incar, hopping, spmat, params
   use mpi_setup
@@ -228,7 +499,7 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
                              emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
       endif
 
-      call adjust_ne_guess(feast_info, is, ne_found(is), kp, ik, neig, nemax, PINPT)
+      call adjust_ne_guess(feast_info, is, ne_found(is), kp, neig, nemax, PINPT)
       if(allocated(SHk%H)) deallocate(SHk%H)
       if(allocated(SHk%I)) deallocate(SHk%I)
       if(allocated(SHk%J)) deallocate(SHk%J) ! SHk should be deallocated for each run
@@ -317,7 +588,6 @@ subroutine cal_eig_Hk_dense(Hm, Hs, E, V, SV, PINPT, PPRAM, NN_TABLE, kp, neig, 
            call cal_gen_eig(Hk, Sk, neig, PINPT%ispinor, PINPT%ispin, iband, nband, E(ie:fe), V(im:fm,ie:fe), flag_vector)
 
            if(flag_vector) then ! calculate V' = Sk|V> which will be used to calculate Mulliken charge rho = <V|Sk|V>
-            !SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
              SV = matprod(fm-im+1, fm-im+1, 'N', Sk_, fm-im+1, fe-ie+1, 'N', V(im:fm,ie:fe))
            endif
          endif
@@ -375,12 +645,17 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
   endif
 
   allocate(EE%E(nband*PINPT%nspin, nkp))
-  allocate(EE%V(neig*PINPT%ispin, nband*PINPT%nspin, my_nkp))
-  allocate(EE%SV(neig*PINPT%ispin, nband*PINPT%nspin, my_nkp))
   EE%E = 0d0 
-  if(flag_vector) EE%V = (0.d0,0.d0)
-  if(flag_vector .and. flag_overlap) EE%SV = (0.d0,0.d0)
-  
+
+  if(.not. PINPT%flag_print_energy_singlek) then
+    if(allocated(EE%V)) deallocate(EE%V)
+    if(allocated(EE%SV)) deallocate(EE%SV)
+    allocate(EE%V(neig*PINPT%ispin, nband*PINPT%nspin, my_nkp))
+    allocate(EE%SV(neig*PINPT%ispin, nband*PINPT%nspin, my_nkp))
+    if(flag_vector) EE%V = (0.d0,0.d0)
+    if(flag_vector .and. flag_overlap) EE%SV = (0.d0,0.d0)
+  endif
+
 return
 endsubroutine
 subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, flag_sparse)
@@ -681,13 +956,15 @@ subroutine set_ham_mag(H, NN_TABLE, PPRAM, neig, ispinor, flag_collinear, flag_n
 return
 endsubroutine
 
-subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
+subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, flag_distribute_vector, my_nkp)
    use parameters
    implicit none
    type (incar)   :: PINPT       ! parameters for input arguments
    type (energy)  :: ETBA        ! target energy to be fitted to
    type (poscar)  :: PGEOM       ! parameters for geometry info
    type (kpoints) :: PKPTS       ! parameters for kpoints
+   logical           flag_distribute_vector
+   integer*4         my_nkp, nkp_vector
    ! nband : number of eigenvalues to be stored for each spin
    !         = PGEOM%neig*PINPT%ispinor  (if .not. PINPT%flag_erange, default)
    !         = PINPT%feast_nemax (if EWINDOW tag is on and nemax is smaller than PGEOM%neig*PINPT%ispinor)
@@ -696,17 +973,26 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
    ! nspin : 2 for collinear 1 for non-collinear
    ! ispin : 2 for collinear 2 for non-collinear
 
+   if(flag_distribute_vector) then
+     nkp_vector = my_nkp
+   elseif(.not. flag_distribute_vector) then
+     nkp_vector = PKPTS%nkpoint
+   endif
+
    if(allocated(ETBA%E)) deallocate(ETBA%E)
    allocate(ETBA%E(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
 
    ! need to find better way to allocate V and SV, since if we don't turn on LORBIT, 
    ! V and SV is not need to be saved. To save memory one need to make it simpler.
    ! But, now, just keep this way, to make my life easier. (H.-J. Kim, 01. Feb. 2021)
-   if(allocated(ETBA%V)) deallocate(ETBA%V)
-   allocate(ETBA%V( PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
-   if(allocated(ETBA%SV)) deallocate(ETBA%SV)
-   allocate(ETBA%SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
 
+   if(.not. PINPT%flag_print_energy_singlek) then
+     if(allocated(ETBA%V)) deallocate(ETBA%V)
+     allocate(ETBA%V( PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
+
+     if(allocated(ETBA%SV)) deallocate(ETBA%SV)
+     allocate(ETBA%SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
+   endif
    ! This can also be allocated if LROBIT = TRUE in future version (will check later on, H.-J. Kim, 01. Feb. 2021)
    ! In current version, this information is only used in get_orbital_projection routine which is only called by
    ! get_dE routine and is activated when PINPT%flag_fit_orbital = .true.
@@ -722,8 +1008,8 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
      if(allocated(ETBA%SV_ORD)) deallocate(ETBA%SV_ORD)
      allocate(ETBA%IDX(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
      allocate(ETBA%E_ORD(PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
-     allocate(ETBA%V_ORD(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
-     allocate(ETBA%SV_ORD(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%V_ORD(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
+     allocate(ETBA%SV_ORD(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
    endif
 
    if(PINPT%flag_get_total_energy) then
@@ -915,7 +1201,7 @@ subroutine cal_eig_sparse(SHk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag
 
 return
 endsubroutine
-subroutine adjust_ne_guess(feast_info, is, ne_found, kp, ik, neig, nemax, PINPT)
+subroutine adjust_ne_guess(feast_info, is, ne_found, kp, neig, nemax, PINPT)
    use parameters, only : incar
    implicit none
    type(incar) :: PINPT

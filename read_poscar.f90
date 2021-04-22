@@ -659,12 +659,24 @@ subroutine set_orbital_index(PGEOM, lmmax)
    use mpi_setup
    implicit none
    type (poscar)            :: PGEOM
-   integer*4                   iatom, iorb, imatrix, lmmax
+   integer*4                   iatom, iorb, imatrix, lmmax, mpierr
    integer*4, allocatable   :: orb_index(:)
    character*8                 orb
-   integer*4                   ourjob(nprocs), ourjob_disp(0:nprocs-1), mpierr
+  !integer*4                   ourjob(nprocs), ourjob_disp(0:nprocs-1)
+   integer*4, allocatable   :: ourjob(:), ourjob_disp(:)
+   integer*4                   ncpu, id
 
-   call mpi_job_distribution_chain(PGEOM%n_atom, nprocs, ourjob, ourjob_disp)
+   if(COMM_KOREA%flag_split) then
+     ncpu = COMM_KOREA%nprocs
+     id   = COMM_KOREA%myid
+   else
+     ncpu = nprocs
+     id   = myid
+   endif
+   allocate(ourjob(ncpu))
+   allocate(ourjob_disp(0:ncpu-1))
+   
+   call mpi_job_distribution_chain(PGEOM%n_atom, ncpu, ourjob, ourjob_disp)
    allocate(PGEOM%orb_index(PGEOM%neig))
    allocate(orb_index(PGEOM%neig))
    PGEOM%orb_index = 0 ; orb_index = 0

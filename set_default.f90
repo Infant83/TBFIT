@@ -30,6 +30,8 @@ module set_default
         if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_mag=.false.
 
         PINPT%flag_print_proj=.false.
+        PINPT%flag_print_proj_sum=.false.
+        PINPT%flag_print_proj_atom=.false.
         PINPT%nproj_sum = 0
         if(allocated(PINPT%proj_atom))  deallocate(PINPT%proj_atom)
         if(allocated(PINPT%proj_natom)) deallocate(PINPT%proj_natom)
@@ -77,8 +79,12 @@ module set_default
 
         PINPT%flag_ga_with_lmdif=.false.
         PINPT%flag_pso_with_lmdif=.false.
+        PINPT%flag_pso_report_particles=.true.
         PINPT%flag_report_geom = .true.
 
+        PINPT%flag_distribute_nkp = .false.
+
+        PINPT%iseed = 123 ! random seed
         return
     endsubroutine
 
@@ -108,7 +114,8 @@ module set_default
         PPRAM%pso_c2                                  = 0.4d0
         PPRAM%pso_w                                   = 0.2d0
         PPRAM%pso_max_noise_amplitude                 = 5.0d0
-
+        PPRAM%pso_report                              = 0.2d0 ! 20 percent of best particles would be reported
+        PPRAM%pso_iseed                               = 123 ! random seed
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
         if(allocated(PPRAM%iparam_free))     deallocate(PPRAM%iparam_free)

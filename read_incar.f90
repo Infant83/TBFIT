@@ -147,6 +147,19 @@ contains
                 read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_max_noise_amplitude
                 write(message,'(A,L)')'PSO_NOISE: (max. randome noise amplitude) ', PPRAM%pso_max_noise_amplitude
 
+              case('PSO_REPORT') ! report best particles with certain range of scores
+                if(nitems(inputline) -1 .eq. 1) then
+                  read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles
+                  write(message,'(A,L)')'PSO_REPORT: (report 20% of best particles) ', PINPT%flag_pso_report_particles
+                elseif(nitems(inputline) -1 .eq. 2) then
+                  read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles, PPRAM%pso_report
+                  write(message,'(A,I0,A,L)')'PSO_REPORT: (report ',nint(PPRAM%pso_report*100d0),' best particles) ', PINPT%flag_pso_report_particles
+                endif
+            
+              case('ISEED') ! random seed
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%iseed
+                write(message,'(A,I0)')'RAND_SEED: ',PINPT%iseed
+
               case('PLOTFIT') ! run gnuplot script after fit or post-process
                 if(nitems(inputline) -1 .eq. 1) then
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_plot_fit
@@ -160,10 +173,14 @@ contains
     
               case('PRTDIFF') ! print also EDFT - EDFT in band_structure_TBA.dat after fit, only active if LORBIT .FALSE.
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_diff
-    
+               
               case('PRTSEPK')
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_singlek
     
+              case('LDISTRK') ! whether distribute ETBA%V (or SV) over the cpu nodes instead gather to master node.
+                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_distribute_nkp
+                if(nprocs .eq. 1) PINPT%flag_distribute_nkp = .FALSE.
+
               case('PRTHAMK')
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_hamk
     
@@ -171,6 +188,7 @@ contains
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
                 write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msgi
     
+              ! experimental feature (22.Apr. 2021, KHJ)
               case('LORBFIT')
                 ! NOTE: only work with PWGHT%read_energy_column_index = 2 and PWGHT%efile_type = 'user',
                 !       and most importantly, orbital projected density should be provided in EFILE from 6-th column as follows:
@@ -307,6 +325,12 @@ contains
         write(message,'(A)') '           Please deactivate EWINDOW for the further process.'  ; write_msgi
         write(message,'(A)') '           Exit program...'  ; write_msgi
         kill_job
+      endif
+
+      if(PINPT%ls_type .eq. 'PSO') then
+        PPRAM%pso_iseed = PINPT%iseed
+      elseif(PINPT%ls_type .eq. 'GA') then
+        PKAIA%iseed = PINPT%iseed
       endif
 
       return
@@ -1358,6 +1382,15 @@ mode: select case ( trim(plot_mode) )
               end select case_dos
 
             enddo set_dos
+
+#ifndef MKL_SPARSE
+      if(PINPT_DOS%dos_flag_sparse) then
+        write(message,'(A)')'    !WARN! The DOS_SPARSE tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
+        write(message,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'  ; write_msg
+        kill_job
+      endif
+#endif
+
       return
    endsubroutine
 
@@ -2943,6 +2976,12 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         PINPT%flag_print_proj_sum = .true.
       endif
 
+      if(index(inputline, 'PROJ_SUM') .ge. 1) then
+        PINPT%flag_print_proj_atom = .false.
+      else
+        PINPT%flag_print_proj_atom = .true. 
+      endif
+
       i_dummy = nitems(inputline) - 1
       if(i_dummy .eq. 1) then
         if(PINPT%flag_print_proj_sum) then
@@ -3480,9 +3519,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%iguessf
             write(message,'(A, F10.5  )')'  IGUESSF: ', PKAIA%iguessf  ; write_msgi
 
-          case('ISEED'  )
-            read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
-            write(message,'(A, I8     )')' RANDSEED: ', PKAIA%iseed    ; write_msgi
+!         case('ISEED'  )
+!           read(inputline,*,iostat=i_continue) desc_str, PKAIA%iseed  
+!           write(message,'(A, I8     )')' RANDSEED: ', PKAIA%iseed    ; write_msgi
 
           case('UBOUND')
             read(inputline,*,iostat=i_continue) desc_str, PKAIA%upper_bound
@@ -3594,6 +3633,14 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         write(message,'(A)')     '                             [ISPINOR:2 for LSORB=.TRUE. ]'  ; write_msgi
         write(message,'(A)')     '                             [       :1 for LSORB=.FALSE.]'  ; write_msgi
       endif
+
+#ifndef MKL_SPARSE
+      if(PINPT%flag_sparse) then
+        write(message,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
+        write(message,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'  ; write_msg
+        kill_job
+      endif
+#endif
 
       return
    endsubroutine

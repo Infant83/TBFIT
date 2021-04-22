@@ -9,7 +9,7 @@ contains
     implicit none
     character*132  ver_tag
 
-    ver_tag='# TBFIT version 0.5.1  (build ' // __DATE__// ' ' //__TIME__// ') '
+    ver_tag='# TBFIT version 0.5.3  (build ' // __DATE__// ' ' //__TIME__// ') '
 
     return
   endfunction

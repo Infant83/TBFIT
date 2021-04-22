@@ -145,6 +145,38 @@ contains
     return
   endsubroutine
 
+
+  subroutine feast_initialize(PINPT, nkp)
+    use parameters, only : incar
+    implicit none
+    type(incar) :: PINPT
+    integer*4      nkp
+
+    call feastinit(PINPT%feast_fpm)
+    if(allocated(PINPT%feast_ne)) deallocate(PINPT%feast_ne)
+    allocate(PINPT%feast_ne(PINPT%nspin, nkp))
+    PINPT%feast_ne     = 0
+
+    PINPT%feast_fpm(1) = 0  ! Specifies whether Extended Eigensolver routines print runtime status (0:F, 1:T)
+    PINPT%feast_fpm(2) = 4  ! The number of contour points N_e (see the description of FEAST algorithm
+                            ! Ref: E. Polizzi, Phys. Rev. B 79, 115112 (2009) 
+    PINPT%feast_fpm(3) = 11 ! Error trace double precisiion stopping criteria e ( e = 10^-feast_fpm(3) )
+    PINPT%feast_fpm(4) = 50 ! Maximum number of Extended Eigensolver refinement loops allowed. 
+                            ! If no convergence is reached within fpm(4) refinement loops, 
+                            ! Extended Eigensolver routines return info=2.
+    PINPT%feast_fpm(5) = 0  ! User initial subspace. If fpm(5)=0 then Extended Eigensolver routines generate
+                            ! initial subspace, if fpm(5)=1 the user supplied initial subspace is used.
+    PINPT%feast_fpm(6) = 1  ! Extended Eigensolver stopping test.
+                            ! fpm(6)=0 : Extended Eigensolvers are stopped if the residual stopping test is satisfied.
+                            ! fpm(6)=1 : Extended Eigensolvers are stopped if this trace stopping test is satisfied.
+    PINPT%feast_fpm(7) = 5  ! Error trace single precision stopping criteria (10-fpm(7)).
+    PINPT%feast_fpm(14)= 0  ! If 1, return the computed eigenvectors subspace after one single contour integration.
+    PINPT%feast_fpm(27)= 0  ! Specifies whether Extended Eigensolver routines check input matrices (applies to CSR format only).
+    PINPT%feast_fpm(28)= 0  ! Check if matrix B is positive definite. Set fpm(28) = 1 to check if B is positive definite.
+        
+    return
+  endsubroutine
+
 #endif
 
 subroutine csr_dns(CSR, H)

@@ -4,6 +4,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    use read_incar, only : set_weight_factor
    use mpi_setup
    use print_io
+   use random_mod
    implicit none
    type(incar ) :: PINPT
    type(weight) :: PWGHT
@@ -21,6 +22,10 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    logical         flag_skip, flag_number, flag_exist
    external        nitems, flag_number
    integer*4       mpierr
+   integer*4       iseed
+
+   iseed = 9342
+   call random_init(iseed)
 
    inquire(file=trim(PPRAM%pfilenm),exist=flag_exist)
    if(.not. flag_exist) then
@@ -141,8 +146,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
              param_const_nrl(4,:,i) = 1d0
              param_const_nrl(5,:,i) = PPRAM%param_nrl(:,i)
-           elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-             param_const_nrl(4,:,i) = 0d0
+           elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'random'
+         !   param_const_nrl(4,:,i) = 0d0
+             r_dummy = random()*2d0 - 1.d0
+#ifdef MPI
+             call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif
+             PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy
            endif
          elseif( flag_number(dummy) ) then
            call str2real(dummy, r_dummy)
@@ -155,7 +165,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            read(inputline,*,iostat=i_continue) i_index, PPRAM%param_name(i), PPRAM%param_nrl(1:4,i), dummy2, dummy
          endif
          dummy2= trim(dummy2)
-         if(.not.flag_number(dummy2)) then
+         if(.not.flag_number(dummy2) .and. (dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R')) then
            write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msgi
            kill_job
          endif
@@ -164,13 +174,21 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            write(message,'(A)') "  !!WARN!! wrong syntax in PARAM.dat, check your PARAM file." ; write_msgi
            kill_job
          endif
-         call str2real(dummy2, r_dummy)
-         PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy ! re_scaled
+         if(dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R') then
+           call str2real(dummy2, r_dummy)
+           PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy ! re_scaled
+         elseif(dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then
+           r_dummy = random()*2d0 - 1.d0
+#ifdef MPI
+           call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif
+           PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy + r_dummy
+         endif
          if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
            param_const_nrl(4,:,i) = 1d0
            param_const_nrl(5,:,i) = PPRAM%param_nrl(:,i)
-         elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-           param_const_nrl(4,:,i) = 0d0
+!        elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'random'
+!          param_const_nrl(4,:,i) = 0d0
          endif
 
        elseif( i_dummy .lt. 4) then
@@ -204,7 +222,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
                  param_const_nrl(4,:,i) = 1d0
                  param_const_nrl(5,:,i) = PPRAM%param_nrl(:,i)
                elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r') then
-                 param_const_nrl(4,:,i) = 0d0
+!                param_const_nrl(4,:,i) = 0d0
+                 r_dummy = random()*2d0 - 1.d0
+#ifdef MPI      
+                 call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif          
+                 PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy + r_dummy
                endif
              elseif( flag_number(dummy) ) then
                call str2real(dummy, r_dummy)
@@ -217,7 +240,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
                read(inputline,*,iostat=i_continue) i_index, PPRAM%param_name(i),PPRAM%param_nrl(1,i),dummy2, dummy
              endif
              dummy2= trim(dummy2)
-             if(.not.flag_number(dummy2)) then
+             if(.not.flag_number(dummy2) .and. (dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R')) then
                write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
                kill_job
              endif
@@ -226,13 +249,21 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
                write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
                kill_job
              endif
-             call str2real(dummy2, r_dummy)
-             PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy ! re_scaled
+             if(dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R') then
+               call str2real(dummy2, r_dummy)
+               PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy ! re_scaled
+             elseif( dummy2(1:1) .eq. 'r' .or. dummy2(1:1) .eq. 'R' ) then
+               r_dummy = random()*2d0 - 1.d0
+#ifdef MPI     
+               call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif         
+               PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * r_dummy + r_dummy
+             endif
              if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
                param_const_nrl(4,:,i) = 1d0
                param_const_nrl(5,:,i) = PPRAM%param_nrl(:,i)
-             elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-               param_const_nrl(4,:,i) = 0d0
+!            elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
+!              param_const_nrl(4,:,i) = 0d0
              endif
            endif
 
@@ -292,8 +323,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
              param_const(4,i) = 1d0
              param_const(5,i) = PPRAM%param(i)
-           elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-             param_const(4,i) = 0d0
+           elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'random '
+!            param_const(4,i) = 0d0
+             r_dummy = random()*2d0 - 1.d0
+#ifdef MPI
+             call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif
+             PPRAM%param(i) = PPRAM%param(i) * r_dummy + r_dummy ! re_scaled
            endif
          elseif( flag_number(dummy) ) then
            call str2real(dummy, r_dummy)
@@ -307,7 +343,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          endif
          call set_scale_default(param_const(3,i), PPRAM%param_name(i))
          dummy2= trim(dummy2)
-         if(.not.flag_number(dummy2)) then 
+         if(.not.flag_number(dummy2) .and. (dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R')) then 
            write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
            kill_job
          endif
@@ -316,13 +352,21 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            write(message,'(A)') "  !!WARN!! wrong syntax in PFILE, check your PFILE." ; write_msgi
            kill_job
          endif
-         call str2real(dummy2, r_dummy)
-         PPRAM%param(i) = PPRAM%param(i) * r_dummy ! re_scaled
+         if(dummy2(1:1) .ne. 'r' .and. dummy2(1:1) .ne. 'R') then
+           call str2real(dummy2, r_dummy)
+           PPRAM%param(i) = PPRAM%param(i) * r_dummy ! re_scaled
+         elseif(dummy2(1:1) .eq. 'r' .or. dummy2(1:1) .eq. 'R') then
+           r_dummy = random()*2d0 - 1.d0
+#ifdef MPI
+           call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
+#endif
+           PPRAM%param(i) = PPRAM%param(i) * r_dummy +r_dummy ! re_scaled
+         endif
          if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
            param_const(4,i) = 1d0
            param_const(5,i) = PPRAM%param(i)
-         elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
-           param_const(4,i) = 0d0
+!        elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'relaxed' or 'Relaxed'
+!          param_const(4,i) = 0d0
          endif
 
        elseif( i_dummy .ge. 4) then

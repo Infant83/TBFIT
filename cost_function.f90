@@ -3,7 +3,7 @@ module cost_function
    use mpi_setup
 
 contains 
-  subroutine get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
+  subroutine get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
     use parameters, only: weight, incar, energy, params, poscar, hopping, kpoints
     use projected_band
     use reorder_band
@@ -22,8 +22,10 @@ contains
     logical                                   flag_order
     logical                                   flag_get_orbital
     logical                                   flag_order_weight
+    logical                                   flag_fit_orbital
     real*8                                    fvec(ldjac)
     real*8                                    fvec_plain(ldjac)
+    real*8                                    fvec_orb(ldjac)
     integer*4                                 ildjac, fldjac
 
     flag_order_weight   = .false. ! experimental feature
@@ -32,7 +34,7 @@ contains
     fldjac              = 0
 
     do i = 1, PINPT%nsystem
-      flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
+      flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. flag_fit_orbital)
       if(imode .eq. 1 .or. imode .eq. 11 .or. imode .eq. 13) then
         my_ldjac = PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
       elseif(imode .eq. 2 .or. imode .eq. 12) then
@@ -55,15 +57,17 @@ contains
       endif
 
       ! Evaluate orbital projection for TBA band
-      call get_orbital_projection(ETBA_FIT(i), PKPTS(i), PINPT, PGEOM(i))
-      call get_cost_function(fvec(ildjac:fldjac), fvec_plain(ildjac:fldjac), &
-                             ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), my_ldjac, imode, flag_order)
+      if(flag_fit_orbital) then
+        call get_orbital_projection(ETBA_FIT(i), PKPTS(i), PINPT, PGEOM(i), PPRAM%flag_use_overlap)
+      endif
+      call get_cost_function(fvec(ildjac:fldjac), fvec_plain(ildjac:fldjac), fvec_orb(ildjac:fldjac), &
+                             ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), my_ldjac, imode, flag_order, flag_fit_orbital)
     enddo
 
     return
   endsubroutine
 
-  subroutine get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
+  subroutine get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
     use parameters, only: weight, incar, energy, params, poscar, hopping, kpoints
     use projected_band
     use reorder_band
@@ -82,8 +86,10 @@ contains
     logical                                   flag_order
     logical                                   flag_get_orbital
     logical                                   flag_order_weight
+    logical                                   flag_fit_orbital
     real*8                                    fvec(1)
     real*8                                    fvec_plain(1)
+    real*8                                    fvec_orb(1)
     integer*4                                 ildjac, fldjac
 
     flag_order_weight   = .false. ! experimental feature
@@ -91,7 +97,7 @@ contains
     imode = 12
 
     do i = 1, PINPT%nsystem
-      flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
+      flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. flag_fit_orbital)
 
       ! Evaluate the function at the starting point and calculate its norm.
       call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM, &
@@ -108,14 +114,16 @@ contains
       endif
 
       ! Evaluate orbital projection for TBA band
-      call get_orbital_projection(ETBA_FIT(i), PKPTS(i), PINPT, PGEOM(i))
-      call get_cost_function(fvec(1), fvec_plain(1), ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), 1, imode, flag_order)
+      if(flag_fit_orbital) then
+        call get_orbital_projection(ETBA_FIT(i), PKPTS(i), PINPT, PGEOM(i), PPRAM%flag_use_overlap)
+      endif
+      call get_cost_function(fvec(1), fvec_plain(1), fvec_orb(1), ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), 1, imode, flag_order, flag_fit_orbital)
     enddo
 
     return
   endsubroutine
 
-  subroutine get_cost_function(fvec, fvec_plain, ETBA_FIT, EDFT, PGEOM, PINPT, PKPTS, PWGHT, ldjac, imode, flag_order)
+  subroutine get_cost_function(fvec, fvec_plain, fvec_orb, ETBA_FIT, EDFT, PGEOM, PINPT, PKPTS, PWGHT, ldjac, imode, flag_order, flag_fit_orbital)
     use parameters, only: weight, incar, energy, pi2, poscar, kpoints
     use do_math,    only: fgauss 
     use mpi_setup
@@ -135,12 +143,13 @@ contains
     real*8                     fvec_(ldjac)
     real*8                     fvec_plain(ldjac)
     real*8                     fvec_plain_(ldjac)
+    real*8                     fvec_orb(ldjac)
+    real*8                     fvec_orb_(ldjac)
     real*8                     OW, dD(3)
-    real*8                     dE, dE_plain
-    real*8                     dORB
+    real*8                     dE, dE_plain, dE_smooth, dORB_smooth
     real*8                     cost_func(PGEOM%nband*PINPT%nspin)
     real*8                     cost_func_plain(PGEOM%nband*PINPT%nspin)
-    real*8                     sigma, maxgauss
+    real*8                     sigma, maxgauss, max_gauss
     real*8                     enorm
     external                   enorm
     logical                    flag_weight_orbital, flag_fit_degeneracy
@@ -150,13 +159,14 @@ contains
     real*8                     E_DFT(PGEOM%neig*PINPT%ispin,PKPTS%nkpoint)
     complex*16, allocatable :: myV(:,:,:)
     real*8,     allocatable :: myORB_TBA(:,:,:), myORB_DFT(:,:,:)
-    real*8,     allocatable :: dE_(:), dORB_(:)
+    real*8,     allocatable :: orb_TBA(:), orb_DFT(:,:)
+    real*8,     allocatable :: dE_gauss(:) , dE_ref(:), dORB(:), dORB_ref(:)
     logical                    flag_fit_orbital
     integer*4                  ie_cutoff
    !integer*4                  ourjob(nprocs), ourjob_disp(0:nprocs-1), my_i
     integer*4                  ncpu, id
     integer*4,  allocatable :: ourjob(:), ourjob_disp(:), my_i
-
+    
     ! imode : 1, if ldjac < nparam (total number of parameters) -> unusual cases. try to avoid.
     !               ldjac = nkpoint * nband * PINPT%nspin
     ! imode : 2, if ldjac > nparam -> usual cases
@@ -172,18 +182,19 @@ contains
     ! imode = 1 and imode =13 is similar but imode =13 does not contain ortbial part and etc. (much faster)
 
     flag_fit_degeneracy = PINPT%flag_fit_degeneracy
-    flag_fit_orbital    = PINPT%flag_fit_orbital   
+!   flag_fit_orbital    = PINPT%flag_fit_orbital   
     flag_weight_orbital = PWGHT%flag_weight_orb
 
     dE        = 0d0 ;  sigma            = PINPT%orbital_fit_smearing   ! default 
     cost_func = 0d0 ;  cost_func_plain  = 0d0 
    !if(imode .lt. 10 .and. imode .eq. 13) then
     if(ldjac .ne. 1) then
-      fvec      = 0d0 ;  fvec_plain       = 0d0
-      fvec_     = 0d0 ;  fvec_plain_      = 0d0
+      fvec      = 0d0 ;  fvec_plain       = 0d0  ; fvec_orb  = 0d0
+      fvec_     = 0d0 ;  fvec_plain_      = 0d0  ; fvec_orb_ = 0d0
     endif
    !endif
     maxgauss  = 1d0/(sigma*sqrt(2d0*pi2)) *real(PGEOM%neig)
+    max_gauss = fgauss(sigma, 0d0)
     iband     = PGEOM%init_erange
     ie_cutoff = PWGHT%ie_cutoff
     if(flag_fit_degeneracy) dD= 0d0
@@ -201,7 +212,6 @@ contains
     allocate( ourjob_disp(0:ncpu-1))
 
     call mpi_job_distribution_chain(PKPTS%nkpoint, ncpu, ourjob, ourjob_disp)
-    
     if(flag_order) then
       E_TBA = ETBA_FIT%E_ORD
       E_DFT = EDFT%E_ORD
@@ -226,8 +236,13 @@ contains
 
       if(flag_fit_orbital) then
         sizebuff = PINPT%lmmax * PGEOM%nband*PINPT%nspin
+        allocate(dE_gauss(PGEOM%nband))
+        allocate(dE_ref(  PGEOM%nband))
+        allocate(dORB_ref(PGEOM%nband))
         allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
         allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1))) 
+        allocate(orb_TBA(PINPT%lmmax))
+        allocate(orb_DFT(PINPT%lmmax, PGEOM%nband))
         ! note: the size of second column, nband*PINPT%nspin is differ from read_energy routine
         !       but should work anyway, since ERANGE or EWINDOW tag should not be applied if
         !       fitting is requested by TBFIT tag of INCAR
@@ -279,16 +294,20 @@ contains
 
       if(flag_fit_orbital) then
         sizebuff = PINPT%lmmax * PGEOM%nband*PINPT%nspin
-        allocate(dE_(PGEOM%nband*PINPT%nspin))
-        allocate(dORB_(PGEOM%nband*PINPT%nspin))
+        allocate(dE_gauss(PGEOM%nband))
+        allocate(dE_ref(  PGEOM%nband))
+        allocate(dORB_ref(PGEOM%nband))
+        allocate(dORB(PGEOM%nband))
         allocate(myORB_TBA(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1)))
         allocate(myORB_DFT(PINPT%lmmax, PGEOM%nband*PINPT%nspin, ourjob(id+1))) 
+        allocate(orb_TBA(PINPT%lmmax))
+        allocate(orb_DFT(PINPT%lmmax, PGEOM%nband))
         ! note: the size of second column, nband*PINPT%nspin is differ from read_energy routine
         !       but should work anyway, since ERANGE or EWINDOW tag should not be applied if
         !       fitting is requested by TBFIT tag of INCAR
 #ifdef MPI
         ! Distribute orbital info to neighboring nodes
-        if(flag_weight_orbital) then
+        if(COMM_KOREA%flag_split) then
           call MPI_SCATTERV(ETBA_FIT%ORB, ourjob*sizebuff, ourjob_disp*sizebuff, &
                             MPI_REAL8, myORB_TBA, ourjob(id+1)*sizebuff, &
                             MPI_REAL8, 0, COMM_KOREA%mpi_comm, mpierr)
@@ -353,11 +372,16 @@ contains
             if(flag_fit_degeneracy) dD       = (ETBA_FIT%D(:,ie+(is-1)*PGEOM%nband,ik) - EDFT%D(:,ie_,ik)) * PWGHT%DEGENERACY_WT(ie_,ik)
             if(flag_weight_orbital) OW       = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik)) )
             if(flag_fit_orbital) then
-              dE_      = abs( E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) ) * &
-                         fgauss(sigma, E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik))
-              dORB_    = fdORB(myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik), &
-                               myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik), PINPT%lmmax, PGEOM%nband)
-              dE       = sum((1d0-dE_/maxgauss) * (1d0 - dORB_)) * PWGHT%WT(ie_,ik)
+              dE_gauss   = 0d0 ! initialize always
+              dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+              dE_gauss   = fgauss(sigma, dE_gauss)
+!             dE_gauss   = abs( E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) ) * &
+!                               fgauss(sigma, E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik))
+              orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
+              orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
+
+              dORB     = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband) * dE_gauss
+              dE       = sum((1d0-dE_gauss/maxgauss) * (1d0 - dORB)) * PWGHT%WT(ie_,ik)
             else
               dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
             endif
@@ -385,6 +409,7 @@ contains
     elseif(imode .eq. 13) then
       do ik = sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
         my_i = (ik - 1) * PGEOM%nband * PINPT%nspin
+        my_ik= ik - sum(ourjob(1:id))
         do is = 1, PINPT%nspin
           do ie = 1, PGEOM%nband
             ie_      = ie + iband - 1 + (is-1) * PGEOM%neig
@@ -392,15 +417,38 @@ contains
             dE       = dE_plain * PWGHT%WT(ie_,ik)
             dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
 
+            if(flag_fit_orbital) then
+              dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+              dE_ref     = abs(E_DFT(ie_,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+              dE_gauss   = 1d0-fgauss(sigma, dE_gauss)/max_gauss
+              dE_ref     = 1d0-fgauss(sigma, dE_ref)/max_gauss
+              dE_smooth  = sum(abs(dE_gauss - dE_ref))
+
+              ! dORB_smooth : orbital similarity between state-ie and other bands, 1: non-same, 0: same
+              ! NOTE: what is the best way to make the orbital different to be a "smooth" function?
+              orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
+              orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
+              dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
+              dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
+              dORB_smooth= sum(abs(dORB - dORB_ref))
+
+             !dE         = dORB_smooth * PWGHT%WT(ie_,ik)
+            endif
             if(ldjac .ne. 1) then
               if(ie_cutoff .gt. 0) then
                 if(ie .le. ie_cutoff) then
                   fvec(my_i + ie+(is-1)*PGEOM%nband) = abs(dE) 
                   fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+                  if(flag_fit_orbital) then
+                    fvec_orb(my_i + ie+(is-1)*PGEOM%nband) = dORB_smooth
+                  endif
                 endif
               else
                 fvec(my_i + ie+(is-1)*PGEOM%nband) = abs(dE) 
                 fvec_plain(my_i + ie+(is-1)*PGEOM%nband) = abs(dE_plain)
+                if(flag_fit_orbital) then
+                    fvec_orb(my_i + ie+(is-1)*PGEOM%nband) = dORB_smooth
+                endif
               endif
             endif
 
@@ -431,6 +479,10 @@ contains
           fvec = fvec_
           call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
           fvec_plain = fvec_plain_
+          if(flag_fit_orbital) then
+            call MPI_ALLREDUCE(fvec_orb, fvec_orb_, size(fvec_orb), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+            fvec_orb = fvec_orb_
+          endif
         endif
       elseif(.not. COMM_KOREA%flag_split) then
         call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
@@ -439,6 +491,10 @@ contains
           fvec = fvec_
           call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
           fvec_plain = fvec_plain_
+          if(flag_fit_orbital) then
+            call MPI_ALLREDUCE(fvec_orb, fvec_orb_, size(fvec_orb), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+            fvec_orb = fvec_orb_
+          endif
         endif
       endif
 #else
@@ -452,6 +508,10 @@ contains
           fvec = fvec_
           call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
           fvec_plain = fvec_plain_
+          if(flag_fit_orbital) then
+            call MPI_ALLREDUCE(fvec_orb, fvec_orb_, size(fvec_orb), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+            fvec_orb = fvec_orb_
+          endif
         elseif(ldjac .eq. 1) then
           call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
         endif
@@ -461,6 +521,10 @@ contains
           fvec = fvec_
           call MPI_ALLREDUCE(fvec_plain, fvec_plain_, size(fvec_plain), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
           fvec_plain = fvec_plain_
+          if(flag_fit_orbital) then
+            call MPI_ALLREDUCE(fvec_orb, fvec_orb_, size(fvec_orb), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+            fvec_orb = fvec_orb_
+          endif
         elseif(ldjac .eq. 1) then
           call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
         endif
@@ -483,9 +547,13 @@ contains
     real*8       myORB_TBA(lmmax)
     real*8       myORB_DFT(lmmax, nband)
     real*8       fdORB(nband)
+    external     enorm
+    real*8       enorm
 
     do ie = 1, nband
-      fdORB(ie) = sum(myORB_TBA(:) * myORB_DFT(:,ie))
+     !fdORB(ie) = sum(myORB_TBA(:) * myORB_DFT(:,ie))
+      fdORB(ie) = dot_product(myORB_TBA, myORB_DFT(:,ie))
+     !fdORB(ie) = enorm(lmmax, abs(myORB_TBA - myORB_DFT(:,ie)))
     enddo
 
     return

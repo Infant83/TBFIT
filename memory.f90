@@ -55,4 +55,36 @@ contains
     return
   endsubroutine
 
+  subroutine report_memory_singlek(ispinor, ispin, nspin, neig, nband, nkp, &
+                                 flag_stat, flag_sparse, ncpus)
+    integer*4   ispinor, ispin, nspin, neig, nband, nkp
+    integer*8   size_E, size_V, size_Hk, size_Hm, size_Hs
+    integer*4   ncpus, impi
+    logical     flag_stat, flag_sparse
+
+#ifdef MPI
+    impi = 2 ! due to MPI_REDUCE requires additional memory
+#else
+    impi = 1
+#endif
+
+    size_E =           int8(nband)  *int8(nspin)*int8(nkp)    * int8(ncpus)
+    size_V =int8(neig)*int8(ispin  )*int8(nband)*int8(nspin  )* int8(ncpus)  ! V 
+    size_Hk=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)  ! 
+    size_Hm=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)
+    size_Hs=int8(neig)*int8(ispinor)*int8(neig )*int8(ispinor)* int8(ncpus)
+
+    if(flag_stat) then
+      call report_memory(size_E ,8 , 'Eigen values')
+      call report_memory(size_V ,16, 'Eigen vector')
+      if(.not. flag_sparse) then
+        call report_memory(size_Hk,16, 'H(total)    ')
+        call report_memory(size_Hm,16, 'H(magnetic) ')
+        call report_memory(size_Hs,16, 'H(spin-orb) ')
+      endif
+    endif
+ 
+    return
+  endsubroutine
+
 endmodule

@@ -55,6 +55,8 @@ subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_D
   call set_ngrid(PINPT, PGEOM)
   call set_ldos_atom(PINPT, PGEOM)
 
+  if(PINPT%flag_tbfit) PINPT%flag_distribute_nkp = .FALSE.
+
   if(PINPT%flag_tbfit .and. PINPT%flag_print_energy_diff ) then 
     if(PINPT%flag_print_orbital) then 
       PINPT%flag_print_energy_diff = .false.

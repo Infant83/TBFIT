@@ -31,6 +31,7 @@ module pyfit
        logical                            flag_scissor
        logical                            flag_print_proj
        logical                            flag_print_proj_sum
+       logical                            flag_print_proj_atom
        logical                            flag_plot_fit
        logical                            flag_plot
        logical                            flag_get_band_order   
@@ -283,7 +284,7 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     call read_input(PINPT,PPRAM,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE, TMP1,TMP2,TMP3,TMP4, 1)
     call set_free_parameters(PPRAM)
 
-    call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA)
+    call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, .FALSE., 0)
     if(allocated(ETBA%dE)) deallocate(ETBA%dE)
     allocate(ETBA%dE( size(ETBA%E(:,1)) , size(ETBA%E(1,:)) )) 
     ETBA%E = 0d0 ; ETBA%V = 0d0 ; ETBA%SV = 0d0 ; ETBA%dE=0d0
@@ -353,7 +354,7 @@ subroutine pso(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
 
     call pso_fit(PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_tABLE, EDFT, iseed, pso_miter)
 
-    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, .FALSE.)
 
     call copy_incar(PINPT_PY, PINPT, 1)
     call copy_params(PPRAM_PY, PPRAM, 1)
@@ -489,7 +490,7 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     type(energy  ), dimension(PINPT_PY%nsystem) :: EDFT, ETBA
     integer(kind=sp)                               ifit
     logical                                        flag_exit
-    real(kind=dp)                                  fnorm, fnorm_plain, fnorm_
+    real(kind=dp)                                  fnorm, fnorm_plain, fnorm_orb,  fnorm_
     external                                       get_eig
     logical                                        flag_order, flag_get_orbital, flag_write_info
     integer(kind=sp)                               mpierr 
@@ -501,7 +502,7 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
 #endif
 
     fnorm_ = 0d0        ; flag_exit = .false. ;    ifit = 0
-    fnorm_plain = 0d0
+    fnorm_plain = 0d0   ; fnorm_orb = 0d0
     flag_order       = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
     flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
 
@@ -545,12 +546,12 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     endif
 
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, flag_write_info)
+               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, .FALSE.)
 
     call check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
     ! before return calculate again with final parameter to get get energy and dE
-    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, .FALSE.)
 
     call copy_incar(PINPT_PY, PINPT, 1)
     call copy_params(PPRAM_PY, PPRAM, 1)
@@ -620,6 +621,7 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%flag_scissor                            = .FALSE.
     PINPT_PY%flag_print_proj                         = .FALSE.
     PINPT_PY%flag_print_proj_sum                     = .FALSE.
+    PINPT_PY%flag_print_proj_atom                    = .FALSE.
     PINPT_PY%flag_plot_fit                           = .FALSE.
     PINPT_PY%flag_plot                               = .FALSE.
     PINPT_PY%flag_get_band_order                     = .FALSE.
@@ -672,6 +674,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%flag_scissor                       =      PINPT%flag_scissor
        PINPT_PY%flag_print_proj                    =      PINPT%flag_print_proj
        PINPT_PY%flag_print_proj_sum                =      PINPT%flag_print_proj_sum
+       PINPT_PY%flag_print_proj_atom               =      PINPT%flag_print_proj_atom
        PINPT_PY%flag_plot_fit                      =      PINPT%flag_plot_fit
        PINPT_PY%flag_plot                          =      PINPT%flag_plot
        PINPT_PY%flag_get_band_order                =      PINPT%flag_get_band_order
@@ -743,6 +746,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%flag_scissor                       =      PINPT_PY%flag_scissor
        PINPT%flag_print_proj                    =      PINPT_PY%flag_print_proj
        PINPT%flag_print_proj_sum                =      PINPT_PY%flag_print_proj_sum
+       PINPT%flag_print_proj_atom               =      PINPT_PY%flag_print_proj_atom
        PINPT%flag_plot_fit                      =      PINPT_PY%flag_plot_fit
        PINPT%flag_plot                          =      PINPT_PY%flag_plot
        PINPT%flag_get_band_order                =      PINPT_PY%flag_get_band_order

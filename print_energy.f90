@@ -2,6 +2,7 @@
 subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    use parameters, only : kpoints, energy, poscar, incar, params, weight
    use mpi_setup
+   use print_io
    implicit none
    type(incar)   :: PINPT
    type(params)  :: PPRAM
@@ -11,7 +12,9 @@ subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    type(kpoints) :: PKPTS
    integer*4        mpierr
 
-   if( myid .ne. 0) return
+   if(.not. PINPT%flag_distribute_nkp) then
+     if( myid .ne. 0) return
+   endif
 
    if(PINPT%flag_print_energy_diff ) then
 
@@ -21,18 +24,28 @@ subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    elseif(.not. PINPT%flag_print_energy_diff ) then
 
      if(PINPT%flag_get_band) then
-       call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
-                         PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
-       if(PINPT%flag_get_band_order) then
-         call print_energy(PKPTS, ETBA%E_ORD, ETBA%E_ORD, ETBA%V_ORD, ETBA%SV_ORD, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
-                         PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '_ordered')
+       if(.not. PINPT%flag_distribute_nkp) then
+         call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
+                           PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
+         if(PINPT%flag_get_band_order) then
+           call print_energy(PKPTS, ETBA%E_ORD, ETBA%E_ORD, ETBA%V_ORD, ETBA%SV_ORD, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
+                           PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '_ordered')
+         endif
+       elseif(PINPT%flag_distribute_nkp) then
+!        call print_energy_distributed(ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
+!                                      PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
+         write(message,'(A)')'    !WARN! The current version does not support PINPT%flag_distribute_nkp (LDISTRK) = .TRUE. ' ; write_msg
+         write(message,'(A)')'           for band structure storing. The subroutine for this "print_energy_distributed" ' ; write_msg
+         write(message,'(A)')'           will be implemented in the near future.' ; write_msg
+         write(message,'(A)')'           Exit program... 19. Mar. 2021. HJ Kim' ; write_msg
+         kill_job
        endif
      endif
 
    endif
 
    if(PINPT%flag_print_proj ) then
-     call print_energy_proj(PKPTS, ETBA%E, ETBA%V, ETBA%SV, PGEOM, PINPT, PPRAM%flag_use_overlap)
+     call print_energy_proj(PKPTS, ETBA%E, ETBA%V, ETBA%SV, PGEOM, PINPT, PPRAM)
    endif
    
     
@@ -268,12 +281,13 @@ spin:do is = 1, nspin
 
 return
 endsubroutine
-subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
-   use parameters, only: pid_energy, incar, poscar, kpoints, zi
+subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,PPRAM)
+   use parameters, only: pid_energy, incar, poscar, kpoints, params, zi
    implicit none
    type(incar)  :: PINPT
    type(poscar) :: PGEOM
    type(kpoints):: PKPTS
+   type(params ):: PPRAM
    integer*4       mysystem
    integer*4       ie,is,ik,im,ia
    integer*4       isum, iatom, iorb
@@ -285,7 +299,7 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
    integer*4       imatrix
    real*8          kline(PKPTS%nkpoint),kpoint(3,PKPTS%nkpoint)
    logical         flag_klinemode, flag_kgridmode, flag_print_orbital, flag_use_overlap
-   logical         flag_proj_sum
+   logical         flag_proj_sum, flag_proj_atom
    real*8          E(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      V(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
    complex*16      SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
@@ -305,11 +319,13 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
    flag_kgridmode = PKPTS%flag_kgridmode
    flag_print_orbital = PINPT%flag_get_orbital
    flag_proj_sum = PINPT%flag_print_proj_sum
+   flag_proj_atom= PINPT%flag_print_proj_atom
    kpoint = PKPTS%kpoint
    nkpoint= PKPTS%nkpoint
    nbasis = PGEOM%neig
    nspin  = PINPT%nspin
    sigma='sigma_0 '
+   flag_use_overlap = PPRAM%flag_use_overlap
 
    do isum = 1, PINPT%nproj_sum
      proj_natom = PINPT%proj_natom(isum)
@@ -350,18 +366,20 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
      atom:do iatom = 1, proj_natom
          ia = proj_atom(iatom)
          imatrix = sum( PGEOM%n_orbital(1:ia) ) - PGEOM%n_orbital(ia) + 1
-         write(fname_header,'(3A,I0)')'band_structure_TBA_atom',trim(PINPT%title(mysystem)),'.',ia 
-         call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
-         open(pid_energy, file = trim(fname), status = 'unknown')
-         
-         if(PINPT%flag_sparse) then
-           write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ', &
-                                               PINPT%feast_emin,' : ', PINPT%feast_emax,'], NE_MAX= ',PINPT%feast_nemax
-           do ik = 1, nkpoint
-             write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
-           enddo
-         elseif(PINPT%flag_erange) then
-           write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',init_e,' : ',fina_e,' ]'
+         if(flag_proj_atom) then
+           write(fname_header,'(3A,I0)')'band_structure_TBA_atom',trim(PINPT%title(mysystem)),'.',ia 
+           call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+           open(pid_energy, file = trim(fname), status = 'unknown')
+           
+           if(PINPT%flag_sparse) then
+             write(pid_energy, '(A,2(F10.4,A),I0)')'# The EWINDOW mode: energy window [EMIN:EMAX]=[ ', &
+                                                 PINPT%feast_emin,' : ', PINPT%feast_emax,'], NE_MAX= ',PINPT%feast_nemax
+             do ik = 1, nkpoint
+               write(pid_energy, '(A,I0,A,I0)')'#   NE_FOUND(ik=',ik,')= ',ne_found(is,ik)
+             enddo
+           elseif(PINPT%flag_erange) then
+             write(pid_energy, '(A,I0,A,I0,A)')'#   ERANGE=[ ',init_e,' : ',fina_e,' ]'
+           endif
          endif
      eig:do ie = 1, PGEOM%nband ! init_e, fina_e
            write(pid_energy,'(2A,I8,A,I8,3A)',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen | ',ia, &
@@ -370,12 +388,14 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
            if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
            if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
            
-           write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma     
-           write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
-           do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
-             write(pid_energy, '(I9)',ADVANCE='NO')im
-           enddo
-           write(pid_energy,'(A9)',ADVANCE='YES') ' tot'
+           if(flag_proj_atom) then
+             write(pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma     
+             write(pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
+             do im=imatrix, imatrix + PGEOM%n_orbital(ia) - 1
+               write(pid_energy, '(I9)',ADVANCE='NO')im
+             enddo
+             write(pid_energy,'(A9)',ADVANCE='YES') ' tot'
+           endif
 
            if(iatom .eq. proj_natom .and. flag_proj_sum) then
              write(pid_energy+100,'(2A,I8,A      )',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen '
@@ -384,21 +404,22 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
              if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
 
              write(pid_energy+100, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
-             write(pid_energy+100, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)     E(ev), '
-             do im=1      , PGEOM%n_orbital(ia) ! note: PROJ_BAND should be summed up with those atoms having same number of basis 
-               write(pid_energy+100, '(I9)',ADVANCE='NO')im
+             write(pid_energy+100, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)     E(eV), '
+             do im=1      , PGEOM%n_orbital(ia) ! note: PROJ_BAND should be summed up with those atoms having same number of basis and same orbitals
+              !write(pid_energy+100, '(I9)',ADVANCE='NO')im
+               write(pid_energy+100, '(1X,A8)',ADVANCE='NO')trim(PGEOM%c_orbital(im,ia))
              enddo
              write(pid_energy+100,'(A)',ADVANCE='YES') '  tot(atom_sum)'
            endif
 
         kp:do ik = 1, nkpoint
-             if(flag_klinemode) then
+             if(flag_klinemode .and. flag_proj_atom) then
                if( ie .le. ne_found(is, ik) ) then
                  write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik), E(ie+PGEOM%nband*(is-1),ik)
                elseif( ie .gt. ne_found(is, ik)) then
                  write(pid_energy,'(1x,F12.6,24x,F14.6,1x)',ADVANCE='NO')kline(ik)
                endif
-             elseif(flag_kgridmode) then
+             elseif(flag_kgridmode .and. flag_proj_atom) then
                if( ie .le. ne_found(is, ik) ) then
                  write(pid_energy,'(1x,3F12.6,F14.6,1x)',ADVANCE='NO')kpoint(:,ik), E(ie+PGEOM%nband*(is-1),ik)
                elseif(ie .gt. ne_found(is, ik)) then
@@ -455,11 +476,15 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
                      c_tot_orb(iorb) = real(conjg(c_up)*sc_up)
                    endif
 
-                   write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(c_tot_orb(iorb))
+                   if(flag_proj_atom) then
+                     write(pid_energy,'(*(F9.4))',ADVANCE='NO') real(c_tot_orb(iorb))
+                   endif
                    c_tot = c_tot + real(c_tot_orb(iorb))
 
                  enddo basis
-                 write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(c_tot)
+                 if(flag_proj_atom) then
+                   write(pid_energy,'(*(F9.4))',ADVANCE='YES') real(c_tot)
+                 endif
 
                  if(flag_proj_sum) then 
                    c_sum(ie,ik) = c_sum(ie,ik) + c_tot
@@ -471,22 +496,22 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,flag_use_overlap)
 
                endif
 
-               if(.not.flag_print_orbital) write(pid_energy,*)''
+               if(.not.flag_print_orbital .and. flag_proj_atom) write(pid_energy,*)''
                if(.not.flag_print_orbital .and. flag_proj_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
              elseif(ie .gt. ne_found(is, ik)) then
-               write(pid_energy,*)''
+               if(flag_proj_atom) write(pid_energy,*)''
                if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
              endif
            enddo kp
 
-           write(pid_energy,*)''
-           write(pid_energy,*)''
+           if(flag_proj_atom) write(pid_energy,*)''
+           if(flag_proj_atom) write(pid_energy,*)''
            if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
            if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 
 
          enddo eig
 
-         close(pid_energy)
+         if(flag_proj_atom) close(pid_energy)
        enddo atom
        if(iatom-1 .eq. proj_natom .and. flag_proj_sum) close(pid_energy+100)
      enddo spin
@@ -520,7 +545,7 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
    character*28    kmode
    character*6     kunit_
    character*20,external ::   int2str
-   logical         flag_print_orbital, flag_use_overlap
+   logical         flag_print_orbital, flag_use_overlap, flag_file_exist
    character*8     sigma
 
    my_pid_energy = pid_energy + myid
@@ -532,6 +557,8 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
    nbasis = neig
    nspin  = PINPT%nspin
    sigma='sigma_0 '
+   ikmode = 3
+   flag_file_exist = .FALSE.
 
    if(PINPT%flag_sparse) then
      ne_found = PINPT%feast_ne(1:PINPT%nspin,iik)
@@ -543,8 +570,12 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
    call get_plotmode(.false., .true., kunit_, kmode)
    init_e = iband ; fina_e = init_e + nband - 1
 
+   if(.not. PINPT%flag_write_unformatted) then
  spin:do is = 1, nspin
         call get_fname(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+        inquire(file=trim(fname),exist=flag_file_exist)
+        if(flag_file_exist) return
+
         open(my_pid_energy, file=trim(fname), status = 'unknown')
         if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
           call get_fname(fname_headerS, fnameS, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
@@ -583,6 +614,10 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
 
       eig:do ie =1, nband !init_e, fina_e
             write(my_pid_energy, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'
+            if(flag_use_overlap .and. trim(PINPT%axis_print_mag) .eq. 'wf') then
+              write(my_pid_energyS, '(2A,I8,A)', ADVANCE = 'yes') kmode,'  energy(eV) :', init_e + ie - 1,' -th eigen'
+            endif
+
             if(.not. flag_print_orbital) then
               write(my_pid_energy,'(A)',ADVANCE='NO')''
             elseif(  flag_print_orbital) then
@@ -590,7 +625,11 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
               if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
               if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '
               if(PINPT%axis_print_mag .ne. 'wf') then
-                write(my_pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+                if(PINPT%axis_print_mag .ne. 'wf') then
+                  write(my_pid_energy, '(2A)',ADVANCE='YES') '# overlap S multiplied wavefunction coeff.: <ci|sigma*S|ci>,sigma=',sigma
+                else
+                  write(my_pid_energy, '(2A)',ADVANCE='YES') '# wavefunction coeff.: <ci|sigma|ci>,sigma=',sigma
+                endif
                 write(my_pid_energy, '( A)',ADVANCE='NO')  '# k-dist   (ci: wfn coeff for i-th orb)   E(eV), i='
               elseif(PINPT%axis_print_mag .eq. 'wf') then
                 write(my_pid_energy, '(1A)',ADVANCE='YES') '# wavefunction coeff.:          |ci>               '
@@ -740,6 +779,179 @@ subroutine print_energy_singlek( E, V, SV, neig, iband, nband, iik , kp, PINPT, 
         endif
       enddo spin
 
+   elseif(PINPT%flag_write_unformatted) then
+     spinb:do is = 1, nspin
+       call get_fname_bin(fname_header, fname, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+       inquire(file=trim(fname),exist=flag_file_exist)
+       if(flag_file_exist) return
+
+       if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
+         call get_fname_bin(fname_headerS, fnameS, is, PINPT%flag_collinear, PINPT%flag_noncollinear)
+       endif
+
+       open(my_pid_energy, file=trim(fname), form='unformatted', status='unknown')
+       write(my_pid_energy) ikmode, flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, &
+                         PINPT%flag_sparse, neig, 1, nband, &
+                         PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%axis_print_mag
+       if(PINPT%flag_erange) then
+         write(my_pid_energy) PINPT%flag_erange, init_e , fina_e
+       else
+         write(my_pid_energy) PINPT%flag_erange ! .FALSE.
+       endif
+       if(PINPT%flag_sparse) then
+         write(my_pid_energy) PINPT%flag_sparse, PINPT%feast_emin, PINPT%feast_emax, PINPT%feast_nemax
+       else
+         write(my_pid_energy) PINPT%flag_sparse ! .FALSE.
+       endif
+
+       if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
+         open(my_pid_energyS, file=trim(fnameS), form='unformatted', status='unknown')
+         write(my_pid_energyS) ikmode, flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, &
+                           PINPT%flag_sparse, neig, 1, nband, &
+                           PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%axis_print_mag
+         if(PINPT%flag_erange) then
+           write(my_pid_energyS) PINPT%flag_erange, init_e , fina_e
+         else
+           write(my_pid_energyS) PINPT%flag_erange ! .FALSE.
+         endif
+         if(PINPT%flag_sparse) then
+           write(my_pid_energyS) PINPT%flag_sparse, PINPT%feast_emin, PINPT%feast_emax, PINPT%feast_nemax
+         else
+           write(my_pid_energyS) PINPT%flag_sparse ! .FALSE.
+         endif
+       endif
+
+     ! write main wavefunction information
+       if(flag_print_orbital) then
+         if(PINPT%ispinor .eq. 2) then
+           if(PINPT%axis_print_mag .eq. 'wf') then
+
+             if(.not.PINPT%flag_print_single) then
+               write(my_pid_energy) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+               if(flag_use_overlap) then
+                 write(my_pid_energyS) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+               endif
+               do ie = 1, ne_found(is)
+                 do im = 1, nbasis
+                   write(my_pid_energy) V(im,ie), V(im+nbasis,ie)
+                   if(flag_use_overlap) write(my_pid_energyS) SV(im,ie), SV(im+nbasis,ie)
+                 enddo
+               enddo
+             elseif(PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+                 do ie = 1, ne_found(is)
+                   do im = 1, nbasis
+                     if(.not.flag_use_overlap) then
+                       write(my_pid_energy) cmplx((/V(im,ie), V(im+nbasis,ie)/),kind=4)
+                     else
+                       write(my_pid_energy) cmplx((/V(im,ie), SV(im+nbasis,ie)/),kind=4)
+                     endif
+                   enddo
+                 enddo
+             endif
+
+           elseif(PINPT%axis_print_mag .eq. 'rh') then
+             if(.not.PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+                 do ie = 1, ne_found(is)
+                   do im = 1, nbasis
+                     if(.not.flag_use_overlap) then
+                       write(my_pid_energy) real( conjg(V(im,ie))*V(im,ie) + conjg(V(im+nbasis,ie))*V(im+nbasis,ie) )
+                     else
+                       write(my_pid_energy) real( conjg(V(im,ie))*SV(im,ie) + conjg(V(im+nbasis,ie))*SV(im+nbasis,ie) )
+                     endif
+                   enddo
+                 enddo
+
+             elseif(PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+                 do ie = 1, ne_found(is)
+                   do im = 1, nbasis
+                     if(.not. flag_use_overlap) then
+                       write(my_pid_energy) real( conjg(V(im,ie))*V(im,ie)+conjg(V(im+nbasis,ie))*V(im+nbasis,ie), kind=4 )
+                     else
+                       write(my_pid_energy) real( conjg(V(im,ie))*SV(im,ie)+conjg(V(im+nbasis,ie))*SV(im+nbasis,ie), kind=4 )
+                     endif
+                   enddo
+                 enddo
+
+             endif
+           endif
+
+         elseif(PINPT%ispinor .eq. 1) then
+           if(PINPT%axis_print_mag .eq. 'wf') then
+             if(.not.PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+                 if(flag_use_overlap) then
+                   write(my_pid_energyS) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+                 endif
+                 do ie = 1+nband*(is-1), nband*(is-1)+ne_found(is)
+                   do im = 1+nbasis*(is-1),nbasis*is
+                     write(my_pid_energy) V(im,ie)
+                     if(flag_use_overlap) then
+                       write(my_pid_energyS) SV(im,ie)
+                     endif
+                   enddo
+                 enddo
+             elseif(PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+                 if(flag_use_overlap) then
+                   write(my_pid_energyS) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+                 endif
+                 do ie = 1+nband*(is-1), nband*(is-1)+ne_found(is)
+                   do im = 1+nbasis*(is-1),nbasis*is
+                     write(my_pid_energy) cmplx(V(im,ie), kind=4)
+                     if(flag_use_overlap) then
+                       write(my_pid_energyS) cmplx(SV(im,ie), kind=4)
+                     endif
+                   enddo
+                 enddo
+             endif
+
+           elseif(PINPT%axis_print_mag .eq. 'rh') then
+             if(.not.PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+                 do ie = 1+nband*(is-1),nband*(is-1)+ne_found(is)
+                   do im = 1+nbasis*(is-1),nbasis*is
+                     if(.not. flag_use_overlap) then
+                       write(my_pid_energy) real(conjg(V(im,ie))*V(im,ie))
+                     else
+                       write(my_pid_energy) real(conjg(V(im,ie))*SV(im,ie))
+                     endif
+                   enddo
+                 enddo
+             elseif(PINPT%flag_print_single) then
+                 write(my_pid_energy) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+                 do ie = 1+nband*(is-1),nband*(is-1)+ne_found(is)
+                   do im = 1+nbasis*(is-1),nbasis*is
+                     if(.not. flag_use_overlap) then
+                       write(my_pid_energy) real(conjg(V(im,ie))*V(im,ie),kind=4)
+                     else
+                       write(my_pid_energy) real(conjg(V(im,ie))*SV(im,ie),kind=4)
+                     endif
+                   enddo
+                 enddo
+             endif
+
+           endif
+         endif
+
+       elseif(.not. flag_print_orbital) then
+         if(.not. PINPT%flag_print_single) then
+           write(my_pid_energy) ne_found(is), kp(:), (E(ie+nband*(is-1)),ie=1,ne_found(is))
+         elseif(PINPT%flag_print_single) then
+           write(my_pid_energy) ne_found(is), real(kp(:),kind=4), (real(E(ie+nband*(is-1)),kind=4),ie=1,ne_found(is))
+         endif
+       endif
+
+       close(my_pid_energy)
+       if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
+         close(my_pid_energyS)
+       endif
+
+     enddo spinb
+   endif 
+      
    return
 endsubroutine
 subroutine print_energy( PKPTS, E, E2, V, SV, neig, iband, nband, PINPT, PWGHT, flag_use_overlap, flag_final_step, suffix)
@@ -1121,7 +1333,7 @@ spinb:do is = 1, nspin
         write(message,'(A)') ' '  ; write_msg
         write(message,'(2A)')' #- Writing band structure file: ', trim(fname) ; write_msg
         open(pid_energy, file=trim(fname), form='unformatted', status='unknown')
-        write(pid_energy) ikmode, PINPT%flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, & 
+        write(pid_energy) ikmode, flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, & 
                           PINPT%flag_sparse, neig, PKPTS%nkpoint, nband, &
                           PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%axis_print_mag
         if(PINPT%flag_erange) then
@@ -1137,7 +1349,7 @@ spinb:do is = 1, nspin
 
         if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
           open(pid_energyS, file=trim(fnameS), form='unformatted', status='unknown')
-          write(pid_energyS) ikmode, PINPT%flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, & 
+          write(pid_energyS) ikmode, flag_print_orbital, PINPT%flag_print_single, PINPT%flag_erange, & 
                             PINPT%flag_sparse, neig, PKPTS%nkpoint, nband, &
                             PINPT%ispin, PINPT%nspin, PINPT%ispinor, PINPT%axis_print_mag
           if(PINPT%flag_erange) then
@@ -1153,7 +1365,7 @@ spinb:do is = 1, nspin
         endif
 
         ! write main wavefunction information
-          if(PINPT%flag_print_orbital) then
+          if(flag_print_orbital) then
             if(PINPT%ispinor .eq. 2) then
               if(PINPT%axis_print_mag .eq. 'wf') then
                 if(.not.PINPT%flag_print_single) then
@@ -1286,16 +1498,10 @@ spinb:do is = 1, nspin
             if(.not. PINPT%flag_print_single) then
               do ik = 1, nkpoint
                 write(pid_energy) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
-               !if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
-               !  write(pid_energyS) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
-               !endif
               enddo
             elseif(PINPT%flag_print_single) then
               do ik = 1, nkpoint
                 write(pid_energy) ne_found(is,ik), real(kpoint_(:,ik),kind=4), (real(E(ie+nband*(is-1),ik),kind=4),ie=1,ne_found(is,ik))
-               !if(flag_use_overlap .and. PINPT%axis_print_mag .eq. 'wf') then
-               !  write(pid_energyS) ne_found(is,ik), kpoint_(:,ik), (E(ie+nband*(is-1),ik),ie=1,ne_found(is,ik))
-               !endif
               enddo
             endif
           endif

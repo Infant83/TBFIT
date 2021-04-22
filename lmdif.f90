@@ -17,8 +17,8 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
   integer*4                                   i
   real*8                                      epsfcn,factor, tol, xtol, ftol, gtol
   external                                    get_eig
-  logical                                     flag_write_info
-  real*8                                      fnorm, fnorm_plain ! fnorm of last step
+  logical                                     flag_write_info, flag_fit_orbital
+  real*8                                      fnorm, fnorm_plain, fnorm_orb ! fnorm of last step
   
   if(PPRAM%slater_koster_type .gt. 10) then
     nparam_free = PPRAM%nparam_nrl_free ! total number of free parameters
@@ -33,6 +33,8 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
   do i =1, PINPT%nsystem
     ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
   enddo
+
+  flag_fit_orbital = PINPT%flag_fit_orbital
 
 ! if( sum(PKPTS(:)%nkpoint) .lt. nparam_free ) then
 !   imode = 1
@@ -70,7 +72,7 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
       flag_write_info = .true.
     endif
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, flag_write_info)
+               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, flag_fit_orbital)
    if_main  call infostamp(info,PINPT%ls_type)
   !write(message,*)" End: fitting procedures"  ; write_msg
 
@@ -89,13 +91,13 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00;epsfcn = 0.0D+00
     flag_write_info = .false. 
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm, fnorm_plain,  maxfev, epsfcn, factor, info, flag_write_info)
+               ftol, xtol, gtol, fnorm, fnorm_plain,  maxfev, epsfcn, factor, info, flag_write_info, flag_fit_orbital)
   endif
 
   return
 endsubroutine
 subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-                 ftol, xtol, gtol, fnorm, fnorm_plain, maxfev, epsfcn, factor, info, flag_write_info)
+                 ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, flag_fit_orbital)
 
 !*****************************************************************************80
 !
@@ -135,7 +137,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   use parameters
   use cost_function
   use mpi_setup
-! use kill
   use reorder_band
   use print_io
   use projected_band
@@ -157,8 +158,9 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   real*8        fjac(ldjac, nparam_free)
   real*8        fvec(ldjac)
   real*8        fvec_plain(ldjac)
+  real*8        fvec_orb(ldjac)
   real*8        wa4(ldjac)
-  real*8        fnorm,fnorm1,fnorm_,fnorm_plain,ftol,gnorm,gtol,par
+  real*8        fnorm,fnorm1,fnorm_,fnorm_plain,fnorm_orb, ftol,gnorm,gtol,par
   real*8        pnorm,prered,qtf(nparam_free),ratio,sum2,temp,temp1,temp2,xnorm,xtol
   real*8        wa1(nparam_free),wa2(nparam_free),wa3(nparam_free)
   real*8        wa2_temp(nparam_free)
@@ -168,7 +170,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   integer*4     i_dummy
   character*132 gnu_command
   logical       flag_wait_plot
-  logical       flag_order, flag_order_weight, flag_cost_history
+  logical       flag_order, flag_order_weight, flag_cost_history, flag_fit_orbital
   integer*4     mpierr
 
   if(allocated(PPRAM%cost_history)) then 
@@ -208,7 +210,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   i_dummy = 0
   epsmch = epsilon ( epsmch )
   info = 0 ; nfev = 0
-  fvec = 0d0; fvec_plain = 0d0
+  fvec = 0d0; fvec_plain = 0d0 ; fvec_orb = 0d0
 
   if (ftol < 0.0D+00 .or. xtol < 0.0D+00 .or. gtol < 0.0D+00 .or. maxfev <= 0) go to 300
 
@@ -217,11 +219,12 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
     call get_degeneracy(EDFT(i), PGEOM(i)%neig*PINPT%ispin, PKPTS(i)%nkpoint, PINPT)
   enddo
 
-  call get_dE(fvec, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS) 
+  call get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital) 
 
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
   fnorm_plain = enorm(ldjac, fvec_plain)
+  fnorm_orb   = enorm(ldjac, fvec_orb)
 !  Initialize Levenberg-Marquardt parameter and iteration counter.
   iter = 1 ; par = 0.0D+00
   if(flag_cost_history) PPRAM%cost_history(iter) = fnorm
@@ -229,8 +232,14 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   if(flag_write_info) then
     write(message,'(A)')' '  ; write_msg
     write(message,'(A)')'    # dE: (EDFT - ETBA), WT= weight '
-    write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                       ', rt(sum(dE^2)) = ', fnorm_plain   ; write_msg
+    if(.not.flag_fit_orbital) then
+      write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                         ', rt(sum(dE^2)) = ', fnorm_plain   ; write_msg
+    elseif(flag_fit_orbital) then
+      write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                         ', rt(sum(dE^2)) = ', fnorm_plain, &
+                                                         ', rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
+    endif
                                                       !', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
 
@@ -348,7 +357,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
           PPRAM%param(PPRAM%iparam_free) = wa2(1:nparam_free)      ! update param
         endif
         
-        call get_dE(wa4, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
+        call get_dE(wa4, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
 
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
@@ -419,6 +428,9 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
           xnorm = enorm ( nparam_free, wa2 )
           fnorm = fnorm1
           fnorm_plain = enorm ( ldjac , fvec_plain )
+          if(flag_fit_orbital) then
+            fnorm_orb = enorm ( ldjac , fvec_orb   )
+          endif
 
           iter = iter + 1
           if(iter .le. PINPT%miter .and. flag_cost_history)  then
@@ -428,9 +440,16 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
           if(flag_write_info) then
             write(message,'(A)')' '  ; write_msg
+            if(.not. flag_fit_orbital) then
+              write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                                 ', rt(sum(dE^2)) = ', fnorm_plain  ; write_msg
+            elseif(flag_fit_orbital) then
+              write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                                 ', rt(sum(dE^2)) = ', fnorm_plain, &
+                                                                 ', rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
 
-            write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                               ', rt(sum(dE^2)) = ', fnorm_plain  ; write_msg
+            endif
+
             if_main write(pfileoutnm_temp,'(A,A)')trim(PPRAM%pfileoutnm),'_temp'
             if_main call print_param(PINPT,PPRAM,PWGHT(1),pfileoutnm_temp,.TRUE.) ! only main system will be printed..
             fnorm_ = fnorm ! fnorm of previous step
@@ -575,13 +594,17 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
   integer*4  i,j,ii, nparam_free
   integer*4  ldjac, imode
   real*8     eps,epsfcn,epsmch,h,temp,fjac(ldjac,nparam_free)
-  real*8     wa(ldjac), fvec(ldjac), fvec_plain(ldjac)
-  logical    flag_order_weight, flag_order
+  real*8     wa(ldjac), fvec(ldjac), fvec_plain(ldjac), fvec_orb(ldjac)
+  logical    flag_order_weight, flag_order, flag_fit_orbital
   external   get_eig
   character*20, external  :: int2str
 
   flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
   flag_order_weight   = .false.
+  flag_fit_orbital    = .false. ! NOTE: even if the PINPT%flag_fit_orbital is .TRUE. in obtainding Jacobian, we will not use orbital norm
+                                !       since it is not well defined (not smooth) in derivation. 
+                                !       Normally, in PSO routine, selecting Global or Personal best particle, the orbital norm can be used.
+                                !       See pso.f90 routine for the detail.. H.-J. Kim (11. Mar. 2021)
 
   if(PPRAM%slater_koster_type .gt. 10) ii = 0
   epsmch = epsilon(epsmch)
@@ -595,7 +618,7 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
           if (h == 0.0D+00 ) h=eps
           PPRAM%param_nrl(i,PPRAM%iparam_free(j)) = temp+h
 
-          call get_dE(wa, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
+          call get_dE(wa, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
 
           ! restore param from temp, and calculate derivation fjac from wa and fvec
           PPRAM%param_nrl(i,PPRAM%iparam_free(j)) = temp
@@ -610,7 +633,7 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
       h = eps*abs(temp)
       if (h == 0.0D+00 ) h=eps
       PPRAM%param(PPRAM%iparam_free(j)) = temp+h
-      call get_dE(wa, fvec_plain, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS)
+      call get_dE(wa, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
       PPRAM%param(PPRAM%iparam_free(j)) = temp
       fjac(:,j) = ( wa(:) - fvec(:) ) / h
     enddo

@@ -82,6 +82,7 @@ module parameters
        logical                       flag_inputcard_fname_parse
        logical                       flag_ga_with_lmdif ! use lmdif method for local optimization in GA method, default = .false.
        logical                       flag_pso_with_lmdif ! use lmdif method for local optimization in PSO method, default = .false.
+       logical                       flag_pso_report_particles
        logical                       flag_write_unformatted ! default = .false.
        logical                       flag_report_geom
    
@@ -177,6 +178,7 @@ module parameters
        integer(kind=sp),   allocatable   :: proj_natom(:) ! how many atoms to be plotted for projected band
        logical                       flag_print_proj
        logical                       flag_print_proj_sum
+       logical                       flag_print_proj_atom
 
        logical                       flag_plot_fit
        logical                       flag_plot
@@ -203,6 +205,9 @@ module parameters
        logical                       flag_fit_orbital ! fit orbital character as well?
        real(kind=dp)                        orbital_fit_smearing ! gaussian smearing for orbital fitting                                           
 
+       logical                              flag_distribute_nkp ! distribute V and SV over cpu nodes (my_nkp). Only valid in post-processing routine
+
+       integer(kind=sp)              iseed ! random seed
   endtype incar
 
   type params !PPRAM
@@ -248,6 +253,8 @@ module parameters
        real(kind=dp)                        pso_c1            ! c1, c2, w defines cognitive, social, and inertia factor of PSO method  
        real(kind=dp)                        pso_c2            ! vel = w * vel + c1 * rand() * (pbest - x) + c2 * rand() * (gbest - x)
        real(kind=dp)                        pso_w 
+       real(kind=dp)                        pso_report        ! (pso_report*100) percent of best particles would be reported
+       integer(kind=sp)                     pso_iseed         ! random seed
        real(kind=dp)                        pso_max_noise_amplitude ! random noize amplitude
        real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
        real(kind=dp),      allocatable   :: pso_cost_history_i(:,:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter, pso_nparticles)
@@ -413,7 +420,6 @@ module parameters
        real(kind=dp),      allocatable   :: E_TOT(:)   ! total energy of the system for each spin (nspin)
        real(kind=dp),      allocatable   :: F_OCC(:,:) ! Fermi-dirac occupation function (ispin*nband, nkp)
        real(kind=dp)                        E_F        ! Fermi level
-
 !      real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
   endtype energy
 

@@ -1645,7 +1645,222 @@ subroutine load_band_structure_V2_bin(E, V2, ne_found, ispin, nspin, nband, nbas
    return
 endsubroutine
 
+! NOTE: 1. This routine is not spin dependent. In fname, ".up.dat/.up.bin or .dn.dat/.dn.bin" is specified
+! and read through "fname" and store E and V, C accordingly.
+! 2. It is necesarry to make the routine toward flag_overlap case if c_mode_ == 'wf'.
+! For this, one need to load Overlap matrix multiplied wavevector S|psi> should be read together. 
+! This is the future work. In this case, the orbital projection information stored in "V" variable,
+! can be evaluated from wavefunction coefficient C and overlap matrix S multiplied C, SC. => V = C' * SC
+! 3. For c_mode_ == 'rh' and flag_overlap case, the stored orbital projection is Mulliken charge, C'*SC
+! HJ Kim. 18. March 2021
+subroutine load_band_singlek(PGEOM, fname, nemax, nbasis, ispinor, E, C, V, ne_found, kp, gg, &
+                             flag_get_ldos, flag_wf, flag_sparse, flag_phase, flag_formatted)
+    use parameters, only : poscar
+    use print_io
+    use mpi_setup
+    use phase_factor
+    implicit none
+    type(poscar) :: PGEOM
+    character*80    fname
+    character*256   inputline
+    integer*4       my_pid, idummy
+    integer*4       mpierr, i_continue
+    integer*4,external :: nitems
+    integer*4       nemax, nbasis, ispinor, ne_found
+    integer*4       ie, im
+    real*8          kp(3), gg(3)
+    real*4          kp4(3)
+    logical         flag_go, flag_get_ldos, flag_sparse, flag_formatted
+    logical         flag_phase, flag_wf
+    integer*4       ikmode, nbasis_, nk_, nband_, ispin_, nspin_, ispinor_
+    integer*4       init_erange_, fina_erange_, nemax_
+    real*8          emin_, emax_
+    logical         flag_vector_, flag_erange_, flag_sparse_, flag_single_
+    character*2     c_mode_
+    real*8          E(nemax)
+    real*4          E4(nemax)
+    real*8          C_(nbasis*ispinor * 2)
+    real*8          V(nbasis,nemax) ! Be aware that V here is orbital projection
+    real*4          V4(nbasis,nemax) ! Be aware that V here is orbital projection
+    complex*16      C(nbasis*ispinor,nemax) ! Here C is the wavefunction coefficient (wave vector) multiplied by phase 
+    complex*16      c_up, c_dn
+    complex*8       c4_up, c4_dn
+    complex*16      phase
 
+    ne_found  = 0
+    E = -999d0 ; V = 0d0 ; C = 0d0;
+    my_pid = 100 + myid
+    phase = (1d0,0d0)
+
+    if(flag_wf) C = 0d0
+    if(flag_formatted) then
+      open(my_pid,file=trim(fname), status='old', iostat=i_continue)
+      if(flag_sparse) then
+        read(my_pid, '(A)') inputline
+        read(my_pid, '(A)') inputline
+        read(my_pid, *    ) inputline, inputline, ne_found
+      else
+        read(my_pid, '(A)') inputline
+        ne_found = nemax
+      endif
+
+      if(ne_found .eq. 0) then
+        flag_go = .false. ! check whether blank is found : if found, it means that a new eigen block is found
+        do while (.not.flag_go)
+          read(my_pid,'(A)')inputline
+          idummy = nitems(inputline)
+          if(idummy .le. 0) then
+            flag_go = .false.
+          elseif(idummy .gt. 0) then
+            flag_go = .true.
+            backspace(my_pid)
+          endif
+        enddo
+        read(my_pid,*) kp(:)
+        close(my_pid)
+        return
+      elseif(ne_found .gt. 0) then
+    
+        do ie = 1, ne_found
+          flag_go = .false. 
+          do while (.not.flag_go)
+            read(my_pid,'(A)')inputline
+            idummy = nitems(inputline)
+            if(idummy .le. 0) then
+              flag_go = .false.
+            elseif(idummy .gt. 0) then
+              flag_go = .true.
+              backspace(my_pid)
+            endif
+          enddo
+       
+          if(flag_get_ldos) then ! make sure that your band_strucgture file contains orbital/wavefunction information
+            if(flag_wf) then
+              read(my_pid,*) kp(:), E(ie), C_(:)
+              do im = 1, nbasis
+                if(flag_phase) phase = F_IJ(-(kp(:)+gg(:)), PGEOM%o_coord_cart(:,im))
+                if(ispinor .eq. 2) then
+                  C(im,ie) = cmplx(C_(im*4-3), C_(im*4-2)) * phase
+                  C(im+nbasis,ie) = cmplx(C_(im*4-1), C_(im*4  )) * phase
+                  c_up     = cmplx(C_(im*4-3), C_(im*4-2))
+                  c_dn     = cmplx(C_(im*4-1), C_(im*4  ))
+                  V(im,ie) = real( conjg(c_up)*c_up + conjg(c_dn)*c_dn) ! orbital projection
+                elseif(ispinor .eq. 1) then
+                  C(im,ie) = cmplx(C_(im*2-1), C_(im*2)) * phase
+                  c_up     = cmplx(C_(im*2-1), C_(im*2))
+                  V(im,ie) = real( conjg(c_up)*c_up )
+                endif
+              enddo
+            elseif(.not. flag_wf) then
+              read(my_pid,*) kp(:), E(ie), V(1:nbasis,ie)
+            endif
+          else
+            read(my_pid,*) kp(:), E(ie)
+          endif
+
+        enddo
+        close(my_pid)
+      endif
+
+    elseif(.not. flag_formatted) then
+      open(my_pid,file = trim(fname), form='unformatted',status='old', iostat=i_continue)
+
+      ! read header
+      read(my_pid) ikmode, flag_vector_, flag_single_, flag_erange_, flag_sparse_, nbasis_, nk_, nband_, &
+                ispin_, nspin_, ispinor_, c_mode_
+      if(flag_vector_ .and. flag_single_ .and. c_mode_ .eq. 'rh') then
+        V4 = 0d0
+      endif
+      ! assume ikmode = 3 (by default if PRTSEPK = .TRUE.)
+
+      if(flag_sparse_) E = -999d0
+
+      if(flag_erange_) then 
+        read(my_pid) flag_erange_, init_erange_, fina_erange_
+      elseif(.not. flag_erange_) then
+        read(my_pid) flag_erange_
+      endif
+
+      if(flag_sparse_) then
+        read(my_pid) flag_sparse_, emin_, emax_, nemax_
+      elseif(.not. flag_sparse_) then
+        read(my_pid) flag_sparse_
+      endif
+
+      ! read main energy/wavefunction or orbital projection
+      if(.not. flag_get_ldos) then ! save as asking flag_vector
+        if(.not. flag_single_) then
+          read(my_pid) ne_found, kp(:), (E(ie),ie=1,ne_found)
+        elseif(flag_single_) then
+          read(my_pid) ne_found, kp4(:), (E4(ie),ie=1,ne_found)
+          kp = kp4
+          E  = E4
+        endif
+      elseif(flag_get_ldos) then
+
+        if(c_mode_ .eq. 'wf') then
+          if(flag_phase) phase = F_IJ(-(kp(:)+gg(:)), PGEOM%o_coord_cart(:,im))
+          if(.not. flag_single_) then
+            read(my_pid) ne_found, kp(:), (E(ie),ie=1, ne_found)
+          elseif(flag_single_) then
+            read(my_pid) ne_found, kp4(:), (E4(ie),ie=1, ne_found)
+            kp = kp4
+            E  = E4
+          endif
+          
+          do ie = 1, ne_found
+            do im = 1, nbasis
+              if(ispinor .eq. 2) then
+                if(.not. flag_single_) then
+                 !read(my_pid) C(im, ie), C(im + nbasis, ie)
+                  read(my_pid) c_up, c_dn
+                elseif(flag_single_) then
+                  read(my_pid) c4_up, c4_dn
+                  c_up = c4_up ; c_dn = c4_dn
+                endif
+                V(im,        ie) = real( conjg(c_up)*c_up + conjg(c_dn)*c_dn)
+                C(im,        ie) = c_up * phase
+                C(im+nbasis, ie) = c_dn * phase
+              elseif(ispinor .eq. 1) then
+                if(.not. flag_single_) then
+                  read(my_pid) c_up
+                elseif(flag_single_) then
+                  read(my_pid) c4_up
+                  c_up = c4_up
+                endif
+                V(im,        ie) = real( conjg(c_up)*c_up )
+                C(im,        ie) = c_up * phase
+              endif
+            enddo
+          enddo
+        
+        elseif(c_mode_ .eq. 'rh') then
+          if(.not. flag_single_) then
+            read(my_pid) ne_found, kp(:), (E(ie),ie=1, ne_found)
+          elseif(flag_single_) then
+            read(my_pid) ne_found, kp4(:), (E4(ie),ie=1, ne_found)
+            kp = kp4
+            E  = E4
+          endif
+
+          do ie = 1, ne_found
+            do im = 1, nbasis
+              if(.not. flag_single_) then
+                read(my_pid) V(im, ie) 
+              elseif(flag_single_) then
+                read(my_pid) V4(im, ie) 
+              endif
+            enddo
+          enddo
+          V = V4
+        endif
+
+      endif ! get_ldos
+      close(my_pid)
+    endif  ! flag_unformatted
+
+    return
+endsubroutine
 subroutine load_band_structure_bin(E, ne_found, ispin, nspin, nband, nbasis, nk, kmode, pid, flag_exit)
    use print_io
    use mpi_setup

@@ -73,8 +73,9 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
       !if(allocated(PPRAM_FIT%pso_cost_history)) deallocate(PPRAM_FIT%pso_cost_history)
       !allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
       !PPRAM_FIT%pso_cost_history = 0d0
-       iseed  = 123 
-       call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed, PINPT%miter  )
+      !iseed  = 123 
+      !call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+       call pso_fit_best ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
 
       !call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
@@ -102,6 +103,12 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
         !       we just keep this stratege for the convenience... 31.Oct.2020 HJK
    if_main call print_param (PINPT, PPRAM_FIT, PWGHT(1), PPRAM_FIT%pfileoutnm, .TRUE.)
    if_main call print_param (PINPT, PPRAM_FIT, PWGHT(1),  '   Fitted param(i):', .FALSE.)
+   if(trim(PINPT%ls_type) .eq. 'PSO'    .or. trim(PINPT%ls_type) .eq. 'pso') then
+     if(PINPT%flag_pso_report_particles) then
+       if_main call print_param_pso(PINPT, PPRAM_FIT, PWGHT(1))
+     endif
+!kill_job
+   endif
 
    write(message,'(A,A)')'  Fitted parameters will be written in ',PPRAM_FIT%pfileoutnm  ; write_msg
 

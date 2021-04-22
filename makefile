@@ -41,12 +41,12 @@
  TBBIN=$(HOME)/code/bin
  TBLIB=$(HOME)/code/lib
 #VERSION=$(shell date +%Y%m%d)
- VERSION=0.5.1
+ VERSION=0.5.3
  
 # MAC-INTEL COMPILE
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE -DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
 
@@ -78,7 +78,7 @@ LAPACK    = -L$(MKLPATH)/lib/ \
 BLAS      = 
 INCLUDE   = -I$(MKLPATH)/include
 #FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/3.0/lib/x64  -lpfeast_sparse -lpfeast 
-FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64  -lfeast  # MPI version need to be included in the future
+#FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64  -lfeast  # MPI version need to be included in the future
 #SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
 SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 #---------------------------------------------------------------------------|
@@ -108,7 +108,7 @@ MODULE = mykind.o print_io.o $(MPI_MOD) kill.o memory.o time.o version.o $(SP_MO
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
 		 pikaia_module.o geodesiclm.o get_parameter.o \
 		 reorder_band.o total_energy.o projected_band.o cost_function.o \
-		 ${TBFITPY}
+		 classify.o ${TBFITPY} 
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
@@ -144,9 +144,13 @@ ifeq ($(SPG),-DSPGLIB)
   SPGLIB_=  $(SPGLIB)
   OBJECTS=  $(MODULE) tbfit.o tbpack.o $(READER) $(WRITER) $(GET) \
                       $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SPG_INT) $(SYMM)
+  OBJECTS_LIB = $(MODULE) tbpack.o $(READER) $(WRITER) $(GET) \
+                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SPG_INT) $(SYMM)
 else
   SPGLIB_= 
   OBJECTS=  $(MODULE) tbfit.o tbpack.o $(READER) $(WRITER) $(GET) \
+                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SYMM)
+  OBJECTS_LIB = $(MODULE) tbpack.o $(READER) $(WRITER) $(GET) \
                       $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SYMM)
 endif
 
@@ -192,15 +196,22 @@ tbfit.serial: $(OBJECTS)
 	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION).serial tbfit.versions ; fi
 endif
 
-get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
-	$(F90) -o $@ $^ $(LAPACK)
-	cp get_ldos $(BIN)
-
 libtbfit.a: $(OBJECTS)
+	$(LIBTOOL) $@ $^
+
+libtbfit_ldos.a: $(OBJECTS_LIB)
 	$(LIBTOOL) $@ $^
 
 lib: $(OBJECTS)
 	$(LIBTOOL) libtbfit.a $^
+
+ldos_lib:  $(OBJECTS_LIB)
+	$(LIBTOOL) libtbfit_ldos.a $^
+
+#get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
+get_ldos: get_ldos.o libtbfit_ldos.a 
+	$(F90) -o $@ $^ $(LAPACK)
+	cp get_ldos $(BIN)
 
 ifeq ($(MPI_USE), YES)
 tbfitpy_mod: libtbfit.a 

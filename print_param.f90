@@ -129,6 +129,103 @@ subroutine print_param (PINPT, PPRAM, PWGHT, title, flag_print_file)
 return
 endsubroutine
 
+subroutine print_param_pso (PINPT, PPRAM, PWGHT)
+  use parameters, only : incar, weight, params
+  use print_io
+  use sorting
+  implicit none
+  type (incar)          :: PINPT
+  type (weight)         :: PWGHT
+  type (params)         :: PPRAM
+  integer*4                i,j,k,ik, pid_param_pso
+  integer*4                iparam, nsub, im, i_fix, bestn
+  character ( len = 80)    title, title_pid
+  character ( len = 40)    param_name
+  real*8                   param(PPRAM%param_nsub_max)
+  real*8                   last_costs(PPRAM%pso_nparticles)
+  real*8                   cost
+  integer*4                ilast_costs(PPRAM%pso_nparticles)
+  integer*4, allocatable:: ibest_costs(:)
+  logical                  flag_print_file
+  character*40             fm_wt, fm_ob
+  character*20,external :: int2str
+  real*8                   param_temp(PPRAM%nparam)
+  real*8                   enorm, dist
+  real*8, allocatable   :: dist_min(:,:)
+  integer*4,allocatable :: dist_nn(:,:)
+  external                 enorm
+
+  title = 'PARAM_FIT.PSO.best_particles.dat'
+  pid_param_pso = 181
+  k = 3
+  last_costs = 0d0
+  param_temp = 0d0 ; param_temp = PPRAM%param
+  bestn = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report)
+  allocate(ibest_costs(bestn))
+  allocate(dist_nn(bestn,k))
+  allocate(dist_min(bestn,k))
+
+  last_costs = PPRAM%pso_cost_history_i(PINPT%miter, :)
+
+  call get_sort_index_1D(ilast_costs, last_costs, PPRAM%pso_nparticles, 'ascending ')
+  ibest_costs = ilast_costs(1:bestn)
+
+  open(pid_param_pso, file = trim(title), status = 'unknown')
+  do i=1, bestn
+    j = ibest_costs(i)
+    cost = last_costs(j)
+    write(pid_param_pso,'(A,I0,A,I0,A,F20.9)')'# Best particle : rank= ',i, ', ID= ',j, ', COST= ', cost
+
+    PPRAM%param(PPRAM%iparam_free(:)) = PPRAM%pso_pbest_history(PINPT%miter, j, :)
+
+    do iparam = 1, PPRAM%nparam
+      call param_select(PPRAM, iparam, i_fix, param_name, param, nsub)
+      if(i_fix .eq. 1) then
+        write(pid_param_pso, '(I6,F20.8,A,I0,F20.9)') iparam, param(1:nsub), '   #   Fixed  # ', j, cost 
+      else
+        write(pid_param_pso, '(I6,F20.8,A,I0,F20.9)') iparam, param(1:nsub), '   #          # ', j, cost
+      endif
+    enddo
+  
+    write(pid_param_pso,'(A)')'  '
+    write(pid_param_pso,'(A)')'  '
+ 
+    write(title_pid,'(A,I0,A,I0,A)')'PARAM_FIT.PSO.RANK.',i,'.PID.',j,'.dat'
+    call print_param (PINPT, PPRAM, PWGHT, trim(title_pid), .TRUE.)
+  enddo
+
+  ! calculate parameter distance between each parameter sets
+ii:do i=1, bestn
+    dist_min(i,:) = huge(dist)
+    dist_nn(i,:)  = -1
+ jj:do j=1, bestn
+      if (i == j) cycle
+      dist = enorm(PPRAM%nparam_free, PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(i), :)-PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(j), :))
+   kk:do ik=1, k
+        if(dist .lt. dist_min(i,ik) .and. ik .lt. k) then 
+          dist_min(i,ik+1:k)= dist_min(i,ik:k-1)
+          dist_nn(i,ik+1:k) = dist_nn(i,ik:k-1)
+          dist_min(i,ik)= dist
+          dist_nn(i,ik) = ibest_costs(j)
+          cycle jj
+        elseif(dist .lt. dist_min(i,ik) .and. ik .eq. k) then 
+          dist_min(i,ik)= dist
+          dist_nn(i,ik) = ibest_costs(j)
+          cycle jj
+        endif
+      enddo kk
+    enddo jj
+    write(6,'(A,I0,3(F16.8),3(I6))')"  DISTANCE BETWEEN PARAMETERS: (PARAM_I, DIST(IJ), PARAM_J)", ibest_costs(i), dist_min(i,:), dist_nn(i,:)
+  enddo ii
+
+!write(6,*)"ZZZ", PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(1), :), PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(3), :)
+!write(6,*)"ZZZ", PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(3), :)
+  close(pid_param_pso)
+  PPRAM%param = param_temp
+
+  return
+endsubroutine
+
 subroutine param_select (PPRAM, i, i_fix, param_name, param, nsub)
 
    use parameters, only : params

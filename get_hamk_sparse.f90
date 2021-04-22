@@ -112,7 +112,6 @@ subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, P
       if(.not. flag_sparse_zero_SHm) call sparse_create_csr_handle(Sm, SHm)
       if(.not. flag_sparse_zero_SHs) call sparse_create_csr_handle(Ss, SHs)
       alpha = 1d0
-
       if(.not. flag_sparse_zero_SHm) then
         istat = MKL_SPARSE_Z_ADD(SPARSE_OPERATION_NON_TRANSPOSE, S0  , alpha, Sm, Sk_)
         call sparse_error_report('MKL_SPARSE_z_ADD: S0+Sm=Sk_', istat)
@@ -247,7 +246,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TA
   complex*16        alpha
   logical           flag_sparse_zero_SHm ! if the sparse matrix has no non-zero element (nnz = 0),
   logical           flag_sparse_zero_SHs ! this flag will be .true. and will skip related construction routine.
-  logical           flag_slater_koster
+! logical           flag_slater_koster
   real*8            t1, t0
   integer*4         mpierr
 
@@ -265,7 +264,7 @@ subroutine get_hamk_sparse(SHk, SH0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TA
     if(PINPT%flag_collinear .or. PINPT%flag_noncollinear) then
       call set_ham_mag_sparse(SHm, NN_TABLE, PPRAM, neig, PINPT%ispinor, &
                               flag_sparse_zero_SHm, PINPT%flag_collinear, PINPT%flag_noncollinear)
-      if(PINPT%flag_soc .and. flag_slater_koster .and. PINPT%flag_noncollinear) then
+      if(PINPT%flag_soc .and. PPRAM%flag_slater_koster .and. PINPT%flag_noncollinear) then
         call set_ham_soc_sparse(SHs, 0d0, PPRAM, neig, NN_TABLE, flag_phase, flag_sparse_zero_SHs, .true., F_IJ)
       endif
     endif
@@ -657,7 +656,6 @@ nn_:do nn=1,NN_TABLE%n_neighbor
   SH0_COO%J     = J(1:mm)
 
   call sparse_convert_coo_csr(SH0_COO, SH0)
-
   deallocate(SH0_COO%H)
   deallocate(SH0_COO%I)
   deallocate(SH0_COO%J)
@@ -895,7 +893,6 @@ nn_sk:do nn = 1, NN_TABLE%n_neighbor
         endif
 
       enddo nn_sk
-
       if(mm .eq. 0) then
         flag_sparse_zero = .true. 
       elseif(mm .ge. 1) then

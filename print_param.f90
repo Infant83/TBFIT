@@ -160,7 +160,7 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   k = 3
   last_costs = 0d0
   param_temp = 0d0 ; param_temp = PPRAM%param
-  bestn = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report)
+  bestn = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report_ratio)
   allocate(ibest_costs(bestn))
   allocate(dist_nn(bestn,k))
   allocate(dist_min(bestn,k))
@@ -215,7 +215,7 @@ ii:do i=1, bestn
         endif
       enddo kk
     enddo jj
-    write(6,'(A,I0,3(F16.8),3(I6))')"  DISTANCE BETWEEN PARAMETERS: (PARAM_I, DIST(IJ), PARAM_J)", ibest_costs(i), dist_min(i,:), dist_nn(i,:)
+  ! write(6,'(A,I0,3(F16.8),3(I6))')"  DISTANCE BETWEEN PARAMETERS: (PARAM_I, DIST(IJ), PARAM_J)", ibest_costs(i), dist_min(i,:), dist_nn(i,:)
   enddo ii
 
 !write(6,*)"ZZZ", PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(1), :), PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(3), :)

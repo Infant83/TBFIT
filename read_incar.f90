@@ -152,10 +152,14 @@ contains
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles
                   write(message,'(A,L)')'PSO_REPORT: (report 20% of best particles) ', PINPT%flag_pso_report_particles
                 elseif(nitems(inputline) -1 .eq. 2) then
-                  read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles, PPRAM%pso_report
-                  write(message,'(A,I0,A,L)')'PSO_REPORT: (report ',nint(PPRAM%pso_report*100d0),' best particles) ', PINPT%flag_pso_report_particles
+                  read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles, PPRAM%pso_report_ratio
+                  write(message,'(A,I0,A,L)')'PSO_REPORT: (report ',nint(PPRAM%pso_report_ratio*100d0),' best particles) ', PINPT%flag_pso_report_particles
                 endif
             
+              case('PSO_MODE') ! how to update PSO iteration?
+                read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_mode
+                write(message,'(A,A)')'  PSO_MODE: ', trim(PPRAM%pso_mode)
+
               case('ISEED') ! random seed
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%iseed
                 write(message,'(A,I0)')'RAND_SEED: ',PINPT%iseed
@@ -188,7 +192,6 @@ contains
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_phase
                 write(message,'(A,L)')'  L_PHASE: ',PINPT%flag_phase ; write_msgi
     
-              ! experimental feature (22.Apr. 2021, KHJ)
               case('LORBFIT')
                 ! NOTE: only work with PWGHT%read_energy_column_index = 2 and PWGHT%efile_type = 'user',
                 !       and most importantly, orbital projected density should be provided in EFILE from 6-th column as follows:

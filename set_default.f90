@@ -114,8 +114,10 @@ module set_default
         PPRAM%pso_c2                                  = 0.4d0
         PPRAM%pso_w                                   = 0.2d0
         PPRAM%pso_max_noise_amplitude                 = 5.0d0
-        PPRAM%pso_report                              = 0.2d0 ! 20 percent of best particles would be reported
+        PPRAM%pso_report_ratio                        = 0.2d0 ! 20 percent of best particles would be reported
         PPRAM%pso_iseed                               = 123 ! random seed
+        PPRAM%pso_mode                                = 'pso'
+
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
         if(allocated(PPRAM%iparam_free))     deallocate(PPRAM%iparam_free)

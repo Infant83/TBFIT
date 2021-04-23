@@ -74,8 +74,12 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
       !allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
       !PPRAM_FIT%pso_cost_history = 0d0
       !iseed  = 123 
-      !call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
-       call pso_fit_best ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+
+       if(trim(PPRAM_FIT%pso_mode) .eq. 'pso' .or. trim(PPRAM_FIT%pso_mode) .eq. 'PSO') then
+         call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+       elseif(trim(PPRAM_FIT%pso_mode) .eq. 'pso_bestn' .or. trim(PPRAM_FIT%pso_mode) .eq. 'PSO_BESTN') then
+         call pso_fit_best ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+       endif
 
       !call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
 

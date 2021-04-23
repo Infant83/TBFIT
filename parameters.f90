@@ -249,11 +249,12 @@ module parameters
                                                               ! 1: other parameters -> local_U, lrashba_, lambda_, lsoc_, stoner_I_ , ..., etc.
        integer(kind=sp)                     niter ! number of iteractions performed
 
+       character(len=40)                    pso_mode          ! 'pso':default method, 'pso_bestn': select bestN particles for next iteration
        integer(kind=sp)                     pso_nparticles    ! number of particles (parameters) used in particle swarm optimization method
        real(kind=dp)                        pso_c1            ! c1, c2, w defines cognitive, social, and inertia factor of PSO method  
        real(kind=dp)                        pso_c2            ! vel = w * vel + c1 * rand() * (pbest - x) + c2 * rand() * (gbest - x)
        real(kind=dp)                        pso_w 
-       real(kind=dp)                        pso_report        ! (pso_report*100) percent of best particles would be reported
+       real(kind=dp)                        pso_report_ratio  ! (pso_report_ratio*100) percent of best particles would be reported
        integer(kind=sp)                     pso_iseed         ! random seed
        real(kind=dp)                        pso_max_noise_amplitude ! random noize amplitude
        real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)

@@ -600,7 +600,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     r1              = 1d0
     r2              = 1d0
     r3              = 0d0
-    bestn           = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report)
+    bestn           = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report_ratio)
     call random_init(iseed)
 
     if(flag_fit_orbital .and. flag_fit_plain) then
@@ -620,7 +620,9 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     !Note: n_particles will be solved in n_groups of cpu family.
     !      Each group will have n_member ~ nprocs/ngroup
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
-    call get_npar_kpar() ; allocate(ourgroup(npar)); allocate(ourjob(npar))
+   !call get_npar_kpar() ; allocate(ourgroup(npar)); allocate(ourjob(npar))
+    npar = 1 ! NOTE: current version have some problem in NPAR > 1 with PSO_METHOD = 'pso_bestn', 23.Apr.2021 (KHJ) -> check in near future!!
+    allocate(ourgroup(npar)); allocate(ourjob(npar))
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
     groupid = COMM_KOREA%color

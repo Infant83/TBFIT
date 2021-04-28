@@ -117,6 +117,7 @@ module set_default
         PPRAM%pso_report_ratio                        = 0.2d0 ! 20 percent of best particles would be reported
         PPRAM%pso_iseed                               = 123 ! random seed
         PPRAM%pso_mode                                = 'pso'
+        PPRAM%pso_miter                               = 10
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)

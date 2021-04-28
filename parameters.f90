@@ -249,6 +249,7 @@ module parameters
                                                               ! 1: other parameters -> local_U, lrashba_, lambda_, lsoc_, stoner_I_ , ..., etc.
        integer(kind=sp)                     niter ! number of iteractions performed
 
+       integer(kind=sp)                     pso_miter  !  maximum number of iteration in PSO method
        character(len=40)                    pso_mode          ! 'pso':default method, 'pso_bestn': select bestN particles for next iteration
        integer(kind=sp)                     pso_nparticles    ! number of particles (parameters) used in particle swarm optimization method
        real(kind=dp)                        pso_c1            ! c1, c2, w defines cognitive, social, and inertia factor of PSO method  

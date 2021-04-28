@@ -141,28 +141,32 @@ contains
     
               case('FIT_PLAIN') ! flag whether we consider weight factor or not in cost function evaluation. Yes: not include, NO: include
                 read(inputline,*,iostat=i_continue) desc_str, PPRAM%flag_fit_plain
-                write(message,'(A,L)')'PSO_PLAIN: (take best w/o weighted cost) ', PPRAM%flag_fit_plain
+                write(message,'(A,L)')'PSO_PLAIN: (take best w/o weighted cost) ', PPRAM%flag_fit_plain ; write_msgi
 
               case('PSO_NOISE') ! amplitude of randome noise on the initial parameters
                 read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_max_noise_amplitude
-                write(message,'(A,L)')'PSO_NOISE: (max. randome noise amplitude) ', PPRAM%pso_max_noise_amplitude
+                write(message,'(A,L)')'PSO_NOISE: (max. randome noise amplitude) ', PPRAM%pso_max_noise_amplitude ; write_msgi
 
               case('PSO_REPORT') ! report best particles with certain range of scores
                 if(nitems(inputline) -1 .eq. 1) then
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles
-                  write(message,'(A,L)')'PSO_REPORT: (report 20% of best particles) ', PINPT%flag_pso_report_particles
+                  write(message,'(A,L)')'PSO_REPORT: (report 20% of best particles) ', PINPT%flag_pso_report_particles ; write_msgi
                 elseif(nitems(inputline) -1 .eq. 2) then
                   read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_pso_report_particles, PPRAM%pso_report_ratio
-                  write(message,'(A,I0,A,L)')'PSO_REPORT: (report ',nint(PPRAM%pso_report_ratio*100d0),' best particles) ', PINPT%flag_pso_report_particles
+                  write(message,'(A,I0,A,L)')'PSO_REPORT: (report ',nint(PPRAM%pso_report_ratio*100d0),' best particles) ', PINPT%flag_pso_report_particles ; write_msgi
                 endif
             
               case('PSO_MODE') ! how to update PSO iteration?
                 read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_mode
-                write(message,'(A,A)')'  PSO_MODE: ', trim(PPRAM%pso_mode)
+                write(message,'(A,A)')' PSO_MODE: ', trim(PPRAM%pso_mode) ; write_msgi
+
+              case('PSO_MITER') ! set maximum number of iteration in PSO method
+                read(inputline,*,iostat=i_continue) desc_str, PPRAM%pso_miter
+                write(message,'(A,I0)')'PSO_MITER: (max pso iter) ', PPRAM%pso_miter ; write_msgi
 
               case('ISEED') ! random seed
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%iseed
-                write(message,'(A,I0)')'RAND_SEED: ',PINPT%iseed
+                write(message,'(A,I0)')'RAND_SEED: ',PINPT%iseed; write_msgi
 
               case('PLOTFIT') ! run gnuplot script after fit or post-process
                 if(nitems(inputline) -1 .eq. 1) then

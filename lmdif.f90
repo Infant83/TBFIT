@@ -150,7 +150,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   type(kpoints) , dimension(PINPT%nsystem) :: PKPTS
   integer*4     nparam_free ! number of free parameters (PPRAM%nparam_nrl_free if slater_koster_type >= 10, PPRAM%nparam_free if < 10)
   integer*4     k, nsub
-  integer*4     i,j,l,iter,info,ipvt(nparam_free),maxfev,nfev
+  integer*4     i,j,l,iter,info,ipvt(nparam_free),maxfev,nfev, info_temp
   integer*4     irange(PPRAM%param_nsub_max), irange_(PPRAM%param_nsub_max)
   integer*4     ldjac ! leading demension of jacobean fjac
   integer*4     imode 
@@ -172,6 +172,10 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   logical       flag_wait_plot
   logical       flag_order, flag_order_weight, flag_cost_history, flag_fit_orbital
   integer*4     mpierr
+
+! for the debug purpose.
+! info_temp = info
+!!!!!!!!!!!
 
   if(allocated(PPRAM%cost_history)) then 
     flag_cost_history = .TRUE.
@@ -242,6 +246,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
     endif
                                                       !', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
+
 
 30 continue   !  Beginning of the outer loop.
 !  Calculate the jacobian matrix.
@@ -358,7 +363,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
         endif
         
         call get_dE(wa4, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
-
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
 

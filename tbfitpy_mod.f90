@@ -78,6 +78,7 @@ module pyfit
        real(kind=dp)                      pso_c2
        real(kind=dp)                      pso_w 
        real(kind=dp)                      pso_max_noise_amplitude
+       integer(kind=sp)                   pso_miter
        integer(kind=sp)                   slater_koster_type       
        integer(kind=sp)                   nparam                   
        integer(kind=sp)                   nparam_const             
@@ -823,6 +824,7 @@ function init_params_py() result(PPRAM_PY)
     PPRAM_PY%pso_w                                   = 0.9d0
     PPRAM_PY%pso_max_noise_amplitude                 = 5.0d0
     PPRAM_PY%niter                                   = 0
+    PPRAM_PY%pso_miter                               = 10
 
     if(allocated(PPRAM_PY%param))           deallocate(PPRAM_PY%param)
     if(allocated(PPRAM_PY%param_nrl))       deallocate(PPRAM_PY%param_nrl)
@@ -869,6 +871,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM_PY%pso_w                         =      PPRAM%pso_w         
        PPRAM_PY%pso_max_noise_amplitude       =      PPRAM%pso_max_noise_amplitude
        PPRAM_PY%niter                         =      PPRAM%niter 
+       PPRAM_PY%pso_miter                     =      PPRAM%pso_miter
 
        if(allocated( PPRAM_PY%param         ))         deallocate(PPRAM_PY%param         )
        if(allocated( PPRAM_PY%param_nrl     ))         deallocate(PPRAM_PY%param_nrl     )

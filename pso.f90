@@ -59,7 +59,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     c1              = PPRAM%pso_c1
     c2              = PPRAM%pso_c2
     w               = PPRAM%pso_w 
-    iseed           = iseed_ ! set by default 
+    iseed           = iseed_ 
     r1              = 1d0
     r2              = 1d0
     call random_init(iseed)
@@ -81,7 +81,8 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     !Note: n_particles will be solved in n_groups of cpu family.
     !      Each group will have n_member ~ nprocs/ngroup
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
-    call get_npar_kpar() ; allocate(ourgroup(npar)); allocate(ourjob(npar))
+    call get_npar_kpar(trim(PINPT%ifilenm(1)))
+    allocate(ourgroup(npar)); allocate(ourjob(npar))
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
     groupid = COMM_KOREA%color
@@ -98,7 +99,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
 #endif
 
     factor = 100.0D+00
-    maxfev = 100 * ( PPRAM%nparam_free + 1 )
+    maxfev = PINPT%miter * ( PPRAM%nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
 
     if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_history)
@@ -242,11 +243,12 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
           call MPI_SEND(costs_orb(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1))), ourjob(groupid+1), &
                         MPI_REAL8, 0, 222, mpi_comm_earth, mpierr)
         endif
-        if(flag_with_lmdif) then
-          call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
-                        MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
-        endif
-       
+       !if(flag_with_lmdif) then
+        call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
+                      MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
+       !endif
+        call MPI_SEND(vel(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
+                      MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
       elseif( myid .eq. 0 ) then
         do i = 1, npar - 1
             call MPI_RECV(costs(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
@@ -257,10 +259,12 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
               call MPI_RECV(costs_orb(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 222, mpi_comm_earth, mpistat, mpierr)
             endif
-            if(flag_with_lmdif) then
-                call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
-                MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
-            endif
+           !if(flag_with_lmdif) then
+            call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+            MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
+           !endif
+            call MPI_RECV(vel(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+            MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
         enddo
       endif
     endif
@@ -354,11 +358,13 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
       costs = 0d0 ; costs_plain = 0d0
  ptcl:do iptcl = sum(ourjob(1:groupid)) + 1, sum(ourjob(1:groupid+1))
         PPRAM%param(PPRAM%iparam_free(:)) = pos(iptcl, :)
+
         if(.not. flag_with_lmdif) then
           call get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
           costs(iptcl) = enorm(ldjac, fvec)
           costs_plain(iptcl) = enorm(ldjac, fvec_plain)
           if(flag_fit_orbital) costs_orb(iptcl)   = enorm(ldjac, fvec_orb)
+
         elseif(flag_with_lmdif) then
           call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
                    ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, .FALSE., flag_fit_orbital)
@@ -367,6 +373,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
           if(flag_fit_orbital) costs_orb(iptcl)   = fnorm_orb
           pos(iptcl, :) = PPRAM%param(PPRAM%iparam_free(:))
         endif
+
         if(COMM_KOREA%flag_split) then
           if(iselect_mode .eq. 3) then
             if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 3(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
@@ -399,6 +406,8 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
           endif
           call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)),:), ourjob(groupid+1)*PPRAM%nparam_free, &
                         MPI_REAL8, 0, 330, mpi_comm_earth, mpierr)
+          call MPI_SEND(vel(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)),:), ourjob(groupid+1)*PPRAM%nparam_free, &
+                        MPI_REAL8, 0, 330, mpi_comm_earth, mpierr)
         elseif( myid .eq. 0 ) then
           do i = 1, npar - 1
               call MPI_RECV(costs(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
@@ -410,6 +419,8 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                               MPI_REAL8, COMM_KOREA%group_main(i+1), 444, mpi_comm_earth, mpistat, mpierr)
               endif
               call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+                            MPI_REAL8, COMM_KOREA%group_main(i+1), 330, mpi_comm_earth, mpistat, mpierr)
+              call MPI_RECV(vel(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 330, mpi_comm_earth, mpistat, mpierr)
           enddo
         endif
@@ -563,6 +574,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     real(kind=dp)                               ::         cgbest_orb
     real(kind=dp), allocatable                  :: costs(:), costs_plain(:), costs_orb(:)
     real(kind=dp), allocatable                  :: costs_(:), costs_plain_(:), costs_orb_(:)
+    integer(kind=sp), allocatable               :: icosts(:) ! ordering of the costs
     integer(kind=sp)                               i, min_id
     integer(kind=sp)                               imode, ldjac
     integer(kind=sp)                               min_loc(1), pso_miter
@@ -596,13 +608,12 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     c1              = PPRAM%pso_c1
     c2              = PPRAM%pso_c2
     w               = PPRAM%pso_w 
-    iseed           = iseed_ ! set by default 
+    iseed           = iseed_ 
     r1              = 1d0
     r2              = 1d0
     r3              = 0d0
     bestn           = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report_ratio)
     call random_init(iseed)
-
     if(flag_fit_orbital .and. flag_fit_plain) then
         flag_fit_plain = .FALSE. ! we consider fit_orbital instead of fit_plain
     endif
@@ -620,8 +631,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     !Note: n_particles will be solved in n_groups of cpu family.
     !      Each group will have n_member ~ nprocs/ngroup
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
-   !call get_npar_kpar() ; allocate(ourgroup(npar)); allocate(ourjob(npar))
-    npar = 1 ! NOTE: current version have some problem in NPAR > 1 with PSO_METHOD = 'pso_bestn', 23.Apr.2021 (KHJ) -> check in near future!!
+    call get_npar_kpar(trim(PINPT%ifilenm(1)))
     allocate(ourgroup(npar)); allocate(ourjob(npar))
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
@@ -639,9 +649,11 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
 #endif
 
     factor = 100.0D+00
-    maxfev = 100 * ( PPRAM%nparam_free + 1 )
+    maxfev = PINPT%miter * ( PPRAM%nparam_free + 1 )
     ftol = PINPT%ftol    ;xtol = PINPT%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
 
+    if(bestn .lt. npar) bestn = npar
+    if(bestn .gt. PPRAM%pso_nparticles) bestn = PPRAM%pso_nparticles
     if(allocated(PPRAM%pso_cost_history)) deallocate(PPRAM%pso_cost_history)
     if(allocated(PPRAM%pso_cost_history_i)) deallocate(PPRAM%pso_cost_history_i)
     allocate(PPRAM%pso_cost_history(pso_miter))
@@ -671,6 +683,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     allocate(costs_(n_particles              ))
     allocate(costs_plain_(n_particles        ))
     allocate(costs_orb_(n_particles        ))
+    allocate(icosts(n_particles            ))
     costs = 0.d0 ; costs_plain = 0.d0 ; costs_ = 0.d0 ; costs_plain_ = 0.d0
     costs_orb = 0d0 ; costs_orb_ = 0d0
     vel   = 0.d0 ; pos   = 0.d0 
@@ -783,10 +796,12 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
           call MPI_SEND(costs_orb(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1))), ourjob(groupid+1), &
                         MPI_REAL8, 0, 222, mpi_comm_earth, mpierr)
         endif
-        if(flag_with_lmdif) then
-          call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
-                        MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
-        endif
+       !if(flag_with_lmdif) then
+        call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
+                      MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
+       !endif
+        call MPI_SEND(vel(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)), :), ourjob(groupid+1)*PPRAM%nparam_free, &
+                      MPI_REAL8, 0, 110, mpi_comm_earth, mpierr)
        
       elseif( myid .eq. 0 ) then
         do i = 1, npar - 1
@@ -798,10 +813,12 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
               call MPI_RECV(costs_orb(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 222, mpi_comm_earth, mpistat, mpierr)
             endif
-            if(flag_with_lmdif) then
-                call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
-                MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
-            endif
+           !if(flag_with_lmdif) then
+            call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+            MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
+           !endif
+            call MPI_RECV(vel(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+            MPI_REAL8, COMM_KOREA%group_main(i+1), 110, mpi_comm_earth, mpistat, mpierr)
         enddo
       endif
     endif
@@ -818,15 +835,22 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     enddo
 
     ! sort costs and pick bestn particles only and save
-    call get_bestn_particles(bestn, n_particles, nparam_free, pos, costs, costs_plain, costs_orb)
+    call get_bestn_particles(bestn, iselect_mode, n_particles, nparam_free, pos, vel, costs, costs_plain, costs_orb, icosts)
+
     ! report sorted cost
     write(message,'(A)')" "; write_msg
     do iptcl = 1, bestn
       if(iselect_mode .eq. 3) then
-        write(message,'(A, i5, 3(A, F20.8))')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
-                                                                                              " ,COST(orbital   ) = ", costs_orb(iptcl); write_msg
-      else
-        write(message,'(A, i5, 2(A, F20.8))')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg
+        write(message,'(A, i5, 3(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
+                                                                                                     " ,COST(orbital   )*= ", costs_orb(iptcl), &
+                                                                                                     ", Particle ID = ", icosts(iptcl) ; write_msg
+
+      elseif(iselect_mode .eq. 2) then
+        write(message,'(A, i5, 2(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
+                                                                                                     ", Particle ID = ", icosts(iptcl) ; write_msg
+      elseif(iselect_mode .eq. 1) then
+        write(message,'(A, i5, 2(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST*= ", costs(iptcl), " ,COST(w/o weight)*= ", costs_plain(iptcl), &
+                                                                                                     ", Particle ID = ", icosts(iptcl) ; write_msg
       endif
     enddo
 
@@ -863,15 +887,19 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
 #endif
 
     ! report best one
-    if(iselect_mode .eq. 1 .or. iselect_mode .eq. 2) then
+    if(iselect_mode .eq. 1) then
       write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", Best Particle ID = ", min_id ; write_msg
+                                                  ", GBest COST*= ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                  ", Particle ID = ", icosts(1) ; write_msg
+    elseif(iselect_mode .eq. 2) then
+      write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
+                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight)*= ", cgbest_plain, &
+                                                  ", Particle ID = ", icosts(1) ; write_msg
     elseif(iselect_mode .eq. 3) then
       write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
                                                   ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", COST(orbital) = ", cgbest_orb, &
-                                                  ", Best Particle ID = ", min_id ; write_msg
+                                                  ", COST(orbital)*= ", cgbest_orb, &
+                                                  ", Particle ID = ", icosts(1) ; write_msg
     endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -912,6 +940,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
       costs = 0d0 ; costs_plain = 0d0
  ptcl:do iptcl = sum(ourjob(1:groupid)) + 1, sum(ourjob(1:groupid+1))
         PPRAM%param(PPRAM%iparam_free(:)) = pos(iptcl, :)
+
         if(.not. flag_with_lmdif) then
           call get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
           costs(iptcl) = enorm(ldjac, fvec)
@@ -928,16 +957,20 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
         if(COMM_KOREA%flag_split) then
           if(iselect_mode .eq. 3) then
             if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 3(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
-                                                                                                                       " ,COST(orbital   ) = ", costs_orb(iptcl);
-          else
-            if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
+                                                                                                                       " ,COST(orbital   )*= ", costs_orb(iptcl);
+          elseif(iselect_mode .eq. 2) then
+            if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight)*= ", costs_plain(iptcl)
+          elseif(iselect_mode .eq. 1) then
+            if(COMM_KOREA%myid .eq. 0) write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST*= ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
           endif
         else
           if(iselect_mode .eq. 3) then
             if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl),  &
-                                                                                                                       " ,COST(orbital   ) = ", costs_plain(iptcl)
-          else
-            if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
+                                                                                                                       " ,COST(orbital   )*= ", costs_plain(iptcl)
+          elseif(iselect_mode .eq. 2) then
+            if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight)*= ", costs_plain(iptcl)
+          elseif(iselect_mode .eq. 1) then
+            if_main                    write(6,'(A, i5, 2(A, F20.8))')"   Particle: ",iptcl, " COST*= ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl)
           endif
         endif
       enddo ptcl
@@ -957,6 +990,8 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
           endif
           call MPI_SEND(pos(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)),:), ourjob(groupid+1)*PPRAM%nparam_free, &
                         MPI_REAL8, 0, 330, mpi_comm_earth, mpierr)
+          call MPI_SEND(vel(sum(ourjob(1:groupid))+1:sum(ourjob(1:groupid+1)),:), ourjob(groupid+1)*PPRAM%nparam_free, &
+                        MPI_REAL8, 0, 330, mpi_comm_earth, mpierr)
         elseif( myid .eq. 0 ) then
           do i = 1, npar - 1
               call MPI_RECV(costs(sum(ourjob(1:i))+1:sum(ourjob(1:i+1))), ourjob(i+1), &
@@ -969,6 +1004,8 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
               endif
               call MPI_RECV(pos(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
                             MPI_REAL8, COMM_KOREA%group_main(i+1), 330, mpi_comm_earth, mpistat, mpierr)
+              call MPI_RECV(vel(sum(ourjob(1:i))+1:sum(ourjob(1:i+1)),:), ourjob(i+1)*PPRAM%nparam_free, &
+                            MPI_REAL8, COMM_KOREA%group_main(i+1), 330, mpi_comm_earth, mpistat, mpierr)
           enddo
         endif
       endif
@@ -976,7 +1013,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
 #endif
 
 
-      ! report initial cost
+      ! report cost
       do iptcl = 1, n_particles
         if(iselect_mode .eq. 3) then
           write(message,'(A, i5, 3(A, F20.8))')"   Particle: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
@@ -987,15 +1024,21 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
       enddo
 
       ! sort costs and pick bestn particles only and save
-      call get_bestn_particles(bestn, n_particles, nparam_free, pos, costs, costs_plain, costs_orb)
-      write(message,'(A)')" "; write_msg
+      call get_bestn_particles(bestn, iselect_mode, n_particles, nparam_free, pos, vel, costs, costs_plain, costs_orb, icosts)
+
       ! report sorted cost
+      write(message,'(A)')" "; write_msg
       do iptcl = 1, bestn
         if(iselect_mode .eq. 3) then
-          write(message,'(A, i5, 3(A, F20.8))')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
-                                                                                                " ,COST(orbital   ) = ", costs_orb(iptcl); write_msg
-        else
-          write(message,'(A, i5, 2(A, F20.8))')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl); write_msg
+          write(message,'(A, i5, 3(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
+                                                                                                       " ,COST(orbital   )*= ", costs_orb(iptcl), &
+                                                                                                       ", Best Particle ID = ", icosts(iptcl) ; write_msg
+        elseif(iselect_mode .eq. 2) then
+          write(message,'(A, i5, 2(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST = ", costs(iptcl), " ,COST(w/o weight)*= ", costs_plain(iptcl), &
+                                                                                                       ", Best Particle ID = ", icosts(iptcl) ; write_msg
+        elseif(iselect_mode .eq. 1) then
+          write(message,'(A, i5, 2(A, F20.8), A, I0)')"  Best PTCL: ",iptcl, " COST*= ", costs(iptcl), " ,COST(w/o weight) = ", costs_plain(iptcl), &
+                                                                                                       ", Best Particle ID = ", icosts(iptcl) ; write_msg
         endif
       enddo
 
@@ -1050,6 +1093,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
           enddo
         endif
       endif
+
 #ifdef MPI
       ! share cost information with other members
       call MPI_BCAST(gbest       , size(gbest) ,  MPI_REAL8, 0, mpi_comm_earth, mpierr)
@@ -1078,12 +1122,12 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
       if(iselect_mode .eq. 1 .or. iselect_mode .eq. 2) then
         write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
                                                     ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                    ", Best Particle ID = ", min_id ; write_msg
+                                                    ", Best Particle ID = ", icosts(1) ; write_msg
       elseif(iselect_mode .eq. 3) then
         write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
                                                     ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
                                                     ", COST(orbital) = ", cgbest_orb, &
-                                                    ", Best Particle ID = ", min_id ; write_msg
+                                                    ", Best Particle ID = ", icosts(1) ; write_msg
       endif
     enddo it ! iter
 
@@ -1106,10 +1150,11 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     return
 endsubroutine
 
-subroutine get_bestn_particles(bestn, n_particles, nparam, pos, costs, costs_plain, costs_orb)
+subroutine get_bestn_particles(bestn, iselect_mode, n_particles, nparam, pos, vel, costs, costs_plain, costs_orb, icosts)
     use sorting
     use mpi_setup
     implicit none
+    integer*4   iselect_mode
     integer*4   iptcl
     integer*4   bestn
     integer*4   n_particles
@@ -1118,27 +1163,55 @@ subroutine get_bestn_particles(bestn, n_particles, nparam, pos, costs, costs_pla
     integer*4   icosts_bestn(bestn)
     real*8      pos(n_particles,nparam)
     real*8      pos_(n_particles, nparam)
+    real*8      vel(n_particles,nparam)
+    real*8      vel_(n_particles, nparam)
     real*8      costs(n_particles)
     real*8      costs_(n_particles)
     real*8      costs_plain(n_particles)
     real*8      costs_plain_(n_particles)
     real*8      costs_orb(n_particles)
     real*8      costs_orb_(n_particles)
+    integer*4   mpierr
 
-    call get_sort_index_1D(icosts, costs, n_particles, 'ascending ')
+    select case(iselect_mode)
+      case(1)
+        call get_sort_index_1D(icosts, costs      , n_particles, 'ascending ')
+
+      case(2)
+        call get_sort_index_1D(icosts, costs_plain, n_particles, 'ascending ')
+
+      case(3)
+        call get_sort_index_1D(icosts, costs_orb  , n_particles, 'ascending ')
+    end select
+
     icosts_bestn = icosts(1:bestn)
 
     do iptcl = 1, n_particles
-      pos_(iptcl,:) = pos(icosts_bestn( mod(iptcl-1,bestn)+1) ,:)
-      costs_(iptcl) = costs(icosts_bestn( mod(iptcl-1,bestn)+1) )
-      costs_plain_(iptcl)=costs_plain(icosts_bestn( mod(iptcl-1,bestn)+1) )
-      costs_orb_(iptcl)=costs_orb(icosts_bestn( mod(iptcl-1,bestn)+1) )
+      pos_(iptcl,:)       = pos(         icosts_bestn( mod(iptcl-1,bestn)+1) ,:)
+      vel_(iptcl,:)       = vel(         icosts_bestn( mod(iptcl-1,bestn)+1) ,:)
+      costs_(iptcl)       = costs(       icosts_bestn( mod(iptcl-1,bestn)+1) )
+      costs_plain_(iptcl) = costs_plain( icosts_bestn( mod(iptcl-1,bestn)+1) )
+      costs_orb_(iptcl)   = costs_orb(   icosts_bestn( mod(iptcl-1,bestn)+1) )
     enddo
 
-    pos = pos_
-    costs = costs_
+    pos         = pos_
+    vel         = vel_
+    costs       = costs_
     costs_plain = costs_plain_
-    costs_orb = costs_orb_
+    costs_orb   = costs_orb_
  
+#ifdef MPI
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+    if(COMM_KOREA%flag_split) then
+      call MPI_BCAST(pos         , size(pos)         ,  MPI_REAL8,   0, mpi_comm_earth, mpierr)
+      call MPI_BCAST(vel         , size(vel)         ,  MPI_REAL8,   0, mpi_comm_earth, mpierr)
+      call MPI_BCAST(costs       , size(costs)       ,  MPI_REAL8,   0, mpi_comm_earth, mpierr)
+      call MPI_BCAST(costs_plain , size(costs_plain) ,  MPI_REAL8,   0, mpi_comm_earth, mpierr)
+      call MPI_BCAST(costs_orb   , size(costs_orb)   ,  MPI_REAL8,   0, mpi_comm_earth, mpierr)
+      call MPI_BCAST(icosts      , size(icosts)      ,  MPI_INTEGER, 0, mpi_comm_earth, mpierr)
+    endif
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
+
     return
 endsubroutine

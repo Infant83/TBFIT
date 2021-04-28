@@ -98,7 +98,7 @@ module mpi_setup
    subroutine mpi_division()
      integer*4      mpierr
 
-     call get_npar_kpar()
+     call get_npar_kpar('INCAR-TB')
      call blacs_initialize()
 
      return
@@ -415,12 +415,14 @@ module mpi_setup
 
    endsubroutine
 
-   subroutine get_npar_kpar()
+   subroutine get_npar_kpar(fname)
      integer*4      pid
      integer*4      i_continue, linecount, mpierr
      character*132  inputline
      character*40   desc_str
      logical        flag_fail
+    !character*132  fname
+     character(*)   fname
 
      flag_fail = .false.
      pid = 78
@@ -430,7 +432,8 @@ module mpi_setup
      kpar = 1
 
      if(myid .eq. 0) then
-       open (pid, file='INCAR-TB', iostat=i_continue)
+      !open (pid, file='INCAR-TB', iostat=i_continue)
+       open (pid, file=trim(fname), iostat=i_continue)
        do
          read(pid, '(A)', iostat=i_continue) inputline
          if(i_continue < 0) exit
@@ -458,7 +461,6 @@ module mpi_setup
        write(message,'(A)') ' !WARN! NPROCS = 1 and NPAR > NPROCS --> enforce NPAR = 1 ' ; write_msg_all
        npar = 1
      endif
-
 #ifdef MPI
      call MPI_BCAST(flag_fail, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
      call MPI_BCAST(npar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
@@ -468,6 +470,7 @@ module mpi_setup
        call mpi_finish()
      endif
 #endif
+
 
      return
    endsubroutine

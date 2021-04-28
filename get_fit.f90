@@ -69,16 +69,11 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
        write(message,'(A)')' '  ; write_msg
        write(message,'(A,I0,A)')' #-START ',ifit+1,'-th PSO run'  ; write_msg
        write(message,'(A)')' '  ; write_msg
-     
-      !if(allocated(PPRAM_FIT%pso_cost_history)) deallocate(PPRAM_FIT%pso_cost_history)
-      !allocate(PPRAM_FIT%pso_cost_history(PINPT%miter))
-      !PPRAM_FIT%pso_cost_history = 0d0
-      !iseed  = 123 
 
        if(trim(PPRAM_FIT%pso_mode) .eq. 'pso' .or. trim(PPRAM_FIT%pso_mode) .eq. 'PSO') then
-         call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+         call pso_fit ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PPRAM_FIT%pso_miter  )
        elseif(trim(PPRAM_FIT%pso_mode) .eq. 'pso_bestn' .or. trim(PPRAM_FIT%pso_mode) .eq. 'PSO_BESTN') then
-         call pso_fit_best ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PINPT%miter  )
+         call pso_fit_best ( PINPT, PPRAM_FIT, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, PPRAM_FIT%pso_iseed, PPRAM_FIT%pso_miter  )
        endif
 
       !call check_conv_and_constraint(PPRAM_FIT, PINPT, flag_exit, ifit, fnorm, fnorm_)
@@ -111,7 +106,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
      if(PINPT%flag_pso_report_particles) then
        if_main call print_param_pso(PINPT, PPRAM_FIT, PWGHT(1))
      endif
-!kill_job
+
    endif
 
    write(message,'(A,A)')'  Fitted parameters will be written in ',PPRAM_FIT%pfileoutnm  ; write_msg
@@ -189,17 +184,39 @@ subroutine report_init(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM)
    type (weight) , dimension(PINPT%nsystem) :: PWGHT       ! weight factor for the fitting to target energy
    integer*4                                   mpierr
    integer*4                                   i
-   character*80                                fname
+   character*80                                fname, add_LMDIF
+   logical                                     flag_with_lmdif
+
+   flag_with_lmdif = .false.
+   add_LMDIF = ''
+   if(trim(PINPT%ls_type) .eq. 'PSO') then
+     if(PINPT%flag_pso_with_lmdif)  flag_with_lmdif = .true.
+     add_LMDIF='+LMDIF'
+   elseif(trim(PINPT%ls_type) .eq. 'GA') then
+     if(PINPT%flag_ga_with_lmdif)  flag_with_lmdif = .true.
+     add_LMDIF='+LMDIF'
+   endif
 
    write(message,'( A)')' '  ; write_msg
    write(message,'( A)')' #===================================================='  ; write_msg
-   write(message,'(2A)')'   START FITTING PROCEDURE: ', trim(PINPT%ls_type)  ; write_msg
+   write(message,'(2A)')'   START FITTING PROCEDURE: ', trim(PINPT%ls_type)//trim(add_LMDIF)  ; write_msg
    write(message,'( A)')' #===================================================='  ; write_msg
    write(message,'( A)')' '  ; write_msg
-   write(message,'( A,I0)')'  N_PARAM (free)  : ', PPRAM%nparam_free  ; write_msg
-   write(message,'( A,I0)')'  N_SYSTEM        : ', PINPT%nsystem      ; write_msg
+   write(message,'( A,I0)')'  N_PARAM (free)     : ', PPRAM%nparam_free  ; write_msg
+   if(trim(PINPT%ls_type) .eq. 'PSO') then
+     write(message,'( A,I0)')'  PSO_MITER          : ', PPRAM%pso_miter           ; write_msg
+     write(message,'( A,I0)')'  P_PARTICLE(PSO_NP) : ', PPRAM%pso_nparticles      ; write_msg
+     write(message,'( A,3F10.4)')'  PSO_OPT(C1,C2,W)   : ', PPRAM%pso_c1,PPRAM%pso_c2,PPRAM%pso_w ; write_msg
+     write(message,'( A, F10.4)')'  PSO_NOISE          : ', PPRAM%pso_max_noise_amplitude ; write_msg
+     write(message,'( A,A )')'  PSO_MODE           : ', trim(PPRAM%pso_mode)       ; write_msg
+     if(trim(PPRAM%pso_mode) .eq. 'pso_bestn' .or. trim(PPRAM%pso_mode) .eq. 'PSO_BESTN') then
+       write(message,'( A,I0,A,F5.1,A)')'  PSO_BESTN          : ', int(real(PPRAM%pso_nparticles) * PPRAM%pso_report_ratio), ' (= ',PPRAM%pso_report_ratio*100d0,' %)'; write_msg
+     endif
+
+   endif
+   write(message,'( A,I0)')'  N_SYSTEM           : ', PINPT%nsystem      ; write_msg
    do i = 1, PINPT%nsystem
-     write(message,'( A,I0,2A)')'  GFILE (system-',i,'): ', trim(PGEOM(i)%gfilenm); write_msg
+     write(message,'( A,I0,2A)')'  GFILE (system-',i,')   : ', trim(PGEOM(i)%gfilenm); write_msg
    enddo
    write(message,'( A)')' '  ; write_msg
 

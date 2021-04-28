@@ -161,6 +161,8 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   last_costs = 0d0
   param_temp = 0d0 ; param_temp = PPRAM%param
   bestn = int(real(PPRAM%pso_nparticles) * PPRAM%pso_report_ratio)
+  if(bestn .le. 0) bestn = PPRAM%pso_nparticles
+
   allocate(ibest_costs(bestn))
   allocate(dist_nn(bestn,k))
   allocate(dist_min(bestn,k))

@@ -113,10 +113,19 @@ contains
      enddo
 
 #ifdef MPI
-     call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-     ETBA%ORB = ORB
+!    call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+!    ETBA%ORB = ORB
+
+     if(.not. COMM_KOREA%flag_split) then
+       call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+       ETBA%ORB = ORB
+     elseif(COMM_KOREA%flag_split) then
+       call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+       ETBA%ORB = ORB
+     endif
 #endif
 
+     return
    endsubroutine
 
    subroutine set_ldos_atom(PINPT, PGEOM)

@@ -60,6 +60,7 @@ contains
       if(flag_fit_orbital) then
         call get_orbital_projection(ETBA_FIT(i), PKPTS(i), PINPT, PGEOM(i), PPRAM%flag_use_overlap)
       endif
+
       call get_cost_function(fvec(ildjac:fldjac), fvec_plain(ildjac:fldjac), fvec_orb(ildjac:fldjac), &
                              ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), my_ldjac, imode, flag_order, flag_fit_orbital)
     enddo
@@ -179,20 +180,16 @@ contains
     ! imode = 12 with ldjac != 1 : return ETBA%dE, fvec, fvec_plain (ldjac = nkpoint)
     ! imode = 13 with ldjac  = 1 : return ETBA%dE 
     ! imode = 13 with ldjac != 1 : return          fvec, fvec_plain (ldjac = nkpoint * nband)
-    ! imode = 1 and imode =13 is similar but imode =13 does not contain ortbial part and etc. (much faster)
 
     flag_fit_degeneracy = PINPT%flag_fit_degeneracy
-!   flag_fit_orbital    = PINPT%flag_fit_orbital   
     flag_weight_orbital = PWGHT%flag_weight_orb
 
     dE        = 0d0 ;  sigma            = PINPT%orbital_fit_smearing   ! default 
     cost_func = 0d0 ;  cost_func_plain  = 0d0 
-   !if(imode .lt. 10 .and. imode .eq. 13) then
     if(ldjac .ne. 1) then
       fvec      = 0d0 ;  fvec_plain       = 0d0  ; fvec_orb  = 0d0
       fvec_     = 0d0 ;  fvec_plain_      = 0d0  ; fvec_orb_ = 0d0
     endif
-   !endif
     maxgauss  = 1d0/(sigma*sqrt(2d0*pi2)) *real(PGEOM%neig)
     max_gauss = fgauss(sigma, 0d0)
     iband     = PGEOM%init_erange
@@ -418,22 +415,32 @@ contains
             dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
 
             if(flag_fit_orbital) then
-              dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-              dE_ref     = abs(E_DFT(ie_,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-              dE_gauss   = 1d0-fgauss(sigma, dE_gauss)/max_gauss
-              dE_ref     = 1d0-fgauss(sigma, dE_ref)/max_gauss
-              dE_smooth  = sum(abs(dE_gauss - dE_ref))
+             !dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+             !dE_ref     = abs(E_DFT(ie_,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+             !dE_gauss   = 1d0-fgauss(sigma, dE_gauss)/max_gauss
+             !dE_ref     = 1d0-fgauss(sigma, dE_ref)/max_gauss
+             !dE_smooth  = sum(abs(dE_gauss - dE_ref))
 
-              ! dORB_smooth : orbital similarity between state-ie and other bands, 1: non-same, 0: same
+              ! dORB_smooth : orbital similarity between state-ie and other bands, 1: not similar, 0: similar
               ! NOTE: what is the best way to make the orbital different to be a "smooth" function?
               orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
               orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
               dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
               dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
-              dORB_smooth= sum(abs(dORB - dORB_ref))
+             !dORB_smooth= sum(abs(dORB - dORB_ref)) 
+              dORB_smooth= sum(abs(dORB - dORB_ref)) * PWGHT%WT(ie_,ik)
 
              !dE         = dORB_smooth * PWGHT%WT(ie_,ik)
             endif
+! for check..
+!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"TBA  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  ORB:', orb_TBA
+!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DFT  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  ORB:', orb_DFT(:,ie)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DEL  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dORB:', dORB
+!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"REF  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' RORB:', dORB_ref
+!write(6,'(2(A,I3),(A,F8.4),A,*(I8  ))')"EIG  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  EIG:', (je, je=1,PGEOM%nband)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DEL  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' delO:', dORB - dORB_ref, dORB_smooth
+!if(ie .eq. 9) kill_job
+
             if(ldjac .ne. 1) then
               if(ie_cutoff .gt. 0) then
                 if(ie .le. ie_cutoff) then

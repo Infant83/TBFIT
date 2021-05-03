@@ -116,6 +116,7 @@ subroutine parse(PINPT)
    PINPT%flag_ndiv_line_parse = .false.
    PINPT%flag_ndiv_grid_parse = .false.
    PINPT%flag_print_only_target = .false.
+   PINPT%flag_pso_verbose_parse = .false.
 
    narg = iargc()
    
@@ -212,7 +213,12 @@ subroutine parse(PINPT)
            PINPT%flag_mxfit_parse = .true.
            call getarg(iarg+1, value)
            read(value, *) PINPT%mxfit
-    
+
+         elseif(trim(option) .eq. '-pso_verbose') then
+           call getarg(iarg+1, value)
+           read(value, *) PINPT%pso_verbose
+           PINPT%flag_pso_verbose_parse = .true.
+
          elseif(trim(option) .eq. '-lorbit') then
            PINPT%flag_parse = .true.
            PINPT%flag_lorbit_parse = .true.
@@ -310,6 +316,9 @@ subroutine help()
    write(6,'(A)')"           mz             : enforce to print magnetization mz " 
 !  write(6,'(A)')"   -ldos .true.  or T     : enforce to print orbital information for each atom in separate file"
 !  write(6,'(A)')"         .false. or F     : enforce not to print orbital information"
+   write(6,'(A)')"   -pso_verbose  IVERBOSE : determine verbosity in PSO routine. "
+   write(6,'(A)')"                          :  -> IVERBOSE = 1 : write all info (incl. cost for each particles)  "
+   write(6,'(A)')"                          :  -> IVERBOSE = 2 : write PSO results only"
    write(6,'(A)')"   -test                  : run test routine, for the development perpose only."
    stop                                 
 

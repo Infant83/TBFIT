@@ -382,8 +382,11 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,PPRAM)
            endif
          endif
      eig:do ie = 1, PGEOM%nband ! init_e, fina_e
-           write(pid_energy,'(2A,I8,A,I8,3A)',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen | ',ia, &
-                                                      ' -th atom (spec= ',trim(PGEOM%c_spec(PGEOM%spec(ia))),' )'
+           if(flag_proj_atom) then
+             write(pid_energy,'(2A,I8,A,I8,3A)',ADVANCE='yes')kmode,'  energy(eV) :',init_e+ie-1,' -th eigen | ',ia, &
+                                                        ' -th atom (spec= ',trim(PGEOM%c_spec(PGEOM%spec(ia))),' )'
+           endif
+
            if(PINPT%axis_print_mag .eq. 'mz') sigma='sigma_z '
            if(PINPT%axis_print_mag .eq. 'mx') sigma='sigma_x '
            if(PINPT%axis_print_mag .eq. 'my') sigma='sigma_y '

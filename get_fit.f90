@@ -106,7 +106,6 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
      if(PINPT%flag_pso_report_particles) then
        if_main call print_param_pso(PINPT, PPRAM_FIT, PWGHT(1))
      endif
-
    endif
 
    write(message,'(A,A)')'  Fitted parameters will be written in ',PPRAM_FIT%pfileoutnm  ; write_msg

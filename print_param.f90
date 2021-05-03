@@ -167,7 +167,7 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   allocate(dist_nn(bestn,k))
   allocate(dist_min(bestn,k))
 
-  last_costs = PPRAM%pso_cost_history_i(PINPT%miter, :)
+  last_costs = PPRAM%pso_cost_history_i(PPRAM%pso_miter, :)
 
   call get_sort_index_1D(ilast_costs, last_costs, PPRAM%pso_nparticles, 'ascending ')
   ibest_costs = ilast_costs(1:bestn)
@@ -178,7 +178,7 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
     cost = last_costs(j)
     write(pid_param_pso,'(A,I0,A,I0,A,F20.9)')'# Best particle : rank= ',i, ', ID= ',j, ', COST= ', cost
 
-    PPRAM%param(PPRAM%iparam_free(:)) = PPRAM%pso_pbest_history(PINPT%miter, j, :)
+    PPRAM%param(PPRAM%iparam_free(:)) = PPRAM%pso_pbest_history(PPRAM%pso_miter, j, :)
 
     do iparam = 1, PPRAM%nparam
       call param_select(PPRAM, iparam, i_fix, param_name, param, nsub)
@@ -202,7 +202,7 @@ ii:do i=1, bestn
     dist_nn(i,:)  = -1
  jj:do j=1, bestn
       if (i == j) cycle
-      dist = enorm(PPRAM%nparam_free, PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(i), :)-PPRAM%pso_pbest_history(PINPT%miter, ibest_costs(j), :))
+      dist = enorm(PPRAM%nparam_free, PPRAM%pso_pbest_history(PPRAM%pso_miter, ibest_costs(i), :)-PPRAM%pso_pbest_history(PPRAM%pso_miter, ibest_costs(j), :))
    kk:do ik=1, k
         if(dist .lt. dist_min(i,ik) .and. ik .lt. k) then 
           dist_min(i,ik+1:k)= dist_min(i,ik:k-1)

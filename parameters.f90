@@ -208,6 +208,9 @@ module parameters
        logical                              flag_distribute_nkp ! distribute V and SV over cpu nodes (my_nkp). Only valid in post-processing routine
 
        integer(kind=sp)              iseed ! random seed
+       logical                       flag_pso_verbose_parse
+       integer(kind=sp)              pso_verbose 
+       
   endtype incar
 
   type params !PPRAM

@@ -41,27 +41,45 @@
  TBBIN=$(HOME)/code/bin
  TBLIB=$(HOME)/code/lib
 #VERSION=$(shell date +%Y%m%d)
- VERSION=0.5.3
+ VERSION=0.5.4
  
-# MAC-INTEL COMPILE
+#####################
+# MAC-INTEL COMPILE #
+#####################
 #FC     = mpiifort
  FC     = mpif90
  OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
 
-# LINUX-gfortran COMPILE
+##########################
+# LINUX-gfortran COMPILE #
+##########################
 #OPTIONS= 
-#F90    = gfortran-mp-8 $(OPTIONS)
+#F90    = gfortran-mp-8 
 #FFLAG  = -cpp -O2 -ffree-line-length-256 -fmax-stack-var-size=32768
+#MPI_USE= NO 
 
 #OPTIONS= -cpp -DMPI -DF08 -DSPGLIB #-DMKL_SPARSE -DSCALAPACK
 #F90    = mpif90-openmpi-mp $(OPTIONS)
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
-#BIN    = ~/code/bin
+#MPI_USE= YES
+
+#############################
+# NURION-INTEL COMPILE      #
+#  *tested by Chongze Wang, #
+#	          Hanyang Univ, #
+#	 chongze@hanyang.ac.kr  #
+#############################
+#ADDITIONAL_OPTS    =-O3 -qopenmp -xCOMMON-AVX512 -align array64byte
+#OPTIONS= -fpp -DMPI -DF08 -DSPGLIB
+#FC     = mpiifort ${ADDITIONAL_OPTS}
+#F90    = mpiifort ${ADDITIONAL_OPTS}
+#FFLAG  = -heap-arrays -nogen-interfaces -static-intel
+
+
 BIN    = $(TBBIN)
 LIB	   = $(TBLIB)
-
 #---------------------------------------------------------------------------|
 
 #-----------------------------------

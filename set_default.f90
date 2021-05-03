@@ -85,6 +85,7 @@ module set_default
         PINPT%flag_distribute_nkp = .false.
 
         PINPT%iseed = 123 ! random seed
+        if(.not. PINPT%flag_pso_verbose_parse) PINPT%pso_verbose = 1 
         return
     endsubroutine
 

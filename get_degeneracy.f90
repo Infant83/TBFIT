@@ -38,15 +38,28 @@ subroutine get_degeneracy(EN, n, nkp, PINPT)
                                         ! (3,:,:)  : dE(below) = E(n  ) - E(n-1)
 !  real*8                    D_(3,n,nkp)
    integer*4                 ik
-   integer*4                 ourjob(nprocs), ourjob_disp(0:nprocs-1)
-   integer*4                 mpierr
+   integer*4                 mpierr, ncpu, id
+  !integer*4                 ourjob(nprocs), ourjob_disp(0:nprocs-1)
+   integer*4, allocatable :: ourjob(:), ourjob_disp(:)
 
    if(.not. PINPT%flag_fit_degeneracy) return
    E = EN%E
    D = 0d0
   !D_= 0d0
  
-   call mpi_job_ourjob(nkp, ourjob)
+   if(COMM_KOREA%flag_split) then
+     ncpu = COMM_KOREA%nprocs
+     id   = COMM_KOREA%myid
+   else
+     ncpu = nprocs
+     id   = myid
+   endif
+   allocate(ourjob(ncpu))
+   allocate(ourjob_disp(0:ncpu-1))
+
+  !call mpi_job_ourjob(nkp, ourjob)
+   call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
+   
    do ik = sum(ourjob(1:myid)) + 1, sum(ourjob(1:myid+1))
      call get_D(E(:,ik), D(1:3,:,ik), n, PINPT%ispin*PINPT%ispinor)
    enddo

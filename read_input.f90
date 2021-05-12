@@ -44,6 +44,10 @@ subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_D
   ! READ INCAR-TB
   call read_input_tags(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
                        EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
+!!!!! CHECK HERE
+! PINPT%flag_fit_degeneracy = .true.
+! write(6,*)"VVVVV "
+!!!!!
   ! SET BASIC SYSTEM
   call read_tb_param(PINPT, PPRAM, PWGHT)
   call read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)

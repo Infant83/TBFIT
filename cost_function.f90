@@ -421,25 +421,36 @@ contains
              !dE_ref     = 1d0-fgauss(sigma, dE_ref)/max_gauss
              !dE_smooth  = sum(abs(dE_gauss - dE_ref))
 
+             !dE_gauss   = fgauss(sigma, dE_gauss)/max_gauss
+
               ! dORB_smooth : orbital similarity between state-ie and other bands, 1: not similar, 0: similar
               ! NOTE: what is the best way to make the orbital different to be a "smooth" function?
               orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
               orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
               dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
               dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
-             !dORB_smooth= sum(abs(dORB - dORB_ref)) 
+!!!   S =   dORB - dORB_ref
+!!! if (i and i+1 band is degenerate) then
+!!!  ( S(i,i) + S(i+1,i) )/ 2
+!!! endif
               dORB_smooth= sum(abs(dORB - dORB_ref)) * PWGHT%WT(ie_,ik)
-
              !dE         = dORB_smooth * PWGHT%WT(ie_,ik)
             endif
 ! for check..
-!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"TBA  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  ORB:', orb_TBA
-!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DFT  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  ORB:', orb_DFT(:,ie)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DEL  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dORB:', dORB
-!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"REF  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' RORB:', dORB_ref
-!write(6,'(2(A,I3),(A,F8.4),A,*(I8  ))')"EIG  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,'  EIG:', (je, je=1,PGEOM%nband)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F8.4))')"DEL  ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' delO:', dORB - dORB_ref, dORB_smooth
-!if(ie .eq. 9) kill_job
+!write(6,'(A,I3,A                    )')"---------------------------------------", &
+!                                    ie,"------------------------------------------------------------------------------------------------------"
+!write(6,'(A                          )')"                       orbital    :           s          px          py          pz         dz2         dx2         dxy         dxz         dyz"
+!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' En: ', E_TBA(ie+(is-1)*PGEOM%nband,ik),' |TB> :', orb_TBA, sum(orb_TBA)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' Ei: ', E_DFT(ie_,ik),' |DF> :', orb_DFT(:,ie), sum(orb_DFT(:,ie))
+!write(6,'(A                , *(I12 ))')'                       eigen state:', (je, je=1,PGEOM%nband)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' S_in :', dORB, sum(dORB)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' S_ref:', dORB_ref, sum(dORB_ref)
+!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' D_dge:', EDFT%D(:,ie_,ik)
+!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dE   :', abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dE*S :', abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) ) * dORB
+!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dEg  :', 1d0 - dE_gauss
+!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dEg*S:', dE_gauss * dORB
+!if(ie .eq.13) kill_job
 
             if(ldjac .ne. 1) then
               if(ie_cutoff .gt. 0) then
@@ -458,10 +469,9 @@ contains
                 endif
               endif
             endif
-
-          enddo
-        enddo
-      enddo
+          enddo ! ie
+        enddo ! is
+      enddo ! ik
     endif ! IMODE ?
 
     if(imode .lt. 10) then
@@ -547,6 +557,7 @@ contains
   endsubroutine
 
   function fdORB(myORB_TBA, myORB_DFT, lmmax, nband)
+    use do_math,    only: fgauss
     implicit none
     integer*4    ie
     integer*4    lmmax
@@ -558,12 +569,31 @@ contains
     real*8       enorm
 
     do ie = 1, nband
-     !fdORB(ie) = sum(myORB_TBA(:) * myORB_DFT(:,ie))
-      fdORB(ie) = dot_product(myORB_TBA, myORB_DFT(:,ie))
-     !fdORB(ie) = enorm(lmmax, abs(myORB_TBA - myORB_DFT(:,ie)))
+      fdORB(ie) = dot_product(myORB_TBA, myORB_DFT(:,ie))/(sqrt(dot_product(myORB_TBA, myORB_TBA)) * sqrt(dot_product(myORB_DFT(:,ie),myORB_DFT(:,ie))))
     enddo
 
     return
   endfunction
+
+
+! function fdORB2(E_DFT, myORB_TBA, myORB_DFT, lmmax, nband)
+!   use do_math,    only: fgauss
+!   implicit none
+!   integer*4    ie
+!   integer*4    lmmax
+!   integer*4    nband
+!   real*8       myORB_TBA(lmmax)
+!   real*8       myORB_DFT(lmmax, nband)
+!   real*8       fdORB(nband)
+!   real*8       E_DFT(nband)
+!   external     enorm
+!   real*8       enorm
+
+!   do ie = 1, nband
+!     fdORB(ie) = dot_product(myORB_TBA, myORB_DFT(:,ie))/(sqrt(dot_product(myORB_TBA, myORB_TBA)) * sqrt(dot_product(myORB_DFT(:,ie),myORB_DFT(:,ie))))
+!   enddo
+
+!   return
+! endfunction
 
 endmodule

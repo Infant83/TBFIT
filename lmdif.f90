@@ -224,6 +224,9 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   enddo
 
   call get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital) 
+  ! CHECK ZZZZ
+ !fvec = fvec_orb
+  ! CHECK
 
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
@@ -235,14 +238,14 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
   if(flag_write_info) then
     write(message,'(A)')' '  ; write_msg
-    write(message,'(A)')'    # dE: (EDFT - ETBA), WT= weight '
+    write(message,'(A)')'    # dE: (EDFT - ETBA), WT= weight ' ; write_msg
     if(.not.flag_fit_orbital) then
-      write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                         ', rt(sum(dE^2)) = ', fnorm_plain   ; write_msg
+      write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,' ,rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                         ' ,rt(sum(dE^2)) = ', fnorm_plain   ; write_msg
     elseif(flag_fit_orbital) then
-      write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                         ', rt(sum(dE^2)) = ', fnorm_plain, &
-                                                         ', rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
+      write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,' ,rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                         ' ,rt(sum(dE^2)) = ', fnorm_plain, &
+                                                         ' ,rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
     endif
                                                       !', rt(sum(dE^2)) = ', enorm ( ldjac , fvec_plain )   ; write_msg
   endif
@@ -363,6 +366,10 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
         endif
         
         call get_dE(wa4, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
+        ! CHECK ZZZZ
+       !wa4 = fvec_orb
+        ! CHECK ZZZZ
+
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
 
@@ -445,12 +452,12 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
           if(flag_write_info) then
             write(message,'(A)')' '  ; write_msg
             if(.not. flag_fit_orbital) then
-              write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                                 ', rt(sum(dE^2)) = ', fnorm_plain  ; write_msg
+              write(message,'(A,I8, 2(A,F16.6))')'   ITER=',iter,' ,rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                                 ' ,rt(sum(dE^2)) = ', fnorm_plain  ; write_msg
             elseif(flag_fit_orbital) then
-              write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,', rt(sum((dE*WT)^2)) = ',fnorm, &
-                                                                 ', rt(sum(dE^2)) = ', fnorm_plain, &
-                                                                 ', rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
+              write(message,'(A,I8, 3(A,F16.6))')'   ITER=',iter,' ,rt(sum((dE*WT)^2)) = ',fnorm, &
+                                                                 ' ,rt(sum(dE^2)) = ', fnorm_plain, &
+                                                                 ' ,rt(sum(dORB^2)) =',fnorm_orb   ; write_msg
 
             endif
 
@@ -460,6 +467,8 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
           endif
         endif
+!if_main write(6,*)"ZZZZ "
+!kill_job
 
 !  Tests for convergence.
         if (abs(actred) <= ftol .and. prered <= ftol .and. 0.5D+00*ratio <= 1.0D+00) info=1
@@ -606,6 +615,7 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
   flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
   flag_order_weight   = .false.
   flag_fit_orbital    = .false. ! NOTE: even if the PINPT%flag_fit_orbital is .TRUE. in obtainding Jacobian, we will not use orbital norm
+ !flag_fit_orbital    = .true.  ! NOTE: even if the PINPT%flag_fit_orbital is .TRUE. in obtainding Jacobian, we will not use orbital norm
                                 !       since it is not well defined (not smooth) in derivation. 
                                 !       Normally, in PSO routine, selecting Global or Personal best particle, the orbital norm can be used.
                                 !       See pso.f90 routine for the detail.. H.-J. Kim (11. Mar. 2021)
@@ -638,6 +648,10 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
       if (h == 0.0D+00 ) h=eps
       PPRAM%param(PPRAM%iparam_free(j)) = temp+h
       call get_dE(wa, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
+      ! CHECK ZZZZ
+     !wa = fvec_orb
+      ! CHECK ZZZZ
+
       PPRAM%param(PPRAM%iparam_free(j)) = temp
       fjac(:,j) = ( wa(:) - fvec(:) ) / h
     enddo

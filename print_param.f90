@@ -133,6 +133,7 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   use parameters, only : incar, weight, params
   use print_io
   use sorting
+  use directory
   implicit none
   type (incar)          :: PINPT
   type (weight)         :: PWGHT
@@ -154,8 +155,10 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   real*8, allocatable   :: dist_min(:,:)
   integer*4,allocatable :: dist_nn(:,:)
   external                 enorm
+  character*13          :: pso_folder
 
   title = 'PARAM_FIT.PSO.best_particles.dat'
+  pso_folder= './PSO_params/'
   pid_param_pso = 181
   k = 3
   last_costs = 0d0
@@ -172,6 +175,8 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
   call get_sort_index_1D(ilast_costs, last_costs, PPRAM%pso_nparticles, 'ascending ')
   ibest_costs = ilast_costs(1:bestn)
 
+  call makedir(pso_folder)
+ !open(pid_param_pso, file = trim(pso_folder)//trim(title), status = 'unknown')
   open(pid_param_pso, file = trim(title), status = 'unknown')
   do i=1, bestn
     j = ibest_costs(i)
@@ -192,7 +197,7 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
     write(pid_param_pso,'(A)')'  '
     write(pid_param_pso,'(A)')'  '
  
-    write(title_pid,'(A,I0,A,I0,A)')'PARAM_FIT.PSO.RANK.',i,'.PID.',j,'.dat'
+    write(title_pid,'(A,A,I0,A,I0,A)')trim(pso_folder),'PARAM_FIT.PSO.RANK.',i,'.PID.',j,'.dat'
     call print_param (PINPT, PPRAM, PWGHT, trim(title_pid), .TRUE.)
   enddo
 

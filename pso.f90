@@ -1047,6 +1047,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
         endif
       enddo
 
+!     call update_particle(iselect_mode, costs, cgbest, gbest, cgbest_plain, gbest_plain, 
       ! update gbest, pbest
       if(myid .eq. 0) then
         if(iselect_mode .eq. 1) then

@@ -38,6 +38,7 @@ module pyfit
        logical                            flag_get_band_order_print_only 
        logical                            flag_use_weight 
        logical                            flag_fit_orbital
+       logical                            flag_fit_orbital_parse
        logical                            flag_pso_with_lmdif
        real(kind=dp)                      ptol
        real(kind=dp)                      ftol
@@ -64,6 +65,8 @@ module pyfit
     
        logical                            flag_get_total_energy
        real(kind=dp)                      electronic_temperature
+
+       real(kind=dp)                      orbital_fit_smearing
     endtype incar_py
 
   type params_py !PPRAM_PY
@@ -232,6 +235,7 @@ module pyfit
 
        real(kind=dp),    allocatable   :: E(:,:)
        real(kind=dp),    allocatable   :: dE(:,:)
+       real(kind=dp),    allocatable   :: dORB(:,:)
        real(kind=dp),    allocatable   :: ORB(:,:,:)
        complex(kind=dp), allocatable   :: V(:,:,:)
        complex(kind=dp), allocatable   :: SV(:,:,:)
@@ -280,15 +284,21 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
     call parse(PINPT)
 
+    PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
+
     call set_verbose(PINPT_PY%iverbose)
 
     call read_input(PINPT,PPRAM,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE, TMP1,TMP2,TMP3,TMP4, 1)
     call set_free_parameters(PPRAM)
 
     call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, .FALSE., 0)
-    if(allocated(ETBA%dE)) deallocate(ETBA%dE)
-    allocate(ETBA%dE( size(ETBA%E(:,1)) , size(ETBA%E(1,:)) )) 
-    ETBA%E = 0d0 ; ETBA%V = 0d0 ; ETBA%SV = 0d0 ; ETBA%dE=0d0
+    if(allocated(ETBA%dE))   deallocate(ETBA%dE)
+    if(allocated(ETBA%dORB)) deallocate(ETBA%dORB)
+    allocate(ETBA%dE(   size(ETBA%E(:,1)),size(ETBA%E(1,:)) )) 
+    allocate(ETBA%dORB( size(ETBA%E(:,1)),size(ETBA%E(1,:)) ))
+
+    ETBA%E = 0d0 ; ETBA%V = 0d0 ; ETBA%SV = 0d0 ; ETBA%dE=0d0 ; ETBA%dORB = 0d0
     if(PINPT%flag_fit_orbital) ETBA%ORB = 0d0
 
     if(PKPTS%flag_klinemode) then
@@ -355,7 +365,7 @@ subroutine pso(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
 
     call pso_fit(PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_tABLE, EDFT, iseed, pso_miter)
 
-    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, .FALSE.)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital)
 
     call copy_incar(PINPT_PY, PINPT, 1)
     call copy_params(PPRAM_PY, PPRAM, 1)
@@ -547,12 +557,12 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     endif
 
     call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, .FALSE.)
+               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, .false. )
 
     call check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_)
 
     ! before return calculate again with final parameter to get get energy and dE
-    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, .FALSE.)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital )
 
     call copy_incar(PINPT_PY, PINPT, 1)
     call copy_params(PPRAM_PY, PPRAM, 1)
@@ -629,6 +639,7 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%flag_get_band_order_print_only          = .FALSE.
     PINPT_PY%flag_use_weight                         = .FALSE.
     PINPT_PY%flag_fit_orbital                        = .FALSE.
+    PINPT_PY%flag_fit_orbital_parse                  = .FALSE.
     PINPT_PY%flag_get_total_energy                   = .FALSE.
     PINPT_PY%flag_pso_with_lmdif                     = .FALSE.
     PINPT_PY%iverbose                                = 2 ! do not print : 2, print all: 1
@@ -644,7 +655,7 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%ispinor                                 = 1
     PINPT_PY%nspin                                   = 1
     PINPT_PY%fnamelog                                = 'TBFIT.out'
-    
+    PINPT_PY%orbital_fit_smearing                    = 0.1d0 ! default
     return
 endfunction
 
@@ -682,6 +693,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%flag_get_band_order_print_only     =      PINPT%flag_get_band_order_print_only
        PINPT_PY%flag_use_weight                    =      PINPT%flag_use_weight
        PINPT_PY%flag_fit_orbital                   =      PINPT%flag_fit_orbital
+       PINPT_PY%flag_fit_orbital_parse             =      PINPT%flag_fit_orbital_parse
        PINPT_PY%flag_get_total_energy              =      PINPT%flag_get_total_energy
        PINPT_PY%flag_pso_with_lmdif                =      PINPT%flag_pso_with_lmdif
        PINPT_PY%ptol                               =      PINPT%ptol
@@ -701,6 +713,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%ls_type                            =      PINPT%ls_type
        PINPT_PY%fnamelog                           =      PINPT%fnamelog
        PINPT_PY%nproj_sum                          =      PINPT%nproj_sum
+       PINPT_PY%orbital_fit_smearing               =      PINPT%orbital_fit_smearing
 
        if(allocated( PINPT_PY%ifilenm       ))         deallocate(PINPT_PY%ifilenm)
        if(allocated( PINPT_PY%title         ))         deallocate(PINPT_PY%title  )
@@ -754,6 +767,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%flag_get_band_order_print_only     =      PINPT_PY%flag_get_band_order_print_only
        PINPT%flag_use_weight                    =      PINPT_PY%flag_use_weight
        PINPT%flag_fit_orbital                   =      PINPT_PY%flag_fit_orbital
+       PINPT%flag_fit_orbital_parse             =      PINPT_PY%flag_fit_orbital_parse
        PINPT%flag_get_total_energy              =      PINPT_PY%flag_get_total_energy
        PINPT%flag_pso_with_lmdif                =      PINPT_PY%flag_pso_with_lmdif
        PINPT%ptol                               =      PINPT_PY%ptol
@@ -773,6 +787,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%ls_type                            =      PINPT_PY%ls_type
        PINPT%fnamelog                           =      PINPT_PY%fnamelog
        PINPT%nproj_sum                          =      PINPT_PY%nproj_sum
+       PINPT%orbital_fit_smearing               =      PINPT_PY%orbital_fit_smearing
 
        if(allocated( PINPT%ifilenm          ))         deallocate(PINPT%ifilenm)
        if(allocated( PINPT%title            ))         deallocate(PINPT%title  )
@@ -1903,6 +1918,7 @@ function init_energy_py() result(E_PY)
 
     if(allocated( E_PY%E    ))    deallocate( E_PY%E    )
     if(allocated( E_PY%dE   ))    deallocate( E_PY%dE   )
+    if(allocated( E_PY%dORB ))    deallocate( E_PY%dORB )
     if(allocated( E_PY%ORB  ))    deallocate( E_PY%ORB  )
     if(allocated( E_PY%V    ))    deallocate( E_PY%V    )
     if(allocated( E_PY%SV   ))    deallocate( E_PY%SV   )
@@ -1928,6 +1944,7 @@ subroutine copy_energy(E_PY, E, imode)
        if(allocated( E_PY%F_OCC             ))   deallocate( E_PY%F_OCC    )
        if(allocated( E_PY%E                 ))   deallocate( E_PY%E    )
        if(allocated( E_PY%dE                ))   deallocate( E_PY%dE   )
+       if(allocated( E_PY%dORB              ))   deallocate( E_PY%dORB )
        if(allocated( E_PY%ORB               ))   deallocate( E_PY%ORB  )
        if(allocated( E_PY%V                 ))   deallocate( E_PY%V    )
        if(allocated( E_PY%SV                ))   deallocate( E_PY%SV   )
@@ -1957,6 +1974,11 @@ subroutine copy_energy(E_PY, E, imode)
            allocate( E_PY%dE(n1,n2)       ) ; E_PY%dE     =  E%dE
        endif
 
+       if(allocated( E%dORB              )) then
+          n1 = size( E%dORB(:,1)          ) ; n2 = size( E%dORB(1,:)      )
+           allocate( E_PY%dORB(n1,n2)     ) ; E_PY%dORB   =  E%dORB
+       endif
+
        if(allocated( E%ORB               )) then
           n1 = size( E%ORB(:,1,1)         ) ; n2 = size( E%ORB(1,:,1)   );n3 = size( E%ORB(1,1,:)   ) 
            allocate( E_PY%ORB(n1,n2,n3)   ) ; E_PY%ORB   =  E%ORB
@@ -1982,6 +2004,7 @@ subroutine copy_energy(E_PY, E, imode)
        if(allocated( E%F_OCC             ))   deallocate( E%F_OCC )
        if(allocated( E%E                 ))   deallocate( E%E    )
        if(allocated( E%dE                ))   deallocate( E%dE   )
+       if(allocated( E%dORB              ))   deallocate( E%dORB )
        if(allocated( E%ORB               ))   deallocate( E%ORB  )
        if(allocated( E%V                 ))   deallocate( E%V    )
        if(allocated( E%SV                ))   deallocate( E%SV   )
@@ -2010,6 +2033,11 @@ subroutine copy_energy(E_PY, E, imode)
        if(allocated( E_PY%dE                )) then
           n1 = size( E_PY%dE(:,1)            ) ; n2 = size( E_PY%dE(1,:)      )
            allocate( E%dE(n1,n2)       ) ; E%dE     =  E_PY%dE
+       endif
+
+       if(allocated( E_PY%dORB              )) then
+          n1 = size( E_PY%dORB(:,1)            ) ; n2 = size( E_PY%dORB(1,:)      )
+           allocate( E%dORB(n1,n2)       ) ; E%dORB     =  E_PY%dORB
        endif
 
        if(allocated( E_PY%ORB               )) then

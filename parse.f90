@@ -1,6 +1,6 @@
 #include "alias.inc"
 
-subroutine parse_very_init_py(PINPT, nsystem, ifilenm_dummy)
+subroutine parse_very_init_py(PINPT, nsystem, ifilenm_dummy )
    use parameters, only: incar, max_dummy
    use mpi_setup
    implicit none
@@ -27,6 +27,7 @@ subroutine parse_very_init_py(PINPT, nsystem, ifilenm_dummy)
        write(PINPT%title(i),'(A,I0)') '.',i
      enddo
    endif
+
 
    return
 endsubroutine
@@ -117,6 +118,7 @@ subroutine parse(PINPT)
    PINPT%flag_ndiv_grid_parse = .false.
    PINPT%flag_print_only_target = .false.
    PINPT%flag_pso_verbose_parse = .false.
+   PINPT%flag_fit_orbital_parse = .false.
 
    narg = iargc()
    

@@ -203,8 +203,17 @@ contains
                 !         1        2    3  4  5  6  7   8   9   10   11   12   13   14   15
                 !                                1  3   4   2    7    9    5    8    6
                 !       This is same sequence as in PROCAR format
-                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_fit_orbital, PINPT%orbital_fit_smearing
-                write(message,'(A,L)')' L_ORBFIT: ',PINPT%flag_fit_orbital ; write_msgi
+                if(PINPT%flag_fit_orbital_parse) then
+                  PINPT%flag_fit_orbital = PINPT%flag_fit_orbital_parse
+                  write(message,'(A,L)')' L_ORBFIT: (forced by parsing) ',PINPT%flag_fit_orbital ; write_msgi
+                else
+                  if(nitems(inputline) - 1 .eq. 1) then
+                    read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_fit_orbital
+                  else
+                    read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_fit_orbital, PINPT%orbital_fit_smearing
+                  endif
+                  write(message,'(A,L)')' L_ORBFIT: ',PINPT%flag_fit_orbital ; write_msgi
+                endif
     
               case('LORDER')
                 call set_band_order(PINPT, inputline)

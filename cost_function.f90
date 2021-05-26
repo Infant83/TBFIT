@@ -157,6 +157,7 @@ contains
     logical                    flag_order
     real*8                     E_TBA(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
     real*8                     dE_TBA(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
+    real*8                     dORB_TBA(PGEOM%nband*PINPT%nspin,PKPTS%nkpoint)
     real*8                     E_DFT(PGEOM%neig*PINPT%ispin,PKPTS%nkpoint)
     complex*16, allocatable :: myV(:,:,:)
     real*8,     allocatable :: myORB_TBA(:,:,:), myORB_DFT(:,:,:)
@@ -197,6 +198,7 @@ contains
     if(flag_fit_degeneracy) dD= 0d0
     if(flag_weight_orbital) OW= 0d0
     if(imode .gt. 10) dE_TBA = 0d0
+    if(imode .gt. 10) dORB_TBA = 0d0
 
     if(COMM_KOREA%flag_split) then
       ncpu = COMM_KOREA%nprocs
@@ -368,22 +370,29 @@ contains
             
             if(flag_fit_degeneracy) dD       = (ETBA_FIT%D(:,ie+(is-1)*PGEOM%nband,ik) - EDFT%D(:,ie_,ik)) * PWGHT%DEGENERACY_WT(ie_,ik)
             if(flag_weight_orbital) OW       = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik)) )
+           !if(flag_fit_orbital) then
+           !  dE_gauss   = 0d0 ! initialize always
+           !  dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
+           !  dE_gauss   = fgauss(sigma, dE_gauss)
+           !  orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
+           !  orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
+
+           !  dORB     = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband) * dE_gauss
+           !  dE       = sum((1d0-dE_gauss/maxgauss) * (1d0 - dORB)) * PWGHT%WT(ie_,ik)
+           !else
+           !  dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
+           !endif
+            dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
             if(flag_fit_orbital) then
-              dE_gauss   = 0d0 ! initialize always
-              dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-              dE_gauss   = fgauss(sigma, dE_gauss)
-!             dE_gauss   = abs( E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) ) * &
-!                               fgauss(sigma, E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik))
               orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
               orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
-
-              dORB     = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband) * dE_gauss
-              dE       = sum((1d0-dE_gauss/maxgauss) * (1d0 - dORB)) * PWGHT%WT(ie_,ik)
-            else
-              dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
+              dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
+              dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
+             !dORB_smooth= sum(abs(dORB - dORB_ref)) * PWGHT%WT(ie_,ik)
             endif
             if(imode .eq. 12) then
               dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
+              if(flag_fit_orbital) dORB_TBA(ie+(is-1)*PGEOM%nband,ik)= sum(abs(dORB - dORB_ref))
             else
               cost_func(ie+(is-1)*PGEOM%nband)       = dE + sum(abs(dD)) + OW
               if(ie_cutoff .gt. 0) then
@@ -415,42 +424,14 @@ contains
             dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
 
             if(flag_fit_orbital) then
-             !dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-             !dE_ref     = abs(E_DFT(ie_,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-             !dE_gauss   = 1d0-fgauss(sigma, dE_gauss)/max_gauss
-             !dE_ref     = 1d0-fgauss(sigma, dE_ref)/max_gauss
-             !dE_smooth  = sum(abs(dE_gauss - dE_ref))
-
-             !dE_gauss   = fgauss(sigma, dE_gauss)/max_gauss
-
-              ! dORB_smooth : orbital similarity between state-ie and other bands, 1: not similar, 0: similar
               ! NOTE: what is the best way to make the orbital different to be a "smooth" function?
+              ! orbital    :           s          px          py          pz         dz2         dx2         dxy         dxz         dyz"
               orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
               orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
               dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
               dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
-!!!   S =   dORB - dORB_ref
-!!! if (i and i+1 band is degenerate) then
-!!!  ( S(i,i) + S(i+1,i) )/ 2
-!!! endif
               dORB_smooth= sum(abs(dORB - dORB_ref)) * PWGHT%WT(ie_,ik)
-             !dE         = dORB_smooth * PWGHT%WT(ie_,ik)
             endif
-! for check..
-!write(6,'(A,I3,A                    )')"---------------------------------------", &
-!                                    ie,"------------------------------------------------------------------------------------------------------"
-!write(6,'(A                          )')"                       orbital    :           s          px          py          pz         dz2         dx2         dxy         dxz         dyz"
-!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' En: ', E_TBA(ie+(is-1)*PGEOM%nband,ik),' |TB> :', orb_TBA, sum(orb_TBA)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' Ei: ', E_DFT(ie_,ik),' |DF> :', orb_DFT(:,ie), sum(orb_DFT(:,ie))
-!write(6,'(A                , *(I12 ))')'                       eigen state:', (je, je=1,PGEOM%nband)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' S_in :', dORB, sum(dORB)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' S_ref:', dORB_ref, sum(dORB_ref)
-!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' D_dge:', EDFT%D(:,ie_,ik)
-!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dE   :', abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dE*S :', abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) ) * dORB
-!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dEg  :', 1d0 - dE_gauss
-!!write(6,'(2(A,I3),(A,F8.4),A,*(F12.8))')"ik: ", ik, ' ie: ',ie,' dE: ', dE_plain,' dEg*S:', dE_gauss * dORB
-!if(ie .eq.13) kill_job
 
             if(ldjac .ne. 1) then
               if(ie_cutoff .gt. 0) then
@@ -491,6 +472,9 @@ contains
 #ifdef MPI
       if(COMM_KOREA%flag_split) then
         call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+        if(flag_fit_orbital) then
+          call MPI_ALLREDUCE(dORB_TBA, ETBA_FIT%dORB, size(dORB_TBA), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+        endif
         if(ldjac .ne. 1) then
           call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
           fvec = fvec_
@@ -503,6 +487,9 @@ contains
         endif
       elseif(.not. COMM_KOREA%flag_split) then
         call MPI_ALLREDUCE(dE_TBA, ETBA_FIT%dE, size(dE_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        if(flag_fit_orbital) then
+          call MPI_ALLREDUCE(dORB_TBA, ETBA_FIT%dORB, size(dORB_TBA), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+        endif
         if(ldjac .ne. 1) then
           call MPI_ALLREDUCE(fvec, fvec_, size(fvec), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
           fvec = fvec_
@@ -516,6 +503,9 @@ contains
       endif
 #else
       ETBA_FIT%dE = dE_TBA
+      if(flag_fit_orbital) then
+        ETBA_FIT%dORB = dORB_TBA
+      endif
 #endif
     elseif(imode .ge. 13) then
 #ifdef MPI

@@ -36,17 +36,6 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
 
   flag_fit_orbital = PINPT%flag_fit_orbital
 
-! if( sum(PKPTS(:)%nkpoint) .lt. nparam_free ) then
-!   imode = 1
-!   ldjac = 0
-!   do i = 1, PINPT%nsystem
-!     ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
-!   enddo
-! elseif( sum(PKPTS(:)%nkpoint) .gt. nparam_free ) then
-!   imode = 2
-!   ldjac = sum(PKPTS(:)%nkpoint)
-! endif
-
   if( PINPT%ls_type == 'LMDIF' ) then
    write(message,*)' Start: fitting procedures with ',PINPT%ls_type,' method.'  ; write_msg
     if ( nparam_free <= 0 ) then

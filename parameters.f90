@@ -202,6 +202,7 @@ module parameters
 
        integer(kind=sp)                     lmmax ! 9 (default) =>  1:s, 2~4:px,py,pz, 5~9:dz2,dx2,dxy,dxz,dyz
                                            ! 3           =>  1:s, 2  :px,py,pz, 3  :dz2,dx2,dxy,dxz,dyz
+       logical                       flag_fit_orbital_parse ! fit orbital character as well?
        logical                       flag_fit_orbital ! fit orbital character as well?
        real(kind=dp)                        orbital_fit_smearing ! gaussian smearing for orbital fitting                                           
 
@@ -409,6 +410,7 @@ module parameters
        ! energy/wavefunction etc setup
        real(kind=dp),      allocatable   :: E(:,:)   !E(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), eigenstate
        real(kind=dp),      allocatable   :: dE(:,:)   !dE(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), EDFT - ETBA, if flag_python_module
+       real(kind=dp),      allocatable   :: dORB(:,:) !dORB(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), similarity diff in orbital btw TBA and DFT, if flag_python_module
        complex(kind=dp),  allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) wavevector (basis,eigen,kpooint)
        real(kind=dp),      allocatable   :: ORB(:,:,:) ! orbital projected density of state (lm, neig*ispin (or nband*nspin), nkpoint), lm=s,px,py....,dyz
        complex(kind=dp),  allocatable   :: SV(:,:,:) !SV(nbasis=neig*ispin,neig*ispin,nkpoint) overlap matrix S multiplied V, S_ij = <i|j> (i,j,kpoint)

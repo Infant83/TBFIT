@@ -48,7 +48,7 @@
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
 
@@ -120,7 +120,7 @@ MPI_MOD= blacs_basics.o mpi_basics.o mpi_setup.o
 TBFITPY= tbfitpy_mod.o
 KIND_MAP= kind_map # mapping between Fortran and C types used when ' make tbfitpy_mod ' 
 TEST   = test.o
-MODULE = mykind.o print_io.o $(MPI_MOD) kill.o memory.o time.o version.o $(SP_MOD) \
+MODULE = mykind.o print_io.o directory.o $(MPI_MOD) kill.o memory.o time.o version.o $(SP_MOD) \
 		 parameters.o set_default.o  random_mod.o element_info.o read_incar.o \
 		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \

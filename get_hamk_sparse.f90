@@ -1,4 +1,5 @@
 #include "alias.inc"
+
 #ifdef MKL_SPARSE
 subroutine get_hamk_sparse_overlap(SHk, SSk, SH0,SS0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, &
                            flag_sparse_zero_SHm, flag_sparse_zero_SHs)
@@ -420,7 +421,6 @@ subroutine set_ham0_sparse_overlap(SH0, SS0, kpoint, PINPT, PPRAM, neig, NN_TABL
   IJ= (-1d0,-1d0)
   mm = 0
   tol=NN_TABLE%onsite_tolerance
-
 nn_:do nn=1,NN_TABLE%n_neighbor
     ii=NN_TABLE%i_matrix(nn)
     jj=NN_TABLE%j_matrix(nn)
@@ -1129,3 +1129,9 @@ subroutine save_Hsoc_sparse(Tij_x, Tij_y, Tij_z, Hx, Hy, Hz, mm, ii, jj, I, J, I
 return
 endsubroutine
 #endif
+
+! This null routine is just to get rid of the warning message. 
+subroutine null_()
+    implicit none
+return
+endsubroutine

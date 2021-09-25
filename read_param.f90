@@ -24,8 +24,9 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    integer*4       mpierr
    integer*4       iseed
 
-   iseed = 9342
-   call random_init(iseed)
+  !iseed = 9342
+  !call random_init(iseed)
+   call random_seed()
 
    inquire(file=trim(PPRAM%pfilenm),exist=flag_exist)
    if(.not. flag_exist) then
@@ -77,10 +78,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    ! reading parameters
    open(pid_param,FILE=PPRAM%pfilenm,status='old',iostat=i_continue)
    allocate( PPRAM%param(PPRAM%nparam) )
+   allocate( PPRAM%param_best(PPRAM%nparam) )
    allocate( PPRAM%param_name(PPRAM%nparam) )
    allocate( PPRAM%param_nsub(PPRAM%nparam))
    
    PPRAM%param(1:PPRAM%nparam  ) = 0d0
+   PPRAM%param_best(1:PPRAM%nparam  ) = 0d0
 
   !param_const(:,0             ) = 0d0
    param_const(1,1:PPRAM%nparam) = 0d0  ! is equal to..    !initialize no matter param_const_ is already provided (PFILE is considered in priori)
@@ -390,8 +393,11 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    enddo
    close(pid_param)
 
+   PPRAM%param_best = PPRAM%param  
+
    ! SET PARAMETER CONSTRAINT : from PFILE
    allocate( PPRAM%param_const(5,PPRAM%nparam) )
+!  allocate( PPRAM%param_const_best(5,PPRAM%nparam) )
    !initialize
 !   PPRAM%param_const(:,0) = 0d0 ! this value should be zero
     PPRAM%param_const(1,:) =param_const(1,1:PPRAM%nparam)  ! if gt 0 and it is "i", param is same as i-th parameter 
@@ -399,6 +405,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
     PPRAM%param_const(3,:) =param_const(3,1:PPRAM%nparam)  ! default lower bound
     PPRAM%param_const(4,:) =param_const(4,1:PPRAM%nparam)  ! if set to 1; fix 
     PPRAM%param_const(5,:) =param_const(5,1:PPRAM%nparam)  ! if set to 1; fix and save the parameter as constant
+!   PPRAM%param_const_best = PPRAM%param_const
 
    if(PPRAM%slater_koster_type .gt. 10) then
      allocate( PPRAM%param_const_nrl(5,4,PPRAM%nparam) )

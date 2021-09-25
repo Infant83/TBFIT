@@ -3,6 +3,7 @@ module read_incar
    use mpi_setup
    use parameters
    use print_io
+   use mykind
    implicit none
    
 contains
@@ -10,7 +11,7 @@ contains
    subroutine read_input_tags(PINPT, &
                               PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
                               EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, &
-                              PRPLT, mysystem)
+                              PRPLT, PUFLD, mysystem)
       type(incar)            :: PINPT
       type(params)           :: PPRAM
       type(kpoints)          :: PKPTS
@@ -22,6 +23,7 @@ contains
       type(berry  )          :: PINPT_BERRY
       type(dos    )          :: PINPT_DOS
       type(replot )          :: PRPLT
+      type(unfold )          :: PUFLD
       integer*4                 mpierr
       integer*4                 mysystem ! system index to be set up
       integer*4                 i_continue
@@ -34,12 +36,12 @@ contains
       
       flag_kfile_ribbon=.false.
       call write_log(' ',print_mode,myid)
-      write(message, '(A)')'##############################################################';  write_msgi
-      call write_log('---- READING INPUT FILE: '//trim(PINPT%ifilenm(mysystem)),print_mode,myid)
-      write(message, '(A)')'##############################################################';  write_msgi
+      write(message, '(A)')' -------------------------------------------------------------';  write_msgi
+      call write_log(      ' #-- READING INPUT FILE: '//trim(PINPT%ifilenm(mysystem)),print_mode,myid)
+      write(message, '(A)')' -------------------------------------------------------------';  write_msgi
       call write_log(' ',print_mode,myid)
 
-      call set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
+      call set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, PUFLD, mysystem)
 
       open (pid_incar, FILE=trim(PINPT%ifilenm(mysystem)),iostat=i_continue) ;  linecount = 0
 
@@ -101,6 +103,10 @@ contains
               case('PFILE')
                call set_tbparam_file(PINPT, PPRAM, PWGHT, inputline)
     
+              ! read weight information from WFILE instead of SET WEIGHT
+              case('WFILE')
+               call set_weight_file(PINPT, PWGHT, inputline)
+
               !how many times the unit cell is repeated in finding nearest neighbor pair?
               case('NN_MAX')
                call set_nn_max(PINPT,inputline,desc_str)
@@ -185,9 +191,9 @@ contains
               case('PRTSEPK')
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_energy_singlek
     
-              case('LDISTRK') ! whether distribute ETBA%V (or SV) over the cpu nodes instead gather to master node.
-                read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_distribute_nkp
-                if(nprocs .eq. 1) PINPT%flag_distribute_nkp = .FALSE.
+!             case('LDISTRK') ! whether distribute ETBA%V (or SV) over the cpu nodes instead gather to master node.
+!               read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_distribute_nkp
+!               if(nprocs .eq. 1) PINPT%flag_distribute_nkp = .FALSE.
 
               case('PRTHAMK')
                 read(inputline,*,iostat=i_continue) desc_str, PINPT%flag_print_hamk
@@ -321,10 +327,15 @@ contains
                 !set effective hamiltonian
                 elseif(trim(desc_str) .eq. 'EFFECTIVE') then
                   call set_effective(PINPT, desc_str)
-    
+ 
+                ! set replot mode   
                 elseif(trim(desc_str) .eq. 'REPLOT') then
                   call set_replot(PINPT,PRPLT,desc_str)
-    
+                
+                ! set band unfolding
+                elseif(trim(desc_str) .eq. 'UNFOLD') then
+                  call set_unfold_input_tag(PINPT, PUFLD, desc_str)
+
                 endif !SET
     
             end select
@@ -2566,6 +2577,44 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_weight_file(PINPT, PWGHT, inputline)
+      type(incar)    ::  PINPT
+      type(weight)   ::  PWGHT
+      character(len=132) inputline
+      character(len=40 ) desc_str
+      integer(kind=sp)   i_continue
+      external           nitems
+      integer(kind=sp)   nitems, i_dummy
+      character(*), parameter :: func = 'set_weight_file'
+      logical            flag_exist
+
+      i_dummy = nitems(inputline) - 1
+
+      if(.not. PINPT%flag_wfile_parse) then
+        if(i_dummy .eq. 1) then
+          read(inputline,*,iostat=i_continue) desc_str, PWGHT%wfilenm
+          write(message,'(A,A)')' WGHT_FNM:  ', trim(PWGHT%wfilenm) ; write_msgi
+
+          inquire(file=trim(PWGHT%wfilenm),exist=flag_exist)
+          if(.not. flag_exist) then
+            write(message,'(A,A,A)')'    !WARN! Weight file:',trim(PWGHT%wfilenm),' does not exist!! Exit...' ; write_msgi
+            kill_job
+          elseif(flag_exist) then
+            PINPT%flag_set_weight_from_file = .true.
+          endif
+          
+        else
+          write(message,'(A    )')'    !WARN! Wrong WFILE syntax. Use following:' ; write_msgi
+          write(message,'(A    )')'       ex) WFILE   WEIGHT.max_297_97.611.dat   '
+          kill_job
+        endif
+      endif
+
+
+      return
+   endsubroutine
+
+
    subroutine set_kpoint_file(PINPT, PKPTS, flag_kfile_ribbon, inputline)
       type(incar)   ::  PINPT
       type(kpoints) ::  PKPTS
@@ -3473,7 +3522,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         select case ( trim(desc_str) )
 !         case('LMDIF')
 !            read(inputline,*,iostat=i_continue) desc_str, PKAIA%flag_ga_with_lmdif
-!            write(message,'(A,L       )')'    LMDIF: ', PKAIA%flag_ga_with_lmdif  ; write_msgi
+!            irite(message,'(A,L       i')'    LMDIF: ', PKAIA%flag_ga_with_lmdif  ; write_msgi
 
           case('MGEN')
              read(inputline,*,iostat=i_continue) desc_str, PKAIA%mgen
@@ -3778,6 +3827,188 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       return
    endsubroutine
 
+   subroutine set_unfold_input_tag(PINPT, PUFLD, desc_str)
+      implicit none
+      type(incar)     :: PINPT
+      type(unfold)    :: PUFLD
+      character(len=132) inputline
+      character(len=40 ) desc_str, dummy, dummy1, dummy2
+      integer(kind=sp)   i_continue
+      logical            flag_exist
+      integer(kind=sp)   mpierr
+      integer(kind=sp)   i_dummy, i_dummy1, i_dummy2
+      integer(kind=sp)   nitems
+      external           nitems
+
+      do while(trim(desc_str) .ne. 'END')
+        read(pid_incar,'(A)',iostat=i_continue) inputline
+        read(inputline,*,iostat=i_continue) desc_str  ! check INPUT tag
+        if(i_continue .ne. 0) cycle      ! skip empty line
+        if(desc_str(1:1).eq.'#') cycle   ! skip comment
+        if(trim(desc_str).eq.'END') exit ! exit loop if 'END'
+
+        select case(trim(desc_str))
+          case('INCAR_PC')
+            read(inputline,*,iostat=i_continue) desc_str, PUFLD%unfold_ifilenm_PBZ
+            inquire(file=trim(PUFLD%unfold_ifilenm_PBZ), exist=flag_exist)
+            if(flag_exist) then
+                write(message,'(A,A)')'   INCAR_PC: (input file for primitive cell) ', trim(PUFLD%unfold_ifilenm_PBZ) ; write_msgi
+            else
+                write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_ifilenm_PBZ) ; write_msgi
+                kill_job
+            endif
+          case('KPOINTS_PC', 'KPOINTS_PBZ')
+            read(inputline,*,iostat=i_continue) desc_str, PUFLD%unfold_kfilenm_PBZ
+            inquire(file=trim(PUFLD%unfold_kfilenm_PBZ),exist=flag_exist)
+            if(flag_exist) then
+                write(message,'(A,A)')'   KPOINS_PBZ:(unfold, primitive BZ) ',trim(PUFLD%unfold_kfilenm_PBZ) ; write_msgi
+            else
+                write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_kfilenm_PBZ) ; write_msgi
+                kill_job
+            endif
+
+          case('GFILE_PC', 'GEOM_PC')
+            read(inputline,*,iostat=i_continue) desc_str, PUFLD%unfold_gfilenm_PC
+            inquire(file=trim(PUFLD%unfold_gfilenm_PC),exist=flag_exist)
+            if(flag_exist) then
+                write(message,'(A,A)')'   GFILE_PC: (unfold, primitive cell GEOM) ',trim(PUFLD%unfold_gfilenm_PC) ; write_msgi
+            else
+                write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_gfilenm_PC) ; write_msgi
+                kill_job
+            endif
+
+          case('GFILE_SC', 'GEOM_SC')
+            read(inputline,*,iostat=i_continue) desc_str, PUFLD%unfold_gfilenm_SC
+            inquire(file=trim(PUFLD%unfold_gfilenm_SC),exist=flag_exist)
+            if(flag_exist) then
+                write(message,'(A,A)')'   GFILE_SC: (unfold, supercell GEOM) ',trim(PUFLD%unfold_gfilenm_SC) ; write_msgi
+            else
+                write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_gfilenm_SC) ; write_msgi
+                kill_job
+            endif
+
+          case('UNFOLD_SMEARING', 'SMEARING')
+            read(inputline,*,iostat=i_continue) desc_str, PUFLD%unfold_smearing
+            write(message,'(A,F10.5)')'   UNFOLD_SMEAR : GAUSSIAN WIDTH ', PUFLD%unfold_smearing; write_msgi
+        
+          case('UNFOLD_SPARSE') ! logical flag for sparse matrix setup
+            read(inputline,*,iostat=i_continue) desc_str,PUFLD%unfold_flag_sparse
+            if(PUFLD%unfold_flag_sparse) then
+              write(message,'(A)')'   UNFOLD_SPARSE: .TRUE.'  ; write_msgi
+            elseif(.not. PUFLD%unfold_flag_sparse) then
+              write(message,'(A)')'   UNFOLD_SPARSE: .FALSE.'  ; write_msgi
+            endif
+
+          case('UNFOLD_EWINDOW')
+            call strip_off (trim(inputline), dummy, trim(desc_str), ' ' , 2)   ! get dos_range
+            i_dummy=index(dummy,':')
+            call strip_off (trim(dummy), dummy1,' ',':',0)
+            if( i_dummy .eq. 0) then
+              i_dummy2 = nitems(dummy)
+              if(i_dummy2 .eq. 2)then
+                read(dummy,*,iostat=i_continue) PUFLD%unfold_emin,PUFLD%unfold_emax
+                write(message,'(A,F15.8)')'   UNFOLD_EMIN:  ',PUFLD%unfold_emin  ; write_msgi
+                write(message,'(A,F15.8)')'   UNFOLD_EMAX:  ',PUFLD%unfold_emax  ; write_msgi
+              else
+                write(message,'(A)')'    !WARNING!  UNFOLD_EWINDOW is not properly set up.'  ; write_msgi
+                write(message,'(A)')'    !WARNING!  Proper usage is as follows:'  ; write_msgi
+                write(message,'(A)')'    !WARNING!    UNFOLD_EWINDOW  EMIN:EMAX , or '  ; write_msgi
+                write(message,'(A)')'    !WARNING!    UNFOLD_EWINDOW  EMIN EMAX'  ; write_msgi
+                write(message,'(A)')'    !WARNING!  Exit program...'  ; write_msgi
+                kill_job
+              endif
+            elseif(i_dummy .ge. 1) then
+              if(len_trim(dummy1) .eq. 0) then
+                PUFLD%unfold_emin = -10.0d0 ! default dos_emin
+                write(message,'(A,F15.8)')'   UNFOLD_EMIN:  ',PUFLD%unfold_emin  ; write_msgi
+              else
+                call str2real(dummy1,PUFLD%unfold_emin)
+                write(message,'(A,F15.8)')'   UNFOLD_EMIN:  ',PUFLD%unfold_emin  ; write_msgi
+              endif
+              call strip_off (trim(dummy), dummy2,':',' ',2)
+              if(len_trim(dummy2) .eq. 0) then
+                PUFLD%unfold_emax =  10.0d0 ! default dos_emax
+                write(message,'(A,F15.8)')'   UNFOLD_EMAX:  ',PUFLD%unfold_emax  ; write_msgi
+              else
+                call str2real(dummy2,PUFLD%unfold_emax)
+                write(message,'(A,F15.8)')'   UNFOLD_EMAX:  ',PUFLD%unfold_emax  ; write_msgi
+              endif
+            endif
+
+          case('UNFOLD_NEMAX')
+            read(inputline,*,iostat=i_continue) desc_str,PUFLD%unfold_nemax
+            write(message,'(A,I8)')'   UNFOLD_NEMAX:', PUFLD%unfold_nemax  ; write_msgi
+            if(PUFLD%unfold_nemax .le. 0) then
+              write(message,'(3A,I0)')'    !WARNING! ',trim(desc_str), &
+                                      ' should be larger than or equal to 1. current value: ', &
+                                      PUFLD%unfold_nemax ; write_msgi
+              write(message,'(A)')'               Exit program...'  ; write_msgi
+              kill_job
+            endif
+
+          case('NEDIV','UNFOLD_NEDIV')
+            read(inputline,*,iostat=i_continue) desc_str,PUFLD%unfold_nediv
+            write(message,'(A,I8)')'   UNFOLD_NDIV:', PUFLD%unfold_nediv  ; write_msgi
+            if(PUFLD%unfold_nediv .le. 0) then
+              write(message,'(3A,I0)')'    !WARNING! ',trim(desc_str), &
+                                      ' should be larger than or equal to 1. current value: ', &
+                                      PUFLD%unfold_nediv ; write_msgi
+              write(message,'(A)')'               Exit program...'  ; write_msgi
+              kill_job
+            endif
+
+
+         !NOTE: ERANGE tag is not set yet, but it would be very useful when we do not use 
+         !      sparse eigen solver. (HJK, 07 June 2021)
+
+        endselect
+
+      enddo
+
+      if(PUFLD%unfold_nemax .eq. 0 .and.  PUFLD%unfold_flag_sparse) then
+        write(message,'( A   )')'    !WARNING!  FEAST SPARSE eigensolver will be called, but' ; write_msgi
+        write(message,'( A   )')'               NE_MAX between EMIN:EMAX is not defined. '  ; write_msgi
+        write(message,'( A   )')'               Please specify expected UNFOLD_NEMAX within '  ; write_msgi
+        write(message,'( A   )')'               energy UNFOLD_EWINDOW. Also note that it should'  ; write_msgi
+        write(message,'( A   )')'               be larger than maximum number of eigenvalues between'  ; write_msgi
+        write(message,'( A   )')'               EMIN:EMAX. Exit program...'  ; write_msgi
+      endif
+
+      inquire(file=trim(PUFLD%unfold_ifilenm_PBZ),exist=flag_exist)
+      if(.not. flag_exist) then
+        write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_ifilenm_PBZ) ; write_msgi
+        kill_job
+      endif
+
+      inquire(file=trim(PUFLD%unfold_kfilenm_PBZ),exist=flag_exist)
+      if(.not. flag_exist) then
+        write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_kfilenm_PBZ) ; write_msgi
+        kill_job
+      endif
+
+!     inquire(file=trim(PUFLD%unfold_kfilenm_SBZ),exist=flag_exist)
+!     if(.not. flag_exist) then
+!       write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_kfilenm_SBZ) ; write_msgi
+!       kill_job
+!     endif
+
+      inquire(file=trim(PUFLD%unfold_gfilenm_SC),exist=flag_exist)
+      if(.not.flag_exist) then
+        write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_gfilenm_SC) ; write_msgi
+        kill_job
+      endif
+
+      inquire(file=trim(PUFLD%unfold_gfilenm_PC),exist=flag_exist)
+      if(.not.flag_exist) then
+        write(message,'(A,A)')'    !ERROR. File not exists: ', trim(PUFLD%unfold_gfilenm_PC) ; write_msgi
+        kill_job
+      endif
+
+      PINPT%flag_get_unfold = .TRUE.
+
+      return
+   endsubroutine
+
 #ifdef SPGLIB
    subroutine set_spglib_write(PINPT, inputline, desc_str)
       implicit none
@@ -3798,7 +4029,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
    endsubroutine
 #endif
 
-   subroutine set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem) 
+   subroutine set_mysystem_index(PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, PUFLD, mysystem) 
       implicit none
       type(incar)            :: PINPT
       type(params)           :: PPRAM
@@ -3811,6 +4042,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       type(berry  )          :: PINPT_BERRY
       type(dos    )          :: PINPT_DOS
       type(replot )          :: PRPLT
+      type(unfold )          :: PUFLD
       integer*4                 mysystem
        
      !PPRAM%mysystem       = mysystem
@@ -3823,6 +4055,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       PINPT_BERRY%mysystem = mysystem
       PKAIA%mysystem       = mysystem
       PRPLT%mysystem       = mysystem
+      PUFLD%mysystem       = mysystem
 
       return
    endsubroutine

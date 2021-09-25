@@ -44,12 +44,11 @@ subroutine get_dos(NN_TABLE, PINPT, PPRAM, PINPT_DOS, PGEOM, PKPTS)
    logical                    flag_order
    integer*4                  feast_nemax_save
 
+#ifdef PSPARSE
+   integer*4                  feast_fpm_save(64)
+#else
    integer*4                  feast_fpm_save(128)
-!#ifdef PSPARSE
-!   integer*4                  feast_fpm_save(64)
-!#else
-!   integer*4                  feast_fpm_save(128)
-!#endif
+#endif
    integer*4, allocatable  :: feast_ne_save(:,:)
    real*8                     feast_emin_save, feast_emax_save
    integer*4                  ourjob(nprocs)

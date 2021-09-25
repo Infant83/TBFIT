@@ -1,5 +1,5 @@
 #include "alias.inc"
-subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_DOS, PINPT_BERRY, PKAIA, PRPLT, mysystem)
+subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_DOS, PINPT_BERRY, PKAIA, PRPLT, PUFLD, mysystem)
   use parameters
   use read_incar
   use berry_phase
@@ -26,6 +26,7 @@ subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_D
   type(hopping)          :: NN_TABLE
   type(gainp)            :: PKAIA
   type(replot)           :: PRPLT
+  type(unfold)           :: PUFLD
   character(*),parameter :: func = 'read_input'
   logical                   flag_write_nntable
   
@@ -41,13 +42,11 @@ subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_D
   call init_gainp(PKAIA)
   call init_replot(PRPLT)
   call init_dos(PINPT_DOS, PINPT)
+  call init_unfold(PUFLD, PINPT)
   ! READ INCAR-TB
   call read_input_tags(PINPT, PPRAM, PKPTS, PGEOM, NN_TABLE, PWGHT, &
-                       EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, mysystem)
-!!!!! CHECK HERE
-! PINPT%flag_fit_degeneracy = .true.
-! write(6,*)"VVVVV "
-!!!!!
+                       EDFT, PKAIA, PINPT_BERRY, PINPT_DOS, PRPLT, PUFLD, mysystem)
+
   ! SET BASIC SYSTEM
   call read_tb_param(PINPT, PPRAM, PWGHT)
   call read_geometry(PGEOM, PINPT, NN_TABLE, PPRAM)
@@ -72,9 +71,9 @@ subroutine read_input(PINPT, PPRAM, PKPTS, PGEOM, PWGHT, EDFT, NN_TABLE, PINPT_D
   endif
 
   write(message, '(A)' )' ' ; write_msgi
-  write(message, '(A)' )'##############################################################';  write_msgi
-  write(message, '(2A)')'---- END READING INPUT FILE : ', trim(PINPT%ifilenm(mysystem)) ;  write_msgi
-  write(message, '(A)' )'##############################################################';  write_msgi
+  write(message, '(A)' )' -------------------------------------------------------------';  write_msgi
+  write(message, '(2A)')' #-- END READING INPUT FILE : ', trim(PINPT%ifilenm(mysystem)) ;  write_msgi
+  write(message, '(A)' )' -------------------------------------------------------------';  write_msgi
   write(message, '(A)' )' ' ; write_msgi
 
 return

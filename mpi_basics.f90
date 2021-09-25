@@ -3,21 +3,20 @@ module mpi_basics
 #ifdef MPI
    include 'mpif.h'
 #endif
-   logical :: flag_use_mpi
-   integer :: npar
-   integer :: kpar
-   integer :: nproc_per_band
-   integer :: mpi_comm_earth
-   integer :: myid
-   integer :: nprocs
-   integer :: yourid
+   integer, public :: npar
+   integer, public :: nproc_per_band
+   integer, public :: mpi_comm_earth
+   integer, public :: myid
+   integer, public :: nprocs
+   integer, public :: yourid
+   integer, public :: earth_group
 
    type mpicomm 
         integer, public :: mpi_comm
         integer, public :: myid = 0
         integer, public :: nprocs = 1
         integer, public :: npar 
-        integer, public :: kpar
+        integer, public :: comm_group, comm_group_supp
 
         ! for MPI_COMM_SPLIT purpose
         logical, public :: flag_split = .FALSE.

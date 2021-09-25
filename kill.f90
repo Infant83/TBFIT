@@ -18,6 +18,7 @@
         elseif(.not. COMM_KOREA%flag_split) then
             call MPI_BARRIER(mpi_comm_earth, mpierr)
             call mpi_finish()
+            stop
         endif
 #else
 

@@ -10,14 +10,17 @@ module mpi_setup
    integer, allocatable :: task_list(:)
    type(mpicomm), target:: COMM_EARTH
    type(mpicomm), target:: COMM_ASIA
-   type(mpicomm), public, target:: COMM_KOREA
-
+   type(mpicomm), public, target:: COMM_KOREA           ! dedicated to PSO routine (for stochastic parameter search)
+   type(mpicomm), public, target:: COMM_JUELICH         ! dedicated to Parallel Sparse eigen solver routine (for large scale simulation)
+   type(mpicomm), public, target:: COMM_JUELICH_RATHAUS ! comm between leading cores (myid=0) in each group of COMM_JUELICH
+                                                        ! Processors with COMM_JUELICH%myid == 0 construct mpi_comm, 
+                                                        ! other processors get mpi_comm == MPI_COMM_NULL
 #else
    integer*4, public            :: myid   = 0
    integer*4, public            :: nprocs = 1
    integer*4, public            :: npar   = 1
-   integer*4, public            :: kpar   = 1
    integer*4, public            :: nproc_per_band = 1
+   integer*4, public            :: earth_group = 0
 
    integer*4, public            :: myid_blacs = 0
    integer*4, public            :: nprow = 1
@@ -38,7 +41,8 @@ module mpi_setup
    type(mpicomm), target:: COMM_EARTH
    type(mpicomm), target:: COMM_ASIA
    type(mpicomm), public, target:: COMM_KOREA
-
+   type(mpicomm), public, target:: COMM_JUELICH
+   type(mpicomm), public, target:: COMM_JUELICH_RATHAUS
 #endif
 
    contains
@@ -55,11 +59,9 @@ module mpi_setup
      yourid = 99
      call MPI_INIT(mpierr)
 
-     flag_use_mpi = .false.
 
      if(mpierr .eq. -1) then
  
-       flag_use_mpi = .false.
        nprocs = 0
 
      elseif(mpierr .ne. MPI_SUCCESS) then
@@ -68,11 +70,12 @@ module mpi_setup
        stop
      
      else
-       flag_use_mpi = .true.
        myid = 0
      endif
 
      mpi_comm_earth = MPI_COMM_WORLD
+     call MPI_COMM_GROUP(mpi_comm_earth, earth_group, mpierr)
+
      call get_my_task()
 
      call open_log(fnamelog, myid)
@@ -88,7 +91,6 @@ module mpi_setup
      !       if -DSCALAPACK is not activated, i.e., only k-point parallization will
      !       be performed unless -DMPI is activated.
      npar = 1
-     kpar = 1
 #endif
 
      return
@@ -98,7 +100,7 @@ module mpi_setup
    subroutine mpi_division()
      integer*4      mpierr
 
-     call get_npar_kpar('INCAR-TB')
+     call get_npar('INCAR-TB')
      call blacs_initialize()
 
      return
@@ -106,13 +108,12 @@ module mpi_setup
 
    subroutine blacs_initialize()
      integer*4   mpierr
-     integer*4   npar_, kpar_     
+     integer*4   npar_
 
      COMM_EARTH%mpi_comm = mpi_comm_earth
      COMM_EARTH%nprocs   = nprocs
      COMM_EARTH%myid     = myid
      COMM_EARTH%npar     = npar
-     COMM_EARTH%kpar     = kpar
 
      call mpi_divide(COMM_EARTH, COMM_ASIA)
 
@@ -284,38 +285,108 @@ module mpi_setup
 
    ! NOTE: Anmeldung (Deutsch) = registration 
    ! This subroutine split current world communicator mpi_comm_earth into several group.
-   ! As I'm come from Korea and working at Geermany, I need to registrate my color of eye
+   ! As I'm come from Korea and working at Germany, I need to registrate my color of eye
    ! and get the id. This is just for fun, kind of joke but inspiring my identity and
    ! refreshing wonderful working environment in Germany :) H.-J. Kim (FZJ, 25. Feb. 2021)
-   subroutine mpi_comm_anmeldung(COMM_KOREA, ngroup, mygroup)
+   subroutine mpi_comm_anmeldung(COMM_LOCAL, ngroup, mygroup, COMM_LOCAL_LEADER)
      implicit none
-     type(mpicomm)::COMM_KOREA
+     type(mpicomm)::COMM_LOCAL
+     type(mpicomm), optional::COMM_LOCAL_LEADER
      integer*4      ngroup, mpierr
      integer*4      ourgroup(ngroup)
      integer*4      mygroup(0:nprocs-1)
      integer*4      i, group_main(ngroup)
 
-     COMM_KOREA%color = mygroup(myid)
-     COMM_KOREA%key   = myid
-     COMM_KOREA%flag_split = .TRUE.
+     COMM_LOCAL%color = mygroup(myid)
+     COMM_LOCAL%key   = myid
+     COMM_LOCAL%flag_split = .TRUE.
 
 #ifdef MPI
-     call MPI_COMM_SPLIT(mpi_comm_earth, COMM_KOREA%color, COMM_KOREA%key, COMM_KOREA%mpi_comm, mpierr)
-     call MPI_COMM_RANK(COMM_KOREA%mpi_comm, COMM_KOREA%myid, mpierr)
-     call MPI_COMM_SIZE(COMM_KOREA%mpi_comm, COMM_KOREA%nprocs, mpierr)
+     call MPI_COMM_SPLIT(mpi_comm_earth, COMM_LOCAL%color, COMM_LOCAL%key, COMM_LOCAL%mpi_comm, mpierr)
+     call MPI_COMM_RANK(COMM_LOCAL%mpi_comm, COMM_LOCAL%myid, mpierr)
+     call MPI_COMM_SIZE(COMM_LOCAL%mpi_comm, COMM_LOCAL%nprocs, mpierr)
 #endif
-     if(allocated(COMM_KOREA%group_main)) deallocate(COMM_KOREA%group_main)
-     allocate(COMM_KOREA%group_main(npar)) 
-     COMM_KOREA%group_main = 0
+     if(allocated(COMM_LOCAL%group_main)) deallocate(COMM_LOCAL%group_main)
+     allocate(COMM_LOCAL%group_main(npar)) 
+     COMM_LOCAL%group_main = 0
      do i = 0, ngroup - 1
-       if(COMM_KOREA%color .eq. i .and. COMM_KOREA%myid .eq. 0) then
-         COMM_KOREA%group_main(i+1) = myid
+       if(COMM_LOCAL%color .eq. i .and. COMM_LOCAL%myid .eq. 0) then
+         COMM_LOCAL%group_main(i+1) = myid
        endif
      enddo
      
 #ifdef MPI
-     call MPI_ALLREDUCE(COMM_KOREA%group_main, group_main, ngroup, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
-     COMM_KOREA%group_main = group_main
+     call MPI_ALLREDUCE(COMM_LOCAL%group_main, group_main, ngroup, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+     COMM_LOCAL%group_main = group_main
+#endif
+
+     if(present(COMM_LOCAL_LEADER)) then
+       call mpi_comm_create_group_leader(COMM_LOCAL, COMM_LOCAL_LEADER)
+     endif
+
+     return
+   endsubroutine
+
+   subroutine mpi_comm_create_group_leader(COMM_LOCAL, COMM_LOCAL_LEADER)
+     implicit none
+     type(mpicomm) :: COMM_LOCAL
+     type(mpicomm) :: COMM_LOCAL_LEADER
+     integer*4, allocatable :: leaders(:), leaders_(:)
+     integer*4, allocatable :: leader_list(:)
+     integer*4                 nleader, nleader_
+     integer*4                 mpierr
+     integer*4                 i, igroup
+
+     nleader_ = 0 
+     nleader  = 0 
+     igroup   = 0 
+
+     if(allocated(leaders)) deallocate(leaders)
+     if(allocated(leaders_)) deallocate(leaders_)
+     allocate(leaders(nprocs))
+     allocate(leaders_(nprocs))
+     leaders = 0
+     leaders_= 0
+
+     if(allocated(leader_list)) deallocate(leader_list)
+     allocate(leader_list(npar))
+     leader_list = -1
+
+     if(COMM_LOCAL%myid .eq. 0) then
+       leaders_(myid+1) = myid + 1
+       nleader_ = 1
+     endif
+
+#ifdef MPI
+     call MPI_ALLREDUCE(nleader_, nleader, 1, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr) 
+     call MPI_ALLREDUCE(leaders_, leaders, nprocs, MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+#else
+     nleader = nleader_
+#endif
+
+     do i=1, nprocs
+       if(leaders(i) .gt. 0) then
+         igroup = igroup + 1
+         leader_list(igroup) = leaders(i) - 1
+       endif
+     enddo
+
+     if (igroup .ne. npar) then
+       write(message, '(A)')' Error in mpi_comm_create_group_leader: igroup =/ NPAR' ; write_msg
+       write(message, '(A)')' Exit...'; write_msg
+       kill_job
+     endif
+
+#ifdef MPI
+     ! create group/communicator for leaders
+     call MPI_GROUP_INCL(earth_group, npar, leader_list, COMM_LOCAL_LEADER%comm_group, mpierr)
+     call MPI_COMM_CREATE(mpi_comm_earth, COMM_LOCAL_LEADER%comm_group, COMM_LOCAL_LEADER%mpi_comm, mpierr)
+     if(COMM_LOCAL_LEADER%mpi_comm  .ne. MPI_COMM_NULL) then
+       call MPI_COMM_RANK(COMM_LOCAL_LEADER%mpi_comm, COMM_LOCAL_LEADER%myid, mpierr)
+       call MPI_COMM_SIZE(COMM_LOCAL_LEADER%mpi_comm, COMM_LOCAL_LEADER%nprocs, mpierr)
+     else
+       COMM_LOCAL_LEADER%myid = -1
+     endif
 #endif
 
      return
@@ -341,14 +412,16 @@ module mpi_setup
 
    endsubroutine
 
-   subroutine mpi_job_distribution_group(ngroup, njob, ourgroup, mygroup, ourjob)
+   subroutine mpi_job_distribution_group(ngroup, njob, ourgroup, mygroup, ourjob, ourjob_disp)
      implicit none
      integer*4      ngroup, nmember, nresidue
      integer*4      njob,   ngroupjob, nresidue_
      integer*4      groupid, cpuid, id
-     integer*4      ourgroup(ngroup), mygroup(0:nprocs-1)
-     integer*4      ourjob(ngroup)
+     integer*4      ourgroup(ngroup) ! how many cpus are in our group?
+     integer*4      mygroup(0:nprocs-1) ! group id for each cpu
+     integer*4      ourjob(ngroup) ! how many jobs are asigned for each group?
      integer*4      mpierr
+     integer*4, optional :: ourjob_disp(0:ngroup-1)
 
      ! ncpus per each group
      nmember   = floor( real(nprocs)/real(ngroup) )
@@ -383,6 +456,13 @@ module mpi_setup
        enddo
      enddo
 
+     ourjob_disp(0) = 0
+#ifdef MPI     
+     do groupid = 1, ngroup - 1
+       ourjob_disp(groupid) = ourjob_disp(groupid - 1) + ourjob(groupid)
+     enddo
+#endif
+
      return
    endsubroutine
    subroutine mpi_job_distribution_chain(njob, ncpu, ourjob, ourjob_disp)
@@ -415,13 +495,12 @@ module mpi_setup
 
    endsubroutine
 
-   subroutine get_npar_kpar(fname)
+   subroutine get_npar(fname)
      integer*4      pid
      integer*4      i_continue, linecount, mpierr
      character*132  inputline
      character*40   desc_str
      logical        flag_fail
-    !character*132  fname
      character(*)   fname
 
      flag_fail = .false.
@@ -429,8 +508,6 @@ module mpi_setup
 
      ! set default values
      npar = 1
-     kpar = 1
-
      if(myid .eq. 0) then
       !open (pid, file='INCAR-TB', iostat=i_continue)
        open (pid, file=trim(fname), iostat=i_continue)
@@ -438,7 +515,7 @@ module mpi_setup
          read(pid, '(A)', iostat=i_continue) inputline
          if(i_continue < 0) exit
          if(i_continue > 0) then
-           write(message,'(A)') 'Unknown error reading file: get_npar_kpar' ; write_msg_all
+           write(message,'(A)') 'Unknown error reading file: get_npar' ; write_msg_all
            flag_fail = .true. ; exit
          endif
 
@@ -449,8 +526,6 @@ module mpi_setup
          select case (desc_str)
            case('NPAR')
              read(inputline,*,iostat=i_continue) desc_str, npar
-           case('KPAR')
-             read(inputline,*,iostat=i_continue) desc_str, kpar
          endselect
 
        enddo
@@ -464,7 +539,6 @@ module mpi_setup
 #ifdef MPI
      call MPI_BCAST(flag_fail, 1, MPI_LOGICAL, 0, mpi_comm_earth, mpierr)
      call MPI_BCAST(npar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
-     call MPI_BCAST(kpar     , 1, MPI_INTEGER, 0, mpi_comm_earth, mpierr)
      if(flag_fail) then
        call MPI_BARRIER(mpi_comm_earth, mpierr)
        call mpi_finish()
@@ -485,12 +559,12 @@ subroutine report_job_distribution(flag_stat, ourjob, jobname)
 
    if(flag_stat) then
      if(present(jobname)) then
-       write(message,'(A,A)')               '       JOB DISTRUBUTION for ',trim(jobname),' :' ; write_msg
+       write(message,'(A,A)')      '       JOB DISTRUBUTION for ',trim(jobname),' :' ; write_msg
      else
-       write(message,'(A)')                 '       JOB DISTRUBUTION :' ; write_msg
+       write(message,'(A)')        '       JOB DISTRUBUTION :' ; write_msg
      endif
 
-     write(message,'(A,I0,A,I0,A)')         '       -> cpuid( ',myid,' ): ', ourjob(myid+1),' k-points'
+     write(message,'(A,I0,A,I0,A)')'       -> cpuid( ',myid,' ): ', ourjob(myid+1),' k-points'
 #ifdef MPI
      call MPI_GATHER(message, 2048, MPI_CHARACTER, message_pack, 2048, MPI_CHARACTER, 0, mpi_comm_earth, mpierr)
 #else
@@ -505,6 +579,25 @@ subroutine report_job_distribution(flag_stat, ourjob, jobname)
    return
 endsubroutine
 
+subroutine report_job_distribution_group(flag_stat, ourjob, ourgroup)
+   implicit none
+   integer*4    mpierr, i, id
+   integer*4    ourjob(npar), ourgroup(npar)
+   logical      flag_stat
+   
+   if(flag_stat) then
+     write(message,'(A,I0,A)')   '       JOB DISTRUBUTION over NPAR (NPAR=',npar,') groups:' ; write_msg
+     do i = 1, npar
+       write(message,'(A,3(I0,A))')'         -> groupid(',i-1,'): ',ourgroup(i), &
+                                   ' cpus asigned and ', ourjob(i),' k-points are distributed' ; write_msg
+     enddo                                 
+#ifdef MPI
+     call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
+   endif
+
+   return
+endsubroutine
 subroutine report_hostname()
    implicit none
    character(len=80) :: myhost

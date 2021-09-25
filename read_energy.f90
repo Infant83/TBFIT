@@ -55,6 +55,12 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        if(PINPT%flag_fit_degeneracy) allocate(PWGHT%DEGENERACY_WT(PGEOM%neig*PINPT%ispin, PKPTS%nkpoint))
        if(PINPT%flag_fit_degeneracy) PWGHT%DEGENERACY_WT(:,:)=0d0       !initialize
  
+       if(PINPT%flag_set_weight_from_file) then
+         if(PINPT%flag_wfile_parse) then
+           PWGHT%wfilenm = PINPT%wfilenm_parse
+         endif
+         call set_weight_from_file(PWGHT%WT, PGEOM%neig, PINPT%ispin, PKPTS%nkpoint, PWGHT%wfilenm)
+       endif
  
        if(PWGHT%efile_type .eq. 'vasp') then
          call read_energy_vasp(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
@@ -98,16 +104,23 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        PWGHT%WT(:,:)=0.00001d0 !initialize
        if(PINPT%flag_fit_degeneracy) PWGHT%DEGENERACY_WT(:,:)=0d0       !initialize
  
-       do i=1, PWGHT%nweight
-         PWGHT%max_len_strip_kp =max(len_trim(PWGHT%strip_kp(i)), PWGHT%max_len_strip_kp)
-         PWGHT%max_len_strip_tb =max(len_trim(PWGHT%strip_tb(i)), PWGHT%max_len_strip_tb)
-         PWGHT%max_len_strip_df =max(len_trim(PWGHT%strip_df(i)), PWGHT%max_len_strip_df)
-       enddo
-       do i=1, PWGHT%nweight
-         call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PWGHT%strip_kp(i), PWGHT%strip_tb(i), &
-                         PWGHT%strip_df(i), PWGHT%strip_wt(i), PWGHT%WT, 1)
-       enddo
-       
+       if(.not. PINPT%flag_set_weight_from_file) then
+         do i=1, PWGHT%nweight
+           PWGHT%max_len_strip_kp =max(len_trim(PWGHT%strip_kp(i)), PWGHT%max_len_strip_kp)
+           PWGHT%max_len_strip_tb =max(len_trim(PWGHT%strip_tb(i)), PWGHT%max_len_strip_tb)
+           PWGHT%max_len_strip_df =max(len_trim(PWGHT%strip_df(i)), PWGHT%max_len_strip_df)
+         enddo
+         do i=1, PWGHT%nweight
+           call set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, PWGHT%strip_kp(i), PWGHT%strip_tb(i), &
+                           PWGHT%strip_df(i), PWGHT%strip_wt(i), PWGHT%WT, 1)
+         enddo
+       elseif(PINPT%flag_set_weight_from_file) then
+         if(PINPT%flag_wfile_parse) then
+           PWGHT%wfilenm = PINPT%wfilenm_parse
+         endif
+           call set_weight_from_file(PWGHT%WT, PGEOM%neig, PINPT%ispin, PKPTS%nkpoint, PWGHT%wfilenm)
+       endif
+
        if(PINPT%flag_fit_degeneracy) then
        ! get degeneracy information for DFT target
          call get_degeneracy(EDFT, PGEOM%neig*PINPT%ispin, PKPTS%nkpoint, PINPT)
@@ -1689,6 +1702,7 @@ subroutine load_band_singlek(PGEOM, fname, nemax, nbasis, ispinor, E, C, V, ne_f
 
     ne_found  = 0
     E = -999d0 ; V = 0d0 ; C = 0d0;
+    E4= -999e0 ; V4= 0e0 
     my_pid = 100 + myid
     phase = (1d0,0d0)
 
@@ -1773,7 +1787,10 @@ subroutine load_band_singlek(PGEOM, fname, nemax, nbasis, ispinor, E, C, V, ne_f
       endif
       ! assume ikmode = 3 (by default if PRTSEPK = .TRUE.)
 
-      if(flag_sparse_) E = -999d0
+      if(flag_sparse_) then 
+        E = -999d0
+        E4= -999e0
+      endif
 
       if(flag_erange_) then 
         read(my_pid) flag_erange_, init_erange_, fina_erange_

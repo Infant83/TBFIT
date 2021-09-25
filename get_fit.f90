@@ -42,11 +42,9 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
    call time_check(t1, t0, 'init')
 
    call initialize_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA, PINPT_BERRY, PINPT_DOS)
-
    call set_free_parameters(PPRAM_FIT)
 
    call report_init(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM)
-
 
    if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif') then
 
@@ -125,7 +123,7 @@ subroutine get_fit(PINPT, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_
 endsubroutine
 
 subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKAIA, PINPT_BERRY, PINPT_DOS)
-   use parameters, only : incar, params, kpoints, energy, weight, poscar, hopping, gainp
+   use parameters, only : incar, params, kpoints, energy, weight, poscar, hopping, gainp, unfold
    use parameters, only : dos, berry, replot
    use print_io
    use mpi_setup
@@ -142,6 +140,7 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
    type(dos    ), dimension(PINPT%nsystem) :: PINPT_DOS  
 
    type(replot)                             :: PRPLT ! dummy
+   type(unfold)                             :: PUFLD ! dummy
    integer*4                                   i
 
    if(PINPT%flag_python_module) then
@@ -152,7 +151,7 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
 
    do i = 1, PINPT%nsystem
      call read_input(PINPT,PPRAM_,PKPTS(i), PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i), &
-                     PINPT_DOS(i),PINPT_BERRY(i),PKAIA(i),PRPLT, i)
+                     PINPT_DOS(i),PINPT_BERRY(i),PKAIA(i),PRPLT, PUFLD, i)
 
      ! save main input PINPT and PPRAM for other systems
      if(i .eq. 1) then
@@ -185,7 +184,10 @@ subroutine report_init(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM)
    integer*4                                   i
    character*80                                fname, add_LMDIF
    logical                                     flag_with_lmdif
-
+   
+#ifdef MPI
+   call MPI_BARRIER(mpi_comm_earth, mpierr)
+#endif
    flag_with_lmdif = .false.
    add_LMDIF = ''
    if(trim(PINPT%ls_type) .eq. 'PSO') then

@@ -1,5 +1,6 @@
 module set_default
-    use parameters, only : incar, params, dos, berry, kpoints, weight, poscar, energy, hopping, gainp, replot, onsite_tolerance
+    use parameters, only : incar, params, dos, berry, kpoints, weight, poscar, energy, &
+                           hopping, gainp, replot, unfold, onsite_tolerance
     implicit none
 
     contains
@@ -21,7 +22,7 @@ module set_default
         PINPT%flag_plot_stm_image = .false.
         PINPT%flag_plot_eigen_state=.false.
         PINPT%flag_plot_wavefunction = .true.
-        PINPT%flag_print_orbital=.false.
+        if(.not. PINPT%flag_lorbit_parse) PINPT%flag_print_orbital=.false.
         PINPT%flag_print_single=.false.
         PINPT%flag_print_energy_singlek=.false.
         PINPT%flag_phase = .true.
@@ -38,6 +39,7 @@ module set_default
 
         PINPT%ncirc_dichroism = 0
         PINPT%flag_use_weight = .false.  ! whether read weight factor for fit from PFILE or not
+        if(.not. PINPT%flag_wfile_parse) PINPT%flag_set_weight_from_file = .false.
         PINPT%flag_get_dos=.false.
         PINPT%flag_get_z2=.false.
         PINPT%flag_get_zak_phase=.false.
@@ -86,6 +88,9 @@ module set_default
 
         PINPT%iseed = 123 ! random seed
         if(.not. PINPT%flag_pso_verbose_parse) PINPT%pso_verbose = 1 
+
+        PINPT%flag_get_unfold = .false.
+
         return
     endsubroutine
 
@@ -121,12 +126,14 @@ module set_default
         PPRAM%pso_miter                               = 10
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
+        if(allocated(PPRAM%param_best))      deallocate(PPRAM%param_best)
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
         if(allocated(PPRAM%iparam_free))     deallocate(PPRAM%iparam_free)
         if(allocated(PPRAM%iparam_free_nrl)) deallocate(PPRAM%iparam_free_nrl)
         if(allocated(PPRAM%param_name))      deallocate(PPRAM%param_name)
         if(allocated(PPRAM%c_const))         deallocate(PPRAM%c_const)
         if(allocated(PPRAM%param_const))     deallocate(PPRAM%param_const)
+!       if(allocated(PPRAM%param_const_best)) deallocate(PPRAM%param_const_best)
         if(allocated(PPRAM%param_const_nrl)) deallocate(PPRAM%param_const_nrl)
         if(allocated(PPRAM%param_nsub))      deallocate(PPRAM%param_nsub)
 
@@ -444,4 +451,25 @@ module set_default
        return
     endsubroutine
 
+    subroutine init_unfold(PUFLD, PINPT)
+       type(unfold) :: PUFLD
+       type(incar)  :: PINPT
+
+       PUFLD%unfold_flag_sparse = .false.
+       PUFLD%unfold_smearing    = 0.025d0       ! gaussian smearing in spectral function
+       PUFLD%unfold_kshift      = 0d0
+       PUFLD%unfold_emin        = -10d0
+       PUFLD%unfold_emax        =  10d0          
+       PUFLD%unfold_nediv       =  1000         ! number of division between emin:emax
+       PUFLD%unfold_nemax       =  0            ! number of maximum eigenvalues between emin:emax (only sparse true)
+       PUFLD%unfold_kfilenm_PBZ = 'KPOINTS-PBZ' ! defined in primitive cell BZ
+       PUFLD%unfold_kfilenm_SBZ = 'KPOINTS-SBZ' ! defined in supercell BZ
+       PUFLD%unfold_gfilenm_PC  = 'POSCAR-PC'   ! geometry with primitive cell
+       PUFLD%unfold_gfilenm_SC  = 'POSCAR-SC'   ! geometry with supercell
+       PUFLD%unfold_ifilenm_PBZ = 'INCAR_PC'    ! input file for primitive cell
+       PUFLD%unfold_kgrid       = 0
+       if(allocated(PUFLD%unfold_kpoint_PBZ))       deallocate(PUFLD%unfold_kpoint_PBZ)
+
+       return
+    endsubroutine
 endmodule

@@ -38,6 +38,7 @@ subroutine get_symmetry_eig(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
    complex*16        phi_i(PGEOM%neig*PINPT%ispinor), phi_j(PGEOM%neig*PINPT%ispinor)
    complex*16        phase_shift(PGEOM%neig*PINPT%ispinor)
    real*8            origin(3)
+   character*20,external :: int2str
 
    call get_kpoint(PINPT_BERRY%symmetry_kpoint, PINPT_BERRY%symmetry_kpoint_reci, PINPT_BERRY%symmetry_nkpoint, PGEOM)
 
@@ -79,7 +80,7 @@ sp:do is = 1, nspin
  
        ! GET HAMILTONIAN HK
        call get_ham_Hk(Hk, NN_TABLE, PINPT, PPRAM, kpoint(:,ik), is, neig, flag_phase) ; V = Hk
-       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(Hk, neig*ispinor, neig*ispinor, 'H_'//trim(PINPT_BERRY%symmetry_kpoint_name(ik)), 1, 'F6.3')
+       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(Hk, neig*ispinor, neig*ispinor, 'H_'//trim(PINPT_BERRY%symmetry_kpoint_name(ik)), 1, 'F12.6')
 
        ! SYMMETRIZE HK by S_OP * HK * S_OP' ==> save as V
        !V = matmul( S_OP, matmul(Hk, transpose(conjg(S_OP)))) ! symmetrize Hk
@@ -98,7 +99,7 @@ sp:do is = 1, nspin
 
        ! GET SYMMETRY EIGENVALUES
        call get_symmetry_matrix(S_ij, S_eig, V, phase_shift, S_OP, E, PGEOM, neig, ispinor, flag_phase_shift)
-       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(S_ij, neig*ispinor, neig*ispinor, 'Sij ', 0, 'F6.3')
+       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(S_ij, neig*ispinor, neig*ispinor, 'Sij_K'//trim(ADJUSTL(int2str(ik))), 1, 'F12.6')
        
        if_main_then
          if(nspin .eq. 2) write(message,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|S|n,',trim(spin(is)),'> (symmetry)'

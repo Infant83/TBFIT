@@ -227,7 +227,6 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
                                            flag_erange, flag_vector, flag_sparse, &
                                            init_erange, fina_erange, c_mode)
    endif
-
    ! replot band
    if(flag_replot_band) then
      if(flag_wf) then
@@ -242,7 +241,6 @@ subroutine replot_dos_band(PINPT, PGEOM, PKPTS, PRPLT)
                                              init_erange, fina_erange) !, c_mode_print)
      endif
    endif
-
 
    if_main call time_check(time2,time1)
    write(message,*)''  ; write_msg
@@ -823,7 +821,7 @@ subroutine print_replot_energy_proj(PINPT, PKPTS,E,V2,PGEOM,PRPLT, ne_found, emi
   spin:do is = 1, nspin
          if(flag_proj_sum) then
            c_sum = 0d0
-           write(fname_header_sum,'(2A,I0)')'band_structure_TBA_atom',trim(PINPT%title(PRPLT%mysystem)),'.sum',isum
+           write(fname_header_sum,'(3A,I0)')'band_structure_TBA_atom',trim(PINPT%title(PRPLT%mysystem)),'.sum',isum
   
            call get_fname(fname_header_sum, fname_sum, is, flag_collinear, flag_noncollinear)
            write(message,'(A)')' ' ; write_msg

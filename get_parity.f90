@@ -37,6 +37,7 @@ subroutine get_parity(NN_TABLE, PINPT, PPRAM, PINPT_BERRY, PGEOM, PKPTS)
    real*8            origin(3)
    real*8            R(3,3)
    real*8            Rcart(3,3) ! rotation operator for crystal structure (cartesian coord)
+   character*20, external :: int2str
 
    call get_kpoint(PINPT_BERRY%parity_kpoint, PINPT_BERRY%parity_kpoint_reci, PINPT_BERRY%parity_nkpoint, PGEOM)
 
@@ -72,12 +73,12 @@ sp:do is = 1, nspin
 
        call get_ham_Hk(Hk, NN_TABLE, PINPT, PPRAM, kpoint(:,ik), is, neig, flag_phase) ; V = Hk
 
-       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(V, neig*ispinor, neig*ispinor, 'H_'//trim(PINPT_BERRY%parity_kpoint_name(ik)), 1, 'F6.3')
+       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(V, neig*ispinor, neig*ispinor, 'H_'//trim(PINPT_BERRY%parity_kpoint_name(ik)), 1, 'F12.6')
 
        call cal_eig_hermitian(V, neig*ispinor, E, .true.)
        phase_shift = 1d0
        call get_symmetry_matrix(Sij, S_eig, V, phase_shift, P_OP, E, PGEOM, neig, ispinor, flag_phase_shift)
-       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(Sij, neig*ispinor, neig*ispinor, 'Sij ', 0, 'F6.3')
+       if(flag_print_ham .and. myid .eq. 0) call print_matrix_c(Sij, neig*ispinor, neig*ispinor, 'Pij_K'//trim(ADJUSTL(int2str(ik))), 1, 'F12.6')
 
        if_main_then
          if(nspin .eq. 2) write(message,'(5A)')'                   E(n,k)      <n,',trim(spin(is)),'|P|n,',trim(spin(is)),'> (parity)'

@@ -1,6 +1,8 @@
 #include "alias.inc"
 subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PINPT_BERRY, PINPT_DOS, PRPLT)
-  use parameters, only: hopping, incar, energy, spmat, params, poscar, kpoints, weight, dos, berry, gainp, replot
+  use parameters, only: hopping, incar, energy, spmat, &
+                        params, poscar, kpoints, weight, &
+                        dos, berry, gainp, replot, unfold
   use set_default, only: init_params
   use mpi_setup
   use reorder_band
@@ -21,6 +23,7 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
   type(berry  ), dimension(PINPT%nsystem) :: PINPT_BERRY
   type(dos    ), dimension(PINPT%nsystem) :: PINPT_DOS
   type(replot ), dimension(PINPT%nsystem) :: PRPLT
+  type(unfold ), dimension(PINPT%nsystem) :: PUFLD
   type(gainp  )                           :: PKAIA ! temp
   integer*4                                  i, ik, my_ik
   integer*4                                  mpierr
@@ -28,6 +31,7 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
   integer*4, allocatable                  :: feast_ne(:,:), ne_found(:)
   integer*4, allocatable                  :: ourjob(:), ourjob_disp(:)
   real*8,    allocatable                  :: E(:,:)
+
   if(PINPT%flag_tbfit_finish) then
     ! this print_mode applies to the read_input routine, and make not to print input settings as it reads 
     ! INCAR-TB again. This constraint make the output report redundunt
@@ -46,7 +50,7 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
     write(message,'( A)')' #======================================================='  ; write_msg
 
     call read_input(PINPT,PPRAM(i),PKPTS(i), PGEOM(i), PWGHT(i), EDFT(i), NN_TABLE(i), &
-                    PINPT_DOS(i), PINPT_BERRY(i), PKAIA, PRPLT(i), i)
+                    PINPT_DOS(i), PINPT_BERRY(i), PKAIA, PRPLT(i), PUFLD(i), i)
 
     if(PINPT%flag_tbfit_finish) then
       call init_params(PPRAM(i), PINPT)
@@ -58,79 +62,11 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
     if(PINPT%flag_get_band .or. PINPT%flag_get_berry_curvature) then
 
       if(.not. PINPT%flag_print_energy_singlek) then
-            if(.not. PINPT%flag_distribute_nkp) then
-              call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .FALSE., 0)
-              call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM(i), ETBA(i)%E, ETBA(i)%V, ETBA(i)%SV, PGEOM(i)%neig, &
-                            PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase)
+        call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .FALSE., 0)
+        call get_eig(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM(i), ETBA(i)%E, ETBA(i)%V, ETBA(i)%SV, PGEOM(i)%neig, &
+                      PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase)
 
-
-            ! Single K mode  ############
-            elseif(PINPT%flag_distribute_nkp) then
-#ifdef MKL_SPARSE
-              if(PINPT%flag_sparse) then
-                call feast_initialize(PINPT, PKPTS(i)%nkpoint)
-#ifdef MPI
-                if(allocated(feast_ne)) deallocate(feast_ne) ; allocate(feast_ne(PINPT%nspin, PKPTS(i)%nkpoint)); feast_ne = 0
-#endif
-
-                if(PINPT%nsystem .gt. 1) then
-                    write(message, '(A)')'    !WARN! in somehow, PINPT%feast_ne variable should be stored in ETBA as ' ; write_msg
-                    write(message, '(A)')'           PINPT is unique and disapear as do loop runs over "i"'  ; write_msg
-                    write(message, '(A)')'           Please modify the source code! (message for myself.. as I am lazy now..' ; write_msg
-                    write(message, '(A)')'           Left this tasks for the future works... :)'  ; write_msg
-                    write(message, '(A)')'           HJ Kim. 19. Mar. 2021.'  ; write_msg
-                    kill_job
-                endif
-              endif
-#endif
-              if(allocated(E))         deallocate(E)         ; allocate(E(PGEOM(i)%nband*PINPT%nspin,PKPTS(i)%nkpoint))
-              if(allocated(ne_found))  deallocate(ne_found)  ; allocate(ne_found(PINPT%nspin)) ; ne_found = 0
-              if(allocated(ourjob)) deallocate(ourjob) ; allocate(ourjob(nprocs))
-              if(allocated(ourjob_disp)) deallocate(ourjob_disp) ; allocate(ourjob_disp(0:nprocs-1))
-              call mpi_job_distribution_chain(PKPTS(i)%nkpoint, nprocs, ourjob, ourjob_disp)
-              call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .TRUE., ourjob(myid+1))
-              if(PINPT%flag_get_orbital) ETBA(i)%V = (0.d0,0.d0)
-              if( (PINPT%flag_get_orbital .and. PPRAM(i)%flag_use_overlap) ) ETBA(i)%SV = (0.d0,0.d0)
-#ifdef MKL_SPARSE
-              PINPT%feast_neguess = PINPT%feast_nemax !initialize to nemax but ne_guess will be adjusted using the ne_found in the previous step.
-#endif
-              do ik= sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
-                my_ik = ik - sum(ourjob(1:myid))
-#ifdef MKL_SPARSE
-                if(PINPT%flag_sparse) then
-                  if(PINPT%flag_get_orbital)then
-                    if(PINPT%feast_fpm(5) .eq. 1 .and. my_ik .gt. 1) then
-                      ETBA(i)%V(:,:,my_ik) = ETBA(i)%V(:,:,my_ik-1)
-                    endif
-                  endif
-                endif
-#endif
-                call get_eig_singlek(NN_TABLE(i), PKPTS(i)%kpoint, ik, PINPT, PPRAM(i), &
-                                     ETBA(i)%E(:,ik), ETBA(i)%V(:,:,my_ik), ETBA(i)%SV(:,:,my_ik), PGEOM(i)%neig, &
-                                     PGEOM(i)%init_erange, PGEOM(i)%nband, ne_found, &
-                                     PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase)
-
-#ifdef MKL_SPARSE
-                PINPT%feast_ne(:,ik) = ne_found
-#endif
-              enddo
-#ifdef MPI
-              call MPI_ALLREDUCE(ETBA(i)%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr) ; ETBA(i)%E = E
-#endif
-
-#ifdef MKL_SPARSE
-              if(PINPT%flag_sparse) then
-#ifdef MPI
-                call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
-                PINPT%feast_ne = feast_ne
-#endif        
-                write(message,'(A,I0)')'   MAX_NE_FOUND (NE_MAX): ',maxval(PINPT%feast_ne) ; write_msg
-              endif
-#endif
-            !##################################
-            endif
-
-      elseif(PINPT%flag_print_energy_singlek) then
+      elseif(PINPT%flag_print_energy_singlek) then ! called by PRTSEPK tag
         call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .FALSE., 0)
         call get_eig_sepk(NN_TABLE(i), PKPTS(i)%kpoint, PKPTS(i)%nkpoint, PINPT, PPRAM(i), ETBA(i)%E, PGEOM(i)%neig, &
                       PGEOM(i)%init_erange, PGEOM(i)%nband, PINPT%flag_get_orbital, PINPT%flag_sparse, .true., PINPT%flag_phase)
@@ -163,7 +99,7 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
     if(PINPT%flag_get_z2)              call get_z2(NN_TABLE(i), PINPT, PPRAM(i), PINPT_BERRY(i), PGEOM(i), PKPTS(i))
     if(PINPT%flag_get_parity)          call get_parity(NN_TABLE(i), PINPT, PPRAM(i), PINPT_BERRY(i), PGEOM(i), PKPTS(i))
     if(PINPT%flag_get_symmetry)        call get_symmetry_eig(NN_TABLE(i), PINPT, PPRAM(i), PINPT_BERRY(i), PGEOM(i), PKPTS(i))
-
+    if(PINPT%flag_get_unfold)          call get_unfold(PINPT, PPRAM(i), PUFLD(i))
   enddo
 
   return

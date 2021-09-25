@@ -198,6 +198,17 @@ subroutine parse(PINPT)
              kill_job
            endif
 
+         elseif(trim(option) .eq. '-weight' .or. trim(option) .eq. '-w') then
+           PINPT%flag_wfile_parse = .true.
+           PINPT%flag_set_weight_from_file = .true.
+           call getarg(iarg+1, PINPT%wfilenm_parse)
+           write(message,'(A,A)')' WGHT_FNM:  ',trim(PINPT%wfilenm_parse)  ; write_msg
+           inquire(file=trim(PINPT%wfilenm_parse),exist=flag_exist)
+           if(.not. flag_exist) then
+             write(message,'(A,A,A)')'    !WARN! Weight file:',trim(PINPT%wfilenm_parse),' does not exist!! Exit...' ; write_msg
+             kill_job
+           endif
+
          elseif(trim(option) .eq. '-kpoint' .or. trim(option) .eq. '-kp' .or. trim(option) .eq. '-k') then
            PINPT%flag_parse = .true.
            PINPT%flag_kfile_parse = .true.
@@ -225,6 +236,7 @@ subroutine parse(PINPT)
            PINPT%flag_parse = .true.
            PINPT%flag_lorbit_parse = .true.
            PINPT%flag_get_orbital = .true.
+           PINPT%flag_print_orbital = .true.
            PINPT%flag_print_mag = .false.
            call getarg(iarg+1, value)
            if(trim(value) .eq. 're' ) then
@@ -309,6 +321,7 @@ subroutine help()
    write(6,'(A)')"   -mxfit(or -mf) MXF     : enforce to set maximum number of reapeat of iteration for LMDIF to MXF "
    write(6,'(A)')"                            in prior to the MITER tag"
    write(6,'(A)')"   -param(or -p) PF       : enforce to read parameter file 'PF' in prior to the PFILE tag"
+   write(6,'(A)')"   -weight(or -w) WF      : enforce to read weight    file 'WF' in prior to the WFILE tag or 'SET WEIGHT'"
    write(6,'(A)')"   -kpoint(or -kp, -k) KF : enforce to read k-points  file 'KF' in prior to the KFILE tag"
    write(6,'(A)')"   -lorbit                : enforce to print orbital information"
    write(6,'(A)')"       .true.  or T       : enforce to print orbital information"

@@ -48,30 +48,36 @@ subroutine print_param (PINPT, PPRAM, PWGHT, title, flag_print_file)
       im=im+1; write(message_pack(im),'(A,F8.2,A,I5,A)')'# SCISSOR: .TRUE. => EDFT(n,k) + ',PINPT%r_scissor, &
                                                                                 ' (if n >=',PINPT%i_scissor,')'
     endif
-    if(PWGHT%nweight .ge. 1) then
-      do i = 1, PWGHT%nweight
-        im=im+1; write(message_pack(im),fm_wt)'# KRANGE ',trim(PWGHT%strip_kp(i)), &
-                                              '  TBABND ',trim(PWGHT%strip_tb(i)), &
-                                              '  DFTBND ',trim(PWGHT%strip_df(i)), &
-                                              '  WEIGHT ',trim(PWGHT%strip_wt(i))
-      enddo
-    endif
-    if(PWGHT%npenalty_orb .ge. 1) then
-      do i = 1, PWGHT%npenalty_orb
-        im=im+1; write(message_pack(im),fm_ob)'# KRANGE ',trim(PWGHT%strip_kp_orb(i)), &
-                                              '  TBABND ',trim(PWGHT%strip_tb_orb(i)), &
-                                              '  ORBT_I ',trim(PWGHT%strip_orb(i)), &
-                                              '  SITE_I ',trim(PWGHT%strip_site(i)), &
-                                              '  PENALTY ',trim(PWGHT%strip_pen_orb(i))
-      enddo
-    endif
-    if(PWGHT%ndegenw .ge. 1) then
-      do i = 1, PWGHT%ndegenw
-        im=im+1; write(message_pack(im),fm_wt)'# KRANGE ',trim(PWGHT%strip_kp_deg(i)), &
-                                              '  TBABND ',trim(PWGHT%strip_tb_deg(i)), &
-                                              '  DFTBND ',trim(PWGHT%strip_df_deg(i)), &
-                                              '  DEGENW ',trim(PWGHT%strip_wt_deg(i))
-      enddo
+
+    if( .not. PINPT%flag_set_weight_from_file) then
+      if(PWGHT%nweight .ge. 1) then
+        do i = 1, PWGHT%nweight
+          im=im+1; write(message_pack(im),fm_wt)'# KRANGE ',trim(PWGHT%strip_kp(i)), &
+                                                '  TBABND ',trim(PWGHT%strip_tb(i)), &
+                                                '  DFTBND ',trim(PWGHT%strip_df(i)), &
+                                                '  WEIGHT ',trim(PWGHT%strip_wt(i))
+        enddo
+      endif
+      if(PWGHT%npenalty_orb .ge. 1) then
+        do i = 1, PWGHT%npenalty_orb
+          im=im+1; write(message_pack(im),fm_ob)'# KRANGE ',trim(PWGHT%strip_kp_orb(i)), &
+                                                '  TBABND ',trim(PWGHT%strip_tb_orb(i)), &
+                                                '  ORBT_I ',trim(PWGHT%strip_orb(i)), &
+                                                '  SITE_I ',trim(PWGHT%strip_site(i)), &
+                                                '  PENALTY ',trim(PWGHT%strip_pen_orb(i))
+        enddo
+      endif
+      if(PWGHT%ndegenw .ge. 1) then
+        do i = 1, PWGHT%ndegenw
+          im=im+1; write(message_pack(im),fm_wt)'# KRANGE ',trim(PWGHT%strip_kp_deg(i)), &
+                                                '  TBABND ',trim(PWGHT%strip_tb_deg(i)), &
+                                                '  DFTBND ',trim(PWGHT%strip_df_deg(i)), &
+                                                '  DEGENW ',trim(PWGHT%strip_wt_deg(i))
+        enddo
+      endif
+
+    elseif(PINPT%flag_set_weight_from_file) then
+      im=im+1; write(message_pack(im),'(A,A)')'# WEIGHT FILE NAME : ', trim(PWGHT%wfilenm)
     endif
 
     

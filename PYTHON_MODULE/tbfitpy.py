@@ -1,18 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from lmfit import minimize, Parameters
-import pyswarms as ps
-from pyswarms.utils.plotters import plot_cost_history
 from random import random
 import warnings
 from tqdm import tqdm 
 import time
 import sys
+import torch 
 from mpi4py import MPI
 from tbfitpy_mod_mpi import pyfit
 #from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
+
+# last update: 16.09.2021 HJ Kim
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -23,8 +23,14 @@ warnings.filterwarnings("ignore")
 
 class pytbfit:
     def __init__(self, mpicomm =None, filenm = 'INCAR-TB'):
-        self.filenm = filenm+' '*(132-len(filenm))
+        if mpicomm is not None :
+            self.comm  = mpicomm
+            self.fcomm = self.comm.py2f()
+        else:
+            self.comm  = None
+            self.fcomm = 0
 
+        self.filenm = filenm+' '*(132-len(filenm))
         self.pinpt = pyfit.init_incar_py( self.filenm , nsystem=1 )
         self.ppram = pyfit.init_params_py()    
         self.pkpts = pyfit.init_kpoints_py()
@@ -33,20 +39,18 @@ class pytbfit:
         self.hopping = pyfit.init_hopping_py()
         self.edft  = pyfit.init_energy_py()
         self.etba  = pyfit.init_energy_py()
-        if mpicomm is not None :
-           #self.fcomm = mpicomm
-            self.comm  = mpicomm
-            self.fcomm = self.comm.py2f()
-        else:
-            self.comm  = None
-            self.fcomm = 0
 
-    def init(self, verbose=False, myid=0):
+    def init(self, verbose=False, orbfit=False, myid=0):
 
         if verbose is True:
             self.pinpt.iverbose = 1
         else :
             self.pinpt.iverbose = 2
+
+        if orbfit is True:
+            self.pinpt.flag_fit_orbital_parse = True
+        else:
+            self.pinpt.flag_fit_orbital_parse = False
 
         # initialize
         pyfit.init(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
@@ -56,134 +60,26 @@ class pytbfit:
 
         self.myid = myid
 
-    def cost(self):
-        self.get_eig() # get eig
-        cost = ((self.pwght.wt*(self.etba.e - self.edft.e))**2).ravel()
-        return cost
-    
-    def residual(self, params):
-        for iparam in range(self.ppram.nparam_free):
-            pname = list(params.valuesdict())[iparam]
-            param = params[pname].value
-            self.ppram.param[self.ppram.iparam_free[iparam]-1] = param
-        return  self.cost()
-    
-    def iter_cb(self, params, iiter, resid):
-        self.cost_history.append ( sum(abs(resid)) )
-        self.niter += 1
-        return None
-
-    def cost_pso(self, params):
-        cost=[]
-        for i in range(self.n_particles):
-            for iparam in range(self.ppram.nparam_free):
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = params[i, iparam]
-            cost.append( np.sqrt(sum( (self.cost() ) )) )
-        return cost
-
-    def cost_psoleastsq(self, params):
-        cost=[]
-        for i in range(self.n_particles):
-            for iparam in range(self.ppram.nparam_free):
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = params[i, iparam]
-            
-            myparam = self.get_free_param()
-            out_temp = minimize(self.residual, myparam, method='leastsq')
-            for iparam in range(self.ppram.nparam_free):
-                pname = list(out_temp.params.valuesdict())[iparam]
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = out_temp.params[pname].value
-
-           #cost.append( sum(abs(self.cost())) )
-            cost.append( np.sqrt(sum( (self.cost() ) )) )
-
-        return cost
-
-    def cost_pso_single(self, params):
-        for iparam in range(self.ppram.nparam_free):
-            self.ppram.param[self.ppram.iparam_free[iparam]-1] = params[iparam]
-       #return sum(abs(self.cost()))
-        return np.sqrt(sum( (self.cost() ) ))
-
-    def cost_pso_leastsq(self, params):
-        cost=[]
-        for i in range(self.n_particles):
-            for iparam in range(self.ppram.nparam_free):
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = params[i, iparam]
-            myparam = self.get_free_param()
-            self.fit_out = minimize(self.residual, myparam, method='leastsq')
-            for iparam in range(self.ppram.nparam_free):
-                pname = list(self.fit_out.params.valuesdict())[iparam]
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = self.fit_out.params[pname].value
-            cost.append( self.fit_out.chisqr )
-        return cost
-
-    def update_pso_pos(self, pos, vel, bounds):
-        next_pos = pos + vel
-       #for i in range(self.n_particles):
-       #    for iparam in range(self.ppram.nparam_free):
-       #        if next_pos[i,iparam] < bounds[0][iparam] :
-       #            next_pos[i,iparam] = bounds[0][iparam] + bounds[0][iparam] - next_pos[i,iparam]
-
-       #        if next_pos[i,iparam] > bounds[1][iparam]:
-       #            next_pos[i,iparam] = bounds[1][iparam] + bounds[1][iparam] - next_pos[i,iparam]
-
-        return next_pos
-
-    def update_pso_vel(self, pos, vel, p_best, g_best, c1=0.5, c2=1.0, w=0.75):
-        for i in range(self.n_particles):
-            for j in range(self.ppram.nparam_free):
-                r1 = np.random.uniform() ; r2 = np.random.uniform()
-                if self.comm is not None:
-                    r1 = self.comm.bcast(r1, root=0)
-                    r2 = self.comm.bcast(r2, root=0)
-                vel[i,j] = w * vel[i,j] + c1 * r1 * (p_best[i,j] - pos[i,j]) + c2 * r2 * (g_best[j] - pos[i,j])
-       #for i in range(self.ppram.nparam_free):
-       #    r1 = np.random.uniform() ; r2 = np.random.uniform()
-       #    if self.comm is not None:
-       #        r1 = self.comm.bcast(r1, root=0)
-       #        r2 = self.comm.bcast(r2, root=0)
-       #    vel[i] = w * vel[i] + c1 * r1 * (p_best[i] - pos[i] ) + c2 * r2 * ( g_best[i] - pos[i] )
-        return vel
-
-    def fit(self, verbose=False, miter=None, method='leastsq', pso_options=None, n_particles=None, iseed=None):
+    def fit(self, verbose=False, miter=None, tol=None, pso_miter=None, method='lmdif', pso_options=None, n_particles=None, iseed=None):
         '''
         Fit the parameters.
         Following methods are supported:
+         - Minimization function via LMFIT method
            *lmdif: Levenberg-Marquardt method with MINPACK subroutine modified by H.-J. Kim (TBFIT)
               (see details in: https://github.com/Infant83/TBFIT)
 
-         - Minimization function via LMFIT module 
-              (see details in: https://lmfit.github.io/lmfit-py/intro.html)
-           *leastsq: Levenberg-Marquardt (default)
-           *least_squares: Least-Squares minimization, using Trust Region Reflective method
-           *bfgs: BFGS
-
-         - Particle Swarm Optimization (PSO) method
-           *pso: A Global-best Particle Swarm Optimization algorithm
-           *pso.leastsq: PSO with leastsq method (better performance and higher computational load)
-           *mypso: same as pso, but much faster.
+         - Particle Swarm Optimization (PSO) scheme
+           *mypso: A Global-best Particle Swarm Optimization algorithm
            *mypso.lmdif: same as pso.leastsq but much faster
 
-         - Particle Swarm Optimization (PSO) scheme via Pyswars module
-              (see details in: https://pyswarms.readthedocs.io/en/latest/index.html)
-           *gbest.pso: A Global-best Particle Swarm Optimization algorithm
-           *lbest.pso: A Local-best Particle Swarm Optimization algorithm
-            Note: To use this method, one might pass 'option' variable as well, which defines
-                  cognitive, social, and inertia parameter used in PSO algorithm.
-                  In addition, one also need 'n_particles' defining size of swarm of parameters.
-                  The details can be found in https://pyswarms.readthedocs.io/en/latest/index.html
-    
            Note on all PSO based altorhtim: one should provide n_particle and pso_options when call
                 n_particles: number of particles (the swarm size), integer
                 pso_options: velocity and position update policy, dictionary, 
                              ex: pso_options = {'c1': 1.0, 'c2': 1.0, 'w': 2.0'}
                              for details, see: J. Kennedy and R. Eberhart, Particle Swarm Optimization,
-                                              􏰀IEEE, Piscataway, NJ, 1995􏰁, p. 1942.
-        NONE: I suggest to use lmdif method for Levenberg-Marquardt method for local fitting 
-              than leastsq and least_squares. lmdif is much faster that the others.
-              For global parameter fitting, mypso is suggested. 
+                                               IEEE, Piscataway, NJ, 1995, p. 1942.
+        NONE: For global parameter fitting, mypso is suggested. 
               To utilize lmdif method with mypso, mypso.lmdif can be used. 
-              gbest.pso, lbest.pso does not support MPI, and pso is slower than mypso.
         '''
 
         if verbose is True:
@@ -192,6 +88,9 @@ class pytbfit:
             self.pinpt.iverbose = 2
 
         t0 = time.time()
+
+        if tol is not None: self.pinpt.ptol = tol
+        if tol is not None: self.pinpt.ftol = tol
 
         if miter is not None: self.pinpt.miter = miter
         self.n_particles = n_particles if n_particles  is not None else 30
@@ -209,169 +108,20 @@ class pytbfit:
             self.pinpt.flag_tbfit = True
             if iseed is None: iseed = 123
             self.pinpt.flag_pso_with_lmdif = True if method == 'mypso.lmdif' else False
-            pso_miter = self.pinpt.miter
+            if pso_miter is None: 
+              pso_miter = self.ppram.pso_miter
             self.ppram.pso_c1 = pso_options['c1']
             self.ppram.pso_c2 = pso_options['c2']
             self.ppram.pso_w  = pso_options['w' ]
             self.ppram.pso_nparticles = self.n_particles
-            self.cost_history   = np.full( (self.pinpt.miter), 0.0)
-            self.cost_history_particle = np.full( (self.pinpt.miter, self.n_particles), 0.0)
+            self.cost_history   = np.full( (self.ppram.pso_miter), 0.0)
+            self.cost_history_particle = np.full( (self.ppram.pso_miter, self.n_particles), 0.0)
             
             pyfit.pso(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
                                   self.pgeom, self.hopping, self.edft, self.etba, iseed, pso_miter)
 
             self.cost_history   = self.ppram.pso_cost_history
             self.cost_history_particle = self.ppram.pso_cost_history_i
-
-        elif method == 'pso' or method == 'pso.leastsq':
-           # initialize
-            self.pinpt.iverbose = 2
-
-            # set bound
-            max_bounds = np.zeros(self.ppram.nparam_free)
-            min_bounds = np.zeros(self.ppram.nparam_free)
-            bounds     = (np.zeros(self.ppram.nparam_free),np.zeros(self.ppram.nparam_free))
-            for iparam in range(self.ppram.nparam_free):
-                max_bounds[iparam]=self.ppram.param_const[1, self.ppram.iparam_free[iparam]-1]
-                min_bounds[iparam]=self.ppram.param_const[2, self.ppram.iparam_free[iparam]-1]
-            bounds=(min_bounds, max_bounds)
-        
-            # allocate and initialize pos and vel with random noise
-            pos = np.ndarray((self.n_particles, self.ppram.nparam_free))
-            vel = np.ndarray((self.n_particles, self.ppram.nparam_free))
-            for iparam in range(self.ppram.nparam_free):
-                for i in range(self.n_particles):
-                    cond = False
-                    while cond is False:
-                        r = (random()*2. - 1.) * 5.
-                        if self.comm is not None: r = self.comm.bcast(r, root=0)
-
-                        pos[i,iparam] = self.ppram.param[self.ppram.iparam_free[iparam]-1] + r
-                        vel[i,iparam] = r
-                        if pos[i,iparam] > max_bounds[iparam] or pos[i,iparam] < min_bounds[iparam]:
-                            cond = False
-                        else:
-                            cond = True
-
-            cost = self.cost_pso(pos)
-            g_best = pos[ cost.index(min(cost)) ]
-            cg_best = min(cost)
-            p_best  = pos
-            cp_best = cost
-
-            # optimize with PSO algorithm
-            if verbose is True:
-                pbar = tqdm(range(self.pinpt.miter)) if self.myid == 0 else range(self.pinpt.miter)
-            else:
-                pbar = range(self.pinpt.miter)
-
-            for _ in pbar:
-                if self.myid == 0 and verbose is True:
-                    pbar.set_description("PSO: BEST COST = %.8f " % cg_best)
-                vel  = self.update_pso_vel(pos, vel, p_best, g_best, 
-                                           pso_options['c1'], pso_options['c2'], pso_options['w'])
-                pos  = self.update_pso_pos(pos, vel, bounds)
-                
-                if method == 'pso.leastsq':
-                    cost = self.cost_psoleastsq(pos)
-                elif method == 'pso':
-                    cost = self.cost_pso(pos)
-
-                if min(cost) < cg_best : 
-                    cg_best = min(cost)
-                    g_best = pos[cost.index(min(cost))]
-                for i in range(self.n_particles):
-                    if cost[i] < cp_best[i]:
-                        p_best[i] = pos[i]
-                        cp_best[i] = cost[i]
-
-                self.cost_history.append(cg_best)
-   
-            # save best post and mininum cost 
-            for iparam in range(self.ppram.nparam_free):
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = g_best[iparam]
-           #self.fit(method='leastsq')
-            if method == 'pso.leastsq':
-                self.fit(method='leastsq')
-            elif method == 'pso':
-                self.get_eig() # save eigenvalue with global best parameters (pos)
-            self.etba.de = self.etba.e - self.edft.e
-
-        elif method == 'gbest.pso' or method == 'lbest.pso' or method == 'gbest.pso.leastsq':
-            # NOTE: This methods should be run with non-parallel tbfitpy module, tbfitpy_mod
-            max_bounds=np.zeros(self.ppram.nparam_free)
-            min_bounds=np.zeros(self.ppram.nparam_free)
-            bounds=(np.zeros(self.ppram.nparam_free),np.zeros(self.ppram.nparam_free))
-            for iparam in range(self.ppram.nparam_free):
-                max_bounds[iparam]=self.ppram.param_const[1, self.ppram.iparam_free[iparam]-1]
-                min_bounds[iparam]=self.ppram.param_const[2, self.ppram.iparam_free[iparam]-1]
-            bounds=(min_bounds, max_bounds)
-    
-            init_pos=np.ndarray((self.n_particles, self.ppram.nparam_free))
-            for iparam in range(self.ppram.nparam_free):
-                for i in range(self.n_particles):
-                    cond = True 
-                    while cond is True:
-                        r = (random()*2. - 1.) * 5.
-                        if self.comm is not None:
-                            r = self.comm.bcast(r, root=0)
-
-                        init_pos[i,iparam] = self.ppram.param[self.ppram.iparam_free[iparam]-1] + r
-                        if init_pos[i,iparam] < max_bounds[iparam] and init_pos[i,iparam] > min_bounds[iparam]:
-                            cond = False
-
-            if method == 'gbest.pso' or method == 'gbest.pso.leastsq':
-                optimizer = ps.single.GlobalBestPSO(n_particles=self.n_particles, 
-                                                    dimensions=self.ppram.nparam_free, 
-                                                    options=pso_options, 
-                                                    bounds=bounds, 
-                                                    init_pos=init_pos)
-            elif method == 'lbest.pso':
-                optimizer = ps.single.LocalBestPSO(n_particles=self.n_particles, 
-                                                    dimensions=self.ppram.nparam_free, 
-                                                    options=pso_options, 
-                                                    bounds=bounds, 
-                                                    init_pos=init_pos)
-            
-            if method == 'gbest.pso' or method == 'lbest.pso' :
-                cost, pos = optimizer.optimize(self.cost_pso, iters=self.pinpt.miter, verbose=True)
-            elif method == 'gbest.pso.leastsq':
-                cost, pos = optimizer.optimize(self.cost_pso_leastsq, iters=self.pinpt.miter,verbose=True)
-                
-                params = self.get_free_param()
-                self.fit_out = minimize(self.residual, params, method=method)
-                for iparam in range(self.ppram.nparam_free):
-                    pname = list(self.fit_out.params.valuesdict())[iparam]
-                    self.ppram.param[self.ppram.iparam_free[iparam]-1] = self.fit_out.params[pname].value
-                
-            for iparam in range(self.ppram.nparam_free):
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = pos[iparam]
-
-            self.get_eig()
-            
-            self.cost_history =  optimizer.cost_history
-
-        elif method == 'leastsq' : 
-            params  = self.get_free_param()
-
-            self.fit_out = minimize(self.residual, params, method=method, iter_cb=self.iter_cb)
-
-            for iparam in range(self.ppram.nparam_free):
-                pname = list(self.fit_out.params.valuesdict())[iparam]
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = self.fit_out.params[pname].value
-            self.get_eig()
-
-            self.etba.de = self.etba.e - self.edft.e
-
-        else :
-            params = self.get_free_param()
-            self.fit_out = minimize(self.residual, params, method=method)
-            for iparam in range(self.ppram.nparam_free):
-                pname = list(self.fit_out.params.valuesdict())[iparam]
-                self.ppram.param[self.ppram.iparam_free[iparam]-1] = self.fit_out.params[pname].value
-
-            self.etba.de = self.etba.e - self.edft.e
-
 
         if self.myid == 0 and verbose is True:
             print('Time elapsed for ',method,' method :', time.time() - t0, ' sec')
@@ -386,20 +136,33 @@ class pytbfit:
         pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts, 
                               self.pgeom, self.hopping, self.etba)
 
-    def get_free_param(self):
-        params = Parameters()
-        for iparam in range(self.ppram.nparam_free):
-            pname      = str(self.ppram.param_name.T[ self.ppram.iparam_free[iparam]-1 ].view('S40'),'utf-8').strip()
-            param      = self.ppram.param[self.ppram.iparam_free[iparam]-1]
-            params.add(name=pname, value=param)
-
-            # NONE: With "leastsq" and "least_squares" method, setting parameter with bounds results in error.
-            #       It is not clear what is the origin for that but for the safety, just leave it default (-inf,inf)
-            #max_bound  = self.ppram.param_const[1, self.ppram.iparam_free[iparam]-1]
-            #min_bound  = self.ppram.param_const[2, self.ppram.iparam_free[iparam]-1]
-            #params.add(name=pname, value=param, min=min_bound, max=max_bound)
-
-        return params
+    def generate_TBdata(self, filenm='tb_data.pt', ndata=1000, N_fit=50, tol=1e-5, method='lmdif', myid=0):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        for i in range(ndata):  # assumes that each loop, init loads "random" parameters. -> check PARAM_FIT.dat with 'r' option
+            self.init(myid=myid) # it assumes that fitting is done
+            self.fit(miter = N_fit, tol=tol, method=method)
+            band_fitted = torch.Tensor(self.etba.e).view(1,1,len(self.etba.e),-1).to(device)
+            if i == 0:
+                band_target = torch.Tensor(self.edft.e).view(1,1,len(self.edft.e), -1).to(device)
+                band = band_fitted
+                targ = band_target
+            else:
+                band = torch.cat((band_fitted, band), 0)
+            if myid == 0:
+                print(f'band:{i}, {band_all.size()}, {targ.size()}')
+                sys.stdout.flush()
+        if myid == 0:
+            tb_data = {'TBA': band, 'DFT': targ}
+            torch.save(tb_data, filenm)
+            
+    def copy_param_best(self, imode=1):
+        pyfit.copy_params_best(self.ppram, imode)
+       #NOTE:
+       #if(imode .eq. 1) then
+       #  PPRAM_PY%param_best = PPRAM_PY%param 
+       #elseif(imode .eq. 2) then
+       #  PPRAM_PY%param = PPRAM_PY%param_best
+       #endif 
 
     def toten(self, eltemp=None, nelect=None):
         # rule for nelect: counting number of states upto certain level of energy
@@ -419,7 +182,7 @@ class pytbfit:
         pyfit.toten(self.fcomm, self.pinpt, self.pkpts, self.pgeom, self.etba)
 
 
-    def plot_fit(self, figsize=(5,6), ef=0.0, yin=-20., yen=10, ystep=5.,
+    def plot_fit(self, figsize=(5,6), ef=0.0, yin=-20., yen=10, ystep=5., plot_model=None,
                  title=' ', ylabel='Energy (eV)', xlabel=' ', fout='band.pdf'):
         # get k-path name and position
         self.KNAME=[] ; self.KPTS=[]
@@ -445,6 +208,10 @@ class pytbfit:
         for i in range( self.etba.e.shape[0] ) :
             mylabel = 'TBA' if i == 0 else None
             plt.plot(self.pkpts.kdist,self.etba.e[i,:],'-',linewidth=.6,color='red' , label=mylabel)
+        if plot_model is not None:
+            mylabel = 'MODEL' if i == 0 else None
+            for i in range(self.etba.e.shape[0]):
+                plt.plot(self.pkpts.kdist, self.model.e[i,:],'--', linewidth=.6, color='green', label=mylabel)
 
         plt.legend()
         #plt.savefig(fout,bbox_inches='tight',transparent=False,pad_inches=0)
@@ -616,7 +383,7 @@ class pytbfit:
         pyfit.print_etba(self.pinpt, self.pkpts, self.etba, self.edft, self.pwght, self.pgeom, 
                          suffixx, use_overlap)
     
-    def save(self, title=None, plot_fit=None, target=None, band=None, param=None, weight=None, 
+    def save(self, title=None, plot_fit=None, plot_model=None, target=None, band=None, param=None, weight=None, 
                    cost_history=None, cost_history_particle=None , pso_param_history = None):
         if self.myid != 0:
             return
@@ -626,7 +393,7 @@ class pytbfit:
                 fout = 'BAND.'+title.strip()+'.pdf'
             else:
                 fout = 'BAND.pdf'
-            self.plot_fit(title=title.strip(), fout=fout)
+            self.plot_fit(title=title.strip(), fout=fout, plot_model=None)
 
         if target is True:
             if title is not None:
@@ -661,17 +428,18 @@ class pytbfit:
         if cost_history is True:
             if title is not None:
                 cost_out_dat = 'COST_HISTORY.'+title.strip()+'.dat'
-                cost_out_pdf = 'COST_HISTORY.'+title.strip()+'.pdf'
+              # cost_out_pdf = 'COST_HISTORY.'+title.strip()+'.pdf'
             else:
                 cost_out_dat = 'COST_HISTORY.dat'
-                cost_out_pdf = 'COST_HISTORY.pdf'
+              # cost_out_pdf = 'COST_HISTORY.pdf'
             if self.ppram.niter == 0:
-                niter = self.pinpt.miter
+                niter = self.ppram.pso_miter
             else:
                 niter = self.ppram.niter
 
-            plot_cost_history(self.cost_history[:niter], title=title.strip())
-            plt.savefig(cost_out_pdf, bbox_inches='tight', pad_inches=0)
+           # deactivated due to the error in Infant-fzj: HJKim (16.09.2021)
+           #plot_cost_history(self.cost_history[:niter], title=title.strip())
+           #plt.savefig(cost_out_pdf, bbox_inches='tight', pad_inches=0)
 
             cost_out = open(cost_out_dat, 'w+')
             for ii in range(niter):
@@ -686,7 +454,7 @@ class pytbfit:
                 cost_out_dat = 'COST_HISTORY_particles.dat'
                 cost_out_pdf = 'COST_HISTORY_particles.pdf'
             if self.ppram.niter == 0:
-                niter = self.pinpt.miter
+                niter = self.ppram.pso_miter
             else:
                 niter = self.ppram.niter
             
@@ -710,12 +478,12 @@ class pytbfit:
                 param_out_dat = 'PARAM_best_particles.dat'
                 param_out_pdf = 'PARAM_best_particles.pdf'
             if self.ppram.niter == 0:
-                niter = self.pinpt.miter
+                niter = self.ppram.pso_miter
             else:
                 niter = self.ppram.niter
 
             bestn_ = int(self.n_particles * 0.2)
-            if(bestn_ > 5 ): 
+            if(bestn_ > 5): # and self.n_particles > 5 : 
                 bestn = 5 
             else:
                 bestn = bestn_
@@ -736,3 +504,78 @@ class pytbfit:
                     param_out.write("%5d  %20.9f   # %5d %20.9f\n" %(j+1, pj, ii, cost))
                 param_out.write("  \n")
             param_out.close()
+
+    
+    def plot_param(self, fname=None, nplot=None, iplot=0, nparam = None, diffmin = 10.0,
+                   fout='PARAM_best_particles.pdf',
+                   title='Best particles',
+                   figsize=(10,6), 
+                   plot = False) :
+        self.pset_id = []
+        f = open(fname)
+        data = np.loadtxt(f) ; data = data.reshape(data.shape)
+        zin  = np.min(data[:,1])
+        zen  = np.max(data[:,1])
+        if nparam is None:
+            nparam = int(np.max(data[:,0]))
+
+        if nplot is None:
+            nplot = int((data.shape[0]/nparam) * 0.1)
+
+        #cmap = mpl.cm.BuGn
+        cmap = mpl.cm.tab20c
+        plt.style.use('dark_background')
+        plt.figure(figsize=figsize)
+        plt.ylim(zin, zen)
+        plt.ylabel('Parameter values')
+        plt.xlabel('Parameter index')
+        plt.title(title.strip())
+
+        ii = 0 ; jj = 0
+        for iset in range(iplot, iplot+nplot):
+            params= data[iset*nparam:(iset+1)*nparam].reshape(nparam,2)[:,1]
+            if iset == iplot:
+                params_old = params
+                ii += 1
+            diff  = np.linalg.norm(params_old - params) / np.linalg.norm(params_old) * 100.0
+            if diff >= diffmin:
+                ii += 1
+            params_old = params
+
+        self.pset = np.ndarray((ii, nparam))
+        
+        for iset in range(iplot, iplot+nplot):
+            lw = 1
+            zorder = nplot - iset
+            mylabel = None
+            index = range(nparam)
+            params= data[iset*nparam:(iset+1)*nparam].reshape(nparam,2)[:,1]
+            
+            if iset == 0:
+                params_old = params
+                self.pset_id.append(iset)
+
+            diff  = np.linalg.norm(params_old - params) / np.linalg.norm(params_old) * 100.0
+            if diff >= diffmin:
+                mylabel = 'PID: '+str(iset)
+                self.pset_id.append(iset)
+                color = cmap( float(jj)/float(ii)      )
+                plt.plot(index, params, '-', linewidth=.6*lw, color = color, zorder=zorder, label=mylabel)
+                self.pset[jj,:] = params
+                jj += 1
+            elif iset == iplot:
+                mylabel = 'PID: 0'
+                color = cmap(  0                       )
+                plt.plot(index, params, '-', linewidth=.6*lw, color = color, zorder=zorder, label=mylabel)
+                self.pset[jj,:] = params
+                jj += 1
+            else:
+                color = color
+        
+            params_old = params
+
+
+        plt.legend(ncol=6)
+        plt.savefig(fout,bbox_inches='tight', pad_inches=0)
+        plt.clf()
+        return jj

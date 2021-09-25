@@ -56,53 +56,56 @@ module parameters
   integer(kind=sp),  public, parameter   :: pid_geom        = 177 
   integer(kind=sp),  public, parameter   :: pid_geom_ribbon = 178
   integer(kind=sp),  public, parameter   :: pid_circ        = 179
+  integer(kind=sp),  public, parameter   :: pid_weight      = 180
  
   type incar !PINPT
        ! set in parsing step
        integer(kind=sp)                     nsystem        ! number of geometry
-       character(len=132), allocatable :: ifilenm(:)     ! input tag file (default = INCAR-TB, specified by -input ifilenm in command-line)
-       character(len=132), allocatable :: title(:)       ! title of the system
-       character(len=132)                 pfilenm_parse  ! parsed parameter file name
-       character(len=132)                 kfilenm_parse  ! parsed kpoints   file name
-       logical                       flag_python_module ! .true. if call from python module tbfitpy
-
-       character(len=40)                  fnamelog       ! log file name, default = TBFIT.log
-       logical                       flag_get_band  ! default = .true.
-       logical                       flag_spglib    ! default = .true. ! write space group information
-       logical                       flag_tbfit_parse, flag_tbfit_parse_
-       logical                       flag_kfile_parse
-       logical                       flag_pfile_parse
-       logical                       flag_ndiv_line_parse, flag_ndiv_grid_parse
-       logical                       flag_fit_degeneracy ! fitting is helped by fitting degeneracy as well.
-       logical                       flag_miter_parse, flag_mxfit_parse
-       logical                       flag_lorbit_parse
-!      logical                       flag_proj_parse
-       logical                       flag_parse
-       logical                       flag_tbfit_test
-       logical                       flag_inputcard_fname_parse
-       logical                       flag_ga_with_lmdif ! use lmdif method for local optimization in GA method, default = .false.
-       logical                       flag_pso_with_lmdif ! use lmdif method for local optimization in PSO method, default = .false.
-       logical                       flag_pso_report_particles
-       logical                       flag_write_unformatted ! default = .false.
-       logical                       flag_report_geom
-   
-       logical                       flag_phase  ! default = .true.  ! apply phase factor to atomic orbital
-
-       real(kind=dp)                        ptol
-       real(kind=dp)                        ftol
-       real(kind=dp)                        fdiff
-       integer(kind=sp)                     ga_npop
-       integer(kind=sp)                     miter,mxfit
-       logical                       flag_tbfit, flag_pincar
-       logical                       flag_tbfit_finish ! when exiting fitting routine, it will be turn to .true.
-       logical                       flag_print_only_target
-       logical                       flag_print_energy_diff ! also print energy different between target and tight-binding energies
-       logical                       flag_print_orbital  ! activated with LORBIT .TRUE. tag
-       logical                       flag_get_orbital    ! whether request wavevector in diagonalize routine
-       logical                       flag_print_mag
-       logical                       flag_print_single ! default .false. (write single precision for wavefunction)
-       logical                       flag_load_nntable ! default .false.
-       character(len=2)                   axis_print_mag ! mx, my, mz (pauli matrices), 
+       character(len=132), allocatable  :: ifilenm(:)     ! input tag file (default = INCAR-TB, specified by -input ifilenm in command-line)
+       character(len=132), allocatable  :: title(:)       ! title of the system
+       character(len=132)                  wfilenm_parse  ! parsed weight    file name
+       character(len=132)                  pfilenm_parse  ! parsed parameter file name
+       character(len=132)                  kfilenm_parse  ! parsed kpoints   file name
+       logical                             flag_python_module ! .true. if call from python module tbfitpy
+                                        
+       character(len=40)                   fnamelog       ! log file name, default = TBFIT.log
+       logical                             flag_get_band  ! default = .true.
+       logical                             flag_spglib    ! default = .true. ! write space group information
+       logical                             flag_tbfit_parse, flag_tbfit_parse_
+       logical                             flag_kfile_parse
+       logical                             flag_pfile_parse
+       logical                             flag_wfile_parse
+       logical                             flag_ndiv_line_parse, flag_ndiv_grid_parse
+       logical                             flag_fit_degeneracy ! fitting is helped by fitting degeneracy as well.
+       logical                             flag_miter_parse, flag_mxfit_parse
+       logical                             flag_lorbit_parse
+!      logical                             flag_proj_parse
+       logical                             flag_parse
+       logical                             flag_tbfit_test
+       logical                             flag_inputcard_fname_parse
+       logical                             flag_ga_with_lmdif ! use lmdif method for local optimization in GA method, default = .false.
+       logical                             flag_pso_with_lmdif ! use lmdif method for local optimization in PSO method, default = .false.
+       logical                             flag_pso_report_particles
+       logical                             flag_write_unformatted ! default = .false.
+       logical                             flag_report_geom
+                                         
+       logical                             flag_phase  ! default = .true.  ! apply phase factor to atomic orbital
+                                        
+       real(kind=dp)                       ptol
+       real(kind=dp)                       ftol
+       real(kind=dp)                       fdiff
+       integer(kind=sp)                    ga_npop
+       integer(kind=sp)                    miter,mxfit
+       logical                             flag_tbfit, flag_pincar
+       logical                             flag_tbfit_finish ! when exiting fitting routine, it will be turn to .true.
+       logical                             flag_print_only_target
+       logical                             flag_print_energy_diff ! also print energy different between target and tight-binding energies
+       logical                             flag_print_orbital  ! activated with LORBIT .TRUE. tag
+       logical                             flag_get_orbital    ! whether request wavevector in diagonalize routine
+       logical                             flag_print_mag
+       logical                             flag_print_single ! default .false. (write single precision for wavefunction)
+       logical                             flag_load_nntable ! default .false.
+       character(len=2)                    axis_print_mag ! mx, my, mz (pauli matrices), 
                                                     ! re, im (real or imag part), 
                                                     ! wf (full wf), bi (enforce to write wf with binary format)
 
@@ -111,6 +114,7 @@ module parameters
        integer(kind=sp)                     nn_max(3)          ! cell reapeat for the nearest neighbor finding in find_nn routine (default:3 3 3)
        logical                       flag_use_weight    ! if true use "weight" information written in PFILE and 
                                                         ! replace it with SET WEIGHT info of INCAR-TB file after fitting procedures
+       logical                       flag_set_weight_from_file ! if true, use weight info from FILE (WT matrix is directly read)
 
        ! plot_eig mode
        logical                       flag_plot_eigen_state  !default : .false.
@@ -150,14 +154,14 @@ module parameters
        real(kind=dp)                 feast_emin, feast_emax ! energy window [emin:emax] for FEAST algorithm
 
        ! NOTE: new version of FEAST has fpm array with 64 but old version have 128. Should be properly chosen according to the FEAST LIB
-       integer(kind=sp)              feast_fpm(128)   ! FEAST parameters set by original feastinit
-       integer(kind=sp)              feast_fpm64(64)    ! FEAST parameters set by original feastinit
-       integer(kind=sp)              feast_fpm128(128)  ! FEAST parameters set by MKL extended eigensolver feast support routine
-!#ifdef PSPARSE
-!       integer(kind=sp)              feast_fpm(64)  ! FEAST parameters set by original feastinit
-!#else
-!       integer(kind=sp)              feast_fpm(128) ! FEAST parameters set by MKL extended eigensolver feast support routine
-!#endif
+!      integer(kind=sp)              feast_fpm(128)   ! FEAST parameters set by original feastinit
+!      integer(kind=sp)              feast_fpm64(64)    ! FEAST parameters set by original feastinit
+!      integer(kind=sp)              feast_fpm128(128)  ! FEAST parameters set by MKL extended eigensolver feast support routine
+#ifdef PSPARSE
+       integer(kind=sp)              feast_fpm(64)  ! FEAST parameters set by FEAST (v4.0)
+#else
+       integer(kind=sp)              feast_fpm(128) ! FEAST parameters set by MKL extended eigensolver feast support routine (v2.1)
+#endif
        integer(kind=sp),    allocatable  :: feast_ne(:,:)  ! Number of states found in erange [emin:emax], (:,:) = (nspin,nkpoint)
        integer(kind=sp)              feast_neguess  ! initial guess for the number of states to be found in interval
 
@@ -212,6 +216,9 @@ module parameters
        logical                       flag_pso_verbose_parse
        integer(kind=sp)              pso_verbose 
        
+       ! unfold
+       logical                       flag_get_unfold
+       
   endtype incar
 
   type params !PPRAM
@@ -230,11 +237,13 @@ module parameters
        integer(kind=sp)                     nparam_const             ! total number of parameters constraints
        integer(kind=sp)                     nparam_free              ! total number of free parameters size(iparam_free(:))
        real(kind=dp),       allocatable  :: param(:)                 ! TB parameters
+       real(kind=dp),       allocatable  :: param_best(:)                 ! TB parameters
        real(kind=dp),       allocatable  :: param_nrl(:,:)           ! NRL TB parameters
        integer(kind=sp),    allocatable  :: iparam_free(:)           ! parameter index for free parameters only (nparam_free) 
        integer(kind=sp),    allocatable  :: iparam_free_nrl(:)       ! parameter index for free parameters only (nparam_free), sum(param_nsub(iparam_free(1:j-1)))+1
        character(len=40), allocatable  :: param_name(:)            
        character(len=40), allocatable  :: c_const(:,:)             
+!      real(kind=dp),       allocatable  :: param_const_best(:,:)         ! i=1 -> 'is same as'
        real(kind=dp),       allocatable  :: param_const(:,:)         ! i=1 -> 'is same as'
                                                               ! i=2 -> 'is lower than' (.le.) : maximum bound  ! <=  20 
                                                               ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! >= -20 or >= 0.001 (if scale factor)
@@ -432,8 +441,9 @@ module parameters
 
   type weight !PWGHT
        integer(kind=sp)                     mysystem   ! my system index
-       character(len=132)            efilenmu,efilenmd  ! target energy file (spin up & dn)
-       character(len=16)             efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
+       character(len=132)                   efilenmu,efilenmd  ! target energy file (spin up & dn)
+       character(len=132)                   wfilenm            ! weight information file
+       character(len=16)                    efile_type         ! type of target_energy file: "VASP" (for future release we will add AIMS, QE ...) or  "user"
        real(kind=dp)                        efile_ef           ! fermi level for efile (energy shift: energy - efile_ef will be applied when reading efile)
        integer(kind=sp)                     itarget_e_start    ! from which energy level TBFIT read as target energy from target file?
        integer(kind=sp)                     read_energy_column_index, read_energy_column_index_dn ! which column of the target file should be read?
@@ -442,19 +452,19 @@ module parameters
        integer(kind=sp)                     vbmd, cbmd   ! valence and conduction band maximum and minimum: DFT
        integer(kind=sp)                     vbmt, cbmt   ! valence and conduction band maximum and minimum: TBA
        integer(kind=sp)                     ie_cutoff    ! if(ie_cutoff .gt. 0) sum_n=1,ie_cutoff (EDFT_n - ETBA_n) , default = 0
-       real(kind=dp),      allocatable   :: WT(:,:)
+       real(kind=dp),      allocatable   :: WT(:,:)      ! weight for fitting (neig*ispin, nkpoint)
        real(kind=dp),      allocatable   :: DEGENERACY_WT(:,:)
        real(kind=dp),      allocatable   :: PENALTY_ORB(:,:,:)
-       logical                       flag_weight_default
-       logical                       flag_weight_orb
+       logical                              flag_weight_default
+       logical                              flag_weight_orb
 
        ! weight setting
        integer(kind=sp)                     nweight      ! number of           weight  (WEIGHT)  strip in "SET WEIGHT" tag
        integer(kind=sp)                     ndegenw      ! number of dgeneracy weight  (DEGENW)  strip in "SET WEIGHT" tag
        integer(kind=sp)                     npenalty_orb ! number of orbital   penalty (PENALTY) strip in "SET WEIGHT" tag
-       character(len=132), allocatable :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
-       character(len=132), allocatable :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
-       character(len=132), allocatable :: strip_kp_deg(:), strip_tb_deg(:), strip_df_deg(:), strip_wt_deg(:)
+       character(len=132), allocatable   :: strip_kp(:), strip_tb(:), strip_df(:), strip_wt(:)
+       character(len=132), allocatable   :: strip_kp_orb(:), strip_tb_orb(:), strip_orb(:), strip_site(:), strip_pen_orb(:)
+       character(len=132), allocatable   :: strip_kp_deg(:), strip_tb_deg(:), strip_df_deg(:), strip_wt_deg(:)
        integer(kind=sp)                     max_len_strip_kp, max_len_strip_tb, max_len_strip_df
        integer(kind=sp)                     max_len_strip_ob, max_len_strip_st
 
@@ -545,6 +555,24 @@ module parameters
 
        logical                       dos_flag_sparse
   endtype dos
+
+  type unfold !PUFLD
+       integer(kind=sp)              mysystem
+       logical                       unfold_flag_sparse
+       character(len=132)            unfold_ifilenm_PBZ ! input file name for primitive cell
+       character(len=40)             unfold_kfilenm_PBZ ! kpoint file name for primitive cell
+       character(len=40)             unfold_kfilenm_SBZ ! kpoint file name for supercell
+       character(len=40)             unfold_gfilenm_PC  ! geometry file for primitive cell
+       character(len=40)             unfold_gfilenm_SC  ! geometry file for super cell
+       real(kind=sp)                 unfold_nkpoint
+       real(kind=dp), allocatable :: unfold_kpoint_PBZ(:,:)
+       integer(kind=sp)              unfold_nediv
+       integer(kind=sp)              unfold_nemax  ! ne_max between emin:emax for sparse eigen solver
+       real(kind=dp)                 unfold_kgrid(3)
+       real(kind=dp)                 unfold_emin, unfold_emax
+       real(kind=dp)                 unfold_smearing
+       real(kind=dp)                 unfold_kshift(3)
+  endtype
 
   type berry ! PINPT_BERRY
        integer(kind=sp)                     mysystem   ! my system index

@@ -143,6 +143,54 @@ subroutine set_weight(PINPT, PGEOM, PKPTS, PWGHT, EDFT, EDFT_all, strip_kp, stri
 return
 endsubroutine
 
+subroutine set_weight_from_file(WT, neig, ispin, nkp, wfilenm)
+    use parameters, only: pid_weight
+    use mpi_setup
+    use print_io
+    use mykind
+    implicit none
+    integer(kind=sp)  mpierr
+    integer(kind=sp)  i_continue
+    integer(kind=sp)  neig, ispin, nkp
+    integer(kind=sp)  ik, ie
+    character(len=132) inputline
+    character(len=132) wfilenm
+    character(len=40) desc_str
+    real(kind=dp)     WT(neig*ispin,nkp)
+
+    ik = 0
+    open(pid_weight, file=trim(wfilenm), status= 'unknown')
+
+
+ loop:do while (ik .lt. nkp)
+        read(pid_weight,'(A)',iostat=i_continue) inputline
+        if(i_continue<0) exit loop ! end of file reached
+        if(i_continue>0) then
+          write(message,*)'Unknown error reading file: ', trim(wfilenm) ; write_msg
+          stop
+        endif
+        ! check comment and empty line
+        read(inputline,*,iostat=i_continue) desc_str
+        if(desc_str(1:1) .eq. '#') cycle ! skip comment
+        if(i_continue .ne. 0)      cycle ! skip empty
+
+        ik = ik+1
+        if(i_continue .eq. 0) then
+          backspace(pid_weight)
+          read(pid_weight,*) (WT(ie,ik),ie=1,neig*ispin)
+        endif
+      enddo loop
+
+    if(ik .ne. nkp) then
+      write(message,'(A,A )')'   !WARN! error in reading ',trim(wfilenm)  ; write_msg
+      write(message,'(A,I8)')'   Exit.. NKPTS !=',ik  ; write_msg
+    endif
+
+    close(pid_weight)
+
+return
+endsubroutine
+
 subroutine get_siterange(strip_site, PGEOM, PINPT, orbrange, size_orbrange, siterange_dummy, size_siterange)
    use parameters
    use mpi_setup
@@ -409,7 +457,6 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
    integer*4, intent(out) :: dfrange_dummy(PGEOM%neig_target)
    integer*4        nrange
    integer*4        init, fina, iband
-   integer*4        mpierr
    integer*4, allocatable :: irange(:), irange_new(:), dfrange(:)
    character(*)     strip_df
    character*20,allocatable :: str(:)
@@ -418,6 +465,7 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
    logical          flag_number, flag_collinear, flag_noncollinear
    external         nitems
    external         flag_number
+   integer*4        mpierr
 
    flag_collinear = PINPT%flag_collinear
    flag_noncollinear = PINPT%flag_noncollinear
@@ -430,7 +478,6 @@ subroutine get_dfrange(strip_df, PWGHT, PINPT, PGEOM, dfrange_dummy, size_dfrang
    do i=1,nrange
 
      if(index(str(i),':') .eq. 0) then
-
        if(flag_number(str(i))) then
          call str2int( trim(str(i)), init )
          fina=init

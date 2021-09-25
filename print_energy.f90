@@ -12,9 +12,9 @@ subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    type(kpoints) :: PKPTS
    integer*4        mpierr
 
-   if(.not. PINPT%flag_distribute_nkp) then
+!  if(.not. PINPT%flag_distribute_nkp) then
      if( myid .ne. 0) return
-   endif
+!  endif
 
    if(PINPT%flag_print_energy_diff ) then
 
@@ -24,22 +24,22 @@ subroutine print_band_structure(PKPTS, ETBA, EDFT, PGEOM, PINPT, PPRAM, PWGHT)
    elseif(.not. PINPT%flag_print_energy_diff ) then
 
      if(PINPT%flag_get_band) then
-       if(.not. PINPT%flag_distribute_nkp) then
+!      if(.not. PINPT%flag_distribute_nkp) then
          call print_energy(PKPTS, ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
                            PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
          if(PINPT%flag_get_band_order) then
            call print_energy(PKPTS, ETBA%E_ORD, ETBA%E_ORD, ETBA%V_ORD, ETBA%SV_ORD, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
                            PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '_ordered')
          endif
-       elseif(PINPT%flag_distribute_nkp) then
-!        call print_energy_distributed(ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
-!                                      PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
-         write(message,'(A)')'    !WARN! The current version does not support PINPT%flag_distribute_nkp (LDISTRK) = .TRUE. ' ; write_msg
-         write(message,'(A)')'           for band structure storing. The subroutine for this "print_energy_distributed" ' ; write_msg
-         write(message,'(A)')'           will be implemented in the near future.' ; write_msg
-         write(message,'(A)')'           Exit program... 19. Mar. 2021. HJ Kim' ; write_msg
-         kill_job
-       endif
+!      elseif(PINPT%flag_distribute_nkp) then
+!       !call print_energy_distributed(ETBA%E, ETBA%E, ETBA%V, ETBA%SV, PGEOM%neig, PGEOM%init_erange, PGEOM%nband, &
+!       !                              PINPT, PWGHT, PPRAM%flag_use_overlap, .TRUE., '')
+!        write(message,'(A)')'    !WARN! The current version does not support PINPT%flag_distribute_nkp (LDISTRK) = .TRUE. ' ; write_msg
+!        write(message,'(A)')'           for band structure storing. The subroutine for this "print_energy_distributed" ' ; write_msg
+!        write(message,'(A)')'           will be implemented in the near future.' ; write_msg
+!        write(message,'(A)')'           Exit program... 19. Mar. 2021. HJ Kim' ; write_msg
+!        kill_job
+!      endif
      endif
 
    endif

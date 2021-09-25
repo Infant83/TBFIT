@@ -614,14 +614,19 @@ endsubroutine
 ! endsubroutine
 #endif
 #ifdef MKL_SPARSE
-subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector,fpm,iflag,ne_prev)
+subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector,fpm,iflag)
     use parameters, only: spmat
     use time
     implicit none
     type(spmat) :: SHk, SSk
     integer*4   msize, iflag
-    integer*4   ne_found, nemax, ne_guess, ne_prev
-    integer*4   loop, fpm(128)
+    integer*4   ne_found, nemax, ne_guess
+    integer*4   loop
+#ifdef PSPARSE
+    integer*4   fpm(64)
+#else
+    integer*4   fpm(128)
+#endif
     integer*4   iter, max_iter
     real*8      emin, emax
     real*8      epsout
@@ -631,7 +636,7 @@ subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_gue
     real*8      res(nemax)
     complex*16  V_(SHk%msize,nemax)
     complex*16  V(SHk%msize,nemax)
-    character(*), parameter :: func = 'cal_eig_hermitianx_sparse'
+    character(*), parameter :: func = 'cal_gen_eig_hermitianx_sparse'
     character*1 UPLO
     logical     flag_success
     real*8      t1, t0
@@ -640,11 +645,6 @@ subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_gue
     max_iter = 5; iter = 1
 
     msize = SHk%msize
-
-    if(fpm(5) .eq. 1) then
-      V_ = 0d0
-      if(ne_prev .ge. 1) V_(:,1:ne_prev) = V(:, 1:ne_prev)
-    endif
 
     UPLO = 'F'
     ! FEAST eigensolver for Complex and Hermitian Sparse 3-array matrix
@@ -662,25 +662,16 @@ subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_gue
       E = 0d0
       E(1:ne_found) = E_(1:ne_found)
 
-      if(fpm(5) .eq. 1) then
+      if(flag_vector) then
         V = 0d0
         V(:, 1:ne_found) = V_(:, 1:ne_found)
-      else
-        if(flag_vector) then
-          V = 0d0
-          V(:, 1:ne_found) = V_(:, 1:ne_found)
-        endif
       endif
 
     elseif(ne_found .eq. 0) then
       E = 0d0
 
-      if(fpm(5) .eq. 1) then
-        V = V_ !return to V_ if no result obtained
-      else
-        if(flag_vector) then
-          V = 0d0
-        endif
+      if(flag_vector) then
+        V = 0d0
       endif
 
     endif
@@ -688,14 +679,83 @@ subroutine cal_gen_eig_hermitianx_sparse(SHk,SSk,emin,emax,nemax,ne_found,ne_gue
 
     return
 endsubroutine
-subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag, ne_prev)
+
+#ifdef PSPARSE
+subroutine cal_gen_eig_hermitianx_psparse(SHk,SSk,emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector,fpm,iflag)
+    use parameters, only: spmat
+    use time
+    implicit none
+    type(spmat) :: SHk, SSk
+    integer*4   msize, iflag
+    integer*4   ne_found, nemax, ne_guess
+    integer*4   loop
+    integer*4   fpm(64)
+    integer*4   iter, max_iter
+    integer*4   mpierr
+    real*8      emin, emax
+    real*8      epsout
+    logical     flag_vector
+    real*8      E_(nemax)
+    real*8      E(nemax)
+    real*8      res(nemax)
+   !complex*16  V_(SHk%msize,nemax)
+    complex*16, allocatable :: V_(:,:)
+    complex*16  V(SHk%msize,nemax)
+    character(*), parameter :: func = 'cal_gen_eig_hermitianx_psparse'
+    character*1 UPLO
+    logical     flag_success
+    real*8      t1, t0
+
+    flag_success = .false.
+    max_iter = 5; iter = 1
+
+    msize = SHk%msize
+        
+    allocate(V_(SHk%msize,nemax))
+        
+    UPLO = 'F'
+    ! PFEAST eigensolver for Complex and Hermitian generalized eigenvalue problem
+    do while (.not. flag_success .and. iter .le. 5)
+      call pzfeast_hcsrgv(UPLO, msize, SHk%H, SHk%I, SHk%J, SSk%H, SSk%I, SSk%J, fpm, epsout, loop, emin, emax, ne_guess, &
+                         E_, V_, ne_found, res, iflag)
+      call report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
+    enddo
+
+    if(ne_found .ge. 1 .and. COMM_JUELICH%myid .eq. 0) then
+      E = 0d0
+      E(1:ne_found) = E_(1:ne_found)
+
+      if(flag_vector) then
+        V = 0d0
+        V(:, 1:ne_found) = V_(:, 1:ne_found)
+      endif
+
+    elseif(ne_found .eq. 0 .and. COMM_JUELICH%myid .eq. 0) then
+      E = 0d0
+
+      if(flag_vector) then
+        V = 0d0
+      endif
+
+    endif
+
+    return
+endsubroutine
+#endif
+
+subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag)
     use parameters, only: spmat
     use time
     implicit none
     type(spmat) :: SHk
     integer*4   msize, iflag
-    integer*4   ne_found, nemax, ne_guess, ne_prev
-    integer*4   loop, fpm(128)
+    integer*4   ne_found, nemax, ne_guess
+    integer*4   loop
+#ifdef PSPARSE
+    integer*4   fpm(64)
+#else
+    integer*4   fpm(128)
+#endif
     integer*4   iter, max_iter
     real*8      emin, emax
     real*8      epsout
@@ -715,11 +775,6 @@ subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,
 
     msize = SHk%msize
 
-    if(fpm(5) .eq. 1) then
-      V_ = 0d0
-      if(ne_prev .ge. 1) V_(:,1:ne_prev) = V(:, 1:ne_prev)
-    endif
-
     UPLO = 'F'
     ! FEAST eigensolver for Complex and Hermitian Sparse 3-array matrix
     do while (.not. flag_success .and. iter .le. 5)
@@ -732,37 +787,92 @@ subroutine cal_eig_hermitianx_sparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,
       E = 0d0
       E(1:ne_found) = E_(1:ne_found)
 
-      if(fpm(5) .eq. 1) then
+      if(flag_vector) then
         V = 0d0
         V(:, 1:ne_found) = V_(:, 1:ne_found)
-      else
-        if(flag_vector) then
-          V = 0d0
-          V(:, 1:ne_found) = V_(:, 1:ne_found)
-        endif
       endif
 
     elseif(ne_found .eq. 0) then
       E = 0d0
 
-      if(fpm(5) .eq. 1) then
-        V = V_ !return to V_ if no result obtained
-      else
-        if(flag_vector) then
-          V = 0d0
-        endif
+      if(flag_vector) then
+        V = 0d0
       endif
 
     endif
 
 return
 endsubroutine
+
+#ifdef PSPARSE
+subroutine cal_eig_hermitianx_psparse(SHk, emin,emax,nemax,ne_found,ne_guess,E,V,flag_vector, fpm, iflag)
+    use parameters, only: spmat
+    use time
+    implicit none
+    type(spmat) :: SHk
+    integer*4   msize, iflag
+    integer*4   ne_found, nemax, ne_guess
+    integer*4   loop
+    integer*4   mpierr
+    integer*4   fpm(64)
+    integer*4   iter, max_iter
+    real*8      emin, emax
+    real*8      epsout
+    logical     flag_vector
+    real*8      E_(nemax)
+    real*8      E(nemax)
+    real*8      res(nemax)
+    complex*16  V_(SHk%msize,nemax)
+   !complex*16, allocatable :: V_(:,:)
+    complex*16  V(SHk%msize,nemax)
+    character(*), parameter :: func = 'cal_eig_hermitianx_psparse'
+    character*1 UPLO
+    logical     flag_success
+    real*8      t1, t0
+
+    flag_success = .false.
+    max_iter = 5; iter = 1
+
+    msize = SHk%msize
+
+   !allocate(V_(SHk%msize,nemax))
+
+    UPLO = 'F'
+    ! FEAST eigensolver for Complex and Hermitian Sparse 3-array matrix
+    do while (.not. flag_success .and. iter .le. 5)
+      call pzfeast_hcsrev(UPLO, msize, SHk%H, SHk%I, SHk%J, fpm, epsout, loop, emin, emax, ne_guess, &
+                         E_, V_, ne_found, res, iflag)
+      call report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
+    enddo
+
+    if(ne_found .ge. 1 .and. COMM_JUELICH%myid .eq. 0) then
+      E = 0d0
+      E(1:ne_found) = E_(1:ne_found)
+      if(flag_vector) then
+        V(:, 1:ne_found) = V_(:, 1:ne_found)
+        V(:, ne_found+1:) = 0d0
+      endif
+    elseif(ne_found .eq. 0 .and. COMM_JUELICH%myid .eq. 0) then
+      E = 0d0
+      if(flag_vector) then
+        V = 0d0
+      endif
+    endif
+
+return
+endsubroutine
+#endif
+
 subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, emin, emax, ne_guess, ne_found, nemax)
     implicit none
     integer*4    iflag, idummy
     integer*4    iter, max_iter
     logical      flag_success
+#ifdef PSPARSE
+    integer*4    fpm(64)
+#else
     integer*4    fpm(128)
+#endif
     character*8  argument(16)
     real*8       emin, emax
     integer*4    ne_guess, ne_found   
@@ -789,46 +899,55 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
 
       ! Error messages. Program will be stop.
       case(202)
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=202,   Problem with size of the system "msize"'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=202,   Problem with size of the system "msize"'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(201)                    
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=201,   Problem with size of subspace   "ne_guess"'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=201,   Problem with size of subspace   "ne_guess"'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(200)                    
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=200,   Problem with "emin", "emax"'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=200,   Problem with "emin", "emax"'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(100:199)
         idummy = iflag - 100
-        write(message,'(A,I0,A,I0,A     )')'   !ERROR! feast_scsrev: IFLAG= 100+',idummy,', Problem with ',idummy,'-th value'  ; write_msg
-        write(message,'(A,I0,A)'          )'           of the input FEAST parameter (i.e. fpm(',idummy,'))'  ; write_msg
+        write(message,'(A,I0,A,I0,A     )')'   !ERROR! feast_scsrev: IFLAG= 100+',idummy,', Problem with ',idummy,'-th value'  ; write_msg_all
+        write(message,'(A,I0,A)'          )'           of the input FEAST parameter (i.e. fpm(',idummy,'))'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
 
       ! Warning messages. Program will be continue.
       case(6  )                    
-        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=6  ,   FEAST converges but subspace is not bi-orthogonal'  ; write_msg
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=6  ,   FEAST converges but subspace is not bi-orthogonal'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         flag_success = .true.
       case(5  )                    
-        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=5  ,   Only stochastic estimation of #eigenvalues'  ; write_msg
-        write(message,'(A)'               )'                                      returned fpm(14)=2'  ; write_msg
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=5  ,   Only stochastic estimation of #eigenvalues'  ; write_msg_all
+        write(message,'(A)'               )'                                      returned fpm(14)=2'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         flag_success = .true.
       case(4  )                    
-        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=4  ,   Only the subspace has been returned using fpm(14)=1'  ; write_msg
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=4  ,   Only the subspace has been returned using fpm(14)=1'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         flag_success = .true.
       case(3  )                    
-        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_GUESS" is too small'  ; write_msg
-        write(message,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'  ; write_msg
-        write(message,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'  ; write_msg
-        write(message,'(A)'               )'                                      Please increase NE_GUESS.'  ; write_msg
-        write(message,'(A,I0)'            )'                                      NE_FOUND = ', ne_found  ; write_msg
-        write(message,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess  ; write_msg
-        write(message,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.2*NE_MAX)'  ; write_msg
-        write(message,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.2*nemax)  ; write_msg
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=3  ,   Size of the subspace "NE_GUESS" is too small'  ; write_msg_all
+        write(message,'(A)'               )'                                      The proper condition is: 0 <= NE * 1.5 < NE_MAX <= NEIG'  ; write_msg_all
+        write(message,'(A)'               )'                                      The eigenvalues less than NE_MAX will be stored.'  ; write_msg_all
+        write(message,'(A)'               )'                                      Please increase NE_GUESS.'  ; write_msg_all
+        write(message,'(A,I0)'            )'                                      NE_FOUND = ', ne_found  ; write_msg_all
+        write(message,'(A,I0)'            )'                                      NE_GUESS = ', ne_guess  ; write_msg_all
+        write(message,'(A   )'            )'                                       ==> NE_GUES_new = ne_guess + ceiling(0.2*NE_MAX)'  ; write_msg_all
+        write(message,'(A,I0)'            )'                                                       = ',ne_guess + ceiling(0.2*nemax)  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         ne_guess = ne_guess + ceiling(0.1*nemax)
         flag_success = .false.
         iter = iter + 1
       case(2  )                    
-        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'  ; write_msg
-        write(message,'(A, I0,A, I0)'     )'           -> increase refinement loops from ', fpm(4),' to ', fpm(4) + 10  ; write_msg
+        write(message,'(A)'               )'   !WARN!  feast_scsrev: IFLAG=2  ,   No Convergence (#iteration loops > fpm(4))'  ; write_msg_all
+        write(message,'(A, I0,A, I0)'     )'           -> increase refinement loops from ', fpm(4),' to ', fpm(4) + 10  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         fpm(4) = fpm(4) + 10
         flag_success = .false.
         iter = iter + 1
@@ -843,28 +962,33 @@ subroutine report_error_feast_scsrev(iflag, fpm, flag_success, iter, max_iter, e
       
       ! Error messages. Program will be stop.
       case(-1 )                    
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-1 ,   Internal error for allocation memory'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-1 ,   Internal error for allocation memory'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(-2 )                    
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-2 ,   Internal error of the inner system solver in'  ; write_msg
-        write(message,'(A)'               )'                                      FEAST predefinded interfaces'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-2 ,   Internal error of the inner system solver in'  ; write_msg_all
+        write(message,'(A)'               )'                                      FEAST predefinded interfaces'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(-3 )                    
-        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-3 ,   Internal error of the reduced eigenvalue solver'  ; write_msg
-        write(message,'(A)'               )'                                      Possible cause for Hermitian problem:'  ; write_msg
-        write(message,'(A)'               )'                                          -->  matrix H may not be positive definite'  ; write_msg
+        write(message,'(A)'               )'   !ERROR! feast_scsrev: IFLAG=-3 ,   Internal error of the reduced eigenvalue solver'  ; write_msg_all
+        write(message,'(A)'               )'                                      Possible cause for Hermitian problem:'  ; write_msg_all
+        write(message,'(A)'               )'                                          -->  matrix H may not be positive definite'  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
       case(-120:-101 )                    
         idummy = (iflag + 100) * -1
-        write(message,'(A,I2,A,I0,A)'     )'   !ERROR! feast_scsrev: IFLAG=-(100+',idummy,'),  Problem with the ',idummy,'-th argument'  ; write_msg
-        write(message,'(A,A)'             )'                                           of the FEAST interface:',trim(argument(idummy))  ; write_msg
+        write(message,'(A,I2,A,I0,A)'     )'   !ERROR! feast_scsrev: IFLAG=-(100+',idummy,'),  Problem with the ',idummy,'-th argument'  ; write_msg_all
+        write(message,'(A,A)'             )'                                           of the FEAST interface:',trim(argument(idummy))  ; write_msg_all
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
     end select
 
     if(.not. flag_success .and. iter .gt. max_iter) then
-        write(message,'(A          )'     )'   !ERROR! feast_scsrev: Calculation has not been successfully finished until "max_iter".'  ; write_msg
-        write(message,'(A          )'     )'           Please increase "max_iter" parameter of your source code or check your input again.'  ; write_msg
+        write(message,'(A          )'     )'   !ERROR! feast_scsrev: Calculation has not been successfully finished until "max_iter".'  ; write_msg_all
+        write(message,'(A          )'     )'           Please increase "max_iter" parameter of your source code or check your input again.'  ; write_msg_all
         write(message,'(A          )'     )'           Exit program...'  ; write_msg
+        write(message,'(A, I0)'           )'           NODE ID: ', myid ; write_msg_all
         stop
     endif
 

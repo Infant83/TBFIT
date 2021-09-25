@@ -16,7 +16,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
   integer*4  ik, my_ik, neig
   integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
   integer*4  nkp, is, ie,fe, im, fm
-  integer*4  ne_prev(PINPT%nspin)
   real*8     percent, kp(3,nkp)
   real*8     E(nband*PINPT%nspin,nkp)
   complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin,nkp)
@@ -31,9 +30,9 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                                               ! be added up and constructed along with the k_loop due to the total number 
                                               ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
   integer*4  feast_ne(PINPT%nspin, nkp)
- !integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
   integer*4  ncpu, id
-  integer*4, allocatable :: ourjob(:), ourjob_disp(:)
+  integer*4, allocatable :: ourjob(:), ourjob_disp(:), ourgroup(:)
+  integer*4                 mygroup(0:nprocs-1),groupid
 
   if(flag_stat) then
     write(message,'(A)') '  ' ; write_msg
@@ -48,23 +47,52 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
     ncpu = nprocs
     id   = myid
   endif
+
+#ifdef PSPARSE
+  if(flag_sparse) then
+#ifdef MPI
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+    call get_npar(trim(PINPT%ifilenm(1)))
+    allocate(ourgroup(npar))
+    allocate(ourjob(npar))
+    allocate(ourjob_disp(0:npar-1))
+    call mpi_job_distribution_group(npar, nkp, ourgroup, mygroup, ourjob, ourjob_disp)
+    call mpi_comm_anmeldung(COMM_JUELICH, npar, mygroup, COMM_JUELICH_RATHAUS)
+    groupid = COMM_JUELICH%color
+    id      = groupid
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+#else
+    write(message,'(A)')' DPSARSE and DMPI option should be activated together. Currently, only DPSPARSE is activated.' ; write_msg
+    write(message,'(A)')' Please set DPSPARSE option in your makefile OPTIONS and recompile the code. Exit...' ; write_msg
+    kill_job
+#endif
+  else
+    allocate(ourjob(ncpu))
+    allocate(ourjob_disp(0:ncpu-1))
+  endif
+#else
   allocate(ourjob(ncpu))
   allocate(ourjob_disp(0:ncpu-1))
+#endif
 
+#ifdef PSPARSE
+  if(flag_sparse) then
+    call report_job_distribution_group(flag_stat, ourjob, ourgroup)
+  else
+    call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
+    if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
+  endif
+#else
   call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
   if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
-  call initialize_all (EE, neig, nband, nkp, ourjob(id+1), PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
+#endif
+
+  call initialize_all (EE, neig, nband, nkp, ourjob(id+1), &
+                       PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
                        ii, iadd, t1, t0, flag_init)
+
   if_main call report_memory_total(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
                                    flag_stat, flag_sparse, ncpu)
-
-  if(flag_vector) then
-    if( size(EE%V, kind=8) .gt. int8(int8(2)**int8(31)-int8(1))) then
-      write(message,'(A)')'    !WARN! The eigenvector array size exeeds 2**31-1. We cannot handle such a huge matrix in a single cpu.'
-      write(message,'(A)')'           Please use "PRTSEPK .TRUE." tag in your INCAR-TB. The output band structure will be seperaterated'
-      write(message,'(A)')'           into each k-point. This will reduce required memory by factor of ncpu.'
-    endif
-  endif
 
   if(flag_stat) then 
     write(message,'(A)'             ) ' ' ; write_msg
@@ -76,12 +104,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
  k_loop:do ik= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
     my_ik = ik - sum(ourjob(1:id))
     if(flag_sparse) then
-      if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then 
-        EE%V(:,:,my_ik) = EE%V(:,:,my_ik-1)
-        ne_prev = PINPT%feast_ne(1:PINPT%nspin,ik-1)
-      else
-        ne_prev = 0
-      endif
 #ifdef MKL_SPARSE
       !NOTE: SHm is k-independent -> keep unchankged from first call
       !      SHs is k-independent if flag_slater_koster
@@ -89,8 +111,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
       call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), EE%V(:,:,my_ik), PINPT, PPRAM, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
                              PINPT%feast_ne(1:PINPT%nspin,ik),&
-                             flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
-      
+                             flag_sparse_SHm, flag_sparse_SHs, timer)
 #else
 
       write(message,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
@@ -102,30 +123,74 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                              neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
     endif
 
+#ifdef PSPARSE
+    if(flag_sparse) then
+      if(flag_stat .and. myid .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
+    elseif(.not. flag_sparse) then
+      if(flag_stat .and. id .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
+    endif
+#else
     if(flag_stat .and. id .eq. 0) call print_eig_status(ik, ii, iadd, ourjob)
+#endif
+
   enddo k_loop
 
-
 #ifdef MPI
+  call MPI_BARRIER(mpi_comm_earth, mpierr)
   if(flag_stat .and. myid .eq. 0) then
     write(message,'(A)')'  ' ; write_msg
     write(message,'(A)')'   Gathering all results to main node 0 ...' 
     call write_log(trim(message), 23, myid)
   endif
+
   if(.not. COMM_KOREA%flag_split) then
-    call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
-    if(flag_vector .and. nkp .ne. 1) then
-      call MPI_GATHERV(EE%V,size(EE%V, kind=4), MPI_COMPLEX16, V, &
-                       ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
-                       ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
-                       MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
-      if(PPRAM%flag_use_overlap) then
-        call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
-                         ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &
-                         ourjob_disp *     neig*PINPT%ispin*nband*PINPT%nspin , &
-                         MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
+    if(.not. flag_sparse) then
+      call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+      if(flag_vector .and. nkp .ne. 1) then
+        call MPI_GATHERV(EE%V,size(EE%V, kind=4), MPI_COMPLEX16, V, &
+                         ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
+        if(PPRAM%flag_use_overlap) then
+          call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
+                           ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           ourjob_disp *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
+        endif
+      endif                     
+    elseif(flag_sparse) then
+#ifdef PSPARSE      
+      if(COMM_JUELICH_RATHAUS%mpi_comm .ne. MPI_COMM_NULL) then
+        call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)  ! share all results 
       endif
-    endif                     
+      if(flag_vector .and. nkp .ne. 1 .and. COMM_JUELICH_RATHAUS%mpi_comm .ne. MPI_COMM_NULL) then
+        call MPI_GATHERV(EE%V,size(EE%V, kind=4), MPI_COMPLEX16, V, &
+                         ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         MPI_COMPLEX16, 0, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)  ! only main node keep wave vector information
+        if(PPRAM%flag_use_overlap) then
+          call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
+                           ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           ourjob_disp *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           MPI_COMPLEX16, 0, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)  ! only main node keep overlap matrix information
+        endif
+      endif
+#else
+      call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+      if(flag_vector .and. nkp .ne. 1) then
+        call MPI_GATHERV(EE%V,size(EE%V, kind=4), MPI_COMPLEX16, V, &
+                         ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
+                         MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
+        if(PPRAM%flag_use_overlap) then
+          call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
+                           ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           ourjob_disp *     neig*PINPT%ispin*nband*PINPT%nspin , &
+                           MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep overlap matrix information
+        endif
+      endif
+#endif
+    endif
   elseif(COMM_KOREA%flag_split) then
     call MPI_ALLREDUCE(EE%E, E, size(E,kind=4), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
     if(flag_vector .and. nkp .ne. 1) then
@@ -148,7 +213,14 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
     if(.not.COMM_KOREA%flag_split) then
+#ifdef PSPARSE
+      call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_JUELICH%mpi_comm, mpierr)
+      if(COMM_JUELICH_RATHAUS%mpi_comm .ne. MPI_COMM_NULL) then
+        call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)
+      endif
+#else
       call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+#endif
     elseif(COMM_KOREA%flag_split) then
       call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
     endif
@@ -193,7 +265,6 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
   integer*4  ik, neig, ijob
   integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
   integer*4  nkp, is, ie,fe, im, fm
-  integer*4  ne_prev(PINPT%nspin)
   real*8     percent, kp(3,nkp)
   real*8     E(nband*PINPT%nspin, nkp)
   complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)
@@ -211,10 +282,10 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
                                               ! be added up and constructed along with the k_loop due to the total number 
                                               ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
   integer*4  feast_ne(PINPT%nspin, nkp)
- !integer*4  ourjob(nprocs), ourjob_disp(0:nprocs-1)
   integer*4  ncpu, id
-  integer*4, allocatable :: ourjob(:), ourjob_disp(:)
+  integer*4, allocatable :: ourjob(:), ourjob_disp(:), ourgroup(:)
   integer*4, allocatable :: non_skip_list(:)
+  integer*4                 mygroup(0:nprocs-1), groupid
   integer*4                 n_non_skip
 
   if(flag_stat) then
@@ -234,8 +305,6 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
     ncpu = nprocs
     id   = myid
   endif
-  allocate(ourjob(ncpu))
-  allocate(ourjob_disp(0:ncpu-1))
 
   ! check non-skip list
   allocate(non_skip_list(nkp)) ; non_skip_list = 0 ; n_non_skip = 0
@@ -273,11 +342,48 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
     endif
   enddo
 
+#ifdef PSPARSE
+  if(flag_sparse) then
+#ifdef MPI
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+    call get_npar(trim(PINPT%ifilenm(1)))
+    allocate(ourgroup(npar))
+    allocate(ourjob(npar))
+    allocate(ourjob_disp(0:npar-1))
+    call mpi_job_distribution_group(npar, n_non_skip, ourgroup, mygroup, ourjob, ourjob_disp)
+    call mpi_comm_anmeldung(COMM_JUELICH, npar, mygroup, COMM_JUELICH_RATHAUS)
+    groupid = COMM_JUELICH%color
+    id      = groupid
+    call MPI_BARRIER(mpi_comm_earth, mpierr)
+#else
+    write(message,'(A)')' DPSARSE and DMPI option should be activated together. Currently, only DPSPARSE is activated.' ; write_msg
+    write(message,'(A)')' Please set DPSPARSE option in your makefile OPTIONS and recompile the code. Exit...' ; write_msg
+    kill_job
+#endif
+  else
+    allocate(ourjob(ncpu))
+    allocate(ourjob_disp(0:ncpu-1))
+  endif
+#else
+  allocate(ourjob(ncpu))
+  allocate(ourjob_disp(0:ncpu-1))
+#endif
+
+#ifdef PSPARSE
+  if(flag_sparse) then
+    call report_job_distribution_group(flag_stat, ourjob, ourgroup)
+  else
+    call mpi_job_distribution_chain(n_non_skip, ncpu, ourjob, ourjob_disp)
+    if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
+  endif
+#else
   call mpi_job_distribution_chain(n_non_skip, ncpu, ourjob, ourjob_disp)
- !call mpi_job_distribution_chain(nkp, ncpu, ourjob, ourjob_disp)
   if(.not. COMM_KOREA%flag_split) call report_job_distribution(flag_stat, ourjob)
+#endif
+
   call initialize_all (EE, neig, nband, nkp, ourjob(id+1), PINPT, flag_vector, PPRAM%flag_use_overlap, flag_sparse, flag_stat, &
                        ii, iadd, t1, t0, flag_init)
+
   if_main call report_memory_singlek(PINPT%ispinor, PINPT%ispin, PINPT%nspin, neig, nband, nkp, &
                                    flag_stat, flag_sparse, ncpu)
 
@@ -288,17 +394,10 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
     call write_log(trim(message),22, myid)
   endif
 
-!k_loop:do ik= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
  k_loop:do ijob= sum(ourjob(1:id))+1, sum(ourjob(1:id+1))
     ik = non_skip_list(ijob)
 
     if(flag_sparse) then
-      if(PINPT%feast_fpm(5) .eq. 1 .and. .not. flag_init) then
-        ne_prev = PINPT%feast_ne(1:PINPT%nspin,ik-1)
-      else
-        ne_prev = 0
-      endif
-
 #ifdef MKL_SPARSE
       !NOTE: SHm is k-independent -> keep unchankged from first call
       !      SHs is k-independent if flag_slater_koster
@@ -306,10 +405,9 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
       call cal_eig_Hk_sparse(SHm, SHs, EE%E(:,ik), V, PINPT, PPRAM, NN_TABLE, kp(:,ik), &
                              neig, nband, flag_vector, flag_init, flag_phase, &
                              PINPT%feast_ne(1:PINPT%nspin,ik), &
-                             flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
+                             flag_sparse_SHm, flag_sparse_SHs, timer)
 
 #else
-
       write(message,'(A)')'    !WARN! The EWINDOW tag is only available if you have put -DMKL_SPARSE option'  ; write_msg
       write(message,'(A)')'           in your make file. Please find the details in the instruction. Exit program...'  ; write_msg
       kill_job
@@ -325,24 +423,44 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
   enddo k_loop
 
 #ifdef MPI
+  call MPI_BARRIER(mpi_comm_earth, mpierr)
   if(flag_stat .and. myid .eq. 0) then
     write(message,'(A)')'  ' ; write_msg
     write(message,'(A)')'   Gathering all results to main node 0 ...'
     call write_log(trim(message), 23, myid)
   endif
+
   if(.not. COMM_KOREA%flag_split) then
-    call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+    if(.not. flag_sparse) then
+      call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+    elseif(flag_sparse) then
+#ifdef PSPARSE
+      if(COMM_JUELICH_RATHAUS%mpi_comm .ne. MPI_COMM_NULL) then
+        call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)
+      endif
+#else
+      call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)  ! share all results 
+#endif
+    endif
   elseif(COMM_KOREA%flag_split) then
     call MPI_ALLREDUCE(EE%E, E, size(E), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)  ! share all results 
   endif
+
   if(flag_stat) then
     write(message,'(A)')'  done!' ; write_msg
     write(message,'(A  )')' ' ; write_msg
   endif
+
 #ifdef MKL_SPARSE
   if(flag_sparse) then
     if(.not.COMM_KOREA%flag_split) then
+#ifdef PSPARSE
+      if(COMM_JUELICH_RATHAUS%mpi_comm .ne. MPI_COMM_NULL) then
+        call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_JUELICH_RATHAUS%mpi_comm, mpierr)
+      endif
+#else
       call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+#endif
     elseif(COMM_KOREA%flag_split) then
       call MPI_ALLREDUCE(PINPT%feast_ne, feast_ne, size(feast_ne), MPI_INTEGER4, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
     endif
@@ -352,8 +470,8 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
     endif
   endif
 #endif
-#else
 
+#else
   E = EE%E 
 #ifdef MKL_SPARSE
   if(flag_stat) then
@@ -382,71 +500,10 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
 return
 endsubroutine
 
-subroutine get_eig_singlek(NN_TABLE, kp, ik, PINPT, PPRAM, E, V, SV, neig, iband, nband, ne_found, &
-                           flag_vector, flag_sparse, flag_stat, flag_phase)
-  use parameters, only: hopping, incar, energy, spmat, params
-  use mpi_setup
-  use time
-  use memory
-  use reorder_band
-  use print_io
-  implicit none
-  type (hopping) :: NN_TABLE
-  type (incar  ) :: PINPT
-  type (params ) :: PPRAM
-  type (energy ) :: EE
-  type (spmat  ) :: SHm, SHs
-  integer*4  mpierr, iadd, ii
-  integer*4  ik, neig, ijob
-  integer*4  iband,nband ! if sparse: iband = 1, nband = feast_nemax
-  integer*4  is, ie,fe, im, fm
-  real*8     kp(3)
-  real*8     E(nband*PINPT%nspin)
-  complex*16 V(neig*PINPT%ispin,nband*PINPT%nspin)
-  complex*16 SV(neig*PINPT%ispin,nband*PINPT%nspin) ! overlap integeral multiplied S * V
-  complex*16 Hm(neig*PINPT%ispinor,neig*PINPT%ispinor) ! collinear magnetism hamiltonian (k-independent)
-  complex*16 Hs(neig*PINPT%ispinor,neig*PINPT%ispinor) ! 1st-order SO coupling hamiltonian (k-dependent if .not. SK)
-  logical, intent(in) :: flag_vector, flag_stat
-  character*4 timer
-  character*80 fname_header, fname
-  character*20,external ::   int2str
-  logical    flag_file_exist
-  logical    flag_phase, flag_init, flag_sparse
-  logical    flag_sparse_SHm, flag_sparse_SHs ! if .false. sparse Hamiltonian SHm(collinear magnetic) and SHs(SOC) will not
-                                              ! be added up and constructed along with the k_loop due to the total number 
-                                              ! of non-zero element is zero. This is determined in the get_ham_mag(soc)_sparse 
-  integer*4  ne_prev(PINPT%nspin), ne_found(PINPT%nspin)
-
-  flag_init = .true. 
-  timer     = 'off'
-
-    if(flag_sparse) then
-#ifdef MKL_SPARSE
-      ne_prev  = ne_found
-      ne_found = 0
-      call cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, &
-                             neig, nband, flag_vector, flag_init, flag_phase, &
-                             ne_found, flag_sparse_SHm, flag_sparse_SHs, ne_prev, timer)
-#else
-      write(message,'(A)')'    !WARN! Compile with SPARSE library!'
-      write(message,'(A)')'           The sparse eigensolver routine is requiested but it is not compoled with '
-      write(message,'(A)')'           MKL_SPARSE option. Please check program instructor.'
-      write(message,'(A)')'           Exit program....'
-      kill_job
-#endif
-    elseif(.not.flag_sparse) then
-      call cal_eig_Hk_dense ( Hm,  Hs, E, V, SV, PINPT, PPRAM, NN_TABLE, kp, &
-                             neig, iband, nband, flag_vector, flag_init, flag_phase,ik)
-    endif
-
-return
-endsubroutine
-
-
 #ifdef MKL_SPARSE
 subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
                              nemax, flag_vector, flag_init, flag_phase, ne_found,&
-                             flag_sparse_SHm, flag_sparse_SHs,ne_prev, timer)
+                             flag_sparse_SHm, flag_sparse_SHs, timer)
   use parameters, only : incar, hopping, spmat, params
   use mpi_setup
   use sparse_tool
@@ -457,9 +514,10 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
   type(incar  ) :: PINPT
   type(params ) :: PPRAM
   type(spmat  ) :: SHk, SSk, SH0, SS0, SHm, SHs
+  integer*4        mpierr
   integer*4        neig
   integer*4        nemax  !nemax <= neig * nspin. Choosing optimal value is critical for performance.
-  integer*4        ne_found(PINPT%nspin), ne_prev(PINPT%nspin)
+  integer*4        ne_found(PINPT%nspin)
   integer*4        ik
   integer*4        ie, fe, im, fm, is
   integer*4        feast_info
@@ -472,14 +530,22 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
   character*4      timer
 
   emin = PINPT%feast_emin ; emax = PINPT%feast_emax
-   
+
+#ifdef MPI
+#ifdef PSPARSE
+  call MPI_BARRIER(COMM_JUELICH%mpi_comm, mpierr)
+#endif
+#endif
+
  sp:do is = 1, PINPT%nspin
       ! if(flag_init) SHm, SHs will be kept during ik-run. (SHs will be modified if flag_slater_koster=.false.)
       call time_check(t1,t0,timer)
       if(.not. PPRAM%flag_use_overlap) then
-        call         get_hamk_sparse(SHk,      SH0,      SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+        call         get_hamk_sparse(SHk,      SH0,      SHm, SHs, is, kp, &
+                                     PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
       elseif(  PPRAM%flag_use_overlap) then
-        call get_hamk_sparse_overlap(SHk, SSk, SH0, SS0, SHm, SHs, is, kp, PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
+        call get_hamk_sparse_overlap(SHk, SSk, SH0, SS0, SHm, SHs, is, kp, &
+                                     PINPT, PPRAM, neig, NN_TABLE, flag_init, flag_phase, flag_sparse_SHm, flag_sparse_SHs)
       endif
       call time_check(t1,t0) 
 
@@ -490,13 +556,26 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
         timer = 'off'
       endif
       call get_matrix_index(ie, fe, im, fm, is, nemax, neig, PINPT%ispinor)
-      
       if(.not. PPRAM%flag_use_overlap) then
-        call cal_eig_sparse(SHk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
-                            emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
+#ifdef PSPARSE
+        call cal_eig_hermitianx_psparse(SHk, emin, emax, nemax, ne_found(is), &
+                                        PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector,&
+                                        PINPT%feast_fpm, feast_info)
+#else
+        call cal_eig_hermitianx_sparse( SHk, emin, emax, nemax, ne_found(is), &
+                                        PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector,&
+                                        PINPT%feast_fpm, feast_info)
+#endif
       elseif(  PPRAM%flag_use_overlap) then
-         call cal_gen_eig_sparse(SHk, SSk, neig, PINPT%ispinor, PINPT%ispin, nemax, PINPT%feast_neguess, E(ie:fe), V(im:fm,ie:fe), flag_vector, &
-                             emin, emax, ne_found(is), PINPT%feast_fpm, feast_info, ne_prev(is))
+#ifdef PSPARSE
+        call cal_gen_eig_hermitianx_psparse(SHk, SSk, emin, emax, nemax, ne_found(is), &
+                                            PINPT%feast_neguess, E(ie:fe),V(im:fm,ie:fe), flag_vector, &
+                                            PINPT%feast_fpm, feast_info)
+#else
+        call cal_gen_eig_hermitianx_sparse( SHk, SSk, emin, emax, nemax, ne_found(is), &
+                                            PINPT%feast_neguess, E(ie:fe),V(im:fm,ie:fe), flag_vector, &
+                                            PINPT%feast_fpm, feast_info)
+#endif
       endif
 
       call adjust_ne_guess(feast_info, is, ne_found(is), kp, neig, nemax, PINPT)
@@ -519,6 +598,12 @@ subroutine cal_eig_Hk_sparse(SHm, SHs, E, V, PINPT, PPRAM, NN_TABLE, kp, neig, &
   if(allocated(SS0%H)) deallocate(SS0%H)
   if(allocated(SS0%I)) deallocate(SS0%I)
   if(allocated(SS0%J)) deallocate(SS0%J)
+
+#ifdef MPI
+#ifdef PSPARSE
+  call MPI_BARRIER(COMM_JUELICH%mpi_comm, mpierr)
+#endif
+#endif
 
 return
 endsubroutine
@@ -608,13 +693,23 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
   integer*4  iadd, ii
   logical    flag_vector, flag_stat, flag_init, flag_sparse, flag_overlap
   real*8     t1, t0
+  integer*4  nL3
 
   flag_init = .true.
   call time_check(t1,t0,'init')
 
 #ifdef MKL_SPARSE
   if(flag_sparse) then 
-    call feastinit(PINPT%feast_fpm)
+#ifdef PSPARSE
+    nL3 = 1
+#ifdef MPI
+    call pfeastinit(PINPT%feast_fpm, COMM_JUELICH%mpi_comm, nL3)
+#else
+    call  feastinit(PINPT%feast_fpm)
+#endif
+#else
+    call  feastinit(PINPT%feast_fpm)
+#endif
     if(allocated(PINPT%feast_ne)) deallocate(PINPT%feast_ne)
     allocate(PINPT%feast_ne(PINPT%nspin, nkp))
     PINPT%feast_ne = 0 !initialize to zero
@@ -625,7 +720,7 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
     PINPT%feast_fpm(2) = 4  ! The number of contour points N_e (see the description of FEAST algorithm
                             ! Ref: E. Polizzi, Phys. Rev. B 79, 115112 (2009) 
     PINPT%feast_fpm(3) = 11 ! Error trace double precisiion stopping criteria e ( e = 10^-feast_fpm(3) )
-    PINPT%feast_fpm(4) = 50 ! Maximum number of Extended Eigensolver refinement loops allowed. 
+    PINPT%feast_fpm(4) = 20 ! Maximum number of Extended Eigensolver refinement loops allowed. 
                             ! If no convergence is reached within fpm(4) refinement loops, 
                             ! Extended Eigensolver routines return info=2.
     PINPT%feast_fpm(5) = 0  ! User initial subspace. If fpm(5)=0 then Extended Eigensolver routines generate
@@ -633,10 +728,7 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
     PINPT%feast_fpm(6) = 1  ! Extended Eigensolver stopping test.
                             ! fpm(6)=0 : Extended Eigensolvers are stopped if the residual stopping test is satisfied.
                             ! fpm(6)=1 : Extended Eigensolvers are stopped if this trace stopping test is satisfied.
-    PINPT%feast_fpm(7) = 5  ! Error trace single precision stopping criteria (10-fpm(7)).
     PINPT%feast_fpm(14)= 0  ! If 1, return the computed eigenvectors subspace after one single contour integration.
-    PINPT%feast_fpm(27)= 0  ! Specifies whether Extended Eigensolver routines check input matrices (applies to CSR format only).
-    PINPT%feast_fpm(28)= 0  ! Check if matrix B is positive definite. Set fpm(28) = 1 to check if B is positive definite.
   endif
 #endif
 
@@ -673,7 +765,7 @@ subroutine finalize_all(EE, SHm, SHs, t1, t0, PINPT, flag_stat, flag_vector, fla
   call time_check(t1, t0)
   if(flag_stat) then
     write(message,*)' ' ; write_msg
-    write(message,'(A,F12.6)')"   TIME for EIGENVALUE SOLVE (s)", t1 ; write_msg
+    write(message,'(A,F20.6)')"   TIME for EIGENVALUE SOLVE (s)", t1 ; write_msg
   endif
   if(allocated(EE%E)) deallocate(EE%E)
   if(allocated(EE%V)) deallocate(EE%V)
@@ -985,7 +1077,6 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, flag_distribute_vector, my_n
    ! need to find better way to allocate V and SV, since if we don't turn on LORBIT, 
    ! V and SV is not need to be saved. To save memory one need to make it simpler.
    ! But, now, just keep this way, to make my life easier. (H.-J. Kim, 01. Feb. 2021)
-
    if(.not. PINPT%flag_print_energy_singlek) then
      if(allocated(ETBA%V)) deallocate(ETBA%V)
      allocate(ETBA%V( PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
@@ -993,6 +1084,7 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, flag_distribute_vector, my_n
      if(allocated(ETBA%SV)) deallocate(ETBA%SV)
      allocate(ETBA%SV(PGEOM%neig*PINPT%ispin,PGEOM%nband*PINPT%nspin, nkp_vector))
    endif
+
    ! This can also be allocated if LROBIT = TRUE in future version (will check later on, H.-J. Kim, 01. Feb. 2021)
    ! In current version, this information is only used in get_orbital_projection routine which is only called by
    ! get_dE routine and is activated when PINPT%flag_fit_orbital = .true.
@@ -1159,48 +1251,8 @@ subroutine cal_eig(Hk, neig, ispinor, ispin, iband, nband, E, V, flag_vector)
 
 return
 endsubroutine
+
 #ifdef MKL_SPARSE
-subroutine cal_gen_eig_sparse(SHk, SSk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag_vector, &
-                          emin, emax, ne_found, feast_fpm, feast_info, ne_prev)
-   use parameters, only : spmat
-   use do_math
-   use mpi_setup
-   implicit none
-   type(spmat):: SHk, SSk
-   integer*4     neig, nemax, ispinor, ispin, ne_prev
-   complex*16    V(neig*ispinor,nemax)
-   real*8        E(nemax)
-   real*8        emin, emax
-   integer*4     ne_found, ne_guess, feast_info
-   integer*4     feast_fpm(128)
-   logical       flag_vector
-
-   call cal_gen_eig_hermitianx_sparse(SHk, SSk, emin, emax, nemax, ne_found, ne_guess, E, V, flag_vector,&
-                                  feast_fpm, feast_info, ne_prev)
-
-return
-endsubroutine
-
-subroutine cal_eig_sparse(SHk, neig, ispinor, ispin, nemax, ne_guess, E, V, flag_vector, &
-                          emin, emax, ne_found, feast_fpm, feast_info, ne_prev)
-   use parameters, only : spmat
-   use do_math
-   use mpi_setup
-   implicit none
-   type(spmat):: SHk
-   integer*4     neig, nemax, ispinor, ispin, ne_prev
-   complex*16    V(neig*ispinor,nemax)
-   real*8        E(nemax)
-   real*8        emin, emax
-   integer*4     ne_found, ne_guess, feast_info
-   integer*4     feast_fpm(128)
-   logical       flag_vector
-
-   call cal_eig_hermitianx_sparse(SHk, emin, emax, nemax, ne_found, ne_guess, E, V, flag_vector,&
-                                  feast_fpm, feast_info, ne_prev)
-
-return
-endsubroutine
 subroutine adjust_ne_guess(feast_info, is, ne_found, kp, neig, nemax, PINPT)
    use parameters, only : incar
    implicit none

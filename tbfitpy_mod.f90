@@ -40,6 +40,7 @@ module pyfit
        logical                            flag_fit_orbital
        logical                            flag_fit_orbital_parse
        logical                            flag_pso_with_lmdif
+       logical                            flag_get_unfold     
        real(kind=dp)                      ptol
        real(kind=dp)                      ftol
        real(kind=dp)                      fdiff
@@ -93,9 +94,11 @@ module pyfit
        character(len=132)                 pfilenm
        character(len=132)                 pfileoutnm       
 
-       real(kind=dp),     allocatable  :: param(:)                 
+       real(kind=dp),     allocatable  :: param(:)
+       real(kind=dp),     allocatable  :: param_best(:)
        real(kind=dp),     allocatable  :: param_nrl(:,:)           
        real(kind=dp),     allocatable  :: param_const(:,:)         
+!      real(kind=dp),     allocatable  :: param_const_best(:,:)         
        real(kind=dp),     allocatable  :: param_const_nrl(:,:,:)   
        integer(kind=sp),  allocatable  :: param_nsub(:)            
        integer(kind=sp),  allocatable  :: iparam_free(:)           
@@ -274,6 +277,8 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     type(berry   )                      :: TMP2 ! temp
     type(gainp   )                      :: TMP3 ! temp
     type(replot  )                      :: TMP4 ! temp
+    type(unfold  )                      :: PUFLD ! unfold
+    real(kind=dp), allocatable          :: param_best(:)
 #ifdef MPI
    ! initialize MPI setup
     mpi_comm_earth = comm
@@ -288,8 +293,10 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
 
     call set_verbose(PINPT_PY%iverbose)
-
-    call read_input(PINPT,PPRAM,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE, TMP1,TMP2,TMP3,TMP4, 1)
+    if(allocated(PPRAM_PY%param_best)) then
+        param_best = PPRAM_PY%param_best
+    endif
+    call read_input(PINPT,PPRAM,PKPTS,PGEOM,PWGHT,EDFT,NN_TABLE, TMP1,TMP2,TMP3,TMP4, PUFLD, 1)
     call set_free_parameters(PPRAM)
 
     call allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, .FALSE., 0)
@@ -316,6 +323,9 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     call copy_energy(EDFT_PY, EDFT, 1)
     call copy_energy(ETBA_PY, ETBA, 1)
 
+    if(allocated(param_best)) then
+        PPRAM_PY%param_best = param_best
+    endif
     return
 end subroutine init
 
@@ -514,8 +524,8 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
 
     fnorm_ = 0d0        ; flag_exit = .false. ;    ifit = 0
     fnorm_plain = 0d0   ; fnorm_orb = 0d0
-    flag_order       = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
-    flag_get_orbital = (PWGHT(i)%flag_weight_orb .or. flag_order .or. PINPT%flag_fit_orbital)
+    flag_order       = PINPT_PY%flag_get_band_order .and. (.not. PINPT_PY%flag_get_band_order_print_only)
+    flag_get_orbital = (PWGHT_PY%flag_weight_orb .or. flag_order .or. PINPT_PY%flag_fit_orbital)
 
     if(allocated(PPRAM_PY%cost_history)) deallocate(PPRAM_PY%cost_history)
     allocate(PPRAM_PY%cost_history(PINPT_PY%miter))
@@ -642,6 +652,7 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%flag_fit_orbital_parse                  = .FALSE.
     PINPT_PY%flag_get_total_energy                   = .FALSE.
     PINPT_PY%flag_pso_with_lmdif                     = .FALSE.
+    PINPT_PY%flag_get_unfold                         = .FALSE.
     PINPT_PY%iverbose                                = 2 ! do not print : 2, print all: 1
     PINPT_PY%ptol                                    = 0.00001d0
     PINPT_PY%ftol                                    = 0.00001d0
@@ -696,6 +707,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%flag_fit_orbital_parse             =      PINPT%flag_fit_orbital_parse
        PINPT_PY%flag_get_total_energy              =      PINPT%flag_get_total_energy
        PINPT_PY%flag_pso_with_lmdif                =      PINPT%flag_pso_with_lmdif
+       PINPT_PY%flag_get_unfold                    =      PINPT%flag_get_unfold    
        PINPT_PY%ptol                               =      PINPT%ptol
        PINPT_PY%ftol                               =      PINPT%ftol
        PINPT_PY%fdiff                              =      PINPT%fdiff
@@ -770,6 +782,7 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%flag_fit_orbital_parse             =      PINPT_PY%flag_fit_orbital_parse
        PINPT%flag_get_total_energy              =      PINPT_PY%flag_get_total_energy
        PINPT%flag_pso_with_lmdif                =      PINPT_PY%flag_pso_with_lmdif
+       PINPT%flag_get_unfold                    =      PINPT_PY%flag_get_unfold     
        PINPT%ptol                               =      PINPT_PY%ptol
        PINPT%ftol                               =      PINPT_PY%ftol
        PINPT%fdiff                              =      PINPT_PY%fdiff
@@ -842,12 +855,14 @@ function init_params_py() result(PPRAM_PY)
     PPRAM_PY%pso_miter                               = 10
 
     if(allocated(PPRAM_PY%param))           deallocate(PPRAM_PY%param)
+    if(allocated(PPRAM_PY%param_best))      deallocate(PPRAM_PY%param_best)
     if(allocated(PPRAM_PY%param_nrl))       deallocate(PPRAM_PY%param_nrl)
     if(allocated(PPRAM_PY%iparam_free))     deallocate(PPRAM_PY%iparam_free)
     if(allocated(PPRAM_PY%iparam_free_nrl)) deallocate(PPRAM_PY%iparam_free_nrl)
     if(allocated(PPRAM_PY%param_name))      deallocate(PPRAM_PY%param_name)
     if(allocated(PPRAM_PY%c_const))         deallocate(PPRAM_PY%c_const)
     if(allocated(PPRAM_PY%param_const))     deallocate(PPRAM_PY%param_const)
+   !     if(allocated(PPRAM_PY%param_const_best)) deallocate(PPRAM_PY%param_const_best)
     if(allocated(PPRAM_PY%param_const_nrl)) deallocate(PPRAM_PY%param_const_nrl)
     if(allocated(PPRAM_PY%param_nsub))      deallocate(PPRAM_PY%param_nsub)
 
@@ -857,6 +872,19 @@ function init_params_py() result(PPRAM_PY)
     if(allocated(PPRAM_PY%cost_history))     deallocate(PPRAM_PY%cost_history )
     return
 endfunction
+
+subroutine copy_params_best(PPRAM_PY, imode)
+    type(params_py)    PPRAM_PY
+    integer(kind=sp)         n1, imode
+
+    if(imode .eq. 1) then ! param -> best
+      PPRAM_PY%param_best = PPRAM_PY%param
+    elseif(imode .eq. 2) then ! best -> param
+      PPRAM_PY%param = PPRAM_PY%param_best
+    endif
+
+    return
+endsubroutine
 
 subroutine copy_params(PPRAM_PY, PPRAM, imode)
     type(params    )                       PPRAM   
@@ -889,6 +917,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM_PY%pso_miter                     =      PPRAM%pso_miter
 
        if(allocated( PPRAM_PY%param         ))         deallocate(PPRAM_PY%param         )
+       if(allocated( PPRAM_PY%param_best    ))         deallocate(PPRAM_PY%param_best    )
        if(allocated( PPRAM_PY%param_nrl     ))         deallocate(PPRAM_PY%param_nrl     )
        if(allocated( PPRAM_PY%param_const   ))         deallocate(PPRAM_PY%param_const   )
        if(allocated( PPRAM_PY%param_const_nrl))        deallocate(PPRAM_PY%param_const_nrl)
@@ -907,6 +936,13 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           allocate( PPRAM_PY%param(n1) )
                     PPRAM_PY%param = PPRAM%param
        endif
+
+       if(allocated(PPRAM%param_best            )) then
+          n1 = size(PPRAM%param_best)
+          allocate( PPRAM_PY%param_best(n1) )
+                    PPRAM_PY%param_best = PPRAM%param_best
+       endif
+
        if(allocated(PPRAM%param_nsub            ))  then
           n1 = size(PPRAM%param_nsub)
           allocate( PPRAM_PY%param_nsub(n1)         )
@@ -962,6 +998,13 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           allocate(PPRAM_PY%param_const(n1,n2)      )
                    PPRAM_PY%param_const = PPRAM%param_const
        endif
+
+!      if(allocated(PPRAM%param_const_best           )) then
+!         n1 = size(PPRAM%param_const_best(:,1)) ; n2 = size(PPRAM%param_const_best(1,:))
+!         allocate(PPRAM_PY%param_const_best(n1,n2)      )
+!                  PPRAM_PY%param_const_best = PPRAM%param_const_best
+!      endif
+
        if(allocated(PPRAM%c_const               )) then
           n1 = size(PPRAM%c_const(:,1)) ; n2 = size(PPRAM%c_const(1,:))
           allocate(PPRAM_PY%c_const(n1,n2)          )
@@ -998,8 +1041,10 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM%niter                         =      PPRAM_PY%niter 
 
        if(allocated( PPRAM%param         ))         deallocate(PPRAM%param         )
+       if(allocated( PPRAM%param_best    ))         deallocate(PPRAM%param_best    )
        if(allocated( PPRAM%param_nrl     ))         deallocate(PPRAM%param_nrl     )
        if(allocated( PPRAM%param_const   ))         deallocate(PPRAM%param_const   )
+!      if(allocated( PPRAM%param_const_best))       deallocate(PPRAM%param_const_best   )
        if(allocated( PPRAM%param_const_nrl))        deallocate(PPRAM%param_const_nrl)
        if(allocated( PPRAM%param_nsub    ))         deallocate(PPRAM%param_nsub    )
        if(allocated( PPRAM%iparam_free   ))         deallocate(PPRAM%iparam_free   )
@@ -1016,6 +1061,13 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           allocate( PPRAM%param(n1) )
                     PPRAM%param = PPRAM_PY%param
        endif
+       if(allocated(PPRAM_PY%param_best            )) then
+          n1 = size(PPRAM_PY%param_best)
+          allocate( PPRAM%param_best(n1) )
+                    PPRAM%param_best = PPRAM_PY%param_best
+       endif
+
+
        if(allocated(PPRAM_PY%param_nsub            ))  then
           n1 = size(PPRAM_PY%param_nsub)
           allocate( PPRAM%param_nsub(n1)         )
@@ -1070,6 +1122,12 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           allocate(PPRAM%param_const(n1,n2)      )
                    PPRAM%param_const = PPRAM_PY%param_const
        endif
+!      if(allocated(PPRAM_PY%param_const_best           )) then
+!         n1 = size(PPRAM_PY%param_const_best(:,1)) ; n2 = size(PPRAM_PY%param_const_best(1,:))
+!         allocate(PPRAM%param_const_best(n1,n2)      )
+!                  PPRAM%param_const_best = PPRAM_PY%param_const_best
+!      endif
+
        if(allocated(PPRAM_PY%c_const               )) then
           n1 = size(PPRAM_PY%c_const(:,1)) ; n2 = size(PPRAM_PY%c_const(1,:))
           allocate(PPRAM%c_const(n1,n2)          )

@@ -81,7 +81,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     !Note: n_particles will be solved in n_groups of cpu family.
     !      Each group will have n_member ~ nprocs/ngroup
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
-    call get_npar_kpar(trim(PINPT%ifilenm(1)))
+    call get_npar(trim(PINPT%ifilenm(1)))
     allocate(ourgroup(npar)); allocate(ourjob(npar))
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
@@ -114,6 +114,10 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
       if(allocated(ETBA(i)%dE)) deallocate(ETBA(i)%dE)
       allocate(ETBA(i)%dE( size(ETBA(i)%E(:,1)) , size(ETBA(i)%E(1,:)) ))
       ETBA(i)%E = 0d0 ; ETBA(i)%V = 0d0 ; ETBA(i)%SV = 0d0 ; ETBA(i)%dE=0d0
+      if(flag_fit_orbital) then
+        if(allocated(ETBA(i)%dORB)) deallocate(ETBA(i)%dORB)
+        allocate(ETBA(i)%dORB( size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+      endif
     enddo
 
     allocate(vel(  n_particles, nparam_free))
@@ -315,13 +319,13 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     ! report best one
     if(iselect_mode .eq. 1 .or. iselect_mode .eq. 2) then
       write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", Best Particle ID = ", min_id ; write_msg
+                                                  " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                  " ,Best Particle ID = ", min_id ; write_msg
     elseif(iselect_mode .eq. 3) then
       write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", COST(orbital) = ", cgbest_orb, &
-                                                  ", Best Particle ID = ", min_id ; write_msg
+                                                  " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                  " ,COST(orbital) = ", cgbest_orb, &
+                                                  " ,Best Particle ID = ", min_id ; write_msg
     endif
 
     ! main PSO loop
@@ -514,14 +518,14 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
       PPRAM%niter                  = iter
 
       if(iselect_mode .eq. 1 .or. iselect_mode .eq. 2) then
-        write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
-                                                    ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                    ", Best Particle ID = ", min_id ; write_msg
+        write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter = ",iter, &
+                                                    " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                    " ,Best Particle ID = ", min_id ; write_msg
       elseif(iselect_mode .eq. 3) then
-        write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
-                                                    ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                    ", COST(orbital) = ", cgbest_orb, &
-                                                    ", Best Particle ID = ", min_id ; write_msg
+        write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO RESULT: iter = ",iter, &
+                                                    " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                    " ,COST(orbital) = ", cgbest_orb, &
+                                                    " ,Best Particle ID = ", min_id ; write_msg
       endif
     enddo it ! iter
 
@@ -633,7 +637,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
     !Note: n_particles will be solved in n_groups of cpu family.
     !      Each group will have n_member ~ nprocs/ngroup
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
-    call get_npar_kpar(trim(PINPT%ifilenm(1)))
+    call get_npar(trim(PINPT%ifilenm(1)))
     allocate(ourgroup(npar)); allocate(ourjob(npar))
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
@@ -668,6 +672,10 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
       if(allocated(ETBA(i)%dE)) deallocate(ETBA(i)%dE)
       allocate(ETBA(i)%dE( size(ETBA(i)%E(:,1)) , size(ETBA(i)%E(1,:)) ))
       ETBA(i)%E = 0d0 ; ETBA(i)%V = 0d0 ; ETBA(i)%SV = 0d0 ; ETBA(i)%dE=0d0
+      if(flag_fit_orbital) then
+        if(allocated(ETBA(i)%dORB)) deallocate(ETBA(i)%dORB)
+        allocate(ETBA(i)%dORB( size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+      endif
     enddo
 
     allocate(vel(  n_particles, nparam_free))
@@ -890,18 +898,18 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
 
     ! report best one
     if(iselect_mode .eq. 1) then
-      write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST*= ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", Particle ID = ", icosts(1) ; write_msg
+      write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter = ",0, &
+                                                  " ,GBest COST*= ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                  " ,Particle ID = ", icosts(1) ; write_msg
     elseif(iselect_mode .eq. 2) then
-      write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight)*= ", cgbest_plain, &
-                                                  ", Particle ID = ", icosts(1) ; write_msg
+      write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter = ",0, &
+                                                  " ,GBest COST = ", cgbest, " ,COST(w/o weight)*= ", cgbest_plain, &
+                                                  " ,Particle ID = ", icosts(1) ; write_msg
     elseif(iselect_mode .ge. 3) then
-      write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter =",0, &
-                                                  ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                  ", COST(orbital)*= ", cgbest_orb, &
-                                                  ", Particle ID = ", icosts(1) ; write_msg
+      write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO INITIAL RESULT: iter = ",0, &
+                                                  " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                  " ,COST(orbital)*= ", cgbest_orb, &
+                                                  " ,Particle ID = ", icosts(1) ; write_msg
     endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1126,14 +1134,14 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
       PPRAM%niter                  = iter
 
       if(iselect_mode .eq. 1 .or. iselect_mode .eq. 2) then
-        write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
-                                                    ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                    ", Best Particle ID = ", icosts(1) ; write_msg
+        write(message,'(A, i5, 2(A, F24.12), A,I0)')"  PSO RESULT: iter = ",iter, &
+                                                    " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                    " ,Best Particle ID = ", icosts(1) ; write_msg
       elseif(iselect_mode .ge. 3) then
-        write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO RESULT: iter =",iter, &
-                                                    ", GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
-                                                    ", COST(orbital) = ", cgbest_orb, &
-                                                    ", Best Particle ID = ", icosts(1) ; write_msg
+        write(message,'(A, i5, 3(A, F24.12), A,I0)')"  PSO RESULT: iter = ",iter, &
+                                                    " ,GBest COST = ", cgbest, " ,COST(w/o weight) = ", cgbest_plain, &
+                                                    " ,COST(orbital) = ", cgbest_orb, &
+                                                    " ,Best Particle ID = ", icosts(1) ; write_msg
       endif
     enddo it ! iter
 

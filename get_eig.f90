@@ -47,7 +47,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
     ncpu = nprocs
     id   = myid
   endif
-
 #ifdef PSPARSE
   if(flag_sparse) then
 #ifdef MPI
@@ -136,7 +135,6 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
   enddo k_loop
 
 #ifdef MPI
-  call MPI_BARRIER(mpi_comm_earth, mpierr)
   if(flag_stat .and. myid .eq. 0) then
     write(message,'(A)')'  ' ; write_msg
     write(message,'(A)')'   Gathering all results to main node 0 ...' 
@@ -423,7 +421,7 @@ subroutine get_eig_sepk(NN_TABLE, kp, nkp, PINPT, PPRAM, E, neig, iband, nband, 
   enddo k_loop
 
 #ifdef MPI
-  call MPI_BARRIER(mpi_comm_earth, mpierr)
+! call MPI_BARRIER(mpi_comm_earth, mpierr)
   if(flag_stat .and. myid .eq. 0) then
     write(message,'(A)')'  ' ; write_msg
     write(message,'(A)')'   Gathering all results to main node 0 ...'

@@ -456,12 +456,14 @@ module mpi_setup
        enddo
      enddo
 
-     ourjob_disp(0) = 0
+     if(present(ourjob_disp)) then
+        ourjob_disp(0) = 0
 #ifdef MPI     
-     do groupid = 1, ngroup - 1
-       ourjob_disp(groupid) = ourjob_disp(groupid - 1) + ourjob(groupid)
-     enddo
+        do groupid = 1, ngroup - 1
+            ourjob_disp(groupid) = ourjob_disp(groupid - 1) + ourjob(groupid)
+        enddo
 #endif
+     endif
 
      return
    endsubroutine
@@ -486,11 +488,10 @@ module mpi_setup
        endif
      enddo
 
-    ourjob_disp(0) = 0
 #ifdef MPI
-    do cpuid = 1, ncpu-1
-      ourjob_disp(cpuid)= ourjob_disp(cpuid - 1) + ourjob(cpuid)
-    enddo
+     do cpuid = 1, ncpu-1
+         ourjob_disp(cpuid)= ourjob_disp(cpuid - 1) + ourjob(cpuid)
+     enddo
 #endif
 
    endsubroutine

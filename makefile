@@ -19,12 +19,12 @@
 #                  your input file. See the manual for the details.
 #				   Important note: if you want to generate python module,
 #				   by "make tbfitpy_mod ", then you should turn of this OPTION 
-#  -DPSPARSE     : use FEAST_MPI with 4.0 version instead of MKL FEAST_SMP 2.0 version.
-#                  This option is only available if -DMKL_SPARSE is activated
+#  -DPSPARSE     : use FEAST_MPI with 4.0 version instead of MKL FEAST_SMP 2.1 version.
+#                  This option is only available if -DMKL_SPARSE and -DMPI are activated
 #                  For the details, please go to http://www.ecs.umass.edu/~polizzi/feast/
 #                  NOTE: not a valid option in the current version. On developing now...
 #				   Important note: if you want to generate python module,
-#				   by "make tbfitpy_mod ", then you should turn of this OPTION 
+#				   by "make tbfitpy_mod ", then you should turn off this OPTION 
 #  -DSCALAPACK   : use ScaLAPACK library for the eigenvalue parallism 
 #                  !!! WARN !!! do not use in the current version: it is upon
 #                               developing stage now.
@@ -35,34 +35,35 @@
 #                  k-point + eigenvalue parallism will be imployed (not supported now).
 #  Note: possible make command
 #      make tbfit 	# generate tbfit execution file
-#      make tbfitpy_mod # generate tbfit python module 
+#      make tbfitpy_mod # generate tbfit python module (don't use -DMKL_SPARSE, -DPSPARSE, -DSPGLIB)
 #      make lib 	# generate tbfit library libtbfit.a archiving all subroutines
 #############################################################################
  TBBIN=$(HOME)/code/bin
  TBLIB=$(HOME)/code/lib
-#VERSION=$(shell date +%Y%m%d)
- VERSION=0.5.4
+ VERSION=0.5.5
  
 #####################
 # MAC-INTEL COMPILE #
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 #-DMKL_SPARSE #-DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB -DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
-
+ F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 ##########################
 # LINUX-gfortran COMPILE #
 ##########################
 #OPTIONS= 
 #F90    = gfortran-mp-8 
 #FFLAG  = -cpp -O2 -ffree-line-length-256 -fmax-stack-var-size=32768
+#F90WRAP_LAPACK = --link-lapack  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 #MPI_USE= NO 
 
 #OPTIONS= -cpp -DMPI -DF08 -DSPGLIB #-DMKL_SPARSE -DSCALAPACK
 #F90    = mpif90-openmpi-mp $(OPTIONS)
 #FFLAG  = -O2 -ffree-line-length-512 -fmax-stack-var-size=32768
+#F90WRAP_LAPACK = --link-lapack  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 #MPI_USE= YES
 
 #############################
@@ -76,6 +77,8 @@
 #FC     = mpiifort ${ADDITIONAL_OPTS}
 #F90    = mpiifort ${ADDITIONAL_OPTS}
 #FFLAG  = -heap-arrays -nogen-interfaces -static-intel
+#F90WRAP_LAPACK = --link-lapack  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
+#MPI_USE= YES
 
 
 BIN    = $(TBBIN)
@@ -86,7 +89,8 @@ LIB	   = $(TBLIB)
 # Dependencies: LAPACK, SPGLIB     |
 #---------------------------------------------------------------------------|
 #SPGLIB    = -L/Users/Infant/code/lib/ -lsymspg   # home
-SPGLIB    = -L/${HOME}/tbfit_fortran/LIB/spglib-master -lsymspg
+ SPGLIB    = ${HOME}/tbfit_fortran/LIB/spglib-1.16.2/lib/libsymspg.a # mymac
+#SPGLIB    = /local/th1/iff003/kim/tbfit_fortran/LIB/spglib-1.16.2/lib64/libsymspg.a # iffslurm
 #SPGLIB    = -L/home/Infant/tbfit_fortran/LIB/spglib-master -lsymspg  # curion2
 
 MKLPATH   = $(MKLROOT)
@@ -95,8 +99,8 @@ LAPACK    = -L$(MKLPATH)/lib/ \
             -lmkl_core -liomp5
 BLAS      = 
 INCLUDE   = -I$(MKLPATH)/include
-#FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/3.0/lib/x64  -lpfeast_sparse -lpfeast 
-#FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64  -lfeast  # MPI version need to be included in the future
+FEAST     = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64          -lfeast  # Serial version 
+FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64 -lpfeast -lfeast  # MPI version 
 #SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
 SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 #---------------------------------------------------------------------------|
@@ -107,12 +111,14 @@ SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 # Objects                          |
 #---------------------------------------------------------------------------|
 MKL_SP =$(findstring -DMKL_SPARSE,$(OPTIONS))
+
 MKL_SPARSE = mkl_spblas.o
 ifeq ($(MKL_SP),-DMKL_SPARSE)
   SP_MOD = mkl_spblas.o
 else 
   SP_MOD = 
 endif
+
 SCALAPACK_USE=$(findstring -DSCALAPACK,$(OPTIONS))
 SPARSE_PARA=$(findstring -DPSPARSE,$(OPTIONS))
 
@@ -124,9 +130,9 @@ MODULE = mykind.o print_io.o directory.o $(MPI_MOD) kill.o memory.o time.o versi
 		 parameters.o set_default.o  random_mod.o element_info.o read_incar.o \
 		 orbital_wavefunction.o kronecker_prod.o phase_factor.o \
 		 do_math.o print_matrix.o sorting.o berry_phase.o sparse_tool.o \
-		 pikaia_module.o geodesiclm.o get_parameter.o \
+		 pikaia_module.o get_parameter.o \
 		 reorder_band.o total_energy.o projected_band.o cost_function.o \
-		 classify.o ${TBFITPY} 
+		 classify.o unfold.o ${TBFITPY} 
 READER = parse.o read_input.o read_param.o read_poscar.o read_kpoint.o \
 		 read_energy.o set_weight.o get_site_number.o find_nn.o
 WRITER = print_param.o plot_eigen_state.o plot_stm_image.o set_ribbon_geom.o print_energy.o \
@@ -136,7 +142,7 @@ GET    = get_tij.o get_eig.o get_dos.o get_soc.o get_param_class.o \
 		 get_cc_param.o get_berry_curvature.o get_wcc.o get_zak_phase.o \
          get_z2_invariant.o get_parity.o get_symmetry_eig.o get_hamk_sparse.o \
          get_effective_ham.o e_onsite.o get_degeneracy.o get_circular_dichroism.o \
-		 post_process.o
+		 post_process.o get_unfold.o
 SYMM   = get_symmetry.o 
 SPG_INT= spglib_interface.o
 FITTING_LIB= get_fit.o minpack_sub.o lmdif.o genetic_alorithm.o pso.o
@@ -151,9 +157,9 @@ else
 endif
 
 ifeq ($(SPARSE_PARA), -DPSPARSE)
-  FEAST_LIB= $(FEAST_MPI)
+  FEAST_LIB=          $(FEAST_MPI)
 else
-  FEAST_LIB= 
+  FEAST_LIB= $(FEAST)
 endif
 
 SPG    =$(findstring -DSPGLIB,$(OPTIONS))
@@ -167,9 +173,9 @@ ifeq ($(SPG),-DSPGLIB)
 else
   SPGLIB_= 
   OBJECTS=  $(MODULE) tbfit.o tbpack.o $(READER) $(WRITER) $(GET) \
-                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SYMM)
+                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST)            $(SYMM)
   OBJECTS_LIB = $(MODULE) tbpack.o $(READER) $(WRITER) $(GET) \
-                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST) $(SYMM)
+                      $(FITTING_LIB) $(SCALAPACK_OBJ) $(TEST)            $(SYMM)
 endif
 
 OBJECTS_PY= print_io.o $(MPI_MOD)
@@ -226,20 +232,21 @@ lib: $(OBJECTS)
 ldos_lib:  $(OBJECTS_LIB)
 	$(LIBTOOL) libtbfit_ldos.a $^
 
-#get_ldos: print_io.o $(MPI_MOD) phase_factor.o do_math.o get_ldos.o 
-get_ldos: get_ldos.o libtbfit_ldos.a 
-	$(F90) -o $@ $^ $(LAPACK)
-	cp get_ldos $(BIN)
+get_ldos: get_ldos.o $(OBJECTS_LIB)
+	$(F90) -o $@ $^ $(LAPACK) $(INCLUDE) $(SPGLIB_) $(INCLUDE)
+	mv get_ldos $(BIN)
 
+#NOTE: --link-lapack for iffslurm
+#	 : --link-lapack_mkl for intel Mac
 ifeq ($(MPI_USE), YES)
-tbfitpy_mod: libtbfit.a 
-	f90wrap -m $@_mpi tbfitpy_mod.f90 -k $(KIND_MAP)
-	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(FFLAGS)' --link-lapack  -L. -ltbfit -c f90wrap_tbfitpy_mod.f90 -m _$@_mpi
+tbfitpy_mod: $(OBJECTS)
+	f90wrap -v -m $@_mpi tbfitpy_mod.f90 -k $(KIND_MAP)
+	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(F90FLAGS)' --compiler=intelem $(F90WRAP_LAPACK) -I. $(OBJECTS) -c f90wrap_tbfitpy_mod.f90 -m _$@_mpi
 	cp _$@_mpi.cpython*.so $@_mpi.py $(LIB)
 else
-tbfitpy_mod: libtbfit.a 
+tbfitpy_mod: $(OBJECTS)
 	f90wrap -m $@ tbfitpy_mod.f90 -k $(KIND_MAP)
-	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(FFLAGS)' --link-lapack  -L. -ltbfit -c f90wrap_tbfitpy_mod.f90 -m _$@
+	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(F90FLAGS)' --compiler=intelem $(F90WRAP_LAPACK) -I. $(OBJECTS) -c f90wrap_tbfitpy_mod.f90 -m _$@
 	cp _$@.cpython*.so $@.py $(LIB)
 endif
 

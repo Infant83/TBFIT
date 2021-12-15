@@ -488,6 +488,7 @@ module mpi_setup
        endif
      enddo
 
+     ourjob_disp(0) = 0
 #ifdef MPI
      do cpuid = 1, ncpu-1
          ourjob_disp(cpuid)= ourjob_disp(cpuid - 1) + ourjob(cpuid)

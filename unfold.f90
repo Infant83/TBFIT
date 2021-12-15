@@ -6,6 +6,9 @@
 ! Ref: C.-C. Lee, Y. Yamada-Takamura, and T. Ozaki, 
 !      J. Phys.: Condens. Matter 25, 345501 (2013)
 !
+
+
+! NOTE: This module is under developing now...
 module unfold
     use do_math
     use print_io

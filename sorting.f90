@@ -20,6 +20,7 @@ subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
    target_variable_ = target_variable
    select case (sort_mode(1:3))
 
+     ! ascending order
      case('inc','asc')
        do i = nvariable - 1,1, -1
          do j = 1, i
@@ -35,6 +36,7 @@ subroutine get_sort_index_1D(isort_index, target_variable, nvariable, sort_mode)
          enddo
        enddo
       
+      ! descending order
       case('dec','des')
        do i = nvariable - 1,1, -1
          do j = 1, i

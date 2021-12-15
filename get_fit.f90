@@ -139,9 +139,9 @@ subroutine initialize_fit(PINPT, PPRAM, PKPTS, EDFT, PWGHT, PGEOM, NN_TABLE, PKA
    type(berry  ), dimension(PINPT%nsystem) :: PINPT_BERRY 
    type(dos    ), dimension(PINPT%nsystem) :: PINPT_DOS  
 
-   type(replot)                             :: PRPLT ! dummy
-   type(unfold)                             :: PUFLD ! dummy
-   integer*4                                   i
+   type(replot )                           :: PRPLT ! dummy
+   type(unfold )                           :: PUFLD ! dummy
+   integer*4                                  i
 
    if(PINPT%flag_python_module) then
      print_mode = 99

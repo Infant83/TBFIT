@@ -202,6 +202,7 @@ line: do
            do i=1,3
              read(pid_geom,'(A)',iostat=i_continue) inputline
              read(inputline,*,iostat=i_continue) PGEOM%a_latt(1:3,i)
+             PGEOM%a_latt(1:3,i) = PGEOM%a_latt(1:3,i) * PGEOM%a_scale ! rescale with SCALE factor
              write(message,'(A,i1,A,3F15.8)')'  LATT A',i,':  ',PGEOM%a_latt(1:3,i)  ; write_msgi
            enddo
            call get_reci(PGEOM%b_latt(:,1), PGEOM%b_latt(:,2), PGEOM%b_latt(:,3), &

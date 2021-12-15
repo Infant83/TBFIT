@@ -293,7 +293,8 @@ subroutine CHGCAR_stm_head(pid_stm_, istm, PINPT, PGEOM, c_extension)
    write(pid_stm_, '(A,F9.4,A,F9.4,A)')'INTEGRATED CHARGE DENSITY. ENERGY WINDOW= ( ', &
                                         PINPT%stm_emin(istm),' :',PINPT%stm_emax(istm),' )'
 
-   write(pid_stm_,*)PGEOM%a_scale
+  !write(pid_stm_,*)PGEOM%a_scale
+   write(pid_stm_,*)" 1.0000 " ! since we have already rescaled the a_latt when we read poscar (in read_poscar.f90)
    write(pid_stm_,'(3F20.16)')PGEOM%a_latt(1:3,1)
    write(pid_stm_,'(3F20.16)')PGEOM%a_latt(1:3,2)
    write(pid_stm_,'(3F20.16)')PGEOM%a_latt(1:3,3)

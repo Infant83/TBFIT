@@ -52,6 +52,7 @@ contains
        call MPI_SCATTERV(ETBA%V, ourjob*sizebuff, ourjob_disp*sizebuff, &
                          MPI_COMPLEX16, myV, ourjob(id+1)*sizebuff, &
                          MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)
+
        if(flag_use_overlap) then
          call MPI_SCATTERV(ETBA%SV, ourjob*sizebuff, ourjob_disp*sizebuff, &
                            MPI_COMPLEX16, mySV, ourjob(id+1)*sizebuff, &

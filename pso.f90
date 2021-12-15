@@ -83,6 +83,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
     !      The n_member will be further parallized to solve eigenvalue problem in get_eig routine
     call get_npar(trim(PINPT%ifilenm(1)))
     allocate(ourgroup(npar)); allocate(ourjob(npar))
+
     call mpi_job_distribution_group(npar, n_particles, ourgroup, mygroup, ourjob)
     call mpi_comm_anmeldung(COMM_KOREA, npar, mygroup)
     groupid = COMM_KOREA%color
@@ -372,6 +373,7 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
         elseif(flag_with_lmdif) then
           call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
                    ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, .FALSE., flag_fit_orbital)
+          
           costs(iptcl) = fnorm
           costs_plain(iptcl) = fnorm_plain
           if(flag_fit_orbital) costs_orb(iptcl)   = fnorm_orb

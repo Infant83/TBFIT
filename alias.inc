@@ -18,9 +18,8 @@
 #define write_msgi         call write_log(message,print_mode,myid)
 #define write_msgi_file    call write_log(message,print_mode-2,myid)
 #ifdef MPI
-!#define kill_job           call MPI_BARRIER(mpi_comm_earth, mpierr); call mpi_finish()
-!#define kill_job           call mpi_finish()
 #define kill_job           call kill_job()
 #else
 #define kill_job           stop
 #endif
+

@@ -4,13 +4,16 @@ subroutine test()
   implicit none
     integer i
     real*8 r
-    real*8 a(5)
-    real*8 b(5)
+    real*8 pi 
+    character*20 temp
+    call execute_command_line('grep VERSION= makefile > _foo')
 
-    a=(/1.d0,2.d0,3.d0,4.d0,5.d0/)
-    b=0d0
-    
-    b(4:) = a(4:)
-    write(6,*)"ZXX ", b
+    open(11,file='_foo',status='unknown')
+    read(11,*) temp
+
+    close(11)
+
+    write(6,*)"EEE ", trim(temp)
+
  stop
-endsubroutine
+end subroutine

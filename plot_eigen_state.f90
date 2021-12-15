@@ -420,7 +420,8 @@ subroutine PARCHG_head(pid_chg_,ik,ie,PINPT, PGEOM, c_extension)
   open(pid_chg_, file=fname, status='unknown')
   write(pid_chg_,'(A,I5,A,I5,A)')"WAVEFUNCTION: BAND= ",PINPT%i_eig_print(ie), &
                                             " ,KPOINT= ",PINPT%i_kpt_print(ik),trim(c_extension)
-  write(pid_chg_,*)PGEOM%a_scale
+ !write(pid_chg_,*)PGEOM%a_scale
+  write(pid_chg_,*)" 1.0000 " ! since we have already rescaled the a_latt when we read poscar (in read_poscar.f90)
   write(pid_chg_,'(3F20.16)')PGEOM%a_latt(1:3,1)
   write(pid_chg_,'(3F20.16)')PGEOM%a_latt(1:3,2)
   write(pid_chg_,'(3F20.16)')PGEOM%a_latt(1:3,3)

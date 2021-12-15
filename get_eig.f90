@@ -149,6 +149,7 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
                          ourjob      *neig*PINPT%ispin*nband*PINPT%nspin, &
                          ourjob_disp *neig*PINPT%ispin*nband*PINPT%nspin, &
                          MPI_COMPLEX16, 0, mpi_comm_earth, mpierr)  ! only main node keep wave vector information
+
         if(PPRAM%flag_use_overlap) then
           call MPI_GATHERV(EE%SV,size(EE%SV,kind=4), MPI_COMPLEX16, SV, &
                            ourjob      *     neig*PINPT%ispin*nband*PINPT%nspin , &

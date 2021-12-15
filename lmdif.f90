@@ -86,7 +86,7 @@ subroutine leasqr_lm (get_eig, NN_TABLE, EDFT, PWGHT, PINPT, PPRAM, PKPTS, PGEOM
   return
 endsubroutine
 subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
-                 ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, flag_fit_orbital)
+                 ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info_, flag_fit_orbital)
 
 !*****************************************************************************80
 !
@@ -154,7 +154,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   real*8        wa1(nparam_free),wa2(nparam_free),wa3(nparam_free)
   real*8        wa2_temp(nparam_free)
   character*132 pfileoutnm_temp
-  logical       flag_write_info
+  logical       flag_write_info_, flag_write_info
   external      get_eig
   integer*4     i_dummy
   character*132 gnu_command
@@ -164,8 +164,11 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 
 ! for the debug purpose.
 ! info_temp = info
+  flag_write_info = flag_write_info_
+! if(myid .eq. 1) then
+!   flag_write_info = .TRUE.
+! endif
 !!!!!!!!!!!
-
   if(allocated(PPRAM%cost_history)) then 
     flag_cost_history = .TRUE.
   else
@@ -175,6 +178,7 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   flag_order          = PINPT%flag_get_band_order .and. (.not. PINPT%flag_get_band_order_print_only)
   flag_order_weight   = .false. ! experimental feature
 
+  ! manually allocate instead of using allocate_ETBA routine.
   do i = 1, PINPT%nsystem
     allocate(ETBA_FIT(i)%E(PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
     allocate(ETBA_FIT(i)%V(PGEOM(i)%neig*PINPT%ispin,PGEOM(i)%nband*PINPT%nspin, PKPTS(i)%nkpoint))
@@ -213,9 +217,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
   enddo
 
   call get_dE(fvec, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital) 
-  ! CHECK ZZZZ
- !fvec = fvec_orb
-  ! CHECK
 
   nfev = 1
   fnorm = enorm ( ldjac , fvec )
@@ -355,9 +356,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
         endif
         
         call get_dE(wa4, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
-        ! CHECK ZZZZ
-       !wa4 = fvec_orb
-        ! CHECK ZZZZ
 
         nfev = nfev + 1
         fnorm1 = enorm ( ldjac, wa4 )
@@ -543,7 +541,6 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
     else
       call update_param( PPRAM )
     endif
-
   return
 endsubroutine
 subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,EDFT,nparam_free,PWGHT,fjac,epsfcn,PKPTS)
@@ -637,10 +634,6 @@ subroutine fdjac2 (get_eig,NN_TABLE,ldjac,imode,PINPT,PPRAM,PGEOM,fvec,ETBA_FIT,
       if (h == 0.0D+00 ) h=eps
       PPRAM%param(PPRAM%iparam_free(j)) = temp+h
       call get_dE(wa, fvec_plain, fvec_orb, ldjac, imode, PINPT, PPRAM, NN_TABLE, EDFT, ETBA_FIT, PWGHT, PGEOM, PKPTS, flag_fit_orbital)
-      ! CHECK ZZZZ
-     !wa = fvec_orb
-      ! CHECK ZZZZ
-
       PPRAM%param(PPRAM%iparam_free(j)) = temp
       fjac(:,j) = ( wa(:) - fvec(:) ) / h
     enddo

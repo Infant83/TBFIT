@@ -40,14 +40,13 @@
 #############################################################################
  TBBIN=$(HOME)/code/bin
  TBLIB=$(HOME)/code/lib
- VERSION=0.5.5
  
 #####################
 # MAC-INTEL COMPILE #
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB -DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE #-DSPGLIB #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
  F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
@@ -107,6 +106,10 @@ SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 
 
 ######################### Do not modify below ###############################
+# version tag
+#TBFIT_VERSION=0.5.4
+TBFIT_VERSION=0.5.5
+
 #-----------------------------------
 # Objects                          |
 #---------------------------------------------------------------------------|
@@ -210,14 +213,14 @@ ifeq ($(MPI_USE), YES)
 tbfit.mpi: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
 	cp $@ $(BIN)/tbfit.mpi
-	cp $@ tbfit.$(VERSION).mpi
-	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION).mpi tbfit.versions ; fi
+	cp $@ tbfit.$(TBFIT_VERSION).mpi
+	if [ -d "./tbfit.versions" ]; then cp tbfit.$(TBFIT_VERSION).mpi tbfit.versions ; fi
 else
 tbfit.serial: $(OBJECTS) 
 	$(F90) -o $@ $^ $(FEAST_LIB) $(BLAS) $(LAPACK) $(SCALAPACK_LIB) $(SPGLIB_) $(INCLUDE)
 	cp $@ $(BIN)/tbfit.serial
-	cp $@ tbfit.$(VERSION).serial
-	if [ -d "./tbfit.versions" ]; then cp tbfit.$(VERSION).serial tbfit.versions ; fi
+	cp $@ tbfit.$(TBFIT_VERSION).serial
+	if [ -d "./tbfit.versions" ]; then cp tbfit.$(TBFIT_VERSION).serial tbfit.versions ; fi
 endif
 
 libtbfit.a: $(OBJECTS)

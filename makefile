@@ -203,6 +203,8 @@ $(MKL_SPARSE): $(MKLPATH)/include/mkl_spblas.f90
 endif
 .SUFFIXES: .f .f90 
 %.o: %.f90
+	sed -e  's/__TBFIT_VERSION.*/__TBFIT_VERSION__   ${TBFIT_VERSION}/g' alias.inc > _temp 
+	mv _temp alias.inc
 	$(F90) $(FFLAG) -c $<
 
 #-----------------------------------

@@ -22,4 +22,4 @@
 #else
 #define kill_job           stop
 #endif
-
+#define __TBFIT_VERSION__   0.5.5

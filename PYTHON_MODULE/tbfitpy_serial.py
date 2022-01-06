@@ -194,7 +194,7 @@ class pytbfit:
         pyfit.toten(self.fcomm, self.pinpt, self.pkpts, self.pgeom, self.etba)
 
 
-    def plot_fit(self, figsize=(5,6), ef=0.0, yin=-20., yen=10, ystep=5., plot_model=None,
+    def plot_fit(self, figsize=(5,6), ef=0.0, yin=-20., yen=10, ystep=5., plot_target=None, plot_model=None,
                  title=' ', ylabel='Energy (eV)', xlabel=' ', fout='band.pdf'):
         # get k-path name and position
         self.KNAME=[] ; self.KPTS=[]
@@ -217,9 +217,10 @@ class pytbfit:
             mylabel = 'DFT' if i == 0 else None
             plt.plot(self.pkpts.kdist,self.edft.e[i,:],'-',linewidth=.6,color='black', label=mylabel)
             plt.scatter(self.pkpts.kdist,self.edft.e[i,:], s=self.pwght.wt[i,:]/maxwt*10.0, color='black')
-        for i in range( self.etba.e.shape[0] ) :
-            mylabel = 'TBA' if i == 0 else None
-            plt.plot(self.pkpts.kdist,self.etba.e[i,:],'-',linewidth=.6,color='red' , label=mylabel)
+        if plot_target is None:
+            for i in range( self.etba.e.shape[0] ) :
+                mylabel = 'TBA' if i == 0 else None
+                plt.plot(self.pkpts.kdist,self.etba.e[i,:],'-',linewidth=.6,color='red' , label=mylabel)
         if plot_model is not None:
             mylabel = 'MODEL' if i == 0 else None
             for i in range(self.etba.e.shape[0]):
@@ -395,7 +396,7 @@ class pytbfit:
         pyfit.print_etba(self.pinpt, self.pkpts, self.etba, self.edft, self.pwght, self.pgeom, 
                          suffixx, use_overlap)
     
-    def save(self, title=None, plot_fit=None, plot_model=None, target=None, band=None, param=None, weight=None, 
+    def save(self, title=None, plot_fit=None, plot_target=None, plot_model=None, target=None, band=None, param=None, weight=None, 
                    cost_history=None, cost_history_particle=None , pso_param_history = None):
         if self.myid != 0:
             return
@@ -406,6 +407,13 @@ class pytbfit:
             else:
                 fout = 'BAND.pdf'
             self.plot_fit(title=title.strip(), fout=fout, plot_model=None)
+
+        if plot_target is True:
+            if title is not None:
+                fout = 'BAND.target.'+title.strip()+'.pdf'
+            else:
+                fout = 'BAND.target.pdf'
+            self.plot_fit(title=title.strip(), fout=fout, plot_target=True)
 
         if target is True:
             if title is not None:

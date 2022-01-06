@@ -246,11 +246,13 @@ tbfitpy_mod: $(OBJECTS)
 	f90wrap -v -m $@_mpi tbfitpy_mod.f90 -k $(KIND_MAP)
 	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(F90FLAGS)' --compiler=intelem $(F90WRAP_LAPACK) -I. $(OBJECTS) -c f90wrap_tbfitpy_mod.f90 -m _$@_mpi
 	cp _$@_mpi.cpython*.so $@_mpi.py $(LIB)
+	cp ./PYTHON_MODULE/tbfitpy_mpi.py $(LIB)
 else
 tbfitpy_mod: $(OBJECTS)
 	f90wrap -m $@ tbfitpy_mod.f90 -k $(KIND_MAP)
 	f2py-f90wrap --f90exec=$(FC) --fcompiler=intelem --f90flags='$(F90FLAGS)' --compiler=intelem $(F90WRAP_LAPACK) -I. $(OBJECTS) -c f90wrap_tbfitpy_mod.f90 -m _$@
 	cp _$@.cpython*.so $@.py $(LIB)
+	cp ./PYTHON_MODULE/tbfitpy_serial.py $(LIB)
 endif
 
 fl2xyz: fleur2bs.o

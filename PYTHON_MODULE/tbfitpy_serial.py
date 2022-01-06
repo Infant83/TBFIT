@@ -12,7 +12,7 @@ import torch
 from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
-# last update: 16.09.2021 HJ Kim
+# last update: 06.01.2022 HJ Kim
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -39,6 +39,7 @@ class pytbfit:
         self.hopping = pyfit.init_hopping_py()
         self.edft  = pyfit.init_energy_py()
         self.etba  = pyfit.init_energy_py()
+        self.orbfit= False
 
     def init(self, verbose=False, orbfit=False, myid=0):
 
@@ -51,6 +52,7 @@ class pytbfit:
             self.pinpt.flag_fit_orbital_parse = True
         else:
             self.pinpt.flag_fit_orbital_parse = False
+        self.orbfit = orbfit
 
         # initialize
         pyfit.init(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
@@ -58,9 +60,13 @@ class pytbfit:
         self.cost_history = []
         self.niter = 0
 
+        self.cost = 0.0
+        self.cost_orb = 0.0
+
         self.myid = myid
 
-    def fit(self, verbose=False, miter=None, tol=None, pso_miter=None, method='lmdif', pso_options=None, n_particles=None, iseed=None):
+    def fit(self, verbose=False, miter=None, tol=None, pso_miter=None, 
+            method='lmdif', pso_options=None, n_particles=None, iseed=None, sigma=400, sigma_orb=4000):
         '''
         Fit the parameters.
         Following methods are supported:
@@ -80,6 +86,9 @@ class pytbfit:
                                                IEEE, Piscataway, NJ, 1995, p. 1942.
         NONE: For global parameter fitting, mypso is suggested. 
               To utilize lmdif method with mypso, mypso.lmdif can be used. 
+
+        - sigma : smearing function for cost function. Default = 400
+
         '''
 
         if verbose is True:
@@ -103,7 +112,10 @@ class pytbfit:
                                   self.pgeom, self.hopping, self.edft, self.etba)
 
             self.cost_history = self.ppram.cost_history
-
+            self.cost     = np.exp( -(np.sum(abs(self.etba.de)) / sigma)**2)*100
+            if self.orbfit is True:
+                self.cost_orb = np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100
+    
         elif method == 'mypso' or method == 'mypso.lmdif':
             self.pinpt.flag_tbfit = True
             if iseed is None: iseed = 123

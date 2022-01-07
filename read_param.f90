@@ -328,11 +328,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
              param_const(5,i) = PPRAM%param(i)
            elseif( dummy(1:1) .eq. 'R' .or. dummy(1:1) .eq. 'r' ) then ! if set 'random '
 !            param_const(4,i) = 0d0
-             r_dummy = random()*2d0 - 1.d0
+            !r_dummy = random()*2d0 - 1.d0
+             r_dummy = random()*20d0 - 10.d0
 #ifdef MPI
              call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #endif
-             PPRAM%param(i) = PPRAM%param(i) * r_dummy + r_dummy ! re_scaled
+            !PPRAM%param(i) = PPRAM%param(i) * r_dummy + r_dummy ! re_scaled
+             PPRAM%param(i) = PPRAM%param(i) + r_dummy           ! re_scaled
            endif
          elseif( flag_number(dummy) ) then
            call str2real(dummy, r_dummy)
@@ -359,11 +361,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            call str2real(dummy2, r_dummy)
            PPRAM%param(i) = PPRAM%param(i) * r_dummy ! re_scaled
          elseif(dummy2(1:1) .eq. 'r' .or. dummy2(1:1) .eq. 'R') then
-           r_dummy = random()*2d0 - 1.d0
+          !r_dummy = random()*2d0 - 1.d0
+           r_dummy = random()*20d0 - 10.d0
 #ifdef MPI
            call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #endif
-           PPRAM%param(i) = PPRAM%param(i) * r_dummy +r_dummy ! re_scaled
+          !PPRAM%param(i) = PPRAM%param(i) * r_dummy +r_dummy ! re_scaled
+           PPRAM%param(i) = PPRAM%param(i) + r_dummy !+r_dummy ! re_scaled
          endif
          if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
            param_const(4,i) = 1d0

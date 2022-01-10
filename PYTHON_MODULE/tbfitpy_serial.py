@@ -12,7 +12,7 @@ import torch
 from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
-# last update: 06.01.2022 HJ Kim
+# last update: 10.01.2022 HJ Kim
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -112,9 +112,11 @@ class pytbfit:
                                   self.pgeom, self.hopping, self.edft, self.etba)
 
             self.cost_history = self.ppram.cost_history
-            self.cost     = np.exp( -(np.sum(abs(self.etba.de)) / sigma)**2)*100
+           #self.cost     = np.exp( -(np.sum(abs(self.etba.de)) / sigma)**2)*100
+            self.cost     = 100.0 - np.exp( -(np.sum(abs(self.etba.de)) / sigma)**2)*100.0
             if self.orbfit is True:
-                self.cost_orb = np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100
+               #self.cost_orb = np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100
+                self.cost_orb = 100.0 - np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100.0
     
         elif method == 'mypso' or method == 'mypso.lmdif':
             self.pinpt.flag_tbfit = True

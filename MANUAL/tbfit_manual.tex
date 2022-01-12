@@ -397,15 +397,38 @@ $\bullet$ python module:
     in generating $k$-path, that is, 
     $n+1$ $k$-points along each path with only one $k$-points at the end
     of line segments. Hence, \ref{tag:EFILE} originated (or postprocessed) 
-    from \texttt{FLEUR} would have different format.
+    from \texttt{FLEUR-v26} would have different format.
     This will gives $n \times m + 1$ total $k$-points and $n$ division of 
     each $k$-path. You can read this kind of \ref{tag:EFILE} file as well, if you have 
     also specify as below, letting \ref{tag:TBFIT} to recognize the type of 
-    generated $k$-path.
+    generated $k$-path as FLEUR.
     
      \begin{verbatim}
      KFILE KPOINTS_BAND  FLEUR
      \end{verbatim}
+    
+    For the \texttt{FLEUR-MaX} release, in the \ref{tag:KFILE}, you have to specify total number of segments (intersections) along the whole k-path. In this case, one can set \ref{tag:KFILE} as follows:
+    
+     \begin{verbatim}
+     KFILE KPOINTS_BAND  FLEURMaX
+     \end{verbatim}
+         \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+            label= KPOINTS\_BAND $line$ $mode$ example with FLEURMaX tag, 
+            labelposition=bottomline]
+     k-points line mode example
+       100  ! intersections
+     Line-mode
+     Reciprocal
+       0.50000000  0.5000000 0 M
+       0.33333333  0.6666666 0 K
+       
+       0.33333333  0.6666666 0 K
+       0.00000000  0.0000000 0 G
+       
+       0.00000000  0.0000000 0 G
+       0.66666666  0.3333333 0 K'
+        \end{Verbatim}
+
     
         Note2: If your target band structure is originated from \href{https://aimsclub.fhi-berlin.mpg.de}{\texttt{FHI-aims}}, 
         the division between each $k$-path can be specified separately. For example, the typical way to specify band structure calculation tag

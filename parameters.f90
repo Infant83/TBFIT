@@ -391,7 +391,7 @@ module parameters
 
        character(len=132)            kfilenm            ! kpoint file
        character(len=132)            ribbon_kfilenm     ! kpoint file for ribbon geometry defined in 'SET RIBBON'
-       character(len=8)              kline_type ! FHI-AIMS, VASP, FLEUR
+       character(len=8)              kline_type ! FHI-AIMS, VASP, FLEUR, FLEUR-MaX
        integer(kind=sp)                     nkpoint,nline
        integer(kind=sp)                     n_ndiv
        integer(kind=sp)                     idiv_mode ! kpath division mode

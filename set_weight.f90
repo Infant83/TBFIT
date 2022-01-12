@@ -924,6 +924,8 @@ subroutine find_kp_index(ikp, PKPTS, strk)
            ikp = PKPTS%ndiv(1)*(iline-1)+1
          elseif(PKPTS%idiv_mode .eq. 2) then ! FLEUR-like
            ikp = PKPTS%ndiv(1)*(iline-1) ! NOTE: need to be checked whether it is write
+         elseif(PKPTS%idiv_mode .eq. 4) then ! FLEUR-MaX
+           ikp = sum(PKPTS%ndiv(1:iline-1))+iline
          endif
 
          if(index(strk,'+') .ge. 1 .or. index(strk,'-') .ge. 1) then

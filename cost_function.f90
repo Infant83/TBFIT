@@ -370,25 +370,13 @@ contains
             
             if(flag_fit_degeneracy) dD       = (ETBA_FIT%D(:,ie+(is-1)*PGEOM%nband,ik) - EDFT%D(:,ie_,ik)) * PWGHT%DEGENERACY_WT(ie_,ik)
             if(flag_weight_orbital) OW       = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik)) )
-           !if(flag_fit_orbital) then
-           !  dE_gauss   = 0d0 ! initialize always
-           !  dE_gauss   = abs(E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(1+iband-1+(is-1)*PGEOM%neig:PGEOM%nband+iband-1+(is-1)*PGEOM%neig,ik) )
-           !  dE_gauss   = fgauss(sigma, dE_gauss)
-           !  orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
-           !  orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
-
-           !  dORB     = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband) * dE_gauss
-           !  dE       = sum((1d0-dE_gauss/maxgauss) * (1d0 - dORB)) * PWGHT%WT(ie_,ik)
-           !else
-           !  dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
-           !endif
             dE       = abs(dE_plain * PWGHT%WT(ie_,ik))
             if(flag_fit_orbital) then
               orb_TBA    = myORB_TBA(:,ie+(is-1)*PGEOM%nband,my_ik)
               orb_DFT    = myORB_DFT(:,1+(is-1)*PGEOM%nband:PGEOM%nband+(is-1)*PGEOM%nband,my_ik)
               dORB       = fdORB(orb_TBA, orb_DFT, PINPT%lmmax, PGEOM%nband)
               dORB_ref   = fdORB(orb_DFT(:,ie), orb_DFT, PINPT%lmmax, PGEOM%nband)
-             !dORB_smooth= sum(abs(dORB - dORB_ref)) * PWGHT%WT(ie_,ik)
+
             endif
             if(imode .eq. 12) then
               dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain

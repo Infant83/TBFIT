@@ -2625,7 +2625,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
       logical       flag_kfile_ribbon 
       integer*4     nitems, i_dummy
       external      nitems
-      
+      character*8   str2upcase
+      external      str2upcase
+
       i_dummy = nitems(inputline) -1
 
       if(i_dummy .eq. 1) then
@@ -2639,6 +2641,7 @@ set_rib: do while(trim(desc_str) .ne. 'END')
         endif
       elseif(i_dummy .eq. 2) then
         read(inputline,*,iostat=i_continue) desc_str, PKPTS%kfilenm, PKPTS%kline_type  
+        PKPTS%kline_type = str2upcase(PKPTS%kline_type)
         if(flag_kfile_ribbon) then
           PKPTS%kfilenm = PKPTS%ribbon_kfilenm
           write(message,'(A,A)')' KPTS_FNM:  (for ribbon) ',trim(PKPTS%kfilenm)  ; write_msgi

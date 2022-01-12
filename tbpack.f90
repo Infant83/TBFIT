@@ -1,4 +1,145 @@
 #include "alias.inc"
+subroutine get_kpath_fleur_MaX(PKPTS, PGEOM, kunit, idiv_mode)
+  use parameters, only : kpoints, poscar
+  use mpi_setup
+  use print_io
+  use mykind
+  implicit none
+  type(kpoints)                  :: PKPTS
+  type(poscar)                   :: PGEOM
+  real(kind=dp)                     a1(3),a2(3),a3(3), b1(3),b2(3),b3(3)
+  real(kind=dp)                     dk(3),dk_(3), dk_reci(3)
+  real(kind=dp)                     kdist, enorm
+  real(kind=dp), allocatable     :: PK(:,:), PK_reci(:,:)
+  integer(kind=sp)                  i,ii,ik,iline,ndivk, iline_
+  integer(kind=sp)                  idiv_mode
+  character(len=1)                  kunit
+  external                          enorm
+  ! Modified from init_special subroutine of FLEUR-MaX-5.1/inpgen2/make_kpoints.f90
+  integer(kind=sp)                  iArray(1)
+  integer(kind=sp),allocatable   :: nk(:)    
+  real(kind=dp),allocatable      :: d(:), segmentLengths(:)
+  real(kind=dp)                     lastp(3), nextp(3)
+
+  a1=PGEOM%a_latt(1:3,1)
+  a2=PGEOM%a_latt(1:3,2)
+  a3=PGEOM%a_latt(1:3,3)
+  call get_reci(b1,b2,b3, a1,a2,a3)
+
+  ! NOTE: In FLEUR-MaX, we specify total number of k-points along total k-path,
+  !       via "-kpt band=ndivk" option with inpgen. 
+  ndivk = PKPTS%ndiv(1)
+  PKPTS%nkpoint = ndivk 
+
+  allocate(nk(PKPTS%nline), d(PKPTS%nline+1))
+  allocate(segmentLengths(PKPTS%nline))
+
+  deallocate(PKPTS%ndiv)
+  allocate(PKPTS%ndiv(PKPTS%nline))
+
+  allocate(PK(3,PKPTS%nline*2) )
+  allocate(PK_reci(3,PKPTS%nline*2) )
+  allocate(PKPTS%kpoint(3,PKPTS%nkpoint) )
+  allocate(PKPTS%kpoint_reci(3,PKPTS%nkpoint) )
+
+  ! Set special K-points
+  do iline = 1, PKPTS%nline*2
+    PK(1:3,iline)=PKPTS%kline(1,iline)*b1(1:3)+ &
+                  PKPTS%kline(2,iline)*b2(1:3)+ &
+                  PKPTS%kline(3,iline)*b3(1:3)
+    PK_reci(1:3,iline)= PKPTS%kline(1:3,iline)
+  enddo
+
+  ! Distances of each special K-points
+  do iline = 2, PKPTS%nline+1
+    dk = PK(:,(iline-1)*2) - PK(:,(iline-1)*2-1)
+    d(iline) = sqrt(dot_product(dk,dk))
+  enddo
+  d(1) = 0.0d0
+  
+  ! Distribute points
+  nk(1) = 0
+  do i = 2, PKPTS%nline+1
+    nk(i-1) = NINT((PKPTS%nkpoint-(PKPTS%nline+1))*(d(i)/SUM(d)))
+  enddo
+
+  do while ( (sum(nk) + PKPTS%nline+1) .ne. PKPTS%nkpoint )
+    do i = 2, PKPTS%nline+1
+      segmentLengths(i-1) = d(i) / (nk(i-1) + 1)
+    enddo
+    if ((sum(nk) + PKPTS%nline+1) .gt. PKPTS%nkpoint) then
+      iArray = minloc(segmentLengths(:))
+      nk(iArray(1)) = nk(iArray(1)) - 1
+    else
+      iArray = maxloc(segmentLengths(:))
+      nk(iArray(1)) = nk(iArray(1)) + 1
+    endif
+  enddo
+  PKPTS%ndiv = nk
+
+  ! Generate lines
+  ik = 1
+  do i = 1, PKPTS%nline
+    PKPTS%kpoint(:,ik) = PK(:,i*2-1)
+    PKPTS%kpoint_reci(:,ik) = PK_reci(:,i*2-1)
+    dk = (PK(:,i*2) - PK(:,i*2-1))/(nk(i)+1)
+    dk_reci = (PK_reci(:,i*2) - PK_reci(:,i*2-1))/(nk(i)+1)
+    ik = ik + 1
+    do ii = 1, nk(i)
+      PKPTS%kpoint(:,ik) = PK(:,i*2-1) + dk * ii
+      PKPTS%kpoint_reci(:,ik) = PK_reci(:,i*2-1) + dk_reci * ii
+      ik = ik + 1
+    enddo
+  enddo
+  PKPTS%kpoint(:,ik) = PK(:,PKPTS%nline*2)
+  PKPTS%kpoint_reci(:,ik) = PK_reci(:,PKPTS%nline*2)
+
+  ! write info
+  if(trim(PKPTS%k_name(1)) .eq. "G" .or. trim(PKPTS%k_name(1)) .eq. 'g') then
+    write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"','{/Symbol G}','"'  ; write_msgi
+  else
+    write(message,'(A,A,4x,F10.6,2A,4A)')'    KINIT','= ',kdist,' ; ','KNAME_INIT','=','"',trim(PKPTS%k_name(1)),'"'  ; write_msgi
+  endif
+
+  do iline = 2, PKPTS%nline
+    if(trim(PKPTS%k_name(iline*2-1)) .eq. "G" .or. trim(PKPTS%k_name(iline*2-1)) .eq. 'g') then
+        if(iline .gt. 10) then
+          write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',iline,'= ',sum(d(1:iline)), ' ; ','KNAME_',iline,'  =','"','{/Symbol G}','"'  ; write_msgi
+        else
+          write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',iline,'= ',sum(d(1:iline)), ' ; ','KNAME_',iline,'   =','"','{/Symbol G}','"'  ; write_msgi
+        endif
+    else
+        if(iline .gt. 10) then
+          write(message,'(A,I2,A,4x,F10.6,2A,I2,4A)')'      K',iline,'= ',sum(d(1:iline)), ' ; ','KNAME_',iline,'  =','"',trim(PKPTS%k_name(iline*2-1)),'"'  ; write_msgi
+        else
+          write(message,'(A,I1,A,4x,F10.6,2A,I1,4A)')'       K',iline,'= ',sum(d(1:iline)), ' ; ','KNAME_',iline,'   =','"',trim(PKPTS%k_name(iline*2-1)),'"'  ; write_msgi
+        endif
+    endif
+  enddo
+
+  if(trim(PKPTS%k_name(PKPTS%nline*2)) .eq. "G" .or. trim(PKPTS%k_name(PKPTS%nline*2)) .eq. 'g') then
+    write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',sum(d),' ; ','KNAME_END',' =','"','{/Symbol G}','"'  ; write_msgi
+  else
+    write(message,'(A,A,4x,F10.6,2A,4A)')'     KEND','= ',sum(d),' ; ','KNAME_END',' =','"',trim(PKPTS%k_name(PKPTS%nline*2)),'"'  ; write_msgi
+  endif
+
+  do iline=1, PKPTS%nline
+    if(iline .eq. 1) then
+      write(message,'(A)')' set xtics (KNAME_INIT KINIT,'
+    elseif(iline .ge. 2 .and. iline .lt. PKPTS%nline) then
+      write(message,'(2A,i0,A,i0,A)')trim(message),' KNAME_',iline,' K',iline,','
+    endif
+
+    if(iline .eq. PKPTS%nline .and. iline .eq. 1) then
+      write(message,'(2A)')trim(message), ' KNAME_END KEND) nomirror'
+    elseif(iline .eq. PKPTS%nline .and. iline .gt. 1) then
+      write(message,'(2A,i0,A,i0,A)')trim(message),' KNAME_',iline,' K',iline,', KNAME_END KEND) nomirror'
+    endif
+  enddo
+  write_msgi
+
+  return
+endsubroutine
 subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
   use parameters, only : kpoints, poscar
   use mpi_setup
@@ -27,6 +168,8 @@ subroutine get_kpath(PKPTS, PGEOM, kunit, idiv_mode)
     elseif(idiv_mode .eq. 2) then ! FLEUR type
       ndivk=PKPTS%ndiv(1)
       PKPTS%nkpoint = ndivk * PKPTS%nline + 1
+!   elseif(idiv_mode .eq. 4) then ! FLEUR-MaX type
+!     ndivk=PKPTS%ndiv(1) ! total
     elseif(idiv_mode .eq. 3) then ! AIMS type
       PKPTS%nkpoint = sum( PKPTS%ndiv(:) )
     endif

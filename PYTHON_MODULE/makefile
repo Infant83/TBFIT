@@ -45,8 +45,8 @@
 #####################
 # MAC-INTEL COMPILE #
 #####################
-#FC     = mpiifort
- FC     = mpif90
+ FC     = mpiifort
+#FC     = mpif90
  OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES

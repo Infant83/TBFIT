@@ -314,9 +314,9 @@ subroutine set_print_param_format(fmt, nsub, flag_index)
    endif
     
    if(nsub .lt. 1) then
-     c_param = '*(2x,F20.8)'
+     c_param = '*(2x,E20.8)'
    else
-     c_param = '  2x,F20.8 '
+     c_param = '  2x,E20.8 '
    endif
 
    write(fmt, '(5A)')'(',trim(c_index),' A20, ', c_param, ' ,A)'

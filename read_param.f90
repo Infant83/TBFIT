@@ -509,7 +509,7 @@ subroutine set_param_const(PPRAM)
            enddo
          endif
          cycle
-       elseif( trim(PPRAM%c_const(2,i)) .eq. '<=' ) then
+       elseif( trim(PPRAM%c_const(2,i)) .eq. '<=' .or. trim(PPRAM%c_const(2,i)) .eq. '<' ) then
          do ii = 1, PPRAM%nparam
            if( trim(PPRAM%c_const(1,i)) .eq. trim(PPRAM%param_name(ii)) ) then 
              i_a = ii
@@ -517,7 +517,7 @@ subroutine set_param_const(PPRAM)
            endif
          enddo
          cycle
-       elseif( trim(PPRAM%c_const(2,i)) .eq. '>=' ) then
+       elseif( trim(PPRAM%c_const(2,i)) .eq. '>=' .or. trim(PPRAM%c_const(2,i)) .eq. '>') then
          do ii = 1, PPRAM%nparam
            if( trim(PPRAM%c_const(1,i)) .eq. trim(PPRAM%param_name(ii)) ) then 
              i_a = ii
@@ -565,7 +565,7 @@ subroutine set_param_const(PPRAM)
            enddo
          endif
          cycle
-       elseif( trim(PPRAM%c_const(2,i)) .eq. '<=' ) then  ! set upper bound
+       elseif( trim(PPRAM%c_const(2,i)) .eq. '<=' .or. trim(PPRAM%c_const(2,i)) .eq. '<') then  ! set upper bound
          do ii = 1, PPRAM%nparam
            if( trim(PPRAM%c_const(1,i)) .eq. trim(PPRAM%param_name(ii)) ) then
              i_a = ii
@@ -575,7 +575,7 @@ subroutine set_param_const(PPRAM)
            endif
          enddo
          cycle
-       elseif( trim(PPRAM%c_const(2,i)) .eq. '>=' ) then
+       elseif( trim(PPRAM%c_const(2,i)) .eq. '>=' .or. trim(PPRAM%c_const(2,i)) .eq. '>') then
          do ii = 1, PPRAM%nparam
            if( trim(PPRAM%c_const(1,i)) .eq. trim(PPRAM%param_name(ii)) ) then
              i_a = ii

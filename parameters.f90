@@ -322,7 +322,7 @@ module parameters
 
        integer(kind=sp)                     max_orb  ! maximum number of orbitals asigned in each atomic site
        integer(kind=sp),   allocatable   :: n_orbital(:) ! number of orbitals per atomic site
-       character(len=8), allocatable   :: c_orbital(:,:) ! name of atomic orbitals for each atomic sites
+       character(len=8),   allocatable   :: c_orbital(:,:) ! name of atomic orbitals for each atomic sites
        real(kind=dp),      allocatable   :: orb_sign(:,:)  ! sign of orbital
 
        integer(kind=sp),   allocatable   :: ispec(:)     ! atomic number. As you can find in the periodic table.
@@ -332,19 +332,19 @@ module parameters
        real(kind=dp),      allocatable   :: z_eff_nuc(:,:) ! effective nuclear charge for each atomic orbital
 
 
-       character(len=40)                  system_name
+       character(len=40)                    system_name
        real(kind=dp)                        a_scale, a_latt(3,3) ! lattice vector (unit of Ang)
        real(kind=dp)                        b_latt(3,3) ! reciprocal lattice vector(unit of A^-1)
-       logical                       flag_selective, flag_direct, flag_cartesian
+       logical                              flag_selective, flag_direct, flag_cartesian
 
        integer(kind=sp)                     n_nn_type
-       character(len=80),allocatable   :: nn_pair(:)
+       character(len=80),allocatable     :: nn_pair(:)
        real(kind=dp),      allocatable   :: nn_dist(:), nn_r0(:)
 
        integer(kind=sp),   allocatable   :: orb_index(:) ! store lm(atomic orbital, s, px,py...), from 1 to 9, information for each basis (neig)
 
        ! setup for ribbon geometry
-       logical                       flag_set_ribbon, flag_print_only_ribbon_geom
+       logical                              flag_set_ribbon, flag_print_only_ribbon_geom
        integer(kind=sp)                     ribbon_nslab(3)
        real(kind=dp)                        ribbon_vacuum(3)
 
@@ -420,22 +420,23 @@ module parameters
        real(kind=dp),      allocatable   :: E(:,:)   !E(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), eigenstate
        real(kind=dp),      allocatable   :: dE(:,:)   !dE(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), EDFT - ETBA, if flag_python_module
        real(kind=dp),      allocatable   :: dORB(:,:) !dORB(neig*ispin,nkpoint) (for nspin=2, up=1:neig, dn=neig+1:neig*2), similarity diff in orbital btw TBA and DFT, if flag_python_module
-       complex(kind=dp),  allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) wavevector (basis,eigen,kpooint)
+       complex(kind=dp),   allocatable   :: V(:,:,:) !V(nbasis=neig*ispin,neig*ispin,nkpoint) wavevector (basis,eigen,kpooint)
+       real(kind=dp),      allocatable   :: V2(:,:,:) ! orbital projected band (neig, neig*ispin (or nband*nspin), nkpoint) (i,n,k)=|psi_i,nk><psi_i,nk|
        real(kind=dp),      allocatable   :: ORB(:,:,:) ! orbital projected density of state (lm, neig*ispin (or nband*nspin), nkpoint), lm=s,px,py....,dyz
-       complex(kind=dp),  allocatable   :: SV(:,:,:) !SV(nbasis=neig*ispin,neig*ispin,nkpoint) overlap matrix S multiplied V, S_ij = <i|j> (i,j,kpoint)
+       complex(kind=dp),   allocatable   :: SV(:,:,:) !SV(nbasis=neig*ispin,neig*ispin,nkpoint) overlap matrix S multiplied V, S_ij = <i|j> (i,j,kpoint)
        real(kind=dp),      allocatable   :: D(:,:,:)   !D(3,neig*ispin,nkpoint) Information for degeneracy is stored.
                                                 !D(1,:,:) -> degeneracy D_above * D_below 
                                                 !D(2,:,:) -> degeneracy D_above = E_n+1 - E_n  (exception, E_neig = 1)
                                                 !D(3,:,:) -> degeneracy D_below = E_n   - E_n-1(exception, E_1    = 1)
        integer(kind=sp),   allocatable   :: IDX(:,:) ! band index after band re-ordering (valid if LORDER = .TRUE.)
        real(kind=dp),      allocatable   :: E_ORD(:,:) ! re-ordered band
-       complex(kind=dp),  allocatable   :: V_ORD(:,:,:) ! re-ordered eigenvector
-       complex(kind=dp),  allocatable   :: SV_ORD(:,:,:) ! re-ordered eigenvector multiplied with S
+       complex(kind=dp),   allocatable   :: V_ORD(:,:,:) ! re-ordered eigenvector
+       complex(kind=dp),   allocatable   :: SV_ORD(:,:,:) ! re-ordered eigenvector multiplied with S
 
        real(kind=dp),      allocatable   :: E_BAND(:)  ! band  energy of the system for each spin (nspin) 
        real(kind=dp),      allocatable   :: E_TOT(:)   ! total energy of the system for each spin (nspin)
        real(kind=dp),      allocatable   :: F_OCC(:,:) ! Fermi-dirac occupation function (ispin*nband, nkp)
-       real(kind=dp)                        E_F        ! Fermi level
+       real(kind=dp)                        E_F        ! Fermi level (calculated by tbfit, do not confuse with efile_ef which is fermi level of DFT target)
 !      real(kind=dp),      allocatable   :: pso_cost_history(:)  ! save cost function history w.r.t. the iteration in PSO method. size:(miter)
   endtype energy
 

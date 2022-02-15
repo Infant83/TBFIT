@@ -500,7 +500,7 @@ subroutine print_energy_proj(PKPTS,E,V,SV,PGEOM,PINPT,PPRAM)
                endif
 
                if(.not.flag_print_orbital .and. flag_proj_atom) write(pid_energy,*)''
-               if(.not.flag_print_orbital .and. flag_proj_sum) write(pid_energy+100,*)'' ! maybe do not need.. but how knows?
+               if(.not.flag_print_orbital .and. flag_proj_sum) write(pid_energy+100,*)'' ! maybe do not need.. but who knows?
              elseif(ie .gt. ne_found(is, ik)) then
                if(flag_proj_atom) write(pid_energy,*)''
                if(iatom .eq. proj_natom .and. flag_proj_sum) write(pid_energy+100,*)'' 

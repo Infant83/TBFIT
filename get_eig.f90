@@ -35,8 +35,9 @@ subroutine get_eig(NN_TABLE, kp, nkp, PINPT, PPRAM, E, V, SV, neig, iband, nband
   integer*4                 mygroup(0:nprocs-1),groupid
 
   if(flag_stat) then
-    write(message,'(A)') '  ' ; write_msg
-    write(message,'(A)') ' #--- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
+    write(message,'( A)') '  ' ; write_msg
+    write(message,'( A)') ' #--- START: BAND STRUCTURE EVALUATION -----------' ; write_msg
+    write(message,'(2A)') ' #    SYSTEM: ', trim(PINPT%ifilenm(NN_TABLE%mysystem)) ; write_msg
   endif
   timer = 'init'
 
@@ -1089,7 +1090,9 @@ subroutine allocate_ETBA(PGEOM, PINPT, PKPTS, ETBA, flag_distribute_vector, my_n
    ! get_dE routine and is activated when PINPT%flag_fit_orbital = .true.
    if(PINPT%flag_fit_orbital) then
      if(allocated(ETBA%ORB)) deallocate(ETBA%ORB)
+     if(allocated(ETBA%V2))  deallocate(ETBA%V2)
      allocate(ETBA%ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+     allocate(ETBA%V2(PGEOM%neig,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
    endif
 
    if(PINPT%flag_get_band_order) then

@@ -19,18 +19,23 @@ contains
      integer*4        ik, is, my_ik
      integer*4        ie, im
      real*8           ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint)
+     real*8           V2(PGEOM%neig,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint)
      complex*16       c_up, c_dn
      complex*16       sc_up, sc_dn
+     real*8           c_sum
      complex*16,allocatable :: myV(:,:,:)
      complex*16,allocatable :: mySV(:,:,:)
      integer*4, allocatable :: ourjob(:), ourjob_disp(:)
      integer*4                 ncpu, id
      logical                   flag_use_overlap
 
-     if(.not. PINPT%flag_fit_orbital) return
+    !if(.not. PINPT%flag_fit_orbital) return
 
      sizebuff = PGEOM%neig*PINPT%ispinor*PGEOM%nband*PINPT%nspin
+     if(.not. allocated(ETBA%ORB)) allocate(ETBA%ORB(PINPT%lmmax,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
+     if(.not. allocated(ETBA%V2))  allocate(ETBA%V2(PGEOM%neig,PGEOM%nband*PINPT%nspin, PKPTS%nkpoint))
      ETBA%ORB = 0d0
+     ETBA%V2  = 0d0
 
      if(COMM_KOREA%flag_split) then
        ncpu = COMM_KOREA%nprocs
@@ -89,10 +94,10 @@ contains
              else
                sc_up = c_up             ; sc_dn = c_dn
              endif
+             c_sum = real( conjg(c_up)*sc_up + conjg(c_dn)*sc_dn)
 
-             ETBA%ORB(PGEOM%orb_index(im), ie, ik) = &
-                ETBA%ORB(PGEOM%orb_index(im), ie, ik) + &
-                real( conjg(c_up)*sc_up + conjg(c_dn)*sc_dn)
+             ETBA%ORB(PGEOM%orb_index(im),ie,ik)=ETBA%ORB(PGEOM%orb_index(im),ie,ik)+c_sum
+             ETBA%V2(im, ie, ik) = c_sum
 
            else
              c_up = myV(im+PGEOM%neig*(is-1),ie+PGEOM%nband*(is-1),my_ik)
@@ -101,10 +106,11 @@ contains
              else
                sc_up = c_up
              endif
+             c_sum = real(conjg(c_up)*sc_up)
 
-             ETBA%ORB(PGEOM%orb_index(im), ie+PGEOM%nband*(is-1), ik) = &
-                ETBA%ORB(PGEOM%orb_index(im), ie+PGEOM%nband*(is-1), ik) + &
-                real(conjg(c_up)*sc_up)
+             ETBA%ORB(PGEOM%orb_index(im),ie+PGEOM%nband*(is-1),ik)= &
+                ETBA%ORB(PGEOM%orb_index(im),ie+PGEOM%nband*(is-1), ik)+c_sum
+             ETBA%V2(im,ie+PGEOM%nband*(is-1),ik)= c_sum
 
            endif
          enddo
@@ -114,15 +120,16 @@ contains
      enddo
 
 #ifdef MPI
-!    call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
-!    ETBA%ORB = ORB
-
      if(.not. COMM_KOREA%flag_split) then
        call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
        ETBA%ORB = ORB
+       call MPI_ALLREDUCE(ETBA%V2 , V2 , size(V2) , MPI_REAL8, MPI_SUM, mpi_comm_earth, mpierr)
+       ETBA%V2  = V2
      elseif(COMM_KOREA%flag_split) then
        call MPI_ALLREDUCE(ETBA%ORB, ORB, size(ORB), MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
        ETBA%ORB = ORB
+       call MPI_ALLREDUCE(ETBA%V2 , V2 , size(V2) , MPI_REAL8, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+       ETBA%V2  = V2
      endif
 #endif
 

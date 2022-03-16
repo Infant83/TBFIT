@@ -105,6 +105,7 @@ subroutine parse(PINPT)
    PINPT%flag_parse       = .false.
    PINPT%flag_plot        = .false.
    PINPT%flag_tbfit_parse = .false.
+   PINPT%flag_ls_type_parse = .false.
    PINPT%flag_tbfit       = .false.
    PINPT%flag_tbfit_finish= .false. ! only activate when exit from fitting routine 
    PINPT%flag_tbfit_test  = .false.
@@ -153,7 +154,7 @@ subroutine parse(PINPT)
            PINPT%flag_tbfit_parse  = .true.
            PINPT%flag_tbfit = .true.
            write(message,'(A)')'  L_TBFIT:   .TRUE. (enforce by -fit option)'  ; write_msg
-           
+
          elseif(trim(option) .eq. '-nofit' .or. trim(option) .eq. '-n') then
            PINPT%flag_tbfit_parse  = .true.
            PINPT%flag_tbfit = .false.
@@ -165,6 +166,11 @@ subroutine parse(PINPT)
            write(message,'(A)')'  L_TBFIT:   .FALSE. (enforce by -np option)'  ; write_msg
            PINPT%flag_plot         = .TRUE.
            write(message,'(A)')'   L_PLOT:   .TRUE. (gnuplot gnuBAND-TB.gpi)'  ; write_msg
+
+         elseif(trim(option) .eq. '-ls' .or. trim(option) .eq. '-lstype') then
+           PINPT%flag_ls_type_parse = .true.
+           call getarg(iarg+1, PINPT%ls_type)
+           write(message,'(2A)')'  LS_TYPE:  ',trim(PINPT%ls_type) ; write_msg
 
          elseif(trim(option) .eq. '-print_only' .or. trim(option) .eq. '-po' .or. trim(option) .eq. '-print_weight') then
            PINPT%flag_print_only_target = .true.
@@ -306,35 +312,36 @@ subroutine help()
    write(6,'(A)')" "
    write(6,'(A)')" ## POSSIBLE OPTIONS ##"
    write(6,'(A)')"                                 "
-   write(6,'(A)')"   -h                     : print this help page for command line arguments"
-   write(6,'(A)')"                                             "
-   write(6,'(A)')"   -log (or -o) FNAME     : output log will be written in FNAME. Default: TBFIT.out"
-   write(6,'(A)')"   -input INP             : enforce to read INP file instead of INCAR-TB for the input card file"
-   write(6,'(A)')"   -fit or -f             : enforce to run with 'fitting' mode"
-   write(6,'(A)')"   -nofit or -n           : enforce not to run with 'fitting' even if the TBFIT tag is set to .TRUE."
-   write(6,'(A)')"   -plot or -pl           : run gnuplot script after calculation with 'gnuplot gnuBAND-TB.gpi' "
-   write(6,'(A)')"   -np                    : same as ' -nofit + -plot ' option applied "
-   write(6,'(A)')"   -gnuplot xx.gpi        : with -np or -plot tag, the gnuplot command will be run with 'gnuplot xx.gpi' "
-   write(6,'(A)')"   -print_only(or -po)    : enforce not to proceed fitting but print out weighting information and stop"
-   write(6,'(A)')"   -miter MIT             : enforce to set maximum number of iteration for LMDIF to MIT "
-   write(6,'(A)')"                            in prior to the MITER tag"
-   write(6,'(A)')"   -mxfit(or -mf) MXF     : enforce to set maximum number of reapeat of iteration for LMDIF to MXF "
-   write(6,'(A)')"                            in prior to the MITER tag"
-   write(6,'(A)')"   -param(or -p) PF       : enforce to read parameter file 'PF' in prior to the PFILE tag"
-   write(6,'(A)')"   -weight(or -w) WF      : enforce to read weight    file 'WF' in prior to the WFILE tag or 'SET WEIGHT'"
-   write(6,'(A)')"   -kpoint(or -kp, -k) KF : enforce to read k-points  file 'KF' in prior to the KFILE tag"
-   write(6,'(A)')"   -lorbit                : enforce to print orbital information"
-   write(6,'(A)')"       .true.  or T       : enforce to print orbital information"
-   write(6,'(A)')"       .false. or F       : enforce not to print orbital information"
-   write(6,'(A)')"           mx             : enforce to print magnetization mx " 
-   write(6,'(A)')"           my             : enforce to print magnetization mz " 
-   write(6,'(A)')"           mz             : enforce to print magnetization mz " 
-!  write(6,'(A)')"   -ldos .true.  or T     : enforce to print orbital information for each atom in separate file"
-!  write(6,'(A)')"         .false. or F     : enforce not to print orbital information"
-   write(6,'(A)')"   -pso_verbose  IVERBOSE : determine verbosity in PSO routine. "
-   write(6,'(A)')"                          :  -> IVERBOSE = 1 : write all info (incl. cost for each particles)  "
-   write(6,'(A)')"                          :  -> IVERBOSE = 2 : write PSO results only"
-   write(6,'(A)')"   -test                  : run test routine, for the development perpose only."
+   write(6,'(A)')"   -h                       : print this help page for command line arguments"
+   write(6,'(A)')"                                               "
+   write(6,'(A)')"   -log (or -o) FNAME       : output log will be written in FNAME. Default: TBFIT.out"
+   write(6,'(A)')"   -input INP               : enforce to read INP file instead of INCAR-TB for the input card file"
+   write(6,'(A)')"   -fit or -f               : enforce to run with 'fitting' mode"
+   write(6,'(A)')"   -nofit or -n             : enforce not to run with 'fitting' even if the TBFIT tag is set to .TRUE."
+   write(6,'(A)')"   -plot or -pl             : run gnuplot script after calculation with 'gnuplot gnuBAND-TB.gpi' "
+   write(6,'(A)')"   -np                      : same as ' -nofit + -plot ' option applied "
+   write(6,'(A)')"   -ls_type (or -ls) METHOD : set fitting METHOD manually. One of following can be selected: LMDIF, PSO, PSO+LMDIF"
+   write(6,'(A)')"   -gnuplot xx.gpi          : with -np or -plot tag, the gnuplot command will be run with 'gnuplot xx.gpi' "
+   write(6,'(A)')"   -print_only(or -po)      : enforce not to proceed fitting but print out weighting information and stop"
+   write(6,'(A)')"   -miter MIT               : enforce to set maximum number of iteration for LMDIF to MIT "
+   write(6,'(A)')"                              in prior to the MITER tag"
+   write(6,'(A)')"   -mxfit(or -mf) MXF       : enforce to set maximum number of reapeat of iteration for LMDIF to MXF "
+   write(6,'(A)')"                              in prior to the MITER tag"
+   write(6,'(A)')"   -param(or -p) PF         : enforce to read parameter file 'PF' in prior to the PFILE tag"
+   write(6,'(A)')"   -weight(or -w) WF        : enforce to read weight    file 'WF' in prior to the WFILE tag or 'SET WEIGHT'"
+   write(6,'(A)')"   -kpoint(or -kp, -k) KF   : enforce to read k-points  file 'KF' in prior to the KFILE tag"
+   write(6,'(A)')"   -lorbit                  : enforce to print orbital information"
+   write(6,'(A)')"       .true.  or T         : enforce to print orbital information"
+   write(6,'(A)')"       .false. or F         : enforce not to print orbital information"
+   write(6,'(A)')"           mx               : enforce to print magnetization mx " 
+   write(6,'(A)')"           my               : enforce to print magnetization mz " 
+   write(6,'(A)')"           mz               : enforce to print magnetization mz " 
+!  write(6,'(A)')"   -ldos .true.  or T       : enforce to print orbital information for each atom in separate file"
+!  write(6,'(A)')"         .false. or F       : enforce not to print orbital information"
+   write(6,'(A)')"   -pso_verbose  IVERBOSE   : determine verbosity in PSO routine. "
+   write(6,'(A)')"                            :  -> IVERBOSE = 1 : write all info (incl. cost for each particles)  "
+   write(6,'(A)')"                            :  -> IVERBOSE = 2 : write PSO results only"
+   write(6,'(A)')"   -test                    : run test routine, for the development perpose only."
    stop                                 
 
    return

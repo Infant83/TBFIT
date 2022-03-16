@@ -72,6 +72,7 @@ module parameters
        logical                             flag_get_band  ! default = .true.
        logical                             flag_spglib    ! default = .true. ! write space group information
        logical                             flag_tbfit_parse, flag_tbfit_parse_
+       logical                             flag_ls_type_parse
        logical                             flag_kfile_parse
        logical                             flag_pfile_parse
        logical                             flag_wfile_parse

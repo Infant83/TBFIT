@@ -3334,7 +3334,9 @@ set_rib: do while(trim(desc_str) .ne. 'END')
           endif
           
         case('LSTYPE') !set non-linear regression scheme
-          read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
+          if(.not. PINPT%flag_ls_type_parse) then
+            read(inputline,*,iostat=i_continue) desc_str, PINPT%ls_type
+          endif
           if(trim(PINPT%ls_type) .eq. 'LMDIF' .or. trim(PINPT%ls_type) .eq. 'lmdif' ) then
             PINPT%ls_type = 'LMDIF'
             write(message,'(A,A10,A)')'  LS_TYPE:  ',trim(PINPT%ls_type),', Levenberg-Marquardt with finite-difference for Jacobian'  ; write_msgi

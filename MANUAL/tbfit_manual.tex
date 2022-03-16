@@ -429,7 +429,28 @@ $\bullet$ python module:
        0.66666666  0.3333333 0 K'
         \end{Verbatim}
 
-    
+	One can also try following input. You can also specify explicitly how many divisions in between special K-points. Total number of k-points will be (7+18+19+19)+1(last point)
+
+         \begin{Verbatim}[commandchars=\\\{\},gobble=4, frame=single, framesep=2mm, 
+            label= KPOINTS\_BAND $line$ $mode$ example with FLEURMaX tag, 
+            labelposition=bottomline]
+     k-points line mode example
+       7 18 19 19  ! 64 intersections and evenly devided k-segment
+     Line-mode
+     Reciprocal
+       0.000  0.000 0.000 G
+       0.500  0.500 0.500 Z
+
+       0.500  0.500 0.500 Z
+       0.500  0.500 0.000 F
+       
+       0.500  0.500 0.000 F              
+       0.000  0.000 0.000 G1
+       
+       0.000  0.000 0.000 G1
+       0.500  0.000 0.000 L
+        \end{Verbatim}
+
         Note2: If your target band structure is originated from \href{https://aimsclub.fhi-berlin.mpg.de}{\texttt{FHI-aims}}, 
         the division between each $k$-path can be specified separately. For example, the typical way to specify band structure calculation tag
         in \href{https://aimsclub.fhi-berlin.mpg.de}{\texttt{FHI-aims}} looks as follows:

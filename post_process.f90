@@ -48,7 +48,6 @@ subroutine post_process(PINPT, PPRAM, PPRAM_FIT, PKPTS, EDFT, PWGHT, PGEOM, NN_T
       write(message,'(1A)')'   START POST-PROCESSING PROCEDURE: '                        ; write_msg
     endif
     write(message,'( A)')' #======================================================='  ; write_msg
-
     call read_input(PINPT,PPRAM(i),PKPTS(i), PGEOM(i), PWGHT(i), EDFT(i), NN_TABLE(i), &
                     PINPT_DOS(i), PINPT_BERRY(i), PKAIA, PRPLT(i), PUFLD(i), i)
 

@@ -203,7 +203,8 @@ subroutine print_param_pso (PINPT, PPRAM, PWGHT)
     write(pid_param_pso,'(A)')'  '
     write(pid_param_pso,'(A)')'  '
  
-    write(title_pid,'(A,A,I0,A,I0,A)')trim(pso_folder),'PARAM_FIT.PSO.RANK.',i,'.PID.',j,'.dat'
+   !write(title_pid,'(A,A,I0,A,I0,A)')trim(pso_folder),'PARAM_FIT.PSO.RANK.',i,'.PID.',j,'.dat'
+    write(title_pid,'(A,A,I0,A)')trim(pso_folder),'PARAM_FIT.PSO.RANK.',i,'.dat'
     call print_param (PINPT, PPRAM, PWGHT, trim(title_pid), .TRUE.)
   enddo
 

@@ -170,14 +170,17 @@ subroutine read_kpoint_file_fleur_MaX(PKPTS, PGEOM, flag_ndiv_line_parse, flag_n
 
 
     if(PKPTS%flag_klinemode .and. .not. PKPTS%flag_kgridmode) then
-        idiv_mode = 4 ! if PKPTS%kline_type == FLEUR-MaX
+        if(PKPTS%n_ndiv .eq. 1) then
+          idiv_mode = 4 ! if PKPTS%kline_type == FLEUR-MaX
+        elseif(PKPTS%n_ndiv .gt. 1) then
+          idiv_mode = 5 ! if PKPTS%kline_type == FLEUR-MaX
+        endif
         PKPTS%idiv_mode = idiv_mode
         call get_kpath_fleur_MaX(PKPTS, PGEOM, PKPTS%kunit, idiv_mode)
         write(message,'(A,I8)')'  NKPOINT:',PKPTS%nkpoint  ; write_msgi
 
         write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
         write(message,'(A,*(I8))')   '  (index):', 1,  (sum(PKPTS%ndiv(1:ik))+ik+1,ik=1,PKPTS%nline-1) , sum(PKPTS%ndiv)+PKPTS%nline+1 ; write_msgi
-
     endif
 
     return

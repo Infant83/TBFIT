@@ -399,7 +399,10 @@ module parameters
                                                ! 2 -> division type: fleur-like. n division between kpoint A and B and total n+1 points 
                                                ! 3 -> division type: vasp-like with n-1 division between each segments. In this mode, however,
                                                !                    every path has different division. This is same as FHI-AIMS code does.
-
+                                               ! 4 -> division type: fleur max with n total k-point along path.
+                                               ! 5 -> division type: fleur max with n-1 division between each seg. Every path has different division.
+                                               !                     In each segment point, only one kpoint is asigned.
+                                               !                     So total number of kpoints = sum(PKPTS%ndiv)+PKPTS%nline+1
        integer(kind=sp),   allocatable   :: ndiv(:)
        integer(kind=sp)                     kreduce ! Should be 1 if kline_type is not FLEUR, in the current version.
        real(kind=dp),      allocatable   :: kpoint(:,:),kline(:,:)

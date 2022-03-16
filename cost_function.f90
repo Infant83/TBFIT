@@ -120,7 +120,6 @@ contains
       endif
       call get_cost_function(fvec(1), fvec_plain(1), fvec_orb(1), ETBA_FIT(i), EDFT(i), PGEOM(i), PINPT, PKPTS(i), PWGHT(i), 1, imode, flag_order, flag_fit_orbital)
     enddo
-
     return
   endsubroutine
 
@@ -197,6 +196,7 @@ contains
     ie_cutoff = PWGHT%ie_cutoff
     if(flag_fit_degeneracy) dD= 0d0
     if(flag_weight_orbital) OW= 0d0
+    OW = 0d0
     if(imode .gt. 10) dE_TBA = 0d0
     if(imode .gt. 10) dORB_TBA = 0d0
 
@@ -407,10 +407,13 @@ contains
         do is = 1, PINPT%nspin
           do ie = 1, PGEOM%nband
             ie_      = ie + iband - 1 + (is-1) * PGEOM%neig
+            if(flag_weight_orbital) then 
+              OW = sum( PWGHT%PENALTY_ORB(:,ie_,ik)*abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik)) )
+             !if(ie_ .eq. 11 .and. ik .eq. 90) write(6,*)"ZZZ ", abs(myV(:,ie+(is-1)*PGEOM%nband,my_ik))
+            endif
             dE_plain = E_TBA(ie+(is-1)*PGEOM%nband,ik) - E_DFT(ie_,ik)
-            dE       = dE_plain * PWGHT%WT(ie_,ik)
+            dE       = dE_plain * PWGHT%WT(ie_,ik) + OW
             dE_TBA(ie+(is-1)*PGEOM%nband,ik) = dE_plain
-
             if(flag_fit_orbital) then
               ! NOTE: what is the best way to make the orbital different to be a "smooth" function?
               ! orbital    :           s          px          py          pz         dz2         dx2         dxy         dxz         dyz"

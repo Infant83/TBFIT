@@ -67,7 +67,6 @@ subroutine set_target_and_weight(EDFT, PWGHT, PINPT, PGEOM, PKPTS)
        else
          call read_energy(PINPT,PGEOM,PKPTS,EDFT,EDFT_all,PWGHT)
        endif
-       
        write(message,*)' '  ; write_msg
        write(message,*)'#-START SET WEIGHT FOR FITTING  --------------------'; write_msg
        if(PINPT%flag_fit_degeneracy) then
@@ -185,7 +184,7 @@ subroutine read_energy_vasp(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT) ! read EIG
   use print_io
   implicit none
   character*132     fname, fnameu,fnamed
-  character*132    inputline
+  character*256    inputline
   character*40  desc_str,dummy, dummy_(1000)
   character(*), parameter :: func = 'read_energy'
   integer*4, parameter :: max_eig = 1000000
@@ -399,7 +398,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   type(energy)           :: EDFT
   type(weight)           :: PWGHT
   character*132             fnameu,fnamed
-  character*132             inputline
+  character*256             inputline
   character*40              desc_str,dummy, dummy_(1000)
   character(*), parameter:: func = 'read_energy'
   integer*4, parameter   :: max_eig = 100000
@@ -413,9 +412,9 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
   real*8,    allocatable :: TOT(:,:)
 
   flag_order = PINPT%flag_get_band_order 
-  flag_fit_orbital = PINPT%flag_fit_orbital ! this is only and should available with spd orbital resolved data file
-                                            ! one can obtain such data, for example via VASP PROCAR file
-                                            ! The target DFT file format should be as follows
+  flag_fit_orbital = PINPT%flag_fit_orbital ! This is only and should available with spd orbital resolved data file.
+                                            ! One can obtain such data, for example via VASP PROCAR file.
+                                            ! The target DFT file format should be as follows:
                                             ! 1st-column    2nd-column  3rd  4th  5th  6th  7th  8th  9th  10th 11th 12th  13th  14th  15th 
                                             !  k-path(k1)    energy(e1)  s    p    d   s    py    pz   px  dxy  dyz   dz2  dxz    dx2   tot
                                             !         k2            e1   s    p    d   s    py    pz   px  dxy  dyz   dz2  dxz    dx2   tot
@@ -440,7 +439,7 @@ subroutine read_energy(PINPT, PGEOM,PKPTS,EDFT, EDFT_all, PWGHT)
                                             !         k5            .....
                                             !         k6            .....
 
-                                            ! NOTE: Here, the data should be normalized so that the "tot" to be unity after reading the data.
+                                            ! NOTE: Here, the data should/would be normalized so that the "tot" to be unity after reading the data.
                                             
   ! NOTE: kreduce with greater than 1 is only applicaple with PINPT%
   if(PKPTS%kreduce .gt. 1) then
@@ -774,7 +773,7 @@ subroutine read_energy_tbfit_V(PRPLT, PINPT, E, V, ne_found, ispin, nspin, nbasi
    real*8                 E(nband*nspin,nk)
    complex*16             V(nbasis*ispin,nband*nspin,nk)
    real*8                 kpoint
-   character*132          inputline
+   character*256          inputline
    character*40           desc_str
    character*4            kmode
    external               nitems
@@ -887,7 +886,7 @@ subroutine read_energy_tbfit_V2(PRPLT, PINPT, E, V2, ne_found, ispin, nspin, nba
    real*8                 E(nband*nspin,nk)
    real*8                 V2(nbasis,nband*nspin,nk)
    real*8                 kpoint
-   character*132          inputline
+   character*256          inputline
    character*40           desc_str
    character*4            kmode
    external               nitems
@@ -996,7 +995,7 @@ subroutine read_energy_tbfit(PRPLT, PINPT, E, ne_found, ispin, nspin, nbasis, nb
    integer*4              ne_found(nspin, nk)
    real*8                 E(nband*nspin,nk)
    real*8                 kpoint
-   character*132          inputline
+   character*256          inputline
    character*40           desc_str
    character*4            kmode
    external               nitems
@@ -1309,7 +1308,7 @@ subroutine load_band_structure_V(E,V,ne_found, ispinor, ispin, nspin, nband, nba
    integer*4              nitems
    integer*4              ne_found(nk)
    external               nitems
-   character*132          inputline
+   character*256          inputline
    real*8                 E(nband, nk)
    complex*16             V(nbasis*ispinor, nband , nk)
    real*8                 V_(nbasis*ispinor*2)
@@ -1387,7 +1386,7 @@ subroutine load_band_structure(E,ne_found, ispin, nspin, nband, nbasis, nk, kmod
    integer*4              nitems
    integer*4              ne_found(nk)
    external               nitems
-   character*132          inputline
+   character*256          inputline
    real*8                 E(nband, nk)
    logical                flag_go
    character*4            kmode
@@ -1448,7 +1447,7 @@ subroutine load_band_structure_V2(E, V2, ne_found, ispin, nspin, nband, nbasis, 
    integer*4              nitems
    integer*4              ne_found(nk)
    external               nitems
-   character*132          inputline
+   character*256          inputline
    real*8                 E(nband, nk)
    real*8                 V2(nbasis, nband , nk)
    logical                flag_go, flag_vector
@@ -1517,7 +1516,7 @@ subroutine load_band_structure_V2_bin(E, V2, ne_found, ispin, nspin, nband, nbas
    integer*4              nitems
    integer*4              ne_found(nk)
    external               nitems
-   character*132          inputline
+   character*256          inputline
    real*8                 E(nband, nk)
    real*4                 E4(nband, nk)  ! kind4
    real*8                 V2(nbasis,nband,nk)
@@ -1890,7 +1889,7 @@ subroutine load_band_structure_bin(E, ne_found, ispin, nspin, nband, nbasis, nk,
    integer*4              nitems
    integer*4              ne_found(nk)
    external               nitems
-   character*132          inputline
+   character*256          inputline
    real*8                 E(nband, nk)
    real*4                 E4(nband, nk)  ! kind4
    logical                flag_go

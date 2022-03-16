@@ -11,13 +11,13 @@ subroutine get_kpath_fleur_MaX(PKPTS, PGEOM, kunit, idiv_mode)
   real(kind=dp)                     dk(3),dk_(3), dk_reci(3)
   real(kind=dp)                     kdist, enorm
   real(kind=dp), allocatable     :: PK(:,:), PK_reci(:,:)
-  integer(kind=sp)                  i,ii,ik,iline,ndivk, iline_
+  integer(kind=sp)                  i,ii,ik,iline,iline_
   integer(kind=sp)                  idiv_mode
   character(len=1)                  kunit
   external                          enorm
   ! Modified from init_special subroutine of FLEUR-MaX-5.1/inpgen2/make_kpoints.f90
   integer(kind=sp)                  iArray(1)
-  integer(kind=sp),allocatable   :: nk(:)    
+  integer(kind=sp),allocatable   :: nk(:), nk5(:)
   real(kind=dp),allocatable      :: d(:), segmentLengths(:)
   real(kind=dp)                     lastp(3), nextp(3)
 
@@ -28,14 +28,15 @@ subroutine get_kpath_fleur_MaX(PKPTS, PGEOM, kunit, idiv_mode)
 
   ! NOTE: In FLEUR-MaX, we specify total number of k-points along total k-path,
   !       via "-kpt band=ndivk" option with inpgen. 
-  ndivk = PKPTS%ndiv(1)
-  PKPTS%nkpoint = ndivk 
+  if(idiv_mode .eq. 4) then
+    PKPTS%nkpoint = PKPTS%ndiv(1)
+  elseif(idiv_mode .eq. 5) then
+    PKPTS%nkpoint = sum( PKPTS%ndiv(:) ) + 1
+    allocate( nk5(PKPTS%nline))
+  endif
 
   allocate(nk(PKPTS%nline), d(PKPTS%nline+1))
   allocate(segmentLengths(PKPTS%nline))
-
-  deallocate(PKPTS%ndiv)
-  allocate(PKPTS%ndiv(PKPTS%nline))
 
   allocate(PK(3,PKPTS%nline*2) )
   allocate(PK_reci(3,PKPTS%nline*2) )
@@ -50,34 +51,43 @@ subroutine get_kpath_fleur_MaX(PKPTS, PGEOM, kunit, idiv_mode)
     PK_reci(1:3,iline)= PKPTS%kline(1:3,iline)
   enddo
 
-  ! Distances of each special K-points
-  do iline = 2, PKPTS%nline+1
-    dk = PK(:,(iline-1)*2) - PK(:,(iline-1)*2-1)
-    d(iline) = sqrt(dot_product(dk,dk))
-  enddo
-  d(1) = 0.0d0
-  
-  ! Distribute points
-  nk(1) = 0
-  do i = 2, PKPTS%nline+1
-    nk(i-1) = NINT((PKPTS%nkpoint-(PKPTS%nline+1))*(d(i)/SUM(d)))
-  enddo
-
-  do while ( (sum(nk) + PKPTS%nline+1) .ne. PKPTS%nkpoint )
-    do i = 2, PKPTS%nline+1
-      segmentLengths(i-1) = d(i) / (nk(i-1) + 1)
+  if(idiv_mode .eq. 4) then
+    deallocate(PKPTS%ndiv)
+    allocate(PKPTS%ndiv(PKPTS%nline))
+    ! Distances of each special K-points
+    do iline = 2, PKPTS%nline+1
+      dk = PK(:,(iline-1)*2) - PK(:,(iline-1)*2-1)
+      d(iline) = sqrt(dot_product(dk,dk))
     enddo
-    if ((sum(nk) + PKPTS%nline+1) .gt. PKPTS%nkpoint) then
-      iArray = minloc(segmentLengths(:))
-      nk(iArray(1)) = nk(iArray(1)) - 1
-    else
-      iArray = maxloc(segmentLengths(:))
-      nk(iArray(1)) = nk(iArray(1)) + 1
-    endif
-  enddo
-  PKPTS%ndiv = nk
+    d(1) = 0.0d0
+    
+    ! Distribute points
+    nk(1) = 0
+    do i = 2, PKPTS%nline+1
+        nk(i-1) = NINT((PKPTS%nkpoint-(PKPTS%nline+1))*(d(i)/SUM(d)))
+    enddo
 
-  ! Generate lines
+    do while ( (sum(nk) + PKPTS%nline+1) .ne. PKPTS%nkpoint )
+      do i = 2, PKPTS%nline+1
+        segmentLengths(i-1) = d(i) / (nk(i-1) + 1)
+      enddo
+      if ((sum(nk) + PKPTS%nline+1) .gt. PKPTS%nkpoint) then
+        iArray = minloc(segmentLengths(:))
+        nk(iArray(1)) = nk(iArray(1)) - 1
+      else
+        iArray = maxloc(segmentLengths(:))
+        nk(iArray(1)) = nk(iArray(1)) + 1
+      endif
+    enddo
+    PKPTS%ndiv = nk
+
+  elseif(idiv_mode .eq. 5) then
+    do i = 1, PKPTS%nline
+      PKPTS%ndiv(i) = PKPTS%ndiv(i) - 1
+    enddo
+    nk = PKPTS%ndiv
+  endif
+
   ik = 1
   do i = 1, PKPTS%nline
     PKPTS%kpoint(:,ik) = PK(:,i*2-1)

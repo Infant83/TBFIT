@@ -183,7 +183,6 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    max_x = PINPT%nn_max(1)
    max_y = PINPT%nn_max(2)
    max_z = PINPT%nn_max(3)
-
    max_nn_dist = maxval(PGEOM%nn_dist(:))
    nn=0;
 
@@ -210,6 +209,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
                      R_  =  ix * a1(:) + iy * a2(:) + iz * a3(:)
                      Rij_= pos_j - pos_i
                      Dij_=enorm(3,Rij_)
+                    !if(i .eq. 1 .and. j .eq. 5) write(6,'(A,5I3,6F10.5)')"ZZZZ ", i, j, ix,iy,iz,PGEOM%a_coord(:,i),PGEOM%a_coord(:,j)
                      if(Dij_ .gt. max_nn_dist) cycle loop_j
                      call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_) !, Dij0_cut)
                      if(nn_class .ne. -9999) then

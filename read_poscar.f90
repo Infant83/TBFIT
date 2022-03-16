@@ -728,8 +728,13 @@ subroutine set_orbital_index(PGEOM, lmmax)
    enddo ! iatom
 
 #ifdef MPI
-   call MPI_ALLREDUCE(PGEOM%orb_index,orb_index,size(PGEOM%orb_index),MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
-   PGEOM%orb_index = orb_index
+   if(.not. COMM_KOREA%flag_split) then
+     call MPI_ALLREDUCE(PGEOM%orb_index,orb_index,size(PGEOM%orb_index),MPI_INTEGER4, MPI_SUM, mpi_comm_earth, mpierr)
+     PGEOM%orb_index = orb_index
+   elseif(  COMM_KOREA%flag_split) then
+     call MPI_ALLREDUCE(PGEOM%orb_index,orb_index,size(PGEOM%orb_index),MPI_INTEGER4, MPI_SUM, COMM_KOREA%mpi_comm, mpierr)
+     PGEOM%orb_index = orb_index
+   endif
 #endif
 
    return

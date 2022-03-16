@@ -61,8 +61,9 @@ subroutine set_penalty_orb(PINPT, PGEOM, PKPTS, PWGHT, strip_kp, strip_tb, strip
      kill_job
    endif
 
+   !write(6,*)"EEE ", size_orbrange,orbrange
    PWGHT%PENALTY_ORB(siterange(1:size_siterange),tbrange(1:size_tbrange),krange(1:size_krange))=pen_orb
-
+!stop
 return
 endsubroutine
 
@@ -912,7 +913,6 @@ subroutine find_kp_index(ikp, PKPTS, strk)
    ikp = 0
 
    ! NOTE: this routine only valid if PKPTS%flag_klinemode = .true.
-
    do iline = 1, PKPTS%nline+1
      if(iline .ne. 1) then
        kname = trim(PKPTS%k_name( (iline-1)*2 ))
@@ -923,9 +923,11 @@ subroutine find_kp_index(ikp, PKPTS, strk)
          elseif(PKPTS%idiv_mode .eq. 1) then ! vasp-like
            ikp = PKPTS%ndiv(1)*(iline-1)+1
          elseif(PKPTS%idiv_mode .eq. 2) then ! FLEUR-like
-           ikp = PKPTS%ndiv(1)*(iline-1) ! NOTE: need to be checked whether it is write
-         elseif(PKPTS%idiv_mode .eq. 4) then ! FLEUR-MaX
+           ikp = PKPTS%ndiv(1)*(iline-1) ! NOTE: need to be checked whether it is right
+         elseif(PKPTS%idiv_mode .eq. 4 .or. PKPTS%idiv_mode .eq. 5) then ! FLEUR-MaX
            ikp = sum(PKPTS%ndiv(1:iline-1))+iline
+!        elseif(PKPTS%idiv_mode .eq. 5) then ! FLEUR-MaX (division provided)
+!          ikp = sum(PKPTS%ndiv(1:iline-1))+iline
          endif
 
          if(index(strk,'+') .ge. 1 .or. index(strk,'-') .ge. 1) then

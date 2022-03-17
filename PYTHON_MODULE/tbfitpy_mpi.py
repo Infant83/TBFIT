@@ -12,7 +12,7 @@ from tbfitpy_mod_mpi import pyfit
 #from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
-# last update: 16.02.2022 HJ Kim
+# last update: 17.03.2022 HJ Kim
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -662,7 +662,8 @@ class pytbfit:
                 else:
                     myax = axes
                 isys = isystem
-            print(" --> PLOT system: ", isystem+1,isys)
+            if self.pinpt.iverbose == 1:
+                print(" --> PLOT system: ", isystem+1,isys)
             etarget,etba,edft,wt,mysys,kdist,args['kname'],args['kpts']=self.get_system(isystem=isystem+1)
             args['title']=title.strip()+':'+mysys
             if plot_target is True and bool(self.pinpt.flag_tbfit):
@@ -694,7 +695,8 @@ class pytbfit:
                 ii = ii + 1
 
         plt.savefig(fout,bbox_inches='tight',pad_inches=0) 
-        print("\n #- Plotting band structure: ",fout, " is written")
+        if self.pinpt.iverbose == 1:
+            print("\n #- Plotting band structure: ",fout, " is written")
         plt.clf()
 
     def plot_pso_cost_history(self, figsize=(5,6), yin=-20,yen=20, ystep=5.,
@@ -810,7 +812,8 @@ class pytbfit:
             pfileoutnm = self.ppram.pfileoutnm
 
         pyfit.print_param_py(self.pinpt, self.ppram, pfileoutnm)
-        print("\n #- Writing parameter file: ",pfileoutnm.strip(), " is written")
+        if self.pinpt.iverbose == 1:
+            print("\n #- Writing parameter file: ",pfileoutnm.strip(), " is written")
 
     def print_weight(self, weight_out=None):
         if weight_out is not None:
@@ -819,7 +822,8 @@ class pytbfit:
            wfileoutnm = 'WEIGHT.dat'+' '*(132-len('WEIGHT.dat'))
 
         pyfit.print_weight(self.pwght, wfileoutnm)
-        print("\n #- Writing weight information file: ",wfileoutnm.strip(), " is written")
+        if self.pinpt.iverbose == 1:
+            print("\n #- Writing weight information file: ",wfileoutnm.strip(), " is written")
 
     def load_weight(self, weight_in=None):
         if weight_in is not None:

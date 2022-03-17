@@ -46,10 +46,11 @@
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE #-DSPGLIB #-DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB -DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
  F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
+#F90WRAP_LAPACK = --link-lapack      # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 ##########################
 # LINUX-gfortran COMPILE #
 ##########################
@@ -98,8 +99,11 @@ LAPACK    = -L$(MKLPATH)/lib/ \
             -lmkl_core -liomp5
 BLAS      = 
 INCLUDE   = -I$(MKLPATH)/include
-FEAST     = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64          -lfeast  # Serial version 
-FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64 -lpfeast -lfeast  # MPI version 
+FEAST     = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64          -lfeast  # Serial version for mac
+FEAST_MPI = -L/${HOME}/tbfit_fortran/LIB/FEAST/4.0/lib/x64 -lpfeast -lfeast  # MPI version for mac
+#FEAST     = -L/local/th1/iff003/kim/tbfit_fortran/LIB/FEAST/4.0/lib/x64          -lfeast  # Serial version  for iffslurm
+#FEAST_MPI = -L/local/th1/iff003/kim/tbfit_fortran/LIB/FEAST/4.0/lib/x64 -lpfeast -lfeast  # MPI version for iffslurm
+
 #SCALAPACK = /Users/Infant/tbfit_fortran/LIB/scalapack-2.0.2/libscalapack.a
 SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 #---------------------------------------------------------------------------|
@@ -273,7 +277,7 @@ touch:
 	touch tbfit.f90
 
 clean:
-	rm $(BIN)/tbfit *.o *.mod
+	rm  *.o *.mod
 
 clean_pc2xyz:
 	rm $(BIN)/pc2xyz poscar2bs.o

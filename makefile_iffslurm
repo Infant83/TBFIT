@@ -276,7 +276,7 @@ touch:
 	touch tbfit.f90
 
 clean:
-	rm $(BIN)/tbfit *.o *.mod
+	rm  *.o *.mod
 
 clean_pc2xyz:
 	rm $(BIN)/pc2xyz poscar2bs.o

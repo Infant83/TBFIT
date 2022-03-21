@@ -86,6 +86,11 @@ subroutine get_kpath_fleur_MaX(PKPTS, PGEOM, kunit, idiv_mode)
       PKPTS%ndiv(i) = PKPTS%ndiv(i) - 1
     enddo
     nk = PKPTS%ndiv
+    do iline = 2, PKPTS%nline+1
+      dk = PK(:,(iline-1)*2) - PK(:,(iline-1)*2-1)
+      d(iline) = sqrt(dot_product(dk,dk))
+    enddo
+    d(1) = 0.0d0
   endif
 
   ik = 1

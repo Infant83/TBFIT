@@ -46,9 +46,9 @@
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB #-DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB -DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
- MPI_USE= NO
+ MPI_USE= YES
  F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 #F90WRAP_LAPACK = --link-lapack      # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 ##########################

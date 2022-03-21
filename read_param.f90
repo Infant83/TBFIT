@@ -85,6 +85,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 
    PPRAM%param(1:PPRAM%nparam  ) = 0d0
    PPRAM%param_best(1:PPRAM%nparam  ) = 0d0
+   PPRAM%iparam_type = 0
 
   !param_const(:,0             ) = 0d0
    param_const(1,1:PPRAM%nparam) = 0d0  ! is equal to..    !initialize no matter param_const_ is already provided (PFILE is considered in priori)
@@ -310,7 +311,6 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 !        endif
        endif
 
-       PPRAM%iparam_type = 0
        if(param_name(1:2) .eq. 'e_') PPRAM%iparam_type(i) = 1 ! onsite energy
        if(param_name(1:2) .eq. 'ss' .or. param_name(1:2) .eq. 'sp' .or. param_name(1:2) .eq. 'ps' .or. &
           param_name(1:2) .eq. 'pp' .or. param_name(1:2) .eq. 'pd' .or. param_name(1:2) .eq. 'dp' .or. &
@@ -409,7 +409,6 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          PPRAM%param_nsub(i) = 1
        endif
 
-       PPRAM%iparam_type = 0
        if(param_name(1:2) .eq. 'e_') PPRAM%iparam_type(i) = 1 ! onsite energy
        if(param_name(1:2) .eq. 'ss' .or. param_name(1:2) .eq. 'sp' .or. param_name(1:2) .eq. 'ps' .or. &
           param_name(1:2) .eq. 'pp' .or. param_name(1:2) .eq. 'pd' .or. param_name(1:2) .eq. 'dp' .or. &
@@ -420,6 +419,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          param_const(2,i) =  0.5d0 ! default upper bound
          param_const(3,i) = -0.5d0 ! default upper bound
        endif
+
        if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
        
      endif

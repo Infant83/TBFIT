@@ -242,6 +242,7 @@ module parameters
        real(kind=dp),       allocatable  :: param_nrl(:,:)           ! NRL TB parameters
        integer(kind=sp),    allocatable  :: iparam_free(:)           ! parameter index for free parameters only (nparam_free) 
        integer(kind=sp),    allocatable  :: iparam_free_nrl(:)       ! parameter index for free parameters only (nparam_free), sum(param_nsub(iparam_free(1:j-1)))+1
+       integer(kind=sp),  allocatable  :: iparam_type(:)      ! parameter type. 1: onsite, 2:hopping, 3:hopping_scale, 4:overlap, 5:overlap_scale
        character(len=40), allocatable  :: param_name(:)            
        character(len=40), allocatable  :: c_const(:,:)             
 !      real(kind=dp),       allocatable  :: param_const_best(:,:)         ! i=1 -> 'is same as'

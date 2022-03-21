@@ -130,6 +130,7 @@ module set_default
         if(allocated(PPRAM%param_nrl))       deallocate(PPRAM%param_nrl)
         if(allocated(PPRAM%iparam_free))     deallocate(PPRAM%iparam_free)
         if(allocated(PPRAM%iparam_free_nrl)) deallocate(PPRAM%iparam_free_nrl)
+        if(allocated(PPRAM%iparam_type))     deallocate(PPRAM%iparam_type)
         if(allocated(PPRAM%param_name))      deallocate(PPRAM%param_name)
         if(allocated(PPRAM%c_const))         deallocate(PPRAM%c_const)
         if(allocated(PPRAM%param_const))     deallocate(PPRAM%param_const)

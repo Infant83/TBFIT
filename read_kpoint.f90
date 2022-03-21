@@ -181,6 +181,33 @@ subroutine read_kpoint_file_fleur_MaX(PKPTS, PGEOM, flag_ndiv_line_parse, flag_n
 
         write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
         write(message,'(A,*(I8))')   '  (index):', 1,  (sum(PKPTS%ndiv(1:ik))+ik+1,ik=1,PKPTS%nline-1) , sum(PKPTS%ndiv)+PKPTS%nline+1 ; write_msgi
+
+        allocate( PKPTS%k_name_index(PKPTS%nline+1) )
+        allocate( PKPTS%k_name2(PKPTS%nline+1) )
+        PKPTS%k_name2(1) = trim(PKPTS%k_name(1))
+        do ik = 2, PKPTS%nline+1
+          PKPTS%k_name2(ik) = trim( PKPTS%k_name((ik-1)*2) )
+        enddo
+        PKPTS%k_name_index(1) = 1
+        do ik = 1, PKPTS%nline - 1
+          PKPTS%k_name_index(ik+1) = sum(PKPTS%ndiv(1:ik))+ik+1
+        enddo
+        PKPTS%k_name_index(PKPTS%nline) = sum(PKPTS%ndiv)+PKPTS%nline+1
+
+!      write(message,'(A,A8,*(A8))')'   K-PATH:       ', PKPTS%k_name(1), (PKPTS%k_name((ik-1)*2),ik=2,PKPTS%nline+1); write_msgi
+!      write(message,'(A,*(I8))')   '  (index):', 1,  (PKPTS%ndiv*ik,ik=1,PKPTS%nline) ; write_msgi
+
+!      allocate( PKPTS%k_name_index(PKPTS%nline+1) )
+!      allocate( PKPTS%k_name2(PKPTS%nline+1) )
+!      PKPTS%k_name2(1) = trim(PKPTS%k_name(1))
+!      PKPTS%k_name_index(1) = 1
+!      do ik = 2, PKPTS%nline+1
+!        PKPTS%k_name2(ik) = trim( PKPTS%k_name((ik-1)*2) )
+!      enddo
+!      do ik = 1, PKPTS%nline
+!        PKPTS%k_name_index(ik+1) = PKPTS%ndiv(1)*ik
+!      enddo
+        
     endif
 
     return

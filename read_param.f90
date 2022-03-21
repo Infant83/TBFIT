@@ -81,7 +81,8 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    allocate( PPRAM%param_best(PPRAM%nparam) )
    allocate( PPRAM%param_name(PPRAM%nparam) )
    allocate( PPRAM%param_nsub(PPRAM%nparam))
-   
+   allocate( PPRAM%iparam_type(PPRAM%nparam))
+
    PPRAM%param(1:PPRAM%nparam  ) = 0d0
    PPRAM%param_best(1:PPRAM%nparam  ) = 0d0
 
@@ -286,6 +287,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
 
        param_name = trim(PPRAM%param_name(i))
        if(param_name(1:2) .ne. 'e_' .and. param_name(1:2) .ne. 'ss' .and. param_name(1:2) .ne. 'sp' .and. &
+          param_name(1:2) .ne. 'sd' .and. param_name(1:2) .ne. 'ds' .and. param_name(1:2) .ne. 'ps' .and. &
           param_name(1:2) .ne. 'pp' .and. param_name(1:2) .ne. 'pd' .and. param_name(1:2) .ne. 'dp' .and. &
           param_name(1:2) .ne. 'dd' .and. param_name(1:2) .ne. 's_' .and. param_name(1:2) .ne. 'os' .and. &
           param_name(1:2) .ne. 'o_' ) then
@@ -303,7 +305,19 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            param_const_nrl(2,4,i) = 2d0 ! upper bound
            param_const_nrl(3,4,i) = 0d0 ! lower bound
          endif
+!        if(param_name(1:2) .eq. 'o_') then ! set upper/lower bound for overlap integral
+!          param_const_nrl(2,1,i) = 
+!        endif
        endif
+
+       PPRAM%iparam_type = 0
+       if(param_name(1:2) .eq. 'e_') PPRAM%iparam_type(i) = 1 ! onsite energy
+       if(param_name(1:2) .eq. 'ss' .or. param_name(1:2) .eq. 'sp' .or. param_name(1:2) .eq. 'ps' .or. &
+          param_name(1:2) .eq. 'pp' .or. param_name(1:2) .eq. 'pd' .or. param_name(1:2) .eq. 'dp' .or. &
+          param_name(1:2) .eq. 'dd' .or. param_name(1:2) .eq. 'sd' .or. param_name(1:2) .eq. 'ds'      ) PPRAM%iparam_type(i) = 2 ! hopping
+       if(param_name(1:2) .eq. 's_') PPRAM%iparam_type(i) = 3  ! hopping-scale
+       if(param_name(1:2) .eq. 'o_') PPRAM%iparam_type(i) = 4  ! overlap
+       if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
 
      else
 
@@ -382,8 +396,10 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          write(message,'(A)') "           has been asigned." ; write_msgi
          kill_job
        endif
+
        param_name = trim(PPRAM%param_name(i))
        if(param_name(1:2) .ne. 'e_' .and. param_name(1:2) .ne. 'ss' .and. param_name(1:2) .ne. 'sp' .and. &
+          param_name(1:2) .ne. 'sd' .and. param_name(1:2) .ne. 'ds' .and. param_name(1:2) .ne. 'ps' .and. &
           param_name(1:2) .ne. 'pp' .and. param_name(1:2) .ne. 'pd' .and. param_name(1:2) .ne. 'dp' .and. &
           param_name(1:2) .ne. 'dd' .and. param_name(1:2) .ne. 's_' .and. param_name(1:2) .ne. 'os' .and. &
           param_name(1:2) .ne. 'o_' ) then
@@ -392,6 +408,20 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
        else
          PPRAM%param_nsub(i) = 1
        endif
+
+       PPRAM%iparam_type = 0
+       if(param_name(1:2) .eq. 'e_') PPRAM%iparam_type(i) = 1 ! onsite energy
+       if(param_name(1:2) .eq. 'ss' .or. param_name(1:2) .eq. 'sp' .or. param_name(1:2) .eq. 'ps' .or. &
+          param_name(1:2) .eq. 'pp' .or. param_name(1:2) .eq. 'pd' .or. param_name(1:2) .eq. 'dp' .or. &
+          param_name(1:2) .eq. 'dd' .or. param_name(1:2) .eq. 'sd' .or. param_name(1:2) .eq. 'ds'      ) PPRAM%iparam_type(i) = 2 ! hopping
+       if(param_name(1:2) .eq. 's_') PPRAM%iparam_type(i) = 3  ! hopping-scale
+       if(param_name(1:2) .eq. 'o_') then 
+         PPRAM%iparam_type(i) = 4  ! overlap
+         param_const(2,i) =  0.5d0 ! default upper bound
+         param_const(3,i) = -0.5d0 ! default upper bound
+       endif
+       if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
+       
      endif
 
    enddo

@@ -105,6 +105,7 @@ module pyfit
        integer(kind=sp),  allocatable  :: iparam_free(:)           
        integer(kind=sp),  allocatable  :: iparam_free_nrl(:)       
        integer(kind=sp),  allocatable  :: iparam_type(:)      ! parameter type. 1: onsite, 2:hopping, 3:hopping_scale, 4:overlap, 5:overlap_scale
+       integer(kind=sp),  allocatable  :: iparam_type_free(:) 
        character(len=40), allocatable  :: param_name(:)
        character(len=40), allocatable  :: c_const(:,:)
 
@@ -1471,6 +1472,7 @@ function init_params_py() result(PPRAM_PY)
     if(allocated(PPRAM_PY%param_best))      deallocate(PPRAM_PY%param_best)
     if(allocated(PPRAM_PY%param_nrl))       deallocate(PPRAM_PY%param_nrl)
     if(allocated(PPRAM_PY%iparam_type))     deallocate(PPRAM_PY%iparam_type)
+    if(allocated(PPRAM_PY%iparam_type_free))deallocate(PPRAM_PY%iparam_type_free)
     if(allocated(PPRAM_PY%iparam_free))     deallocate(PPRAM_PY%iparam_free)
     if(allocated(PPRAM_PY%iparam_free_nrl)) deallocate(PPRAM_PY%iparam_free_nrl)
     if(allocated(PPRAM_PY%param_name))      deallocate(PPRAM_PY%param_name)
@@ -1537,6 +1539,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        if(allocated( PPRAM_PY%param_const_nrl))        deallocate(PPRAM_PY%param_const_nrl)
        if(allocated( PPRAM_PY%param_nsub    ))         deallocate(PPRAM_PY%param_nsub    )
        if(allocated( PPRAM_PY%iparam_type   ))         deallocate(PPRAM_PY%iparam_type   )
+       if(allocated( PPRAM_PY%iparam_type_free))       deallocate(PPRAM_PY%iparam_type_free   )
        if(allocated( PPRAM_PY%iparam_free   ))         deallocate(PPRAM_PY%iparam_free   )
        if(allocated( PPRAM_PY%iparam_free_nrl))        deallocate(PPRAM_PY%iparam_free_nrl)
        if(allocated( PPRAM_PY%param_name    ))         deallocate(PPRAM_PY%param_name    )
@@ -1568,6 +1571,12 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           n1 = size(PPRAM%iparam_type)
           allocate(PPRAM_PY%iparam_type(n1)        )
                    PPRAM_PY%iparam_type = PPRAM%iparam_type
+       endif
+
+       if(allocated(PPRAM%iparam_type_free           )) then
+          n1 = size(PPRAM%iparam_type_free)
+          allocate(PPRAM_PY%iparam_type_free(n1)        )
+                   PPRAM_PY%iparam_type_free = PPRAM%iparam_type_free
        endif
 
        if(allocated(PPRAM%iparam_free           )) then
@@ -1670,6 +1679,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        if(allocated( PPRAM%param_const_nrl))        deallocate(PPRAM%param_const_nrl)
        if(allocated( PPRAM%param_nsub    ))         deallocate(PPRAM%param_nsub    )
        if(allocated( PPRAM%iparam_type   ))         deallocate(PPRAM%iparam_type   )
+       if(allocated( PPRAM%iparam_type_free   ))    deallocate(PPRAM%iparam_type_free   )
        if(allocated( PPRAM%iparam_free   ))         deallocate(PPRAM%iparam_free   )
        if(allocated( PPRAM%iparam_free_nrl))        deallocate(PPRAM%iparam_free_nrl)
        if(allocated( PPRAM%param_name    ))         deallocate(PPRAM%param_name    )
@@ -1701,6 +1711,12 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           n1 = size(PPRAM_PY%iparam_type)
           allocate(PPRAM%iparam_type(n1)        )
                    PPRAM%iparam_type = PPRAM_PY%iparam_type
+       endif
+
+       if(allocated(PPRAM_PY%iparam_type_free           )) then
+          n1 = size(PPRAM_PY%iparam_type_free)
+          allocate(PPRAM%iparam_type_free(n1)        )
+                   PPRAM%iparam_type_free = PPRAM_PY%iparam_type_free
        endif
        
        if(allocated(PPRAM_PY%iparam_free           )) then

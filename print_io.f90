@@ -37,48 +37,82 @@ contains
       integer*4                imode
       integer*4, intent(in) :: myid
 
-      if(iverbose .eq. 2) return
-
-      select case (imode)
-
-        case(1)
-          if_main write(pid_log, '(A)') trim(string)
-    
-        case(2)
-          if_main write(6,       '(A)') trim(string)
-   
-        case(3)
-          if_main write(pid_log, '(A)') trim(string)
-          if_main write(6,       '(A)') trim(string)
-       
-        case(11)
-                  write(pid_log, '(A)') trim(string)
-
-        case(12)
-                  write(6,       '(A)') trim(string)
-
-        case(13)
-                  write(pid_log, '(A)') trim(string)
-                  write(6,       '(A)') trim(string)
+      if(iverbose .eq. -2) then ! special purpose, only write to file
+        select case (imode)
         
-        case(21)  ! write with advance=no to file
-          if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
+          case(1)
+            if_main write(pid_log, '(A)') trim(string)
+        
+          case(3)
+            if_main write(pid_log, '(A)') trim(string)
+        
+          case(11)
+                    write(pid_log, '(A)') trim(string)
+        
+          case(13)
+                    write(pid_log, '(A)') trim(string)
+        
+          case(21)  ! write with advance=no to file
+            if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
+        
+          case(23)  ! write with advance=no to file
+            if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
+        
+          case(99) ! return without writing anything
+            return
+        
+          case(97)
+            return
+           !if_main write(pid_log, '(A)') trim(string)
+        
+        end select
+      
+      else
 
-        case(22)  ! write with advance=no to file
-          if_main write(6      , '(A)', ADVANCE='NO') trim(string)
+        if(iverbose .eq. 2) return
+        
+        select case (imode)
+        
+          case(1)
+            if_main write(pid_log, '(A)') trim(string)
+        
+          case(2)
+            if_main write(6,       '(A)') trim(string)
+        
+          case(3)
+            if_main write(pid_log, '(A)') trim(string)
+            if_main write(6,       '(A)') trim(string)
+         
+          case(11)
+                    write(pid_log, '(A)') trim(string)
+        
+          case(12)
+                    write(6,       '(A)') trim(string)
+        
+          case(13)
+                    write(pid_log, '(A)') trim(string)
+                    write(6,       '(A)') trim(string)
+          
+          case(21)  ! write with advance=no to file
+            if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
+        
+          case(22)  ! write with advance=no to file
+            if_main write(6      , '(A)', ADVANCE='NO') trim(string)
+        
+          case(23)  ! write with advance=no to file
+            if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
+            if_main write(6      , '(A)', ADVANCE='NO') trim(string)
+        
+          case(99) ! return without writing anything
+            return
+        
+          case(97) 
+            return
+           !if_main write(pid_log, '(A)') trim(string)
+        
+        end select
 
-        case(23)  ! write with advance=no to file
-          if_main write(pid_log, '(A)', ADVANCE='NO') trim(string)
-          if_main write(6      , '(A)', ADVANCE='NO') trim(string)
-
-        case(99) ! return without writing anything
-          return
-
-        case(97) 
-          return
-         !if_main write(pid_log, '(A)') trim(string)
-
-      end select
+      endif
 
       return
    endsubroutine

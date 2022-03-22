@@ -348,7 +348,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
              call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #endif
             !PPRAM%param(i) = PPRAM%param(i) * r_dummy + r_dummy ! re_scaled
-             PPRAM%param(i) = PPRAM%param(i) + r_dummy           ! re_scaled
+             param_name = trim(PPRAM%param_name(i))
+             if(param_name(1:2) .eq. 'o_') then
+               PPRAM%param(i) = PPRAM%param(i) * r_dummy           ! re_scaled
+             else
+               PPRAM%param(i) = PPRAM%param(i) + r_dummy           ! re_scaled
+             endif
            endif
          elseif( flag_number(dummy) ) then
            call str2real(dummy, r_dummy)
@@ -381,7 +386,12 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
            call MPI_BCAST(r_dummy, 1, MPI_REAL8, 0, mpi_comm_earth, mpierr)
 #endif
           !PPRAM%param(i) = PPRAM%param(i) * r_dummy +r_dummy ! re_scaled
-           PPRAM%param(i) = PPRAM%param(i) + r_dummy !+r_dummy ! re_scaled
+           param_name = trim(PPRAM%param_name(i))
+           if(param_name(1:2) .eq. 'o_') then
+             PPRAM%param(i) = PPRAM%param(i) * r_dummy !+r_dummy ! re_scaled
+           else
+             PPRAM%param(i) = PPRAM%param(i) + r_dummy !+r_dummy ! re_scaled
+           endif
          endif
          if(dummy(1:1) .eq. 'F' .or. dummy(1:1) .eq. 'f') then ! if set 'fixed' or 'Fixed'
            param_const(4,i) = 1d0

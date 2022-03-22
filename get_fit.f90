@@ -370,13 +370,14 @@ subroutine set_free_parameters(PPRAM)
    implicit none
    type (params)          :: PPRAM
    integer*4                 i, j, k
-   integer*4, allocatable :: iparam_free(:)
+   integer*4, allocatable :: iparam_free(:), iparam_type_free(:)
    integer*4, allocatable :: iparam_free_nrl(:)
    
    if(PPRAM%slater_koster_type .gt. 10) then
      PPRAM%nparam_nrl = sum(PPRAM%param_nsub(1:PPRAM%nparam))
      allocate(iparam_free(PPRAM%nparam))
      allocate(iparam_free_nrl(PPRAM%nparam))
+     allocate(iparam_type_free(PPRAM%nparam))
      PPRAM%nparam_nrl_free = 0
      PPRAM%nparam_free = 0
      do i = 1, PPRAM%nparam
@@ -398,6 +399,7 @@ subroutine set_free_parameters(PPRAM)
 
    else
      allocate(iparam_free(PPRAM%nparam))
+     allocate(iparam_type_free(PPRAM%nparam))
      PPRAM%nparam_free = 0
      do i = 1, PPRAM%nparam
        k = nint(PPRAM%param_const(1, i)) ! is equal to
@@ -405,11 +407,15 @@ subroutine set_free_parameters(PPRAM)
        if( k .eq. 0 .and. j .eq. 0) then
          PPRAM%nparam_free = PPRAM%nparam_free + 1
          iparam_free(PPRAM%nparam_free) = i
+         iparam_type_free(PPRAM%nparam_free) = PPRAM%iparam_type(i)
        endif
      enddo
      allocate(PPRAM%iparam_free(PPRAM%nparam_free))
+     allocate(PPRAM%iparam_type_free(PPRAM%nparam_free))
      PPRAM%iparam_free(1:PPRAM%nparam_free) = iparam_free(1:PPRAM%nparam_free)
+     PPRAM%iparam_type_free(1:PPRAM%nparam_free) = iparam_type_free(1:PPRAM%nparam_free)
      deallocate(iparam_free)
+     deallocate(iparam_type_free)
    endif
 
    return

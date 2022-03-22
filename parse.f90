@@ -140,7 +140,7 @@ subroutine parse(PINPT)
        if(.not. flag_number(trim(option))) then
          if(trim(option) .eq. '-h') then
            if_main call help()
-
+           kill_job
          elseif(trim(option) .eq. '-v') then
            call getarg(iarg+1, value )
            read(value, *) iverbose_ 
@@ -148,6 +148,8 @@ subroutine parse(PINPT)
              write(message,'(A)')'  VERBOSE: full'
            elseif(iverbose_ .eq. 2) then
              write(message,'(A)')'  VERBOSE: none'
+           elseif(iverbose_ .eq. -2) then
+             write(message,'(A)')'  VERBOSE: write to file only'
            endif
     
          elseif(trim(option) .eq. '-fit' .or. trim(option) .eq. '-f') then
@@ -305,7 +307,10 @@ subroutine parse(PINPT)
 endsubroutine
 
 subroutine help()
+   use mpi_setup
+   use mykind
    implicit none
+   integer(kind=sp) mpierr
 
    write(6,'(A)')"          **** TBFIT: COMMAND LINE ARGUMENTS ***"
    write(6,'(A)')" "
@@ -341,8 +346,11 @@ subroutine help()
    write(6,'(A)')"   -pso_verbose  IVERBOSE   : determine verbosity in PSO routine. "
    write(6,'(A)')"                            :  -> IVERBOSE = 1 : write all info (incl. cost for each particles)  "
    write(6,'(A)')"                            :  -> IVERBOSE = 2 : write PSO results only"
+   write(6,'(A)')"   -v IVERBOSE              : determin verbosity in the whole process."
+   write(6,'(A)')"                            :  -> IVERBOSE = 1 : write all info "
+   write(6,'(A)')"                            :  -> IVERBOSE = 2 : write no info neither on screen and file"
+   write(6,'(A)')"                            :  -> IVERBOSE =-2 : write only to file "
    write(6,'(A)')"   -test                    : run test routine, for the development perpose only."
-   stop                                 
 
    return
 endsubroutine

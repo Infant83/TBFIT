@@ -48,7 +48,7 @@
  FC     = mpif90
  OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
- MPI_USE= NO
+ MPI_USE= NO 
  F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 #F90WRAP_LAPACK = --link-lapack      # for ifflsurm --link-lapack , for mac --link-lapack_mkl
 ##########################
@@ -112,7 +112,7 @@ SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 ######################### Do not modify below ###############################
 # version tag
 #TBFIT_VERSION=0.5.4
-TBFIT_VERSION=0.5.5
+TBFIT_VERSION=0.5.6
 
 #-----------------------------------
 # Objects                          |

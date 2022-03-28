@@ -112,7 +112,7 @@ SCALAPACK = /${HOME}/tbfit_fortran/LIB/scala_home/libscalapack.a
 ######################### Do not modify below ###############################
 # version tag
 #TBFIT_VERSION=0.5.4
-TBFIT_VERSION=0.5.5
+TBFIT_VERSION=0.5.6
 
 #-----------------------------------
 # Objects                          |

@@ -124,6 +124,7 @@ module set_default
         PPRAM%pso_iseed                               = 123 ! random seed
         PPRAM%pso_mode                                = 'pso'
         PPRAM%pso_miter                               = 10
+        PPRAM%reduce_overlap                          = 1.0d0
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_best))      deallocate(PPRAM%param_best)

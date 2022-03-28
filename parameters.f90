@@ -230,6 +230,9 @@ module parameters
                                                               ! are provided in the PARAM_FIT.dat file in priori (start with o_ )
        logical                       flag_fit_plain           ! take costfunction without multiplying weight factor for PSO scheme
        real(kind=dp)                 l_broaden                ! broadening of the cutoff-function for NRL type SK parameters (used if SK_SCALE_MODE > 10 in PFILE)
+       real(kind=dp)                 reduce_overlap           ! multiplication factor for all overlap integral parameters (o_*). (default 1.0d0)
+                                                              ! Useful when it is needed to gradually reduce the overlap integral effect 
+                                                              ! and make the system effectively to be orthogonal basis set.
        logical                       flag_slater_koster       ! default .true.
        logical                       flag_nrl_slater_koster   ! default .false.
        integer(kind=sp)              slater_koster_type       ! 1 ~ 3: exponential scaling, 11: Mehl & Papaconstantopoulos NRL method (PRB 54, 4519 (1996))

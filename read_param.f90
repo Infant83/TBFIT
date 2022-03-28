@@ -11,7 +11,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
    type(params) :: PPRAM
    character(*), parameter :: func = 'read_param'
    integer*4       nitems
-   integer*4       i, i_dummy, i_dummy2
+   integer*4       i, i_dummy, i_dummy2, jj
    integer*4       i_continue, i_index
    logical         flag_index
    real*8          param_const(5,max_nparam), param_const_nrl(5,4,max_nparam)
@@ -319,6 +319,14 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
        if(param_name(1:2) .eq. 'o_') PPRAM%iparam_type(i) = 4  ! overlap
        if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
 
+       if(PPRAM%iparam_type(i) .eq. 4) then
+         PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * PPRAM%reduce_overlap ! should be check whether param_const is also affected... HJK 27.Mar.2022
+         do jj=1,size(param_const_nrl(4,:,i))
+           if(param_const_nrl(4,jj,i) == 1d0) then
+             param_const_nrl(5,jj,i) = param_const_nrl(5,jj,i) * PPRAM%reduce_overlap
+           endif
+         enddo
+       endif
      else
 
        if(i_dummy .eq. 1) then
@@ -431,7 +439,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
        endif
 
        if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
-       
+ 
+       if(PPRAM%iparam_type(i) .eq. 4) then
+         PPRAM%param(i) = PPRAM%param(i) * PPRAM%reduce_overlap ! should be check whether param_const is also affected... HJK 27.Mar.2022
+         if(param_const(4,i) == 1d0) then
+           param_const(5,i) = param_const(5,i) * PPRAM%reduce_overlap
+         endif
+       endif
      endif
 
    enddo
@@ -726,6 +740,9 @@ subroutine check_options(inputline, PPRAM, flag_skip)
      endif
    elseif( trim(dummy) .eq. 'L_BROADEN' .or. trim(dummy) .eq. 'l_broaden' ) then
      read(inputline, *) dummy1, PPRAM%l_broaden
+     flag_skip = .true.
+   elseif( trim(dummy) .eq. 'REDUCE_OVERLAP') then
+     read(inputline, *) dummy1, PPRAM%reduce_overlap
      flag_skip = .true.
    else
      flag_skip = .false.

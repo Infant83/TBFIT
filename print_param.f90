@@ -89,6 +89,7 @@ subroutine print_param (PINPT, PPRAM, PWGHT, title, flag_print_file)
 
     if(PPRAM%flag_use_overlap) then
       im=im+1; write(message_pack(im), '(A20,A11)') ' USE_OVERLAP  ','.TRUE.'
+      im=im+1; write(message_pack(im), '(A20,F12.8)')' REDUCE_OVERLAP  ',PPRAM%reduce_overlap
     else
       im=im+1; write(message_pack(im), '(A20,A11)') ' USE_OVERLAP  ','.FALSE.'
     endif

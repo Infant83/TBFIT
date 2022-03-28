@@ -206,7 +206,7 @@ subroutine get_sk_index_set(index_sigma,index_pi,index_delta, &
        endif
      enddo lp2
  lp3:do i=1,PGEOM%n_orbital(j_atom)
-       if(param_class(1:1) .eq. PGEOM%c_orbital(i,i_atom)(1:1)) then
+       if(param_class(1:1) .eq. PGEOM%c_orbital(i,j_atom)(1:1)) then
          imode = imode + 1
          exit lp3 ! exit loop if find orbital 1 in atom j
        endif

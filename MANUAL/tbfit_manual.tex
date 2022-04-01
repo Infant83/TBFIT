@@ -734,7 +734,7 @@ $\bullet$ python module:
 
 
     \item[\namedlabel{tag:PRTHAMK}{PRTHAMK}] $logical$ Default: \texttt{.FALSE.} \index{PRTHAMK}\\
-		If \texttt{.TRUE.}, hamiltonian matrix $H_k$ will be written for each $k$-point into separate file \texttt{Matrix.Hk\_K$ik$\_SP$is$.dat}, where $ik$ and $is$ represents $k$-point and spin index, respectively.
+		If \texttt{.TRUE.}, hamiltonian matrix $H_k$ will be written for each $k$-point into separate file \texttt{Matrix.Hk\_K$ik$\_SP$is$.dat}, where $ik$ and $is$ represents $k$-point and spin index, respectively. If \ref{tag:OVERLAP} is set to \texttt{.TRUE.} in your \ref{tag:PFILE}, overlap matrix $S_k$ also will be wrtten for each $k$-point into separate file \texttt{Matrix.Sk\_K$ik$\_SP$is$.dat}.
 
     \item[\namedlabel{tag:LORDER}{LORDER}] $logical$ Default: \texttt{.FALSE.} \index{LORDER} \\
 		If \texttt{.TRUE.}, band structure will be re-ordered
@@ -1075,7 +1075,7 @@ Note3: \texttt{PRINT\_EIG} is only applicable if
     labelposition=bottomline]
     \color{blue}SET \color{red}NN_CLASS
         \textgreen{Mo-Mo}  : 3.2   \textgreen{R0} 3.171634
-        \textgreen{S-S}    : 3.28  \textgreen{R0} 3.171634  
+        \textgreen{S-S}    : 3.18  \textgreen{R0} 3.171634  
         \textgreen{S--S}   : 3.2   \textgreen{R0} 3.193724  
         \textgreen{Mo-S}   : 2.5   \textgreen{R0} 2.429624  
     \color{blue}END \color{red}NN_CLASS

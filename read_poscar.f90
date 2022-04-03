@@ -497,11 +497,11 @@ line: do
              do i=1,PGEOM%n_atom
                if(PGEOM%n_orbital(i) .eq. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msgi_file
+                   write(message,'(A,I8,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1,i) ; write_msgi_file
                  endif
                elseif(PGEOM%n_orbital(i) .gt. 0) then
                  if(PINPT%flag_report_geom) then
-                   write(message,'(A,I4,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msgi_file
+                   write(message,'(A,I8,A,I3,2x,10A7)')' ATOM',i,': ',PGEOM%n_orbital(i), PGEOM%c_orbital(1:PGEOM%n_orbital(i),i) ; write_msgi_file
                    write(message,'(A,A20)'            )' SITE_IDX:   ',site_c_index_(i) ; write_msgi_file
                  endif
                  if(PINPT%flag_local_charge) then

@@ -184,13 +184,13 @@ subroutine pso_fit (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, iseed_, p
                PPRAM%param( PPRAM%iparam_free(iparam) ) .le. PPRAM%param_const(3, PPRAM%iparam_free(iparam) )) then
              pmax = PPRAM%param_const(2, PPRAM%iparam_free(iparam) ) 
              pmin = PPRAM%param_const(3, PPRAM%iparam_free(iparam) )
-             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .ne. 4) then
+             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .le. 2) then
                pos(iptcl, iparam) = (pmax+pmin)*0.5d0*r2 + r1
              else ! overlap
                pos(iptcl, iparam) = (pmax+pmin)*0.5d0*r2
              endif
            else
-             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .ne. 4) then
+             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .le. 2) then
                pos(iptcl, iparam) = PPRAM%param( PPRAM%iparam_free(iparam) )*r2 + r1
              else !overlap
                pos(iptcl, iparam) = PPRAM%param( PPRAM%iparam_free(iparam) )*r2 !+ r1
@@ -751,13 +751,13 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
                PPRAM%param( PPRAM%iparam_free(iparam) ) .le. PPRAM%param_const(3, PPRAM%iparam_free(iparam) )) then
              pmax = PPRAM%param_const(2, PPRAM%iparam_free(iparam) ) 
              pmin = PPRAM%param_const(3, PPRAM%iparam_free(iparam) )
-             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .ne. 4) then
+             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .le. 2) then
                pos(iptcl, iparam) = (pmax+pmin)*0.5d0*r2 + r1
              else ! overlap
                pos(iptcl, iparam) = (pmax+pmin)*0.5d0*r2
              endif
            else
-             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .ne. 4) then 
+             if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .le. 2) then 
                pos(iptcl, iparam) = PPRAM%param( PPRAM%iparam_free(iparam) )*r2 + r1
              else ! overlap 
                pos(iptcl, iparam) = PPRAM%param( PPRAM%iparam_free(iparam) )*r2 !+ r1
@@ -960,7 +960,7 @@ subroutine pso_fit_best (PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_TABLE, EDFT, isee
 #else
           r1 = random() ; r2 = random() ; r3 = (random()*2d0 - 1d0) * PPRAM%pso_max_noise_amplitude
 #endif
-          if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .ne. 4) then
+          if(PPRAM%iparam_type( PPRAM%iparam_free(iparam) ) .le. 2) then
             vel(iptcl, iparam) = w * vel(iptcl, iparam) + c1 * r1 * (pbest(iptcl, iparam) - pos(iptcl, iparam)) &
                                                         + c2 * r2 * (gbest(iparam)        - pos(iptcl, iparam)) + r3*0.3d0
           else

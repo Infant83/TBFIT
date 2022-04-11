@@ -46,7 +46,7 @@
 #####################
 #FC     = mpiifort
  FC     = mpif90
- OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB -DPSPARSE #-DSCALAPACK 
+ OPTIONS= -fPIC -fpp -DF08 -DMKL_SPARSE -DSPGLIB #-DPSPARSE #-DSCALAPACK 
  FFLAG  = -O2 -heap-arrays -nogen-interfaces
  MPI_USE= YES
  F90WRAP_LAPACK = --link-lapack_mkl  # for ifflsurm --link-lapack , for mac --link-lapack_mkl
@@ -239,7 +239,7 @@ lib: $(OBJECTS)
 ldos_lib:  $(OBJECTS_LIB)
 	$(LIBTOOL) libtbfit_ldos.a $^
 
-get_ldos: get_ldos.o $(OBJECTS_LIB)
+get_ldos: $(OBJECTS_LIB) get_ldos.o
 	$(F90) -o $@ $^ $(LAPACK) $(INCLUDE) $(SPGLIB_) $(INCLUDE)
 	mv get_ldos $(BIN)
 

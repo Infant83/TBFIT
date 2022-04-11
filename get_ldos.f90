@@ -331,9 +331,9 @@ program get_ldos
    if( flag_kselect .or. flag_sldos_select ) then
      do k = 1, nkp_sldos
        if(flag_formatted) then ! need to extend toward spin polarized case in the future. 18. March. 2021, HJ Kim
-         fname = trim(path)//'./band_structure_TBA'//'.kp_'//trim(ADJUSTL(int2str(kidx_sldos(k))))//'.dat'
+         fname = trim(path)//'./band_structure_TBA.'//trim(header)//'.kp_'//trim(ADJUSTL(int2str(kidx_sldos(k))))//'.dat'
        else
-         fname = trim(path)//'./band_structure_TBA'//'.kp_'//trim(ADJUSTL(int2str(kidx_sldos(k))))//'.bin'
+         fname = trim(path)//'./band_structure_TBA.'//trim(header)//'.kp_'//trim(ADJUSTL(int2str(kidx_sldos(k))))//'.bin'
        endif
        E(:,kidx_sldos(k)) = -999d0 ; gg = 0d0
        call load_band_singlek(PGEOM, fname, nemax, norb, ispinor, E(:,kidx_sldos(k)), C, V, ne_found(kidx_sldos(k)), kk(:,kidx_sldos(k)), gg, &
@@ -393,9 +393,9 @@ call MPI_BARRIER(mpi_comm_earth, mpierr)
      do k = sum(ourjob(1:myid))+1, sum(ourjob(1:myid+1))
        my_k = k - sum(ourjob(1:myid))
        if(flag_formatted) then ! need to extend toward spin polarized case in the future. 18. March. 2021, HJ Kim
-         fname = trim(path)//'./band_structure_TBA'//'.kp_'//trim(ADJUSTL(int2str(k)))//'.dat'
+         fname = trim(path)//'./band_structure_TBA.'//trim(header)//'.kp_'//trim(ADJUSTL(int2str(k)))//'.dat'
        else
-         fname = trim(path)//'./band_structure_TBA'//'.kp_'//trim(ADJUSTL(int2str(k)))//'.bin'
+         fname = trim(path)//'./band_structure_TBA.'//trim(header)//'.kp_'//trim(ADJUSTL(int2str(k)))//'.bin'
        endif
        E(:,k) = -999d0
 

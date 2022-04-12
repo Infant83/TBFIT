@@ -719,8 +719,8 @@ subroutine initialize_all(EE, neig, nband, nkp, my_nkp, PINPT, flag_vector, flag
     PINPT%feast_fpm(1) = 0  ! Specifies whether Extended Eigensolver routines print runtime status (0:F, 1:T)
     PINPT%feast_fpm(2) = 4  ! The number of contour points N_e (see the description of FEAST algorithm
                             ! Ref: E. Polizzi, Phys. Rev. B 79, 115112 (2009) 
-    PINPT%feast_fpm(3) = 11 ! Error trace double precisiion stopping criteria e ( e = 10^-feast_fpm(3) )
-    PINPT%feast_fpm(4) = 20 ! Maximum number of Extended Eigensolver refinement loops allowed. 
+    PINPT%feast_fpm(3) = 12 ! Error trace double precisiion stopping criteria e ( e = 10^-feast_fpm(3) )
+    PINPT%feast_fpm(4) = 50 ! Maximum number of Extended Eigensolver refinement loops allowed. 
                             ! If no convergence is reached within fpm(4) refinement loops, 
                             ! Extended Eigensolver routines return info=2.
     PINPT%feast_fpm(5) = 0  ! User initial subspace. If fpm(5)=0 then Extended Eigensolver routines generate

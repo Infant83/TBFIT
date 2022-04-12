@@ -80,6 +80,7 @@ module pyfit
        logical                            flag_fit_plain
        real(kind=dp)                      l_broaden                
        real(kind=dp)                      reduce_overlap
+       real(kind=dp)                      reduce_hopping
        real(kind=dp)                      pso_c1
        real(kind=dp)                      pso_c2
        real(kind=dp)                      pso_w 
@@ -1456,6 +1457,7 @@ function init_params_py() result(PPRAM_PY)
     PPRAM_PY%pfileoutnm                              = 'PARAM_FIT.new.dat' 
     PPRAM_PY%l_broaden                               = 0.15d0 
     PPRAM_PY%reduce_overlap                          = 1.0d0  
+    PPRAM_PY%reduce_hopping                          = 1.0d0  
     PPRAM_PY%nparam                                  = 0 
     PPRAM_PY%nparam_const                            = 0 
     PPRAM_PY%param_nsub_max                          = 1 
@@ -1518,6 +1520,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM_PY%flag_fit_plain                =      PPRAM%flag_fit_plain
        PPRAM_PY%l_broaden                     =      PPRAM%l_broaden
        PPRAM_PY%reduce_overlap                =      PPRAM%reduce_overlap
+       PPRAM_PY%reduce_hopping                =      PPRAM%reduce_hopping
        PPRAM_PY%slater_koster_type            =      PPRAM%slater_koster_type
        PPRAM_PY%nparam                        =      PPRAM%nparam
        PPRAM_PY%nparam_const                  =      PPRAM%nparam_const
@@ -1659,6 +1662,7 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        PPRAM%flag_fit_plain                =      PPRAM_PY%flag_fit_plain
        PPRAM%l_broaden                     =      PPRAM_PY%l_broaden
        PPRAM%reduce_overlap                =      PPRAM_PY%reduce_overlap
+       PPRAM%reduce_hopping                =      PPRAM_PY%reduce_hopping
        PPRAM%slater_koster_type            =      PPRAM_PY%slater_koster_type
        PPRAM%nparam                        =      PPRAM_PY%nparam
        PPRAM%nparam_const                  =      PPRAM_PY%nparam_const
@@ -2863,8 +2867,10 @@ subroutine print_param_py(PINPT_PY, PPRAM_PY, pfileoutnm)
     if(PPRAM_PY%flag_use_overlap) then
       write(pid_param_new, '(A20,A11)') ' USE_OVERLAP  ','.TRUE.'
       write(pid_param_new, '(A20,F12.8)')' REDUCE_OVERLAP  ',PPRAM_PY%reduce_overlap
+      write(pid_param_new, '(A20,F12.8)')' REDUCE_HOPPING  ',PPRAM_PY%reduce_hopping
     else
       write(pid_param_new, '(A20,A11)') ' USE_OVERLAP  ','.FALSE.'
+      write(pid_param_new, '(A20,F12.8)')' REDUCE_HOPPING  ',PPRAM_PY%reduce_hopping
     endif
 
     if(PPRAM_PY%flag_slater_koster) then

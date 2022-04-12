@@ -326,6 +326,13 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
              param_const_nrl(5,jj,i) = param_const_nrl(5,jj,i) * PPRAM%reduce_overlap
            endif
          enddo
+       elseif(PPRAM%iparam_type(i) .eq. 2) then
+         PPRAM%param_nrl(:,i) = PPRAM%param_nrl(:,i) * PPRAM%reduce_hopping
+         do jj=1,size(param_const_nrl(4,:,i))
+           if(param_const_nrl(4,jj,i) == 1d0) then
+             param_const_nrl(5,jj,i) = param_const_nrl(5,jj,i) * PPRAM%reduce_hopping
+           endif
+         enddo
        endif
      else
 
@@ -444,6 +451,11 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
          PPRAM%param(i) = PPRAM%param(i) * PPRAM%reduce_overlap ! should be check whether param_const is also affected... HJK 27.Mar.2022
          if(param_const(4,i) == 1d0) then
            param_const(5,i) = param_const(5,i) * PPRAM%reduce_overlap
+         endif
+       elseif(PPRAM%iparam_type(i) .eq. 2) then
+         PPRAM%param(i) = PPRAM%param(i) * PPRAM%reduce_hopping ! should be check whether param_const is also affected... HJK 12.Apr.2022
+         if(param_const(4,i) == 1d0) then
+           param_const(5,i) = param_const(5,i) * PPRAM%reduce_hopping
          endif
        endif
      endif
@@ -743,6 +755,9 @@ subroutine check_options(inputline, PPRAM, flag_skip)
      flag_skip = .true.
    elseif( trim(dummy) .eq. 'REDUCE_OVERLAP') then
      read(inputline, *) dummy1, PPRAM%reduce_overlap
+     flag_skip = .true.
+   elseif( trim(dummy) .eq. 'REDUCE_HOPPING') then
+     read(inputline, *) dummy1, PPRAM%reduce_hopping
      flag_skip = .true.
    else
      flag_skip = .false.

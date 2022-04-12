@@ -233,6 +233,7 @@ module parameters
        real(kind=dp)                 reduce_overlap           ! multiplication factor for all overlap integral parameters (o_*). (default 1.0d0)
                                                               ! Useful when it is needed to gradually reduce the overlap integral effect 
                                                               ! and make the system effectively to be orthogonal basis set.
+       real(kind=dp)                 reduce_hopping           ! multiplication factor for all hopping integral parameters (ssp_*, pps_*, etc). (default 1.0d0)
        logical                       flag_slater_koster       ! default .true.
        logical                       flag_nrl_slater_koster   ! default .false.
        integer(kind=sp)              slater_koster_type       ! 1 ~ 3: exponential scaling, 11: Mehl & Papaconstantopoulos NRL method (PRB 54, 4519 (1996))

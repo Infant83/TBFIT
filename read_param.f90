@@ -61,7 +61,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
-     call check_options(inputline, PPRAM, flag_skip)
+     call check_options(inputline, PPRAM, PINPT, flag_skip)
      if(flag_skip) then
        i = i - 1; cycle
      endif
@@ -118,7 +118,7 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
      i=i+1
      call check_comment(inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
      call check_empty  (inputline,i_dummy2,i,flag_skip) ; if(flag_skip) cycle
-     call check_options(inputline, PPRAM, flag_skip)
+     call check_options(inputline, PPRAM, PINPT, flag_skip)
      if(flag_skip) then
        i = i - 1; cycle
      endif
@@ -446,7 +446,6 @@ subroutine read_tb_param(PINPT, PPRAM, PWGHT )
        endif
 
        if(param_name(1:2) .eq. 'os') PPRAM%iparam_type(i) = 5  ! overlap-scale
- 
        if(PPRAM%iparam_type(i) .eq. 4) then
          PPRAM%param(i) = PPRAM%param(i) * PPRAM%reduce_overlap ! should be check whether param_const is also affected... HJK 27.Mar.2022
          if(param_const(4,i) == 1d0) then
@@ -720,10 +719,11 @@ subroutine check_param_indexing(flag_index,inputline)
 
 endsubroutine
 
-subroutine check_options(inputline, PPRAM, flag_skip)
-   use parameters, only : params
+subroutine check_options(inputline, PPRAM, PINPT, flag_skip)
+   use parameters, only : params, incar
    implicit none
    type(params) :: PPRAM
+   type(incar)  :: PINPT
    logical         flag_skip  
    character*132   inputline
    character*40    dummy, dummy1
@@ -754,10 +754,14 @@ subroutine check_options(inputline, PPRAM, flag_skip)
      read(inputline, *) dummy1, PPRAM%l_broaden
      flag_skip = .true.
    elseif( trim(dummy) .eq. 'REDUCE_OVERLAP') then
-     read(inputline, *) dummy1, PPRAM%reduce_overlap
+     if(.not. PINPT%flag_reduce_overlap_parse) then
+       read(inputline, *) dummy1, PPRAM%reduce_overlap
+     endif
      flag_skip = .true.
    elseif( trim(dummy) .eq. 'REDUCE_HOPPING') then
-     read(inputline, *) dummy1, PPRAM%reduce_hopping
+     if(.not. PINPT%flag_reduce_hopping_parse) then
+       read(inputline, *) dummy1, PPRAM%reduce_hopping
+     endif
      flag_skip = .true.
    else
      flag_skip = .false.

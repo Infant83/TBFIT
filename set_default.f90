@@ -124,8 +124,16 @@ module set_default
         PPRAM%pso_iseed                               = 123 ! random seed
         PPRAM%pso_mode                                = 'pso'
         PPRAM%pso_miter                               = 10
-        PPRAM%reduce_overlap                          = 1.0d0
-        PPRAM%reduce_hopping                          = 1.0d0
+        if (.not. PINPT%flag_reduce_overlap_parse) then
+          PPRAM%reduce_overlap                        = 1.0d0
+        else
+          PPRAM%reduce_overlap                        = PINPT%reduce_overlap_parse
+        endif
+        if (.not. PINPT%flag_reduce_hopping_parse) then
+          PPRAM%reduce_hopping                        = 1.0d0
+        else
+          PPRAM%reduce_hopping                        = PINPT%reduce_hopping_parse
+        endif
 
         if(allocated(PPRAM%param))           deallocate(PPRAM%param)
         if(allocated(PPRAM%param_best))      deallocate(PPRAM%param_best)

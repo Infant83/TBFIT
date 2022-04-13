@@ -120,6 +120,10 @@ subroutine parse(PINPT)
    PINPT%flag_print_only_target = .false.
    PINPT%flag_pso_verbose_parse = .false.
    PINPT%flag_fit_orbital_parse = .false.
+   PINPT%flag_reduce_overlap_parse = .false.
+   PINPT%flag_reduce_hopping_parse = .false.
+   PINPT%reduce_overlap_parse = 1.0d0
+   PINPT%reduce_hopping_parse = 1.0d0
 
    narg = iargc()
    
@@ -168,6 +172,18 @@ subroutine parse(PINPT)
            write(message,'(A)')'  L_TBFIT:   .FALSE. (enforce by -np option)'  ; write_msg
            PINPT%flag_plot         = .TRUE.
            write(message,'(A)')'   L_PLOT:   .TRUE. (gnuplot gnuBAND-TB.gpi)'  ; write_msg
+
+         elseif(trim(option) .eq. '-red_ovl') then
+           PINPT%flag_reduce_overlap_parse  = .true.
+           call getarg(iarg+1, value )
+           read(value, *) PINPT%reduce_overlap_parse
+           write(message,'(A,F9.4)')'  RED_OVL:  ', PINPT%reduce_overlap_parse  ; write_msg
+
+         elseif(trim(option) .eq. '-red_hop') then
+           PINPT%flag_reduce_hopping_parse  = .true.
+           call getarg(iarg+1, value )
+           read(value, *) PINPT%reduce_hopping_parse
+           write(message,'(A,F9.4)')'  RED_HOP:  ', PINPT%reduce_hopping_parse  ; write_msg
 
          elseif(trim(option) .eq. '-ls' .or. trim(option) .eq. '-lstype') then
            PINPT%flag_ls_type_parse = .true.
@@ -350,6 +366,8 @@ subroutine help()
    write(6,'(A)')"                            :  -> IVERBOSE = 1 : write all info "
    write(6,'(A)')"                            :  -> IVERBOSE = 2 : write no info neither on screen and file"
    write(6,'(A)')"                            :  -> IVERBOSE =-2 : write only to file "
+   write(6,'(A)')"   -red_ovl  RED            : Multipy RED to overlap parameters o_*   "
+   write(6,'(A)')"   -red_hop  RED            : Multipy RED to hopping parameters sps_, pps_, ... etc. "
    write(6,'(A)')"   -test                    : run test routine, for the development perpose only."
 
    return

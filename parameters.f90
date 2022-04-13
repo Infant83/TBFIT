@@ -89,7 +89,10 @@ module parameters
        logical                             flag_pso_report_particles
        logical                             flag_write_unformatted ! default = .false.
        logical                             flag_report_geom
-                                         
+       logical                             flag_reduce_overlap_parse ! force reduce_overlap and reduce_hopping to be reduce_overlap_parse
+       logical                             flag_reduce_hopping_parse ! force reduce_overlap and reduce_hopping to be reduce_hopping_parse
+       real(kind=dp)                       reduce_overlap_parse     
+       real(kind=dp)                       reduce_hopping_parse     
        logical                             flag_phase  ! default = .true.  ! apply phase factor to atomic orbital
                                         
        real(kind=dp)                       ptol

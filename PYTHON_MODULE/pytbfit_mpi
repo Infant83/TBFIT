@@ -1,0 +1,16 @@
+#!/local/th1/iff003/kim/anaconda3/bin/python
+#import tbfitpy_serial as tbfit
+import tbfitpy_mpi as tbfit
+from mpi4py import MPI
+
+# initialize MPI
+comm = MPI.COMM_WORLD ; nprocs = comm.Get_size() ; myid = comm.Get_rank()
+mytb = tbfit.pytbfit(filenm='INCAR-TB', mpicomm=comm)
+
+mytb.init(verbose=False ,orbfit=True, myid=myid)
+
+mytb.fit(verbose=True,sigma=400, sigma_orb=4000, miter=10)
+
+if myid == 0:
+   print('COST: ',mytb.cost, ' COST_ORB: ', mytb.cost_orb, )
+   mytb.save(title='test', plot_band=True, plot_target=True)

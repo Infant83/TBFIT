@@ -1,0 +1,12 @@
+#!/local/th1/iff003/kim/anaconda3/bin/python
+
+import tbfitpy_serial as tbfit
+
+mytb = tbfit.pytbfit(filenm='INCAR-TB')
+
+mytb.init(verbose=True,orbfit=True)
+
+mytb.fit(verbose=True,sigma=400, sigma_orb=4000)
+
+print('COST: ',mytb.cost, ' COST_ORB: ', mytb.cost_orb, )
+mytb.save(title='test', plot_band=True, plot_target=True)

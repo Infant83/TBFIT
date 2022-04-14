@@ -40,6 +40,9 @@ module pyfit
        logical                            flag_use_weight 
        logical                            flag_fit_orbital
        logical                            flag_fit_orbital_parse
+       logical                            flag_pfile_parse
+       logical                            flag_reduce_hopping_parse
+       logical                            flag_reduce_overlap_parse
        logical                            flag_pso_with_lmdif
        logical                            flag_get_unfold     
        real(kind=dp)                      ptol
@@ -64,10 +67,11 @@ module pyfit
        integer(kind=sp),   allocatable :: proj_natom(:) 
        character(len=132), allocatable :: ifilenm(:)     
        character(len=132), allocatable :: title(:)       
-    
+       character(len=132)                 pfilenm_parse
        logical                            flag_get_total_energy
        real(kind=dp)                      electronic_temperature
-
+       real(kind=dp)                      reduce_hopping_parse
+       real(kind=dp)                      reduce_overlap_parse
        real(kind=dp)                      orbital_fit_smearing
     endtype incar_py
 
@@ -262,7 +266,7 @@ contains
 
 subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
                                            PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
-                                           PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3)
+                                           PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, pfilenm_parse)
     use read_incar
     use set_default
     type(incar_py),       intent(inout) :: PINPT_PY
@@ -273,6 +277,7 @@ subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     type(hopping_py),     intent(inout) :: NN_TABLE_PY1, NN_TABLE_PY2 , NN_TABLE_PY3
     type(energy_py),      intent(inout) :: EDFT_PY1    , EDFT_PY2     , EDFT_PY3
     type(energy_py),      intent(inout) :: ETBA_PY1    , ETBA_PY2     , ETBA_PY3
+    character(len=132),   intent(in)    :: pfilenm_parse
     integer,              intent(in)    :: comm
     integer(kind=sp)                       i, j, k
     type(incar   )                      :: PINPT, PINPT_
@@ -299,8 +304,16 @@ subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
     call parse(PINPT)
     PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_pfile_parse       = PINPT_PY%flag_pfile_parse
     PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
     nsystem = PINPT%nsystem
+
+    PINPT%flag_reduce_overlap_parse = PINPT_PY%flag_reduce_overlap_parse
+    PINPT%flag_reduce_hopping_parse = PINPT_PY%flag_reduce_hopping_parse
+
+    if(PINPT%flag_reduce_overlap_parse) PINPT%reduce_overlap_parse = PINPT_PY%reduce_overlap_parse
+    if(PINPT%flag_reduce_hopping_parse) PINPT%reduce_hopping_parse = PINPT_PY%reduce_hopping_parse
+    if(PINPT%flag_pfile_parse) PINPT%pfilenm_parse = trim(pfilenm_parse)
 
     call set_verbose(PINPT_PY%iverbose)
     if(allocated(PPRAM_PY%param_best)) then
@@ -375,7 +388,7 @@ subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
 endsubroutine
 
 subroutine init2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
-                                           PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2)
+                                           PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, pfilenm_parse)
     use read_incar
     use set_default
     type(incar_py),       intent(inout) :: PINPT_PY
@@ -386,6 +399,7 @@ subroutine init2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     type(hopping_py),     intent(inout) :: NN_TABLE_PY1, NN_TABLE_PY2
     type(energy_py),      intent(inout) :: EDFT_PY1    , EDFT_PY2
     type(energy_py),      intent(inout) :: ETBA_PY1    , ETBA_PY2
+    character(len=132),   intent(in)    :: pfilenm_parse
     integer,              intent(in)    :: comm
     integer(kind=sp)                       i, j, k
     type(incar   )                      :: PINPT, PINPT_
@@ -411,7 +425,14 @@ subroutine init2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
     call parse(PINPT)
     PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_pfile_parse       = PINPT_PY%flag_pfile_parse
     PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
+    PINPT%flag_reduce_overlap_parse = PINPT_PY%flag_reduce_overlap_parse
+    PINPT%flag_reduce_hopping_parse = PINPT_PY%flag_reduce_hopping_parse
+
+    if(PINPT%flag_reduce_overlap_parse) PINPT%reduce_overlap_parse = PINPT_PY%reduce_overlap_parse
+    if(PINPT%flag_reduce_hopping_parse) PINPT%reduce_hopping_parse = PINPT_PY%reduce_hopping_parse
+    if(PINPT%flag_pfile_parse) PINPT%pfilenm_parse = trim(pfilenm_parse)
 
     call set_verbose(PINPT_PY%iverbose)
     if(allocated(PPRAM_PY%param_best)) then
@@ -471,7 +492,8 @@ subroutine init2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
 
     return
 endsubroutine
-subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_PY, EDFT_PY, ETBA_PY)
+
+subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_PY, EDFT_PY, ETBA_PY, pfilenm_parse)
     use read_incar
     use set_default
     type(incar_py),       intent(inout) :: PINPT_PY
@@ -482,6 +504,7 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     type(hopping_py),     intent(inout) :: NN_TABLE_PY
     type(energy_py),      intent(inout) :: EDFT_PY
     type(energy_py),      intent(inout) :: ETBA_PY
+    character(len=132),   intent(in)    :: pfilenm_parse
     integer,              intent(in)    :: comm
     integer(kind=sp)                       i, j, k
     type(incar   )                      :: PINPT
@@ -507,8 +530,15 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
     call parse(PINPT)
 
-    PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
-    PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
+    PINPT%flag_fit_orbital_parse    = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_pfile_parse          = PINPT_PY%flag_pfile_parse
+    PINPT%flag_fit_orbital          = PINPT%flag_fit_orbital_parse
+    PINPT%flag_reduce_overlap_parse = PINPT_PY%flag_reduce_overlap_parse
+    PINPT%flag_reduce_hopping_parse = PINPT_PY%flag_reduce_hopping_parse
+
+    if(PINPT%flag_reduce_overlap_parse) PINPT%reduce_overlap_parse = PINPT_PY%reduce_overlap_parse
+    if(PINPT%flag_reduce_hopping_parse) PINPT%reduce_hopping_parse = PINPT_PY%reduce_hopping_parse
+    if(PINPT%flag_pfile_parse) PINPT%pfilenm_parse = trim(pfilenm_parse)
 
     call set_verbose(PINPT_PY%iverbose)
     if(allocated(PPRAM_PY%param_best)) then
@@ -547,6 +577,7 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     if(allocated(param_best)) then
         PPRAM_PY%param_best = param_best
     endif
+
     return
 end subroutine init
 
@@ -1266,6 +1297,9 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%flag_use_weight                         = .FALSE.
     PINPT_PY%flag_fit_orbital                        = .FALSE.
     PINPT_PY%flag_fit_orbital_parse                  = .FALSE.
+    PINPT_PY%flag_pfile_parse                        = .FALSE.
+    PINPT_PY%flag_reduce_overlap_parse               = .FALSE.
+    PINPT_PY%flag_reduce_hopping_parse               = .FALSE.
     PINPT_PY%flag_get_total_energy                   = .FALSE.
     PINPT_PY%flag_pso_with_lmdif                     = .FALSE.
     PINPT_PY%flag_get_unfold                         = .FALSE.
@@ -1283,6 +1317,9 @@ function init_incar_py(ifilenm, nsystem) result(PINPT_PY)
     PINPT_PY%nspin                                   = 1
     PINPT_PY%fnamelog                                = 'TBFIT.out'
     PINPT_PY%orbital_fit_smearing                    = 0.1d0 ! default
+    PINPT_PY%reduce_overlap_parse                    = 1.0d0
+    PINPT_PY%reduce_hopping_parse                    = 1.0d0
+
     return
 endfunction
 
@@ -1321,6 +1358,9 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%flag_use_weight                    =      PINPT%flag_use_weight
        PINPT_PY%flag_fit_orbital                   =      PINPT%flag_fit_orbital
        PINPT_PY%flag_fit_orbital_parse             =      PINPT%flag_fit_orbital_parse
+       PINPT_PY%flag_pfile_parse                   =      PINPT%flag_pfile_parse       
+       PINPT_PY%flag_reduce_overlap_parse          =      PINPT%flag_reduce_overlap_parse
+       PINPT_PY%flag_reduce_hopping_parse          =      PINPT%flag_reduce_hopping_parse
        PINPT_PY%flag_get_total_energy              =      PINPT%flag_get_total_energy
        PINPT_PY%flag_pso_with_lmdif                =      PINPT%flag_pso_with_lmdif
        PINPT_PY%flag_get_unfold                    =      PINPT%flag_get_unfold    
@@ -1340,8 +1380,11 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT_PY%nspin                              =      PINPT%nspin
        PINPT_PY%ls_type                            =      PINPT%ls_type
        PINPT_PY%fnamelog                           =      PINPT%fnamelog
+       PINPT_PY%pfilenm_parse                      =      PINPT%pfilenm_parse
        PINPT_PY%nproj_sum                          =      PINPT%nproj_sum
        PINPT_PY%orbital_fit_smearing               =      PINPT%orbital_fit_smearing
+       PINPT_PY%reduce_overlap_parse               =      PINPT%reduce_overlap_parse
+       PINPT_PY%reduce_hopping_parse               =      PINPT%reduce_hopping_parse
 
        if(allocated( PINPT_PY%ifilenm       ))         deallocate(PINPT_PY%ifilenm)
        if(allocated( PINPT_PY%title         ))         deallocate(PINPT_PY%title  )
@@ -1396,6 +1439,9 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%flag_use_weight                    =      PINPT_PY%flag_use_weight
        PINPT%flag_fit_orbital                   =      PINPT_PY%flag_fit_orbital
        PINPT%flag_fit_orbital_parse             =      PINPT_PY%flag_fit_orbital_parse
+       PINPT%flag_pfile_parse                   =      PINPT_PY%flag_pfile_parse       
+       PINPT%flag_reduce_overlap_parse          =      PINPT_PY%flag_reduce_overlap_parse
+       PINPT%flag_reduce_hopping_parse          =      PINPT_PY%flag_reduce_hopping_parse
        PINPT%flag_get_total_energy              =      PINPT_PY%flag_get_total_energy
        PINPT%flag_pso_with_lmdif                =      PINPT_PY%flag_pso_with_lmdif
        PINPT%flag_get_unfold                    =      PINPT_PY%flag_get_unfold     
@@ -1417,6 +1463,8 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
        PINPT%fnamelog                           =      PINPT_PY%fnamelog
        PINPT%nproj_sum                          =      PINPT_PY%nproj_sum
        PINPT%orbital_fit_smearing               =      PINPT_PY%orbital_fit_smearing
+       PINPT%reduce_overlap_parse               =      PINPT_PY%reduce_overlap_parse
+       PINPT%reduce_hopping_parse               =      PINPT_PY%reduce_hopping_parse
 
        if(allocated( PINPT%ifilenm          ))         deallocate(PINPT%ifilenm)
        if(allocated( PINPT%title            ))         deallocate(PINPT%title  )
@@ -1445,15 +1493,23 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
     return
 endsubroutine
 
+!function init_params_py(flag_pfile_parse, pfilenm_parse) result(PPRAM_PY)
 function init_params_py() result(PPRAM_PY)
     type(params_py)                        PPRAM_PY
-
+!   logical                                flag_pfile_parse
+!   character(len=132),   intent(in)    :: pfilenm_parse
+    
     PPRAM_PY%flag_slater_koster                      = .TRUE.
     PPRAM_PY%flag_use_overlap                        = .FALSE.
     PPRAM_PY%flag_pfile_index                        = .FALSE.
     PPRAM_PY%flag_set_param_const                    = .FALSE.
     PPRAM_PY%flag_fit_plain                          = .FALSE.
-    PPRAM_PY%pfilenm                                 = 'PARAM_FIT.dat' 
+!   if(flag_pfile_parse) then
+!     PPRAM_PY%pfilenm                               = trim(pfilenm_parse)
+!   else
+      PPRAM_PY%pfilenm                               = 'PARAM_FIT.dat' 
+!   endif
+
     PPRAM_PY%pfileoutnm                              = 'PARAM_FIT.new.dat' 
     PPRAM_PY%l_broaden                               = 0.15d0 
     PPRAM_PY%reduce_overlap                          = 1.0d0  

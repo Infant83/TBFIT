@@ -12,7 +12,7 @@ from tbfitpy_mod_mpi import pyfit
 #from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
-# last update: 17.03.2022 HJ Kim
+# last update: 14.04.2022 HJ Kim
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -95,6 +95,22 @@ class myfont:
 
 class pytbfit:
     def __init__(self, mpicomm =None, filenm = 'INCAR-TB'):
+
+        self.pfile_parse = None
+        self.reduce_overlap = None
+        self.reduce_hopping = None
+    
+        self.reduce_overlap = 1.0
+        self.reduce_hopping = 1.0
+        if len(sys.argv) >=2:
+            for i in range( len(sys.argv) ):
+                if str(sys.argv[i]) == '-p' :
+                    self.pfile_parse = str(sys.argv[i+1])
+                elif str(sys.argv[i]) == '-red_ovl':
+                    self.reduce_overlap = float(sys.argv[i+1])
+                elif str(sys.argv[i]) == '-red_hop':
+                    self.reduce_hopping = float(sys.argv[i+1])
+
         if mpicomm is not None :
             self.comm  = mpicomm
             self.fcomm = self.comm.py2f()
@@ -155,7 +171,18 @@ class pytbfit:
             self.etba4 = pyfit.init_energy_py()
 
 
-    def init(self, verbose=False, orbfit=False, myid=0):
+    def init(self, verbose=False, orbfit=False, myid=0, pfilenm=None, red_ovl=None, red_hop=None):
+        # if pfilenm is specified, use it. 
+        # if pfilenm is not specified but remotely specified by -p option, use this (2nd option)
+        # if pfilenm is not specified and -p is also not specified, PFILE in INCAR-TB is used (3rd option)
+        if (self.pfile_parse != None) and (pfilenm is None) :
+            pfilenm = self.pfile_parse
+
+        if (self.reduce_overlap != None) and (red_ovl is None):
+            red_ovl = self.reduce_overlap
+
+        if (self.reduce_hopping != None) and (red_hop is None):
+            red_hop = self.reduce_hopping
 
         if verbose is True:
             self.pinpt.iverbose = 1
@@ -168,14 +195,35 @@ class pytbfit:
             self.pinpt.flag_fit_orbital_parse = False
         self.orbfit = orbfit
 
+        pfilenm_parse = np.empty((132),dtype='c')
+        if pfilenm != None:
+            pfilenm_parse = pfilenm + ' '*(132-len(pfilenm))
+            self.pinpt.flag_pfile_parse = True
+        else:
+            self.pinpt.flag_pfile_parse = False
+
+        if red_ovl !=None:
+            self.pinpt.flag_reduce_overlap_parse = True
+            self.pinpt.reduce_overlap_parse = red_ovl
+        else:
+            self.pinpt.flag_reduce_overlap_parse = False       
+
+        if red_hop !=None:
+            self.pinpt.flag_reduce_hopping_parse = True
+            self.pinpt.reduce_hopping_parse = red_hop
+        else:
+            self.pinpt.flag_reduce_hopping_parse = False       
+
         # initialize
         if self.nsystem == 1:
-            pyfit.init(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba)
+            pyfit.init(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba, 
+                       pfilenm_parse)
             self.energy_target, self.orb_target = self.load_band(self.pwght, self.pgeom)
             self.i_specs , self.i_atoms = self.orb_index(self.pgeom)
         elif self.nsystem == 2:
             pyfit.init2(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba,
-                                                          self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2)
+                                                          self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
+                                                          pfilenm_parse)
             self.energy_target , self.orb_target  = self.load_band(self.pwght , self.pgeom )
             self.energy_target2, self.orb_target2 = self.load_band(self.pwght2, self.pgeom2)
             self.i_specs , self.i_atoms = self.orb_index(self.pgeom)
@@ -183,7 +231,8 @@ class pytbfit:
         elif self.nsystem == 3:
             pyfit.init3(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba,
                                                           self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
-                                                          self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3)
+                                                          self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3, 
+                                                          pfilenm_parse)
             self.energy_target , self.orb_target  = self.load_band(self.pwght , self.pgeom )
             self.energy_target2, self.orb_target2 = self.load_band(self.pwght2, self.pgeom2)
             self.energy_target3, self.orb_target3 = self.load_band(self.pwght3, self.pgeom3)
@@ -639,7 +688,7 @@ class pytbfit:
        #args={'ylabel':ylabel,'xlabel':xlabel,'yen':yen,'yin':yin,'ystep':ystep,'ms':ms,'font':font}
         args={'ylabel':ylabel,'xlabel':xlabel,'yen':yen,'yin':yin,'ystep':ystep,'ms':ms,'font':font}
         gr = self.get_grid_ratio(nsystem=self.nsystem,sys=sys)
-        if sys is not None or self.nsystem is 1:
+        if sys is not None or self.nsystem == 1:
             fig, axes = plt.subplots(1,1, figsize=figsize, gridspec_kw={'width_ratios': gr})
         else:
             fig, axes = plt.subplots(1,self.nsystem, figsize=figsize, gridspec_kw={'width_ratios': gr})
@@ -903,7 +952,7 @@ class pytbfit:
                              suffix, use_overlap)
 
         if param is True:
-            if (title is not None) and (title.strip() is not '') :
+            if (title is not None) and (title.strip() != '') :
                 param_out = 'PARAM_FIT.new.'+title.strip()+'.dat'
             else:
                 param_out = 'PARAM_FIT.new.dat'

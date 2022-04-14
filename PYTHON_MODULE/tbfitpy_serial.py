@@ -100,8 +100,8 @@ class pytbfit:
         self.reduce_overlap = None
         self.reduce_hopping = None
     
-        self.reduce_overlap = 1.0
-        self.reduce_hopping = 1.0
+       #self.reduce_overlap = 1.0
+       #self.reduce_hopping = 1.0
         if len(sys.argv) >=2:
             for i in range( len(sys.argv) ):
                 if str(sys.argv[i]) == '-p' :

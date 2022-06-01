@@ -1281,7 +1281,7 @@ Note3: \texttt{PRINT\_EIG} is only applicable if
          # written in \textblue{band_structure_TBA.replot_wf.(up/dn).dat} file
          # with ascii format.
          # Note that to activate this tag, \textblue{FILE_FORMAT} tag should be 
-         # set to \textblue{bin} and corresponding file \textblue{band_structure_TBA.replot}
+         # set to \textblue{bin} and corresponding file \textblue{band_structure_TBA}
          # \textblue{.(up/dn).bin} should be exist in the folder.
       \textgreen{REPLOT_PROJ_BAND} .TRUE. 1:8 12 # replot projected band structure \index{SET!REPLOT!REPLOT\_PROJ\_BAND}\\
                                      # for given atoms and their sum
@@ -1466,7 +1466,7 @@ zigzag\_ribbon/SPATIAL\_LDOS\_REPLOT}" of your example folder.\\
 		  $f_s = \exp ({R_0 - d})\alpha$ 
 		\item $\bullet$ mode 5: \texttt{SK\_SCALE\_MODE 5} \\
 		 Linear scaling method. \\
-		  $f_s = (1 - \alpha {d - R_0})\alpha$ 
+		  $f_s = 1 - \alpha (d - R_0)$ 
 		
     \item[\namedlabel{tag:param-onsite}{ONSITE parameters}] $real$ \\
 		Onsite prameters for each atomic orbital should have the prefix

@@ -239,7 +239,7 @@ lib: $(OBJECTS)
 ldos_lib:  $(OBJECTS_LIB)
 	$(LIBTOOL) libtbfit_ldos.a $^
 
-get_ldos: $(OBJECTS_LIB) get_ldos.o
+get_ldos: get_ldos.o $(OBJECTS_LIB)
 	$(F90) -o $@ $^ $(LAPACK) $(INCLUDE) $(SPGLIB_) $(INCLUDE)
 	mv get_ldos $(BIN)
 

@@ -218,6 +218,7 @@ module pyfit
        real(kind=dp),    allocatable   :: R(:,:)   
        real(kind=dp),    allocatable   :: Dij(:)   
        real(kind=dp),    allocatable   :: Dij0(:)
+       real(kind=dp),    allocatable   :: Dijc(:)
        real(kind=dp),    allocatable   :: i_sign(:)   
        real(kind=dp),    allocatable   :: j_sign(:)   
        real(kind=dp),    allocatable   :: R_nn(:,:)  
@@ -2267,6 +2268,7 @@ function init_hopping_py() result(NN_TABLE_PY)
     if(allocated(NN_TABLE_PY%R                     ))    deallocate(NN_TABLE_PY%R                     )
     if(allocated(NN_TABLE_PY%Dij                   ))    deallocate(NN_TABLE_PY%Dij                   )
     if(allocated(NN_TABLE_PY%Dij0                  ))    deallocate(NN_TABLE_PY%Dij0                  )
+    if(allocated(NN_TABLE_PY%Dijc                  ))    deallocate(NN_TABLE_PY%Dijc                  )
     if(allocated(NN_TABLE_PY%i_sign                ))    deallocate(NN_TABLE_PY%i_sign                )
     if(allocated(NN_TABLE_PY%j_sign                ))    deallocate(NN_TABLE_PY%j_sign                )
     if(allocated(NN_TABLE_PY%R_nn                  ))    deallocate(NN_TABLE_PY%R_nn                  )
@@ -2318,6 +2320,7 @@ subroutine copy_hopping(NN_TABLE_PY, NN_TABLE, imode)
        if(allocated( NN_TABLE_PY%flag_site_cindex        ))   deallocate( NN_TABLE_PY%flag_site_cindex)    
        if(allocated( NN_TABLE_PY%Dij                     ))   deallocate( NN_TABLE_PY%Dij)                 
        if(allocated( NN_TABLE_PY%Dij0                    ))   deallocate( NN_TABLE_PY%Dij0)                
+       if(allocated( NN_TABLE_PY%Dijc                    ))   deallocate( NN_TABLE_PY%Dijc)                
        if(allocated( NN_TABLE_PY%i_sign                  ))   deallocate( NN_TABLE_PY%i_sign)              
        if(allocated( NN_TABLE_PY%j_sign                  ))   deallocate( NN_TABLE_PY%j_sign)              
        if(allocated( NN_TABLE_PY%local_charge            ))   deallocate( NN_TABLE_PY%local_charge)        
@@ -2351,6 +2354,11 @@ subroutine copy_hopping(NN_TABLE_PY, NN_TABLE, imode)
        if(allocated( NN_TABLE%Dij0                    ))   then
           n1 = size( NN_TABLE%Dij0                    )  
            allocate( NN_TABLE_PY%Dij0(n1)                 )  ;  NN_TABLE_PY%Dij0                      = NN_TABLE%Dij0
+       endif
+
+       if(allocated( NN_TABLE%Dijc                    ))   then
+          n1 = size( NN_TABLE%Dijc                    )
+           allocate( NN_TABLE_PY%Dijc(n1)                 )  ;  NN_TABLE_PY%Dijc                      = NN_TABLE%Dijc
        endif
 
        if(allocated( NN_TABLE%i_sign                  ))   then
@@ -2529,6 +2537,7 @@ subroutine copy_hopping(NN_TABLE_PY, NN_TABLE, imode)
        if(allocated( NN_TABLE%flag_site_cindex        ))   deallocate( NN_TABLE%flag_site_cindex)
        if(allocated( NN_TABLE%Dij                     ))   deallocate( NN_TABLE%Dij)
        if(allocated( NN_TABLE%Dij0                    ))   deallocate( NN_TABLE%Dij0)
+       if(allocated( NN_TABLE%Dijc                    ))   deallocate( NN_TABLE%Dijc)
        if(allocated( NN_TABLE%i_sign                  ))   deallocate( NN_TABLE%i_sign)
        if(allocated( NN_TABLE%j_sign                  ))   deallocate( NN_TABLE%j_sign)
        if(allocated( NN_TABLE%local_charge            ))   deallocate( NN_TABLE%local_charge)
@@ -2561,6 +2570,11 @@ subroutine copy_hopping(NN_TABLE_PY, NN_TABLE, imode)
        if(allocated( NN_TABLE_PY%Dij0                    ))   then
           n1 = size( NN_TABLE_PY%Dij0                    )
            allocate( NN_TABLE%Dij0(n1)                 )  ;  NN_TABLE%Dij0                      = NN_TABLE_PY%Dij0
+       endif
+
+       if(allocated( NN_TABLE_PY%Dijc                    ))   then
+          n1 = size( NN_TABLE_PY%Dijc                    )
+           allocate( NN_TABLE%Dijc(n1)                 )  ;  NN_TABLE%Dijc                      = NN_TABLE_PY%Dijc
        endif
 
        if(allocated( NN_TABLE_PY%i_sign                  ))   then

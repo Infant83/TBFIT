@@ -366,6 +366,7 @@ module set_default
        if(allocated(NN_TABLE%R                     ))    deallocate(NN_TABLE%R                     )
        if(allocated(NN_TABLE%Dij                   ))    deallocate(NN_TABLE%Dij                   )
        if(allocated(NN_TABLE%Dij0                  ))    deallocate(NN_TABLE%Dij0                  )
+       if(allocated(NN_TABLE%Dijc                  ))    deallocate(NN_TABLE%Dijc                  )
        if(allocated(NN_TABLE%i_matrix              ))    deallocate(NN_TABLE%i_matrix              )
        if(allocated(NN_TABLE%ci_orb                ))    deallocate(NN_TABLE%ci_orb                )
        if(allocated(NN_TABLE%i_sign                ))    deallocate(NN_TABLE%i_sign                )

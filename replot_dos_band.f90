@@ -1251,7 +1251,7 @@ subroutine print_bond(PRPLT, PINPT, PGEOM, coord_cart)
    real*8, allocatable :: bond(:,:), bond_(:,:)
    integer*4       nbond, ibond
    integer*4       nn_class
-   real*8          r0
+   real*8          r0, rc
    integer*4       mpierr
 #ifdef MPI
    integer*4       ourbond(nprocs)
@@ -1289,7 +1289,7 @@ subroutine print_bond(PRPLT, PINPT, PGEOM, coord_cart)
                            T(2,1)*(jx-1) + T(2,2)*(jy-1) + T(2,3)*(jz-1), &
                            T(3,1)*(jx-1) + T(3,2)*(jy-1) + T(3,3)*(jz-1)/)
                    DIJ = enorm(3, (coord_cart(:,ia) + ti(:)) - (coord_cart(:,ja) + tj(:)) )
-                   call get_nn_class(PGEOM, ia, ja, DIJ, onsite_tolerance, nn_class, r0)
+                   call get_nn_class(PGEOM, ia, ja, DIJ, onsite_tolerance, nn_class, r0, rc)
                    if(nn_class .eq. 1 .and. DIJ .le. PRPLT%bond_cut) then
                      ibond = ibond + 1
                      bond_(1:3, ibond) = coord_cart(1:3, ia) + ti(:)

@@ -1,7 +1,9 @@
 #include "alias.inc"
-subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
+!subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
+subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0, rc)
    use parameters, only : poscar
    real*8      r0  ! reference distance
+   real*8      rc  ! cutoff    distance
    real*8      dij, onsite_tol
    integer*4   n, iatom, jatom, li, lj
    integer*4   ii, nn, max_nn, nn_class, i_dummy
@@ -43,11 +45,13 @@ subroutine get_nn_class(PGEOM, iatom,jatom,dij,onsite_tol, nn_class, r0)
    do n = 0, max_nn
      if( n .eq. 0 .and. dij .le. dist_nn(n) )then  ! check onsite
        nn_class = 0
-       r0       = 0
+       r0       = 0d0
+       rc       = 0d0
        exit
      elseif ( n .ge. 1 .and. dij .gt. dist_nn(n - 1) .and. dij .le. dist_nn(n) ) then
        nn_class = n
        r0       = r0_nn(n)
+       rc       = dist_nn(n)
        exit
      endif
    enddo

@@ -80,7 +80,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    integer*4      max_x, max_y, max_z
    integer*4      size_NN_TABLE
    real*8         max_nn_dist
-   real*8         Rij_(3),pos_i(3), pos_j(3), Dij_, Dij0_
+   real*8         Rij_(3),pos_i(3), pos_j(3), Dij_, Dij0_, Dijc_
    real*8         R_(3)
    real*8         enorm
    real*8         tij_sk
@@ -114,6 +114,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    allocate( NN_TABLE_dummy%R  (3,max_nn)    )
    allocate( NN_TABLE_dummy%Dij(max_nn)      )
    allocate( NN_TABLE_dummy%Dij0(max_nn)     )
+   allocate( NN_TABLE_dummy%Dijc(max_nn)     )
    allocate( NN_TABLE_dummy%i_matrix(max_nn) )
    allocate( NN_TABLE_dummy%ci_orb(max_nn)   )
    allocate( NN_TABLE_dummy%i_sign(max_nn)   )
@@ -211,13 +212,14 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
                      Dij_=enorm(3,Rij_)
                     !if(i .eq. 1 .and. j .eq. 5) write(6,'(A,5I3,6F10.5)')"ZZZZ ", i, j, ix,iy,iz,PGEOM%a_coord(:,i),PGEOM%a_coord(:,j)
                      if(Dij_ .gt. max_nn_dist) cycle loop_j
-                     call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_) !, Dij0_cut)
+                    !call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_) !, Dij0_cut)
+                     call get_nn_class(PGEOM, i,j, Dij_, onsite_tol, nn_class, Dij0_, Dijc_)
                      if(nn_class .ne. -9999) then
                        if(nn_class .gt. 0 .and. PPRAM%slater_koster_type .gt. 10) then
                          NN_TABLE_dummy%n_nn(i)                  = NN_TABLE_dummy%n_nn(i) + 1
                          NN_TABLE_dummy%j_nn(NN_TABLE_dummy%n_nn(i),i) = j
                          NN_TABLE_dummy%R_nn(NN_TABLE_dummy%n_nn(i),i) = Dij_
-                         NN_TABLE_dummy%R0_nn(NN_TABLE_dummy%n_nn(i),i)= Dij0_
+                         NN_TABLE_dummy%R0_nn(NN_TABLE_dummy%n_nn(i),i)= Dij0_ ! I think it should be Dijc_... need to check later on: Jun. 08. 2022, KHJ
                        endif
                        do jorb=1,PGEOM%n_orbital(j)
                          jmatrix= sum( PGEOM%n_orbital(1:j) ) - PGEOM%n_orbital(j) + jorb
@@ -232,6 +234,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
                              NN_TABLE_dummy%R  (:,nn)    = R_  (:)
                              NN_TABLE_dummy%Dij(nn)      = Dij_
                              NN_TABLE_dummy%Dij0(nn)     = Dij0_
+                             NN_TABLE_dummy%Dijc(nn)     = Dijc_
                              NN_TABLE_dummy%i_matrix(nn) = imatrix
                              NN_TABLE_dummy%ci_orb(nn)   = PGEOM%c_orbital(iorb,i)
                              NN_TABLE_dummy%i_sign(nn)   = PGEOM%orb_sign(iorb,i)
@@ -435,6 +438,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    allocate( NN_TABLE%R  (3,nn)    )
    allocate( NN_TABLE%Dij(nn)      )
    allocate( NN_TABLE%Dij0(nn)     )
+   allocate( NN_TABLE%Dijc(nn)     )
    allocate( NN_TABLE%i_matrix(nn) )
    allocate( NN_TABLE%ci_orb(nn)   )
    allocate( NN_TABLE%i_sign(nn)   )
@@ -443,6 +447,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    allocate( NN_TABLE%j_sign(nn)   )
    allocate( NN_TABLE%p_class(nn)  )
    allocate( NN_TABLE%n_class(nn)  )
+
    if(PPRAM%slater_koster_type .gt. 10) then
     if(max_nn_pair .ge. 1) then
       if(allocated(NN_TABLE_dummy%R_nn ))allocate( NN_TABLE%R_nn(max_nn_pair,PGEOM%n_atom) )  
@@ -471,6 +476,8 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    call MPI_ALLGATHERV(NN_TABLE_dummy%Dij(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%Dij, &
                        nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
    call MPI_ALLGATHERV(NN_TABLE_dummy%Dij0(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%Dij0, &
+                       nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
+   call MPI_ALLGATHERV(NN_TABLE_dummy%Dijc(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_REAL8, NN_TABLE%Dijc, &
                        nn_mpi, nn_mpi_disp, MPI_REAL8, mpi_comm_earth, mpierr)
    call MPI_ALLGATHERV(NN_TABLE_dummy%i_matrix(1:nn_mpi(myid+1)), nn_mpi(myid+1), MPI_INTEGER4, NN_TABLE%i_matrix, &
                        nn_mpi, nn_mpi_disp, MPI_INTEGER4, mpi_comm_earth, mpierr)
@@ -542,6 +549,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    NN_TABLE%R  (:,1:nn)            = NN_TABLE_dummy%R  (:,1:nn)
    NN_TABLE%Dij(1:nn)              = NN_TABLE_dummy%Dij(1:nn)
    NN_TABLE%Dij0(1:nn)             = NN_TABLE_dummy%Dij0(1:nn)
+   NN_TABLE%Dijc(1:nn)             = NN_TABLE_dummy%Dijc(1:nn)
    NN_TABLE%i_matrix(1:nn)         = NN_TABLE_dummy%i_matrix(1:nn)
    NN_TABLE%ci_orb(1:nn)           = NN_TABLE_dummy%ci_orb(1:nn)  
    NN_TABLE%i_sign(1:nn)           = NN_TABLE_dummy%i_sign(1:nn)  
@@ -576,6 +584,7 @@ subroutine find_nn(PINPT,PPRAM,PGEOM,NN_TABLE)
    deallocate( NN_TABLE_dummy%R        )
    deallocate( NN_TABLE_dummy%Dij      )
    deallocate( NN_TABLE_dummy%Dij0     )
+   deallocate( NN_TABLE_dummy%Dijc     )
    deallocate( NN_TABLE_dummy%i_matrix )
    deallocate( NN_TABLE_dummy%ci_orb   )
    deallocate( NN_TABLE_dummy%i_sign   )

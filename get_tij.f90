@@ -11,7 +11,7 @@ function tij_sk(NN_TABLE,ii,PPRAM,tol,flag_set_overlap)
   integer*4 n_nn, i_atom
   integer*4 i_o, i_s, i_p, i_d, i_ovl 
   real*8   l, m, n, ll, mm, nn, lm, ln, mn, lmp, lmm
-  real*8   rij(3),dij, d0
+  real*8   rij(3),dij, d0, dc
   real*8   tij_sk,tol
   real*8   e_(4), s_(4),   p_(4),   d_(4)  ! for NRL SK parameterization
   real*8   e, s,   p,   d                  ! for normal SK parameterization
@@ -85,7 +85,7 @@ function tij_sk(NN_TABLE,ii,PPRAM,tol,flag_set_overlap)
   s_s= 1d0 !default if not provided
   p_s= 1d0 !default if not provided
   d_s= 1d0 !default if not provided
-  d0  = NN_TABLE%Dij0(ii)
+  d0  = NN_TABLE%Dij0(ii) 
   if(iscale_mode .gt. 10 ) then
     n_nn      = NN_TABLE%n_nn(i_atom)
   endif
@@ -153,15 +153,22 @@ function tij_sk(NN_TABLE,ii,PPRAM,tol,flag_set_overlap)
 
 
   if( iscale_mode .gt. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
-    s = f_s_nrl ( s_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
-    p = f_s_nrl ( p_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
-    d = f_s_nrl ( d_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
+    ! Important note: need to check d0, which is Rc. However, in the present implementation
+    ! it looks like d0 is just set to R0 which is reference distance. Jun 08, 2022 KHJ
+    ! --> In the near future it should be checked properly!!!
+    s = f_s_nrl( s_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
+    p = f_s_nrl( p_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
+    d = f_s_nrl( d_, d0, dij, iscale_mode, PPRAM%l_broaden) * i_sign * j_sign
 
   elseif(iscale_mode .le. 10 .and. NN_TABLE%n_class(ii) .gt. 0) then
-
-    s = s * f_s ( s_s, d0, dij, iscale_mode) * i_sign * j_sign
-    p = p * f_s ( p_s, d0, dij, iscale_mode) * i_sign * j_sign
-    d = d * f_s ( d_s, d0, dij, iscale_mode) * i_sign * j_sign
+    if(iscale_mode .eq. 6) then
+      dc = NN_TABLE%Dijc(ii)
+    else
+      dc = 0d0
+    endif
+    s = s * f_s( s_s, d0, dc, dij, iscale_mode) * i_sign * j_sign
+    p = p * f_s( p_s, d0, dc, dij, iscale_mode) * i_sign * j_sign
+    d = d * f_s( d_s, d0, dc, dij, iscale_mode) * i_sign * j_sign
 
   endif
 
@@ -534,11 +541,12 @@ function f_s_nrl(dda, d0, d, mode, l_broaden)
 
 return
 endfunction
-function f_s(dda_s,d0,d, mode)
+function f_s(dda_s,d0,dc,d, mode)
    implicit none
    integer*4 mode
-   real*8    f_s
-   real*8    dda_s,d0,d
+   real*8    f_s, beta
+   real*8    dda_s,d0,dc, d
+   real*8    dcut, f_d
 
 ! mode : scaling function
 !  1 = see Ref. PRB 85.195458 (2012): for interlayer pz-pz interaction of twisted BL graphene
@@ -549,7 +557,13 @@ function f_s(dda_s,d0,d, mode)
 !    f_s=(d0/d)^(SFACTOR(1))
 !  4 = see PRB 93.241407 (2016) : In-Si case
 !    f_s=exp( (d0-d) * SFACTOR(1) )
-!  6 = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
+!  5 = linear scaling
+!    f_s= 1 - SFACTOR(1) * ( d - d0 )
+!  6 = f_s with mode=4 multiplied with Fermi-Dirac type cutoff function. 
+!    f_s= f_s(mode=4) * 1/(1+exp[(d-(d0+(dcut-d0)/b))/beta]) , b=2.2, beta = (dcut-d0)/(b*ln((1-0.002)/0.002))
+!    Note: beta is chosen so that the Fermi-Dirac function is lower than 0.002 at d=dc and larger than 1-0.002 at d=d0
+!          with b = 2.2 determining the center of FD: d0+(dcut-d0)/b
+!  x = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
 !      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c
 !    f_s=(d0/d)^(SFACTOR(1))*exp(SFACTOR(1)*( -(d/SFACTOR(2))^(SFACTOR(3)) + -(d0/SFACTOR(2))^(SFACTOR(3)) ))
 
@@ -565,7 +579,10 @@ function f_s(dda_s,d0,d, mode)
      f_s = Exp( -abs(dda_s) * (d - d0) )
    elseif(mode .eq. 5) then
      f_s = (1 - dda_s * (d - d0) )
-
+   elseif(mode .eq. 6) then
+     beta= (dc-d0)/(2.5d0*log((1d0-0.005d0)/0.005d0))
+     f_d = 1/(1+exp((d-(d0+(dc-d0)/2.5d0))/beta))
+     f_s = Exp( -abs(dda_s) * (d - d0) ) * f_d
 !  elseif(mode .eq. 6)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )
    endif

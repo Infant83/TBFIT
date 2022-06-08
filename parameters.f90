@@ -496,7 +496,8 @@ module parameters
        real(kind=dp),      allocatable   :: Rij(:,:) ! vector connecting two orbital i and j
        real(kind=dp),      allocatable   :: R(:,:)   ! cell periodicity where orbital j sits on
        real(kind=dp),      allocatable   :: Dij(:)   ! distance between orbital i and j
-       real(kind=dp),      allocatable   :: Dij0(:)
+       real(kind=dp),      allocatable   :: Dij0(:)  ! Reference distance between orbital i and j
+       real(kind=dp),      allocatable   :: Dijc(:)  ! Cutoff distance between orbital i and j
        integer(kind=sp),   allocatable   :: i_matrix(:) ! matrix index (1:neig)
        character(len=8), allocatable   :: ci_orb(:)   ! orbital character for n-th nn_neighbor hopping
        real(kind=dp),      allocatable   :: i_sign(:)   ! orbital sign      for n-th nn_neighbor hopping
@@ -514,7 +515,7 @@ module parameters
        integer(kind=sp)                     n_neighbor ! total number of pairwise two-center hoppings
        integer(kind=sp),   allocatable   :: n_nn(:) !(natom) total number of nearest neighbor pairs for each atoms within cutoff radius (valid if SK_SCALE_TYPE >= 11)
        real(kind=dp),      allocatable   :: R_nn(:,:)  ! (n_nn, n_atom) distance information for nearest neighbor pairs. cutoff distance d0_cut
-       real(kind=dp),      allocatable   :: R0_nn(:,:) ! (n_nn, n_atom) distance information for nearest neighbor pairs. reference cutoff distance d0
+       real(kind=dp),      allocatable   :: R0_nn(:,:) ! (n_nn, n_atom) distance information for nearest neighbor pairs. reference distance d0
        integer(kind=sp),   allocatable   :: j_nn(:,:) ! (n_nn, n_atom) atom index for nearest neighbor pairs
        integer(kind=sp)                     max_nn_pair  ! max(n_nn)
        integer(kind=sp),   allocatable   :: l_onsite_param_index(:) ! array (n_atom)

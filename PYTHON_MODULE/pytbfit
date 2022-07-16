@@ -2,7 +2,7 @@
 
 import tbfitpy_serial as tbfit
 
-mytb = tbfit.pytbfit(filenm='INCAR-TB')
+mytb = tbfit.pytbfit(filenm=('INCAR-TB'))
 
 mytb.init(verbose=True,orbfit=True)
 

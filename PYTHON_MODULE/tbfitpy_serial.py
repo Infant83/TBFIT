@@ -13,6 +13,8 @@ from tbfitpy_mod import pyfit
 warnings.filterwarnings("ignore")
 
 # last update: 14.04.2022 HJ Kim
+# last update: 21.06.2022 HJ Kim
+# last update: 16.07.2022 HJ Kim - add nsystem=4,5
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -170,6 +172,14 @@ class pytbfit:
             self.edft4 = pyfit.init_energy_py()
             self.etba4 = pyfit.init_energy_py()
 
+        if nsystem >= 5:
+            self.pkpts5= pyfit.init_kpoints_py()
+            self.pwght5= pyfit.init_weight_py()
+            self.pgeom5= pyfit.init_poscar_py()
+            self.hopping5= pyfit.init_hopping_py()
+            self.edft5 = pyfit.init_energy_py()
+            self.etba5 = pyfit.init_energy_py()
+
 
     def init(self, verbose=False, orbfit=False, myid=0, pfilenm=None, red_ovl=None, red_hop=None):
         # if pfilenm is specified, use it. 
@@ -239,6 +249,38 @@ class pytbfit:
             self.i_specs , self.i_atoms = self.orb_index(self.pgeom)
             self.i_specs2, self.i_atoms2= self.orb_index(self.pgeom2)
             self.i_specs3, self.i_atoms3= self.orb_index(self.pgeom3)
+        elif self.nsystem == 4:
+            pyfit.init4(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba,
+                                                          self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
+                                                          self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3,
+                                                          self.pkpts4,self.pwght4,self.pgeom4,self.hopping4,self.edft4,self.etba4,
+                                                          pfilenm_parse)
+            self.energy_target , self.orb_target  = self.load_band(self.pwght , self.pgeom )
+            self.energy_target2, self.orb_target2 = self.load_band(self.pwght2, self.pgeom2)
+            self.energy_target3, self.orb_target3 = self.load_band(self.pwght3, self.pgeom3)
+            self.energy_target4, self.orb_target4 = self.load_band(self.pwght4, self.pgeom4)
+            self.i_specs , self.i_atoms = self.orb_index(self.pgeom)
+            self.i_specs2, self.i_atoms2= self.orb_index(self.pgeom2)
+            self.i_specs3, self.i_atoms3= self.orb_index(self.pgeom3)
+            self.i_specs4, self.i_atoms4= self.orb_index(self.pgeom4)
+
+        elif self.nsystem == 5:
+            pyfit.init5(self.fcomm, self.pinpt,self.ppram,self.pkpts,self.pwght,self.pgeom,self.hopping,self.edft,self.etba,
+                                                          self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
+                                                          self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3,
+                                                          self.pkpts4,self.pwght4,self.pgeom4,self.hopping4,self.edft4,self.etba4,
+                                                          self.pkpts5,self.pwght5,self.pgeom5,self.hopping5,self.edft5,self.etba5,
+                                                          pfilenm_parse)
+            self.energy_target , self.orb_target  = self.load_band(self.pwght , self.pgeom )
+            self.energy_target2, self.orb_target2 = self.load_band(self.pwght2, self.pgeom2)
+            self.energy_target3, self.orb_target3 = self.load_band(self.pwght3, self.pgeom3)
+            self.energy_target4, self.orb_target4 = self.load_band(self.pwght4, self.pgeom4)
+            self.energy_target5, self.orb_target5 = self.load_band(self.pwght5, self.pgeom5)
+            self.i_specs , self.i_atoms = self.orb_index(self.pgeom)
+            self.i_specs2, self.i_atoms2= self.orb_index(self.pgeom2)
+            self.i_specs3, self.i_atoms3= self.orb_index(self.pgeom3)
+            self.i_specs4, self.i_atoms4= self.orb_index(self.pgeom4)
+            self.i_specs5, self.i_atoms5= self.orb_index(self.pgeom5)
 
         self.cost_history = []
         self.niter = 0
@@ -318,11 +360,6 @@ class pytbfit:
         flag_tbfit = self.pinpt.flag_tbfit
         self.pinpt.flag_tbfit = -1
 
-#       if verbose is True:
-#           self.pinpt.iverbose = 1
-#       else :
-#           self.pinpt.iverbose = 2
-
         t0 = time.time()
 
         if tol is not None: self.pinpt.ptol = tol
@@ -338,8 +375,9 @@ class pytbfit:
             if self.nsystem == 1:
                 pyfit.fit(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                       self.pgeom, self.hopping, self.edft, self.etba)
-                sum_cost = np.sum(abs(self.etba.de))
-                sum_cost_orb = np.sum(abs(self.etba.dorb))
+                max_wt = np.max(self.pwght.wt)
+                sum_cost = np.sum(abs(self.etba.de * (self.pwght.wt/max_wt) ))
+                sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) ))
                 self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
                 if self.orbfit is True:
                     self.cost_orb = 100.0 - np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100.0
@@ -347,16 +385,56 @@ class pytbfit:
                 pyfit.fit2(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                        self.pgeom, self.hopping, self.edft, self.etba,
                                        self.pkpts2, self.pwght2,self.pgeom2, self.hopping2, self.edft2, self.etba2)
-                sum_cost = np.sum(abs(self.etba.de)) + np.sum(abs(self.etba2.de))
-                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb))
+                max_wt = np.max(self.pwght.wt)
+                max_wt2= np.max(self.pwght2.wt)
+                sum_cost = np.sum(abs(self.etba.de * (self.pwght.wt/max_wt) )) + np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2)))
+                sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) )) + np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2)))
                 self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
             elif self.nsystem == 3:
                 pyfit.fit3(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                        self.pgeom, self.hopping, self.edft, self.etba,
                                        self.pkpts2, self.pwght2,self.pgeom2, self.hopping2, self.edft2, self.etba2,
                                        self.pkpts3, self.pwght3,self.pgeom3, self.hopping3, self.edft3, self.etba3)
-                sum_cost = np.sum(abs(self.etba.de)) + np.sum(abs(self.etba2.de)) + np.sum(abs(self.etba3.de))
+                max_wt = np.max(self.pwght.wt)
+                max_wt2= np.max(self.pwght2.wt)
+                max_wt3= np.max(self.pwght3.wt)
+                sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt) )) +\
+                           np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
+                           np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) ))
                 sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb))
+            elif self.nsystem == 4:
+                pyfit.fit4(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
+                                       self.pgeom, self.hopping, self.edft, self.etba,
+                                       self.pkpts2, self.pwght2,self.pgeom2, self.hopping2, self.edft2, self.etba2,
+                                       self.pkpts3, self.pwght3,self.pgeom3, self.hopping3, self.edft3, self.etba3,
+                                       self.pkpts4, self.pwght4,self.pgeom4, self.hopping4, self.edft4, self.etba4)
+                max_wt = np.max(self.pwght.wt)
+                max_wt2= np.max(self.pwght2.wt)
+                max_wt3= np.max(self.pwght3.wt)
+                max_wt4= np.max(self.pwght4.wt)
+                sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt) )) +\
+                           np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
+                           np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) )) +\
+                           np.sum(abs(self.etba4.de * (self.pwght4.wt/max_wt4) ))
+                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb)) + np.sum(abs(self.etba4.dorb))
+            elif self.nsystem == 5:
+                pyfit.fit5(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
+                                       self.pgeom, self.hopping, self.edft, self.etba,
+                                       self.pkpts2, self.pwght2,self.pgeom2, self.hopping2, self.edft2, self.etba2,
+                                       self.pkpts3, self.pwght3,self.pgeom3, self.hopping3, self.edft3, self.etba3,
+                                       self.pkpts4, self.pwght4,self.pgeom4, self.hopping4, self.edft4, self.etba4,
+                                       self.pkpts5, self.pwght5,self.pgeom5, self.hopping5, self.edft5, self.etba5)
+                max_wt = np.max(self.pwght.wt)
+                max_wt2= np.max(self.pwght2.wt)
+                max_wt3= np.max(self.pwght3.wt)
+                max_wt4= np.max(self.pwght4.wt)
+                max_wt5= np.max(self.pwght5.wt)
+                sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt) )) +\
+                           np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
+                           np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) )) +\
+                           np.sum(abs(self.etba4.de * (self.pwght4.wt/max_wt4) )) +\
+                           np.sum(abs(self.etba5.de * (self.pwght5.wt/max_wt5) ))
+                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb)) + np.sum(abs(self.etba4.dorb)) + np.sum(abs(self.etba5.dorb))
 
             self.cost_history = self.ppram.cost_history
             self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
@@ -387,6 +465,19 @@ class pytbfit:
                                        self.pgeom, self.hopping, self.edft, self.etba, 
                                        self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
                                        self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3,iseed,pso_miter)
+            elif self.nsystem == 4:
+                pyfit.pso4(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
+                                       self.pgeom, self.hopping, self.edft, self.etba,
+                                       self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
+                                       self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3,
+                                       self.pkpts4,self.pwght4,self.pgeom4,self.hopping4,self.edft4,self.etba4,iseed,pso_miter)
+            elif self.nsystem == 5:
+                pyfit.pso5(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
+                                       self.pgeom, self.hopping, self.edft, self.etba,
+                                       self.pkpts2,self.pwght2,self.pgeom2,self.hopping2,self.edft2,self.etba2,
+                                       self.pkpts3,self.pwght3,self.pgeom3,self.hopping3,self.edft3,self.etba3,
+                                       self.pkpts4,self.pwght4,self.pgeom4,self.hopping4,self.edft4,self.etba4,
+                                       self.pkpts5,self.pwght5,self.pgeom5,self.hopping5,self.edft5,self.etba5,iseed,pso_miter)
 
             self.cost_history   = self.ppram.pso_cost_history
             self.cost_history_particle = self.ppram.pso_cost_history_i
@@ -417,6 +508,18 @@ class pytbfit:
                 pyfit.eig3(self.fcomm, self.pinpt, self.ppram, self.pkpts ,self.pgeom ,self.hopping ,self.etba ,
                                                               self.pkpts2,self.pgeom2,self.hopping2,self.etba2,
                                                               self.pkpts3,self.pgeom3,self.hopping3,self.etba3)
+            elif self.nsystem == 4:
+                pyfit.eig4(self.fcomm, self.pinpt, self.ppram, self.pkpts ,self.pgeom ,self.hopping ,self.etba ,
+                                                              self.pkpts2,self.pgeom2,self.hopping2,self.etba2,
+                                                              self.pkpts3,self.pgeom3,self.hopping3,self.etba3,
+                                                              self.pkpts4,self.pgeom4,self.hopping4,self.etba4)
+            elif self.nsystem == 5:
+                pyfit.eig5(self.fcomm, self.pinpt, self.ppram, self.pkpts ,self.pgeom ,self.hopping ,self.etba ,
+                                                              self.pkpts2,self.pgeom2,self.hopping2,self.etba2,
+                                                              self.pkpts3,self.pgeom3,self.hopping3,self.etba3,
+                                                              self.pkpts4,self.pgeom4,self.hopping4,self.etba4,
+                                                              self.pkpts5,self.pgeom5,self.hopping5,self.etba5)
+
         elif sys is not None:
             if sys == 1:
                 pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts,self.pgeom,self.hopping,self.etba)
@@ -424,6 +527,10 @@ class pytbfit:
                 pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts2,self.pgeom2,self.hopping2,self.etba2)
             elif sys == 3:
                 pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts3,self.pgeom3,self.hopping3,self.etba3)
+            elif sys == 4:
+                pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts4,self.pgeom4,self.hopping4,self.etba4)
+            elif sys == 5:
+                pyfit.eig(self.fcomm, self.pinpt, self.ppram, self.pkpts5,self.pgeom5,self.hopping5,self.etba5)
 
         self.pinpt.flag_tbfit = flag_tbfit
 
@@ -622,6 +729,15 @@ class pytbfit:
             etarget=self.energy_target3 ; etba = self.etba3.e ; edft = self.edft3.e ; wt = self.pwght3.wt
             title   = self.pgeom3.title.decode('utf-8').strip()
             kdist, KNAME, KPTS = self.get_kpath(self.pkpts3)
+        elif isystem == 4:
+            etarget=self.energy_target4 ; etba = self.etba4.e ; edft = self.edft4.e ; wt = self.pwght4.wt
+            title   = self.pgeom4.title.decode('utf-8').strip()
+            kdist, KNAME, KPTS = self.get_kpath(self.pkpts4)
+        elif isystem == 5:
+            etarget=self.energy_target5 ; etba = self.etba5.e ; edft = self.edft5.e ; wt = self.pwght5.wt
+            title   = self.pgeom5.title.decode('utf-8').strip()
+            kdist, KNAME, KPTS = self.get_kpath(self.pkpts5)
+
         return etarget, etba, edft, wt, title, kdist, KNAME, KPTS
 
     def get_proj_ldos(self, isystem=1):
@@ -631,6 +747,11 @@ class pytbfit:
             proj_ldos = self.etba2.v2
         elif isystem == 3:
             proj_ldos = self.etba3.v2
+        elif isystem == 4:
+            proj_ldos = self.etba4.v2
+        elif isystem == 5:
+            proj_ldos = self.etba5.v2
+
         return proj_ldos
 
     def set_proj_c(self, projs):
@@ -661,6 +782,11 @@ class pytbfit:
             i_specs = self.i_specs2 ; i_atoms = self.i_atoms2
         if isystem == 3:
             i_specs = self.i_specs3 ; i_atoms = self.i_atoms3
+        if isystem == 4:
+            i_specs = self.i_specs4 ; i_atoms = self.i_atoms4
+        if isystem == 5:
+            i_specs = self.i_specs5 ; i_atoms = self.i_atoms5
+
         return i_specs, i_atoms
 
     def get_grid_ratio(self,nsystem=1,sys=None):
@@ -677,6 +803,9 @@ class pytbfit:
                 grid_ratio.append(self.pkpts3.kdist[-1])
             elif isystem+1 == 4:
                 grid_ratio.append(self.pkpts4.kdist[-1])
+            elif isystem+1 == 5:
+                grid_ratio.append(self.pkpts5.kdist[-1])
+
         return grid_ratio
 
     def plot_band(self, figsize=(5,6), ef=0.0, yin=-20., yen=10, ystep=5., plot_target=True,

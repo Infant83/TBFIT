@@ -265,6 +265,277 @@ module pyfit
 
 contains
 
+subroutine init5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                                           PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                                           PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                                           PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                                           PKPTS_PY5, PWGHT_PY5, PGEOM_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5, &
+                                           pfilenm_parse)
+    use read_incar
+    use set_default
+    type(incar_py),       intent(inout) :: PINPT_PY
+    type(params_py),      intent(inout) :: PPRAM_PY
+    type(kpoints_py),     intent(inout) :: PKPTS_PY1   , PKPTS_PY2    , PKPTS_PY3    , PKPTS_PY4   , PKPTS_PY5
+    type(weight_py),      intent(inout) :: PWGHT_PY1   , PWGHT_PY2    , PWGHT_PY3    , PWGHT_PY4   , PWGHT_PY5
+    type(poscar_py),      intent(inout) :: PGEOM_PY1   , PGEOM_PY2    , PGEOM_PY3    , PGEOM_PY4   , PGEOM_PY5
+    type(hopping_py),     intent(inout) :: NN_TABLE_PY1, NN_TABLE_PY2 , NN_TABLE_PY3 , NN_TABLE_PY4, NN_TABLE_PY5
+    type(energy_py),      intent(inout) :: EDFT_PY1    , EDFT_PY2     , EDFT_PY3     , EDFT_PY4    , EDFT_PY5
+    type(energy_py),      intent(inout) :: ETBA_PY1    , ETBA_PY2     , ETBA_PY3     , ETBA_PY4    , ETBA_PY5
+    character(len=132),   intent(in)    :: pfilenm_parse
+    integer,              intent(in)    :: comm
+    integer(kind=sp)                       i, j, k
+    type(incar   )                      :: PINPT, PINPT_
+    type(params  )                      :: PPRAM, PPRAM1, PPRAM_
+    type(kpoints ),dimension(5)         :: PKPTS        ! assume nsystem = 5
+    type(weight  ),dimension(5)         :: PWGHT        ! assume nsystem = 5
+    type(poscar  ),dimension(5)         :: PGEOM        ! assume nsystem = 5
+    type(hopping ),dimension(5)         :: NN_TABLE     ! assume nsystem = 5
+    type(energy  ),dimension(5)         :: EDFT, ETBA   ! assume nsystem = 5
+    type(dos     )                      :: TMP1 ! temp
+    type(berry   )                      :: TMP2 ! temp
+    type(gainp   )                      :: TMP3 ! temp
+    type(replot  )                      :: TMP4 ! temp
+    type(unfold  )                      :: PUFLD ! unfold
+    integer(kind=sp)                       nsystem
+    real(kind=dp), allocatable          :: param_best(:)
+#ifdef MPI
+   ! initialize MPI setup
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+
+   ! init system
+    call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
+    call parse(PINPT)
+    PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_pfile_parse       = PINPT_PY%flag_pfile_parse
+    PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
+    nsystem = PINPT%nsystem
+
+    PINPT%flag_reduce_overlap_parse = PINPT_PY%flag_reduce_overlap_parse
+    PINPT%flag_reduce_hopping_parse = PINPT_PY%flag_reduce_hopping_parse
+
+    if(PINPT%flag_reduce_overlap_parse) PINPT%reduce_overlap_parse = PINPT_PY%reduce_overlap_parse
+    if(PINPT%flag_reduce_hopping_parse) PINPT%reduce_hopping_parse = PINPT_PY%reduce_hopping_parse
+    if(PINPT%flag_pfile_parse) PINPT%pfilenm_parse = trim(pfilenm_parse)
+
+    call set_verbose(PINPT_PY%iverbose)
+    if(allocated(PPRAM_PY%param_best)) then
+        param_best = PPRAM_PY%param_best
+    endif
+    call read_input(PINPT,PPRAM_,PKPTS(1),PGEOM(1),PWGHT(1),EDFT(1),NN_TABLE(1), TMP1,TMP2,TMP3,TMP4, PUFLD, 1)
+    PINPT_ = PINPT
+    PPRAM1 = PPRAM_
+    PINPT  = PINPT_
+    PPRAM  = PPRAM1
+    do i = 2,nsystem
+      call read_input(PINPT,PPRAM_,PKPTS(i),PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i), TMP1,TMP2,TMP3,TMP4, PUFLD, i)
+      PINPT_%title(i) = PINPT%title(i)
+      PINPT_%ifilenm(i)= PINPT%ifilenm(i)
+      PINPT = PINPT_
+      PPRAM = PPRAM1
+    enddo
+
+    call set_free_parameters(PPRAM)
+
+    do i = 1, nsystem
+      call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .FALSE., 0)
+      if(allocated(ETBA(i)%dE))   deallocate(ETBA(i)%dE)
+      if(allocated(ETBA(i)%dORB)) deallocate(ETBA(i)%dORB)
+      allocate(ETBA(i)%dE(   size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+      allocate(ETBA(i)%dORB( size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+
+      ETBA(i)%E = 0d0 ; ETBA(i)%V = 0d0 ; ETBA(i)%SV = 0d0 ; ETBA(i)%dE=0d0 ; ETBA(i)%dORB = 0d0
+      if(PINPT%flag_fit_orbital) then
+        ETBA(i)%ORB  = 0d0
+        ETBA(i)%V2   = 0d0
+      endif
+
+    enddo
+
+    if(PKPTS(1)%flag_klinemode) then
+      if(allocated(PKPTS_PY1%kdist)) deallocate(PKPTS_PY1%kdist)
+      allocate(PKPTS_PY1%kdist(PKPTS(1)%nkpoint))
+      call get_kline_dist(PKPTS(1)%kpoint, PKPTS(1)%nkpoint, PKPTS_PY1%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(2)%flag_klinemode) then
+      if(allocated(PKPTS_PY2%kdist)) deallocate(PKPTS_PY2%kdist)
+      allocate(PKPTS_PY2%kdist(PKPTS(2)%nkpoint))
+      call get_kline_dist(PKPTS(2)%kpoint, PKPTS(2)%nkpoint, PKPTS_PY2%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(3)%flag_klinemode) then
+      if(allocated(PKPTS_PY3%kdist)) deallocate(PKPTS_PY3%kdist)
+      allocate(PKPTS_PY3%kdist(PKPTS(3)%nkpoint))
+      call get_kline_dist(PKPTS(3)%kpoint, PKPTS(3)%nkpoint, PKPTS_PY3%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(4)%flag_klinemode) then
+      if(allocated(PKPTS_PY4%kdist)) deallocate(PKPTS_PY4%kdist)
+      allocate(PKPTS_PY4%kdist(PKPTS(4)%nkpoint))
+      call get_kline_dist(PKPTS(4)%kpoint, PKPTS(4)%nkpoint, PKPTS_PY4%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(5)%flag_klinemode) then
+      if(allocated(PKPTS_PY5%kdist)) deallocate(PKPTS_PY5%kdist)
+      allocate(PKPTS_PY5%kdist(PKPTS(5)%nkpoint))
+      call get_kline_dist(PKPTS(5)%kpoint, PKPTS(5)%nkpoint, PKPTS_PY5%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+
+    call copy_incar(PINPT_PY,      PINPT, 1)
+    call copy_params(PPRAM_PY,     PPRAM, 1)
+
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                  PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 1)
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                  PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 1)
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                  PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 1)
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                  PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 1)
+    call copy_all(PKPTS_PY5, PGEOM_PY5, PWGHT_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5, &
+                  PKPTS(5) , PGEOM(5) , PWGHT(5) , NN_TABLE(5) , EDFT(5) , ETBA(5) , 1)
+
+    if(allocated(param_best)) then
+        PPRAM_PY%param_best = param_best
+    endif
+
+    return
+endsubroutine
+
+subroutine init4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                                           PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                                           PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                                           PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                                           pfilenm_parse)
+    use read_incar
+    use set_default
+    type(incar_py),       intent(inout) :: PINPT_PY
+    type(params_py),      intent(inout) :: PPRAM_PY
+    type(kpoints_py),     intent(inout) :: PKPTS_PY1   , PKPTS_PY2    , PKPTS_PY3    , PKPTS_PY4
+    type(weight_py),      intent(inout) :: PWGHT_PY1   , PWGHT_PY2    , PWGHT_PY3    , PWGHT_PY4
+    type(poscar_py),      intent(inout) :: PGEOM_PY1   , PGEOM_PY2    , PGEOM_PY3    , PGEOM_PY4
+    type(hopping_py),     intent(inout) :: NN_TABLE_PY1, NN_TABLE_PY2 , NN_TABLE_PY3 , NN_TABLE_PY4
+    type(energy_py),      intent(inout) :: EDFT_PY1    , EDFT_PY2     , EDFT_PY3     , EDFT_PY4
+    type(energy_py),      intent(inout) :: ETBA_PY1    , ETBA_PY2     , ETBA_PY3     , ETBA_PY4
+    character(len=132),   intent(in)    :: pfilenm_parse
+    integer,              intent(in)    :: comm
+    integer(kind=sp)                       i, j, k
+    type(incar   )                      :: PINPT, PINPT_
+    type(params  )                      :: PPRAM, PPRAM1, PPRAM_
+    type(kpoints ),dimension(4)         :: PKPTS        ! assume nsystem = 4
+    type(weight  ),dimension(4)         :: PWGHT        ! assume nsystem = 4
+    type(poscar  ),dimension(4)         :: PGEOM        ! assume nsystem = 4
+    type(hopping ),dimension(4)         :: NN_TABLE     ! assume nsystem = 4
+    type(energy  ),dimension(4)         :: EDFT, ETBA   ! assume nsystem = 4
+    type(dos     )                      :: TMP1 ! temp
+    type(berry   )                      :: TMP2 ! temp
+    type(gainp   )                      :: TMP3 ! temp
+    type(replot  )                      :: TMP4 ! temp
+    type(unfold  )                      :: PUFLD ! unfold
+    integer(kind=sp)                       nsystem
+    real(kind=dp), allocatable          :: param_best(:)
+#ifdef MPI
+   ! initialize MPI setup
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+
+   ! init system
+    call parse_very_init_py(PINPT, PINPT_PY%nsystem, PINPT_PY%ifilenm(1))
+    call parse(PINPT)
+    PINPT%flag_fit_orbital_parse = PINPT_PY%flag_fit_orbital_parse
+    PINPT%flag_pfile_parse       = PINPT_PY%flag_pfile_parse
+    PINPT%flag_fit_orbital       = PINPT%flag_fit_orbital_parse
+    nsystem = PINPT%nsystem
+
+    PINPT%flag_reduce_overlap_parse = PINPT_PY%flag_reduce_overlap_parse
+    PINPT%flag_reduce_hopping_parse = PINPT_PY%flag_reduce_hopping_parse
+
+    if(PINPT%flag_reduce_overlap_parse) PINPT%reduce_overlap_parse = PINPT_PY%reduce_overlap_parse
+    if(PINPT%flag_reduce_hopping_parse) PINPT%reduce_hopping_parse = PINPT_PY%reduce_hopping_parse
+    if(PINPT%flag_pfile_parse) PINPT%pfilenm_parse = trim(pfilenm_parse)
+
+    call set_verbose(PINPT_PY%iverbose)
+    if(allocated(PPRAM_PY%param_best)) then
+        param_best = PPRAM_PY%param_best
+    endif
+    call read_input(PINPT,PPRAM_,PKPTS(1),PGEOM(1),PWGHT(1),EDFT(1),NN_TABLE(1), TMP1,TMP2,TMP3,TMP4, PUFLD, 1)
+    PINPT_ = PINPT
+    PPRAM1 = PPRAM_
+    PINPT  = PINPT_
+    PPRAM  = PPRAM1
+    do i = 2,nsystem
+      call read_input(PINPT,PPRAM_,PKPTS(i),PGEOM(i),PWGHT(i),EDFT(i),NN_TABLE(i), TMP1,TMP2,TMP3,TMP4, PUFLD, i)
+      PINPT_%title(i) = PINPT%title(i)
+      PINPT_%ifilenm(i)= PINPT%ifilenm(i)
+      PINPT = PINPT_
+      PPRAM = PPRAM1
+    enddo
+
+    call set_free_parameters(PPRAM)
+
+    do i = 1, nsystem
+      call allocate_ETBA(PGEOM(i), PINPT, PKPTS(i), ETBA(i), .FALSE., 0)
+      if(allocated(ETBA(i)%dE))   deallocate(ETBA(i)%dE)
+      if(allocated(ETBA(i)%dORB)) deallocate(ETBA(i)%dORB)
+      allocate(ETBA(i)%dE(   size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+      allocate(ETBA(i)%dORB( size(ETBA(i)%E(:,1)),size(ETBA(i)%E(1,:)) ))
+
+      ETBA(i)%E = 0d0 ; ETBA(i)%V = 0d0 ; ETBA(i)%SV = 0d0 ; ETBA(i)%dE=0d0 ; ETBA(i)%dORB = 0d0
+      if(PINPT%flag_fit_orbital) then
+        ETBA(i)%ORB  = 0d0
+        ETBA(i)%V2   = 0d0
+      endif
+
+    enddo
+
+    if(PKPTS(1)%flag_klinemode) then
+      if(allocated(PKPTS_PY1%kdist)) deallocate(PKPTS_PY1%kdist)
+      allocate(PKPTS_PY1%kdist(PKPTS(1)%nkpoint))
+      call get_kline_dist(PKPTS(1)%kpoint, PKPTS(1)%nkpoint, PKPTS_PY1%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(2)%flag_klinemode) then
+      if(allocated(PKPTS_PY2%kdist)) deallocate(PKPTS_PY2%kdist)
+      allocate(PKPTS_PY2%kdist(PKPTS(2)%nkpoint))
+      call get_kline_dist(PKPTS(2)%kpoint, PKPTS(2)%nkpoint, PKPTS_PY2%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(3)%flag_klinemode) then
+      if(allocated(PKPTS_PY3%kdist)) deallocate(PKPTS_PY3%kdist)
+      allocate(PKPTS_PY3%kdist(PKPTS(3)%nkpoint))
+      call get_kline_dist(PKPTS(3)%kpoint, PKPTS(3)%nkpoint, PKPTS_PY3%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+    if(PKPTS(4)%flag_klinemode) then
+      if(allocated(PKPTS_PY4%kdist)) deallocate(PKPTS_PY4%kdist)
+      allocate(PKPTS_PY4%kdist(PKPTS(4)%nkpoint))
+      call get_kline_dist(PKPTS(4)%kpoint, PKPTS(4)%nkpoint, PKPTS_PY4%kdist) ! assume that tbfit uses line mode for kpoints
+    endif
+
+
+    call copy_incar(PINPT_PY,      PINPT, 1)
+    call copy_params(PPRAM_PY,     PPRAM, 1)
+
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                  PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 1)
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                  PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 1)
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                  PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 1)
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                  PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 1)
+
+    if(allocated(param_best)) then
+        PPRAM_PY%param_best = param_best
+    endif
+
+    return
+endsubroutine
+
 subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
                                            PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
                                            PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, pfilenm_parse)
@@ -382,8 +653,6 @@ subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     if(allocated(param_best)) then
         PPRAM_PY%param_best = param_best
     endif
-!   write(6,*)"ZZZZ ", PINPT%flag_fit_orbital, PINPT_PY%flag_fit_orbital
-!stop
 
     return
 endsubroutine
@@ -582,6 +851,124 @@ subroutine init(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE
     return
 end subroutine init
 
+subroutine pso5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                                          PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                                          PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                                          PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                                          PKPTS_PY5, PWGHT_PY5, PGEOM_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5, &
+                                          iseed, pso_miter)
+    use cost_function, only: get_dE12
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY1   ,PKPTS_PY2    ,PKPTS_PY3     ,PKPTS_PY4   ,PKPTS_PY5
+    type(poscar_py),      intent(inout)         :: PGEOM_PY1   ,PGEOM_PY2    ,PGEOM_PY3     ,PGEOM_PY4   ,PGEOM_PY5
+    type(weight_py),      intent(inout)         :: PWGHT_PY1   ,PWGHT_PY2    ,PWGHT_PY3     ,PWGHT_PY4   ,PWGHT_PY5
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY1,NN_TABLE_PY2 ,NN_TABLE_PY3  ,NN_TABLE_PY4,NN_TABLE_PY5
+    type(energy_py),      intent(inout)         :: ETBA_PY1    ,ETBA_PY2     ,ETBA_PY3      ,ETBA_PY4    ,ETBA_PY5
+    type(energy_py),      intent(inout)         :: EDFT_PY1    ,EDFT_PY2     ,EDFT_PY3      ,EDFT_PY4    ,EDFT_PY5
+    integer,              intent(inout)         :: comm
+    integer(kind=sp),     intent(inout)         :: iseed, pso_miter
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(kpoints ), dimension(PINPT_PY%nsystem) :: PKPTS
+    type(weight  ), dimension(PINPT_PY%nsystem) :: PWGHT
+    type(poscar  ), dimension(PINPT_PY%nsystem) :: PGEOM
+    type(hopping ), dimension(PINPT_PY%nsystem) :: NN_TABLE
+    type(energy  ), dimension(PINPT_PY%nsystem) :: EDFT, ETBA
+    integer(kind=sp)                               mpierr
+    logical                                        flag_with_lmdif
+
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+
+    call set_verbose(PINPT_PY%iverbose)
+
+    call copy_incar(PINPT_PY, PINPT, 2)
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                    PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 2)
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                    PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 2)
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                    PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 2)
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                    PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 2)
+    call copy_all(PKPTS_PY5, PGEOM_PY5, PWGHT_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5, &
+                    PKPTS(5) , PGEOM(5) , PWGHT(5) , NN_TABLE(5) , EDFT(5) , ETBA(5) , 2)
+
+    call pso_fit(PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_tABLE, EDFT, iseed, pso_miter)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital)
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_energy(ETBA_PY1, ETBA(1), 1)
+    call copy_energy(ETBA_PY2, ETBA(2), 1)
+    call copy_energy(ETBA_PY3, ETBA(3), 1)
+    call copy_energy(ETBA_PY4, ETBA(4), 1)
+    call copy_energy(ETBA_PY5, ETBA(5), 1)
+
+    return
+endsubroutine
+
+subroutine pso4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                                          PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                                          PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                                          PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                                          iseed, pso_miter)
+    use cost_function, only: get_dE12
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY1   ,PKPTS_PY2    ,PKPTS_PY3     ,PKPTS_PY4
+    type(poscar_py),      intent(inout)         :: PGEOM_PY1   ,PGEOM_PY2    ,PGEOM_PY3     ,PGEOM_PY4
+    type(weight_py),      intent(inout)         :: PWGHT_PY1   ,PWGHT_PY2    ,PWGHT_PY3     ,PWGHT_PY4
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY1,NN_TABLE_PY2 ,NN_TABLE_PY3  ,NN_TABLE_PY4
+    type(energy_py),      intent(inout)         :: ETBA_PY1    ,ETBA_PY2     ,ETBA_PY3      ,ETBA_PY4
+    type(energy_py),      intent(inout)         :: EDFT_PY1    ,EDFT_PY2     ,EDFT_PY3      ,EDFT_PY4
+    integer,              intent(inout)         :: comm
+    integer(kind=sp),     intent(inout)         :: iseed, pso_miter
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(kpoints ), dimension(PINPT_PY%nsystem) :: PKPTS
+    type(weight  ), dimension(PINPT_PY%nsystem) :: PWGHT
+    type(poscar  ), dimension(PINPT_PY%nsystem) :: PGEOM
+    type(hopping ), dimension(PINPT_PY%nsystem) :: NN_TABLE
+    type(energy  ), dimension(PINPT_PY%nsystem) :: EDFT, ETBA
+    integer(kind=sp)                               mpierr
+    logical                                        flag_with_lmdif
+
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+
+    call set_verbose(PINPT_PY%iverbose)
+
+    call copy_incar(PINPT_PY, PINPT, 2)
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                    PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 2)
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                    PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 2)
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                    PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 2)
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                    PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 2)
+
+    call pso_fit(PINPT, PPRAM, PKPTS, PWGHT, PGEOM, NN_tABLE, EDFT, iseed, pso_miter)
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital)
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_energy(ETBA_PY1, ETBA(1), 1)
+    call copy_energy(ETBA_PY2, ETBA(2), 1)
+    call copy_energy(ETBA_PY3, ETBA(3), 1)
+    call copy_energy(ETBA_PY4, ETBA(4), 1)
+
+    return
+endsubroutine
+
 subroutine pso3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
                                           PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
                                           PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, iseed, pso_miter)
@@ -723,6 +1110,188 @@ subroutine pso(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     call copy_params(PPRAM_PY, PPRAM, 1)
     call copy_energy(ETBA_PY, ETBA(1), 1)
 
+    return
+endsubroutine
+
+subroutine eig5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PGEOM_PY, NN_TABLE_PY, ETBA_PY, &
+                                          PKPTS_PY2, PGEOM_PY2, NN_TABLE_PY2, ETBA_PY2, &
+                                          PKPTS_PY3, PGEOM_PY3, NN_TABLE_PY3, ETBA_PY3, &
+                                          PKPTS_PY4, PGEOM_PY4, NN_TABLE_PY4, ETBA_PY4, &
+                                          PKPTS_PY5, PGEOM_PY5, NN_TABLE_PY5, ETBA_PY5)
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY   ,PKPTS_PY2   ,PKPTS_PY3    ,PKPTS_PY4   ,PKPTS_PY5
+    type(poscar_py),      intent(inout)         :: PGEOM_PY   ,PGEOM_PY2   ,PGEOM_PY3    ,PGEOM_PY4   ,PGEOM_PY5
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY,NN_TABLE_PY2,NN_TABLE_PY3 ,NN_TABLE_PY4,NN_TABLE_PY5
+    type(energy_py),      intent(inout)         :: ETBA_PY    ,ETBA_PY2    ,ETBA_PY3     ,ETBA_PY4    ,ETBA_PY5
+    integer,              intent(inout)         :: comm
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(hopping ), dimension(PINPT_PY%nsystem) :: NN_TABLE
+    type(energy  ), dimension(PINPT_PY%nsystem) :: ETBA
+    type(kpoints ), dimension(PINPT_PY%nsystem) :: PKPTS
+    type(poscar  ), dimension(PINPT_PY%nsystem) :: PGEOM
+    logical                                        flag_stat
+
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+    call set_verbose(PINPT_PY%iverbose)
+    if(iverbose .eq. 1) then
+        flag_stat = .TRUE.
+    else
+        flag_stat = .FALSE.
+    endif
+
+    call copy_incar(PINPT_PY, PINPT, 2)
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_hopping(NN_TABLE_PY , NN_TABLE(1), 2)
+    call copy_hopping(NN_TABLE_PY2, NN_TABLE(2), 2)
+    call copy_hopping(NN_TABLE_PY3, NN_TABLE(3), 2)
+    call copy_hopping(NN_TABLE_PY4, NN_TABLE(4), 2)
+    call copy_hopping(NN_TABLE_PY5, NN_TABLE(5), 2)
+
+    call get_eig(NN_TABLE(1), PKPTS_PY%kpoint, PKPTS_PY%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY%E, ETBA_PY%V, ETBA_PY%SV, PGEOM_PY%neig, PGEOM_PY%init_erange, PGEOM_PY%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(2), PKPTS_PY2%kpoint, PKPTS_PY2%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY2%E, ETBA_PY2%V, ETBA_PY2%SV, PGEOM_PY2%neig, PGEOM_PY2%init_erange, PGEOM_PY2%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(3), PKPTS_PY3%kpoint, PKPTS_PY3%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY3%E, ETBA_PY3%V, ETBA_PY3%SV, PGEOM_PY3%neig, PGEOM_PY3%init_erange, PGEOM_PY3%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(4), PKPTS_PY4%kpoint, PKPTS_PY4%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY4%E, ETBA_PY4%V, ETBA_PY4%SV, PGEOM_PY4%neig, PGEOM_PY4%init_erange, PGEOM_PY4%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(5), PKPTS_PY5%kpoint, PKPTS_PY5%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY5%E, ETBA_PY5%V, ETBA_PY5%SV, PGEOM_PY5%neig, PGEOM_PY5%init_erange, PGEOM_PY5%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+
+    if(PINPT%flag_get_orbital) then
+      call copy_kpoints(PKPTS_PY,    PKPTS(1), 2)
+      call copy_poscar(PGEOM_PY,     PGEOM(1), 2)
+      call copy_energy(ETBA_PY,      ETBA(1),  2)
+      call get_orbital_projection(ETBA(1), PKPTS(1), PINPT, PGEOM(1), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY,      ETBA(1),  1)
+
+      call copy_kpoints(PKPTS_PY2,    PKPTS(2), 2)
+      call copy_poscar(PGEOM_PY2,     PGEOM(2), 2)
+      call copy_energy(ETBA_PY2,      ETBA(2),  2)
+      call get_orbital_projection(ETBA(2), PKPTS(2), PINPT, PGEOM(2), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY2,      ETBA(2),  1)
+
+      call copy_kpoints(PKPTS_PY3,    PKPTS(3), 2)
+      call copy_poscar(PGEOM_PY3,     PGEOM(3), 2)
+      call copy_energy(ETBA_PY3,      ETBA(3),  2)
+      call get_orbital_projection(ETBA(3), PKPTS(3), PINPT, PGEOM(3), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY3,      ETBA(3),  1)
+
+      call copy_kpoints(PKPTS_PY4,     PKPTS(4), 2)
+      call copy_poscar( PGEOM_PY4,     PGEOM(4), 2)
+      call copy_energy(  ETBA_PY4,      ETBA(4), 2)
+      call get_orbital_projection(ETBA(4), PKPTS(4), PINPT, PGEOM(4), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY4,      ETBA(4),  1)
+
+      call copy_kpoints(PKPTS_PY5,     PKPTS(5), 2)
+      call copy_poscar( PGEOM_PY5,     PGEOM(5), 2)
+      call copy_energy(  ETBA_PY5,      ETBA(5), 2)
+      call get_orbital_projection(ETBA(5), PKPTS(5), PINPT, PGEOM(5), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY5,      ETBA(5),  1)
+    endif
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_hopping(NN_TABLE_PY, NN_TABLE(1), 1)
+    call copy_hopping(NN_TABLE_PY2, NN_TABLE(2), 1)
+    call copy_hopping(NN_TABLE_PY3, NN_TABLE(3), 1)
+    call copy_hopping(NN_TABLE_PY4, NN_TABLE(4), 1)
+    call copy_hopping(NN_TABLE_PY5, NN_TABLE(5), 1)
+    return
+endsubroutine
+
+subroutine eig4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PGEOM_PY, NN_TABLE_PY, ETBA_PY, &
+                                          PKPTS_PY2, PGEOM_PY2, NN_TABLE_PY2, ETBA_PY2, &
+                                          PKPTS_PY3, PGEOM_PY3, NN_TABLE_PY3, ETBA_PY3, &
+                                          PKPTS_PY4, PGEOM_PY4, NN_TABLE_PY4, ETBA_PY4)
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY   ,PKPTS_PY2   ,PKPTS_PY3    ,PKPTS_PY4
+    type(poscar_py),      intent(inout)         :: PGEOM_PY   ,PGEOM_PY2   ,PGEOM_PY3    ,PGEOM_PY4
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY,NN_TABLE_PY2,NN_TABLE_PY3 ,NN_TABLE_PY4
+    type(energy_py),      intent(inout)         :: ETBA_PY    ,ETBA_PY2    ,ETBA_PY3     ,ETBA_PY4
+    integer,              intent(inout)         :: comm
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(hopping ), dimension(PINPT_PY%nsystem) :: NN_TABLE
+    type(energy  ), dimension(PINPT_PY%nsystem) :: ETBA
+    type(kpoints ), dimension(PINPT_PY%nsystem) :: PKPTS
+    type(poscar  ), dimension(PINPT_PY%nsystem) :: PGEOM
+    logical                                        flag_stat
+
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+    call set_verbose(PINPT_PY%iverbose)
+    if(iverbose .eq. 1) then
+        flag_stat = .TRUE.
+    else
+        flag_stat = .FALSE.
+    endif
+
+    call copy_incar(PINPT_PY, PINPT, 2)
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_hopping(NN_TABLE_PY , NN_TABLE(1), 2)
+    call copy_hopping(NN_TABLE_PY2, NN_TABLE(2), 2)
+    call copy_hopping(NN_TABLE_PY3, NN_TABLE(3), 2)
+    call copy_hopping(NN_TABLE_PY4, NN_TABLE(4), 2)
+
+    call get_eig(NN_TABLE(1), PKPTS_PY%kpoint, PKPTS_PY%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY%E, ETBA_PY%V, ETBA_PY%SV, PGEOM_PY%neig, PGEOM_PY%init_erange, PGEOM_PY%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(2), PKPTS_PY2%kpoint, PKPTS_PY2%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY2%E, ETBA_PY2%V, ETBA_PY2%SV, PGEOM_PY2%neig, PGEOM_PY2%init_erange, PGEOM_PY2%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(3), PKPTS_PY3%kpoint, PKPTS_PY3%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY3%E, ETBA_PY3%V, ETBA_PY3%SV, PGEOM_PY3%neig, PGEOM_PY3%init_erange, PGEOM_PY3%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+    call get_eig(NN_TABLE(4), PKPTS_PY4%kpoint, PKPTS_PY4%nkpoint, PINPT, PPRAM, &
+                 ETBA_PY4%E, ETBA_PY4%V, ETBA_PY4%SV, PGEOM_PY4%neig, PGEOM_PY4%init_erange, PGEOM_PY4%nband, &
+                 PINPT%flag_get_orbital, PINPT%flag_sparse, flag_stat, PINPT%flag_phase)
+
+    if(PINPT%flag_get_orbital) then
+      call copy_kpoints(PKPTS_PY,    PKPTS(1), 2)
+      call copy_poscar(PGEOM_PY,     PGEOM(1), 2)
+      call copy_energy(ETBA_PY,      ETBA(1),  2)
+      call get_orbital_projection(ETBA(1), PKPTS(1), PINPT, PGEOM(1), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY,      ETBA(1),  1)
+
+      call copy_kpoints(PKPTS_PY2,    PKPTS(2), 2)
+      call copy_poscar(PGEOM_PY2,     PGEOM(2), 2)
+      call copy_energy(ETBA_PY2,      ETBA(2),  2)
+      call get_orbital_projection(ETBA(2), PKPTS(2), PINPT, PGEOM(2), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY2,      ETBA(2),  1)
+
+      call copy_kpoints(PKPTS_PY3,    PKPTS(3), 2)
+      call copy_poscar(PGEOM_PY3,     PGEOM(3), 2)
+      call copy_energy(ETBA_PY3,      ETBA(3),  2)
+      call get_orbital_projection(ETBA(3), PKPTS(3), PINPT, PGEOM(3), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY3,      ETBA(3),  1)
+
+      call copy_kpoints(PKPTS_PY4,     PKPTS(4), 2)
+      call copy_poscar( PGEOM_PY4,     PGEOM(4), 2)
+      call copy_energy(  ETBA_PY4,      ETBA(4), 2)
+      call get_orbital_projection(ETBA(4), PKPTS(4), PINPT, PGEOM(4), PPRAM%flag_use_overlap)
+      call copy_energy(ETBA_PY4,      ETBA(4),  1)
+    endif
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_hopping(NN_TABLE_PY, NN_TABLE(1), 1)
+    call copy_hopping(NN_TABLE_PY2, NN_TABLE(2), 1)
+    call copy_hopping(NN_TABLE_PY3, NN_TABLE(3), 1)
+    call copy_hopping(NN_TABLE_PY4, NN_TABLE(4), 1)
     return
 endsubroutine
 
@@ -969,6 +1538,192 @@ subroutine toten(comm, PINPT_PY, PKPTS_PY, PGEOM_PY, ETBA_PY)
 
     call copy_energy(  ETBA_PY, ETBA , 1)
     
+    return
+endsubroutine
+
+subroutine fit5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1,&
+                                          PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2,&
+                                          PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3,&
+                                          PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4,&
+                                          PKPTS_PY5, PWGHT_PY5, PGEOM_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5)
+    use read_incar
+    use cost_function, only: get_dE12
+    use set_default
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY1   , PKPTS_PY2   , PKPTS_PY3    , PKPTS_PY4   , PKPTS_PY5
+    type(weight_py),      intent(inout)         :: PWGHT_PY1   , PWGHT_PY2   , PWGHT_PY3    , PWGHT_PY4   , PWGHT_PY5
+    type(poscar_py),      intent(inout)         :: PGEOM_PY1   , PGEOM_PY2   , PGEOM_PY3    , PGEOM_PY4   , PGEOM_PY5
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY1, NN_TABLE_PY2, NN_TABLE_PY3 , NN_TABLE_PY4, NN_TABLE_PY5
+    type(energy_py),      intent(inout)         :: EDFT_PY1    , EDFT_PY2    , EDFT_PY3     , EDFT_PY4    , EDFT_PY5
+    type(energy_py),      intent(inout)         :: ETBA_PY1    , ETBA_PY2    , ETBA_PY3     , ETBA_PY4    , ETBA_PY5
+    integer,              intent(in)            :: comm
+    integer(kind=sp)                               i, j, k
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(kpoints ), dimension(5               ) :: PKPTS
+    type(weight  ), dimension(5               ) :: PWGHT
+    type(poscar  ), dimension(5               ) :: PGEOM
+    type(hopping ), dimension(5               ) :: NN_TABLE
+    type(energy  ), dimension(5               ) :: EDFT, ETBA
+    integer(kind=sp)                               ifit
+    logical                                        flag_exit
+    real(kind=dp)                                  fnorm, fnorm_plain, fnorm_orb,  fnorm_
+    external                                       get_eig
+    logical                                        flag_order, flag_get_orbital, flag_write_info
+    integer(kind=sp)                               mpierr
+    integer(kind=sp)                               info, maxfev, ldjac, imode, nparam_free
+    real(kind=dp)                                  epsfcn, factor, xtol, ftol, gtol
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+    fnorm_ = 0d0        ; flag_exit = .false. ;    ifit = 0
+    fnorm_plain = 0d0   ; fnorm_orb = 0d0
+    flag_order       = PINPT_PY%flag_get_band_order .and. (.not. PINPT_PY%flag_get_band_order_print_only)
+    flag_get_orbital = (PWGHT_PY1%flag_weight_orb .or. flag_order .or. PINPT_PY%flag_fit_orbital)
+
+    if(allocated(PPRAM_PY%cost_history)) deallocate(PPRAM_PY%cost_history)
+    allocate(PPRAM_PY%cost_history(PINPT_PY%miter))
+    PPRAM_PY%cost_history = 0d0
+    flag_write_info = .false.
+    call set_verbose(PINPT_PY%iverbose)
+    if(iverbose .eq. 1) flag_write_info = .true.
+
+    call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=3
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                    PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 2) ! system-1
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                    PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 2) ! system-2
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                    PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 2) ! system-3
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                    PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 2) ! system-4
+    call copy_all(PKPTS_PY5, PGEOM_PY5, PWGHT_PY5, NN_TABLE_PY5, EDFT_PY5, ETBA_PY5, &
+                    PKPTS(5) , PGEOM(5) , PWGHT(5) , NN_TABLE(5) , EDFT(5) , ETBA(5) , 2) ! system-5
+
+    nparam_free = PPRAM%nparam_free ! total number of free parameters. Note: nrl parameterization is not supported yet.
+    imode  = 13 !
+    factor = 100.0D+00
+    maxfev = PINPT_PY%miter * ( PPRAM_PY%nparam_free + 1 )
+    ftol = PINPT_PY%ftol    ;xtol = PINPT_PY%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
+    ldjac = 0
+
+    if(imode .eq. 13) then
+      do i = 1, PINPT%nsystem
+          ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+      enddo
+    elseif(imode .eq. 2) then
+      ldjac = sum(PKPTS(:)%nkpoint)
+    endif
+
+    call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, .false. )
+    call check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_)
+
+    ! before return calculate again with final parameter to get get energy and dE
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital )
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_energy(ETBA_PY1, ETBA(1), 1)
+    call copy_energy(ETBA_PY2, ETBA(2), 1)
+    call copy_energy(ETBA_PY3, ETBA(3), 1)
+    call copy_energy(ETBA_PY4, ETBA(4), 1)
+    call copy_energy(ETBA_PY5, ETBA(5), 1)
+
+    return
+endsubroutine
+
+subroutine fit4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1,&
+                                          PKPTS_PY2, PWGHT_PY2, PGEOM_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2,&
+                                          PKPTS_PY3, PWGHT_PY3, PGEOM_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3,&
+                                          PKPTS_PY4, PWGHT_PY4, PGEOM_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4)
+    use read_incar
+    use cost_function, only: get_dE12
+    use set_default
+    type(incar_py),       intent(inout)         :: PINPT_PY
+    type(params_py),      intent(inout)         :: PPRAM_PY
+    type(kpoints_py),     intent(inout)         :: PKPTS_PY1   , PKPTS_PY2   , PKPTS_PY3    , PKPTS_PY4
+    type(weight_py),      intent(inout)         :: PWGHT_PY1   , PWGHT_PY2   , PWGHT_PY3    , PWGHT_PY4
+    type(poscar_py),      intent(inout)         :: PGEOM_PY1   , PGEOM_PY2   , PGEOM_PY3    , PGEOM_PY4
+    type(hopping_py),     intent(inout)         :: NN_TABLE_PY1, NN_TABLE_PY2, NN_TABLE_PY3 , NN_TABLE_PY4
+    type(energy_py),      intent(inout)         :: EDFT_PY1    , EDFT_PY2    , EDFT_PY3     , EDFT_PY4
+    type(energy_py),      intent(inout)         :: ETBA_PY1    , ETBA_PY2    , ETBA_PY3     , ETBA_PY4
+    integer,              intent(in)            :: comm
+    integer(kind=sp)                               i, j, k
+    type(incar   )                              :: PINPT
+    type(params  )                              :: PPRAM
+    type(kpoints ), dimension(4               ) :: PKPTS
+    type(weight  ), dimension(4               ) :: PWGHT
+    type(poscar  ), dimension(4               ) :: PGEOM
+    type(hopping ), dimension(4               ) :: NN_TABLE
+    type(energy  ), dimension(4               ) :: EDFT, ETBA
+    integer(kind=sp)                               ifit
+    logical                                        flag_exit
+    real(kind=dp)                                  fnorm, fnorm_plain, fnorm_orb,  fnorm_
+    external                                       get_eig
+    logical                                        flag_order, flag_get_orbital, flag_write_info
+    integer(kind=sp)                               mpierr
+    integer(kind=sp)                               info, maxfev, ldjac, imode, nparam_free
+    real(kind=dp)                                  epsfcn, factor, xtol, ftol, gtol
+#ifdef MPI
+    mpi_comm_earth = comm
+    call get_my_task()
+#endif
+    fnorm_ = 0d0        ; flag_exit = .false. ;    ifit = 0
+    fnorm_plain = 0d0   ; fnorm_orb = 0d0
+    flag_order       = PINPT_PY%flag_get_band_order .and. (.not. PINPT_PY%flag_get_band_order_print_only)
+    flag_get_orbital = (PWGHT_PY1%flag_weight_orb .or. flag_order .or. PINPT_PY%flag_fit_orbital)
+
+    if(allocated(PPRAM_PY%cost_history)) deallocate(PPRAM_PY%cost_history)
+    allocate(PPRAM_PY%cost_history(PINPT_PY%miter))
+    PPRAM_PY%cost_history = 0d0
+    flag_write_info = .false.
+    call set_verbose(PINPT_PY%iverbose)
+    if(iverbose .eq. 1) flag_write_info = .true.
+
+    call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=3
+    call copy_params(PPRAM_PY, PPRAM, 2)
+    call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
+                    PKPTS(1) , PGEOM(1) , PWGHT(1) , NN_TABLE(1) , EDFT(1) , ETBA(1) , 2) ! system-1
+    call copy_all(PKPTS_PY2, PGEOM_PY2, PWGHT_PY2, NN_TABLE_PY2, EDFT_PY2, ETBA_PY2, &
+                    PKPTS(2) , PGEOM(2) , PWGHT(2) , NN_TABLE(2) , EDFT(2) , ETBA(2) , 2) ! system-2
+    call copy_all(PKPTS_PY3, PGEOM_PY3, PWGHT_PY3, NN_TABLE_PY3, EDFT_PY3, ETBA_PY3, &
+                    PKPTS(3) , PGEOM(3) , PWGHT(3) , NN_TABLE(3) , EDFT(3) , ETBA(3) , 2) ! system-3
+    call copy_all(PKPTS_PY4, PGEOM_PY4, PWGHT_PY4, NN_TABLE_PY4, EDFT_PY4, ETBA_PY4, &
+                    PKPTS(4) , PGEOM(4) , PWGHT(4) , NN_TABLE(4) , EDFT(4) , ETBA(4) , 2) ! system-4
+
+    nparam_free = PPRAM%nparam_free ! total number of free parameters. Note: nrl parameterization is not supported yet.
+    imode  = 13 !
+    factor = 100.0D+00
+    maxfev = PINPT_PY%miter * ( PPRAM_PY%nparam_free + 1 )
+    ftol = PINPT_PY%ftol    ;xtol = PINPT_PY%ptol ; gtol = 0.0D+00; epsfcn = 0.000D+00
+    ldjac = 0
+
+    if(imode .eq. 13) then
+      do i = 1, PINPT%nsystem
+          ldjac = ldjac + PKPTS(i)%nkpoint * PGEOM(i)%nband * PINPT%nspin
+      enddo
+    elseif(imode .eq. 2) then
+      ldjac = sum(PKPTS(:)%nkpoint)
+    endif
+
+    call lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, EDFT, nparam_free, PWGHT, &
+               ftol, xtol, gtol, fnorm, fnorm_plain, fnorm_orb, maxfev, epsfcn, factor, info, flag_write_info, .false. )
+    call check_conv_and_constraint(PPRAM, PINPT, flag_exit, ifit, fnorm, fnorm_)
+
+    ! before return calculate again with final parameter to get get energy and dE
+    call get_dE12(PINPT, PPRAM, NN_TABLE, EDFT, ETBA, PWGHT, PGEOM, PKPTS, PINPT%flag_fit_orbital )
+
+    call copy_incar(PINPT_PY, PINPT, 1)
+    call copy_params(PPRAM_PY, PPRAM, 1)
+    call copy_energy(ETBA_PY1, ETBA(1), 1)
+    call copy_energy(ETBA_PY2, ETBA(2), 1)
+    call copy_energy(ETBA_PY3, ETBA(3), 1)
+    call copy_energy(ETBA_PY4, ETBA(4), 1)
+
     return
 endsubroutine
 
@@ -1494,22 +2249,15 @@ subroutine copy_incar(PINPT_PY, PINPT, imode)
     return
 endsubroutine
 
-!function init_params_py(flag_pfile_parse, pfilenm_parse) result(PPRAM_PY)
 function init_params_py() result(PPRAM_PY)
     type(params_py)                        PPRAM_PY
-!   logical                                flag_pfile_parse
-!   character(len=132),   intent(in)    :: pfilenm_parse
     
     PPRAM_PY%flag_slater_koster                      = .TRUE.
     PPRAM_PY%flag_use_overlap                        = .FALSE.
     PPRAM_PY%flag_pfile_index                        = .FALSE.
     PPRAM_PY%flag_set_param_const                    = .FALSE.
     PPRAM_PY%flag_fit_plain                          = .FALSE.
-!   if(flag_pfile_parse) then
-!     PPRAM_PY%pfilenm                               = trim(pfilenm_parse)
-!   else
-      PPRAM_PY%pfilenm                               = 'PARAM_FIT.dat' 
-!   endif
+    PPRAM_PY%pfilenm                                 = 'PARAM_FIT.dat' 
 
     PPRAM_PY%pfileoutnm                              = 'PARAM_FIT.new.dat' 
     PPRAM_PY%l_broaden                               = 0.15d0 
@@ -1539,7 +2287,6 @@ function init_params_py() result(PPRAM_PY)
     if(allocated(PPRAM_PY%param_name))      deallocate(PPRAM_PY%param_name)
     if(allocated(PPRAM_PY%c_const))         deallocate(PPRAM_PY%c_const)
     if(allocated(PPRAM_PY%param_const))     deallocate(PPRAM_PY%param_const)
-   !     if(allocated(PPRAM_PY%param_const_best)) deallocate(PPRAM_PY%param_const_best)
     if(allocated(PPRAM_PY%param_const_nrl)) deallocate(PPRAM_PY%param_const_nrl)
     if(allocated(PPRAM_PY%param_nsub))      deallocate(PPRAM_PY%param_nsub)
 
@@ -1693,12 +2440,6 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
                    PPRAM_PY%param_const = PPRAM%param_const
        endif
 
-!      if(allocated(PPRAM%param_const_best           )) then
-!         n1 = size(PPRAM%param_const_best(:,1)) ; n2 = size(PPRAM%param_const_best(1,:))
-!         allocate(PPRAM_PY%param_const_best(n1,n2)      )
-!                  PPRAM_PY%param_const_best = PPRAM%param_const_best
-!      endif
-
        if(allocated(PPRAM%c_const               )) then
           n1 = size(PPRAM%c_const(:,1)) ; n2 = size(PPRAM%c_const(1,:))
           allocate(PPRAM_PY%c_const(n1,n2)          )
@@ -1740,7 +2481,6 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
        if(allocated( PPRAM%param_best    ))         deallocate(PPRAM%param_best    )
        if(allocated( PPRAM%param_nrl     ))         deallocate(PPRAM%param_nrl     )
        if(allocated( PPRAM%param_const   ))         deallocate(PPRAM%param_const   )
-!      if(allocated( PPRAM%param_const_best))       deallocate(PPRAM%param_const_best   )
        if(allocated( PPRAM%param_const_nrl))        deallocate(PPRAM%param_const_nrl)
        if(allocated( PPRAM%param_nsub    ))         deallocate(PPRAM%param_nsub    )
        if(allocated( PPRAM%iparam_type   ))         deallocate(PPRAM%iparam_type   )
@@ -1833,11 +2573,6 @@ subroutine copy_params(PPRAM_PY, PPRAM, imode)
           allocate(PPRAM%param_const(n1,n2)      )
                    PPRAM%param_const = PPRAM_PY%param_const
        endif
-!      if(allocated(PPRAM_PY%param_const_best           )) then
-!         n1 = size(PPRAM_PY%param_const_best(:,1)) ; n2 = size(PPRAM_PY%param_const_best(1,:))
-!         allocate(PPRAM%param_const_best(n1,n2)      )
-!                  PPRAM%param_const_best = PPRAM_PY%param_const_best
-!      endif
 
        if(allocated(PPRAM_PY%c_const               )) then
           n1 = size(PPRAM_PY%c_const(:,1)) ; n2 = size(PPRAM_PY%c_const(1,:))

@@ -580,8 +580,8 @@ function f_s(dda_s,d0,dc,d, mode)
    elseif(mode .eq. 5) then
      f_s = (1 - dda_s * (d - d0) )
    elseif(mode .eq. 6) then
-     beta= (dc-d0)/(2.5d0*log((1d0-0.005d0)/0.005d0))
-     f_d = 1/(1+exp((d-(d0+(dc-d0)/2.5d0))/beta))
+     beta= (dc-d0)/(2.1d0*log((1d0-0.001d0)/0.001d0))
+     f_d = 1/(1+exp((d-(d0+(dc-d0)/2.1d0))/beta))
      f_s = Exp( -abs(dda_s) * (d - d0) ) * f_d
 !  elseif(mode .eq. 6)
 !    f_s = (d0/d)**( dda_s(1) ) * Exp( dda_s(1) * ( -(d/dda_s(2))**dda_s(3) - (d0/dda_s(2))**dda_s(3) ) )

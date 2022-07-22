@@ -1,11 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from random import random
+#from random import random
+import random
 import warnings
 from tqdm import tqdm 
 import time
 import sys
+import os
+import gc
 import torch 
 from mpi4py import MPI
 from tbfitpy_mod_mpi import pyfit
@@ -15,6 +18,7 @@ warnings.filterwarnings("ignore")
 # last update: 14.04.2022 HJ Kim
 # last update: 21.06.2022 HJ Kim
 # last update: 16.07.2022 HJ Kim - add nsystem=4,5
+# last update: 22.07.2022 HJ Kim - add CSA class
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -286,6 +290,7 @@ class pytbfit:
         self.niter = 0
         self.cost = 0.0
         self.cost_orb = 0.0
+        self.cost_total = self.cost + self.cost_orb
         self.myid = myid
 
     def orb_index(self,pgeom):
@@ -376,11 +381,9 @@ class pytbfit:
                 pyfit.fit(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                       self.pgeom, self.hopping, self.edft, self.etba)
                 max_wt = np.max(self.pwght.wt)
-                sum_cost = np.sum(abs(self.etba.de * (self.pwght.wt/max_wt) ))
-                sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) ))
-                self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
+                sum_cost     = np.sum(abs(self.etba.de   * (self.pwght.wt/max_wt) ))
                 if self.orbfit is True:
-                    self.cost_orb = 100.0 - np.exp( -(np.sum(abs(self.etba.dorb)) / sigma_orb)**2)*100.0
+                    sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) ))
             elif self.nsystem == 2:
                 pyfit.fit2(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                        self.pgeom, self.hopping, self.edft, self.etba,
@@ -388,8 +391,8 @@ class pytbfit:
                 max_wt = np.max(self.pwght.wt)
                 max_wt2= np.max(self.pwght2.wt)
                 sum_cost = np.sum(abs(self.etba.de * (self.pwght.wt/max_wt) )) + np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2)))
-                sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) )) + np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2)))
-                self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
+                if self.orbfit is True:
+                    sum_cost_orb = np.sum(abs(self.etba.dorb * (self.pwght.wt/max_wt) )) + np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2)))
             elif self.nsystem == 3:
                 pyfit.fit3(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght, 
                                        self.pgeom, self.hopping, self.edft, self.etba,
@@ -401,7 +404,10 @@ class pytbfit:
                 sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt) )) +\
                            np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
                            np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) ))
-                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb))
+                if self.orbfit is True:
+                    sum_cost_orb = np.sum(abs(self.etba.dorb  * (self.pwght.wt/max_wt)   )) +\
+                                   np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2) )) +\
+                                   np.sum(abs(self.etba3.dorb * (self.pwght3.wt/max_wt3) ))
             elif self.nsystem == 4:
                 pyfit.fit4(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
                                        self.pgeom, self.hopping, self.edft, self.etba,
@@ -416,7 +422,11 @@ class pytbfit:
                            np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
                            np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) )) +\
                            np.sum(abs(self.etba4.de * (self.pwght4.wt/max_wt4) ))
-                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb)) + np.sum(abs(self.etba4.dorb))
+                if self.orbfit is True:
+                    sum_cost_orb = np.sum(abs(self.etba.dorb  * (self.pwght.wt/max_wt)   )) +\
+                                   np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2) )) +\
+                                   np.sum(abs(self.etba3.dorb * (self.pwght3.wt/max_wt3) )) +\
+                                   np.sum(abs(self.etba4.dorb * (self.pwght4.wt/max_wt4) ))
             elif self.nsystem == 5:
                 pyfit.fit5(self.fcomm, self.pinpt, self.ppram, self.pkpts, self.pwght,
                                        self.pgeom, self.hopping, self.edft, self.etba,
@@ -429,16 +439,22 @@ class pytbfit:
                 max_wt3= np.max(self.pwght3.wt)
                 max_wt4= np.max(self.pwght4.wt)
                 max_wt5= np.max(self.pwght5.wt)
-                sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt) )) +\
+                sum_cost = np.sum(abs(self.etba.de  * (self.pwght.wt/max_wt)   )) +\
                            np.sum(abs(self.etba2.de * (self.pwght2.wt/max_wt2) )) +\
                            np.sum(abs(self.etba3.de * (self.pwght3.wt/max_wt3) )) +\
                            np.sum(abs(self.etba4.de * (self.pwght4.wt/max_wt4) )) +\
                            np.sum(abs(self.etba5.de * (self.pwght5.wt/max_wt5) ))
-                sum_cost_orb = np.sum(abs(self.etba.dorb)) + np.sum(abs(self.etba2.dorb)) + np.sum(abs(self.etba3.dorb)) + np.sum(abs(self.etba4.dorb)) + np.sum(abs(self.etba5.dorb))
+                if self.orbfit is True:
+                    sum_cost_orb = np.sum(abs(self.etba.dorb  * (self.pwght.wt/max_wt)   )) +\
+                                   np.sum(abs(self.etba2.dorb * (self.pwght2.wt/max_wt2) )) +\
+                                   np.sum(abs(self.etba3.dorb * (self.pwght3.wt/max_wt3) )) +\
+                                   np.sum(abs(self.etba4.dorb * (self.pwght4.wt/max_wt4) )) +\
+                                   np.sum(abs(self.etba5.dorb * (self.pwght5.wt/max_wt5) ))
 
             self.cost_history = self.ppram.cost_history
             self.cost     = 100.0 - np.exp( -( sum_cost / sigma)**2)*100.0
             if self.orbfit is True: self.cost_orb = 100.0 - np.exp( -( sum_cost_orb / sigma_orb)**2)*100.0
+            self.cost_total = self.cost + self.cost_orb
 
         elif method == 'mypso' or method == 'mypso.lmdif':
             self.pinpt.flag_tbfit = True
@@ -1248,3 +1264,646 @@ class pytbfit:
         plt.savefig(fout,bbox_inches='tight', pad_inches=0)
         plt.clf()
         return jj
+
+class csa_tools:
+    def __init__(self,Info):
+        self.npop = Info.npop
+        self.ndim = Info.ndim
+
+        try:
+            self.apath = Info.apath.rstrip()
+        except AttributeError:
+            self.apath = os.getcwd()
+        if self.apath[-1] == '/' :
+            self.apath=self.apath[:-1]
+
+        self.rmin = -20.0
+        self.rmax =  20.0
+
+        try:
+            self.fname_dump = Info.fname_dump
+        except AttributeError:
+            self.fname_dump = 'dump.txt'
+
+        try:
+            self.ntotal = max(Info.nmax,self.npop + self.npop*self.ndim)
+        except AttributeError:
+            self.ntotal = self.npop + 500 * self.npop * self.ndim
+
+        try:
+            self.csa_soldier_command=Info.soldier_command.rstrip()
+            if self.csa_soldier_command[-1] != '&' :
+                self.csa_soldier_command = self.csa_soldier_command + ' &'
+        except AttributeError:
+            self.csa_soldier_command='srun --nodes=1  --ntasks=1 --exclusive python CSA_SOLDIER.py &'
+        # Note: 
+        #       for iffslurm with sinteractive:
+        #         srun --mpi=pmi2 --ntasks=1 --exclusive python CSA_SOLDIER.py &
+        #       for iffslurm with sbatch :     
+        #         srun --nodes=1  --ntasks=1 --exclusive python CSA_SOLDIER.py &
+        
+    def init(self,ntotal = None):
+        cpath = self.apath+'/bnds.txt'
+        self.bnds = self.get_bnds(cpath)
+        npop  = self.npop
+        ndim  = self.ndim
+        self.static=np.zeros((npop,ndim)) 
+        self.ostatic=np.zeros(npop)
+        self.xvector=np.zeros(ndim)
+        self.dynamic=np.zeros((npop,ndim))
+        self.odynamic=np.zeros(npop) 
+        self.yvector=np.zeros(ndim)
+        self.staticr=np.zeros((npop,ndim))
+        print(npop,' npop',flush=True)
+        print(self.apath,' apath',flush=True)
+        print(ndim,' ndim',flush=True)
+
+    def append_multiple_lines(self, file_name, lines_to_append):
+        with open(file_name, "a+") as file_object:
+            appendEOL = False
+            file_object.seek(0)
+            data = file_object.read(100)
+            if len(data) > 0:
+                appendEOL = True
+            for line in lines_to_append:
+                if appendEOL == True:
+                    file_object.write("\n")
+                else:
+                    appendEOL = True
+                file_object.write(line)
+
+    def repulsion(self,npop,ndim,static):
+        tmp=0.
+        for i in range(npop):
+             for j in range(npop):
+                 if i > j :
+                     tmq=0.
+                     for k in range(ndim):
+                         tmq=tmq+(static[i,k]-static[j,k])**2
+                     tmq=np.sqrt(tmq)+1e-13
+                     tmp=tmp+1./tmq
+        return tmp
+
+    def coulomb(self, old):
+        npop = self.npop
+        ndim = self.ndim
+        bnds = self.bnds
+        work=np.zeros((npop,ndim)) ; new=np.zeros((npop,ndim))
+        new[:,:]=old[:,:]
+        tmp0=self.repulsion(npop,ndim,old)
+        for kter in range(npop+10):
+            for i in range(1,npop):
+                for k in range(ndim):
+                    rmin,rmax=bnds[k]
+                    work[i,k]=new[i,k]+(rmax-rmin)*np.random.random()/4.
+                    if work[i,k] < rmin or work[i,k] > rmax:
+                        work[i,k]=rmin+(rmax-rmin)*np.random.random()
+            tmp=self.repulsion(npop,ndim,work)
+            if tmp < tmp0 :
+               tmp0=tmp ; new[:,:]=work[:,:]
+        return new
+
+    def gen_directories(self):
+        npop = self.npop
+        apath = self.apath
+        for i in range(npop):
+             astring='mkdir '+apath+'/'+str(i).zfill(4) ; os.system(astring)
+        for i in range(npop):
+             astring='cp '+apath+'/CSA_SOLDIER.py'+' '+apath+'/'+str(i).zfill(4)
+             os.system(astring)
+             if os.path.isfile(apath+'/bnds.txt') :
+                 astring='cp '+apath+'/bnds.txt'+' '+apath+'/'+str(i).zfill(4)
+                 os.system(astring)
+
+    def del_directories(self):
+        npop = self.npop
+        apath = self.apath
+        for i in range(npop):
+            astring='rm '+apath+'/'+str(i).zfill(4) ; os.system(astring)
+
+    def partial_shuffle(self,l,nitera=5):
+        n21=len(l)-1
+        for _ in range(nitera):
+            a, b = random.randint(0, n21), random.randint(0, n21)
+            l[b], l[a] = l[a], l[b]
+        return l
+
+    def load_solutions(self,fname='dump.txt'):
+        afile=open(fname,'r')
+        jline=0
+        for line in afile:
+            if jline == 0 :
+                npop=int(line.split()[0]) ; ndim=int(line.split()[1])
+                static=np.zeros((npop,ndim)) ; ostatic=np.zeros(npop)
+                dynamic=np.zeros((npop,ndim)) ; odynamic=np.zeros(npop)
+                i=0
+            if jline > 0 and jline  <= npop :
+                if i < npop and i > -1 :
+                    for j in range(ndim):
+                        static[i,j]=float(line.split()[j])
+                i=i+1
+                if i == npop :
+                    i=0
+            if jline > npop and jline  <= npop*2 :
+                if i < npop  and i > -1 :
+                    for j in range(ndim):
+                        dynamic[i,j]=float(line.split()[j])
+                i=i+1
+            if jline == npop*2+1 :
+                for i in range(npop):
+                    ostatic[i]=float(line.split()[i])
+            if jline == npop*2+2 :
+                for i in range(npop):
+                    odynamic[i]=float(line.split()[i])
+            jline=jline+1
+        afile.close()
+        return npop,ndim,ostatic,odynamic,static,dynamic
+
+    def gen_trial_solution(self,fname,ncal):
+        ndim = self.ndim
+        bnds = self.bnds
+        alist=[ np.random.random() for j in range(ndim)]
+        for j in range(ndim):
+            rmin,rmax=bnds[j]
+            alist[j]=rmin+(rmax-rmin)*np.random.random()
+        fname100=self.fname_dump #'dump.txt'
+        if os.path.isfile(fname100) :
+            print(fname100,' is present, perturbation',flush=True)
+            npop1,ndim1,ostatic1,odynamic1,static1,dynamic1=self.load_solutions(fname100)
+            if ndim1 == ndim :
+                if ncal >= 0 and ncal <= npop1-1:
+                    alist=[ dynamic1[ncal,j] for j in range(ndim)]
+                    for j in range(ndim):
+                        rmin,rmax=bnds[j]
+                        alist[j]=alist[j]+np.random.random()*(rmax-rmin)/4.
+                        if alist[j] < rmin or alist[j] > rmax:
+                             alist[j]=np.random.random()*(rmax-rmin)+rmin
+            else :
+               print('check ndim,ndim0 ')
+               sys.exit()
+        lines_to_append=[]
+        lines_to_append.append(str(ndim))
+        for j in range(ndim):
+            lines_to_append.append(str(alist[j]))
+        lines_to_append.append(str(ncal)+'\n')
+        self.append_multiple_lines(fname, lines_to_append)
+
+    def write_trial_solution(self,ndim0,xvector,iidd,ncal):
+        apath=self.apath
+        bnds =self.bnds
+        fname=apath+'/'+str(iidd).zfill(4)+'/input.txt'
+        gname=apath+'/'+str(iidd).zfill(4)+'/STATUS'
+        if os.path.isfile(fname) :
+            os.remove(fname)
+        isign=1
+        if ndim0 < 0:
+           isign=-1 
+           ndim=-ndim0
+           self.gen_trial_solution(fname,ncal)
+        if isign == 1:
+            ndim=ndim0
+            lines_to_append=[]
+            lines_to_append.append(str(ndim))
+            for j in range(ndim):
+                rmin,rmax=bnds[j]
+                if xvector[j] < rmin or xvector[j] > rmax:
+                    xvector[j]=rmin+(rmax-rmin)*np.random.random()
+            for j in range(ndim):
+                lines_to_append.append(str(xvector[j]))
+            lines_to_append.append(str(ncal)+'\n')
+            self.append_multiple_lines(fname, lines_to_append)
+        astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; ' + self.csa_soldier_command
+#       if self.flag_iffslurm_sbatch is True:
+#           astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; srun --nodes=1  --ntasks=1 --exclusive python CSA_SOLDIER.py &'
+#       else: # sinteractive
+#           astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; srun --mpi=pmi2 --ntasks=1 --exclusive python CSA_SOLDIER.py &'
+        os.system(astring)
+        astring='echo "ING" >> '+gname
+        os.system(astring)
+
+    def get_solution(self):
+        ncal0=0
+        npop = self.npop
+        ndim = self.ndim
+        apath = self.apath
+        bnds = self.bnds
+        while True:
+            idirectory0=np.random.randint(npop)
+            fname=apath+'/'+str(idirectory0).zfill(4)+'/STOP'
+            gname=apath+'/'+str(idirectory0).zfill(4)+'/STATUS'
+            hname=apath+'/'+str(idirectory0).zfill(4)+'/output.txt'
+            sol0=np.zeros(ndim)
+            for j in range(ndim):
+                rmin,rmax=bnds[j]
+                sol0[j]=rmin+(rmax-rmin)*np.random.random()
+            objective0=9e99
+            os.system('sleep 0.1')
+            if os.path.isfile(fname) :
+                os.system('sleep 0.1')
+                if os.path.isfile(gname):
+                    astring=' '
+                    afile=open(gname,'r')
+                    for line in afile:
+                        if len(line.split()) > 0:
+                            astring=line.split()[0]
+                    afile.close()
+                    astring=astring.lower()
+                    if astring == 'done' :
+                        os.remove(fname) ; os.system('sleep 0.1')
+                        if os.path.isfile(hname) :
+                            afile=open(hname,'r')
+                            jline=0
+                            for line in afile:
+                                if jline == 0:
+                                   kkk=int(line.split()[0])
+                                if jline <= ndim:
+                                   sol0[jline-1]=float(line.split()[0])
+                                if jline == ndim+1:
+                                   objective0=float(line.split()[0])
+                                if jline == ndim+2:
+                                   ncal0=int(line.split()[0])
+                                jline=jline+1
+                            afile.close()
+                            os.system('sleep 0.1')
+                            os.remove(hname)
+                        else:
+                            os.system('sleep 0.1')
+                        print(objective0,idirectory0,' loss',flush=True)
+                        return objective0,sol0,idirectory0,ncal0
+
+    def csadistance(self,x,y):
+        tmp=0.
+        for j in range(len(x)):
+            tmp=tmp+np.abs(x[j]-y[j])
+        return tmp
+
+    def mutation(self,xvector):
+        ndim = self.ndim
+        bnds = self.bnds
+        if np.random.random() < 0.10:
+            j=np.random.randint(5)+1
+            xvector=self.partial_shuffle(xvector, nitera=j)
+        if np.random.random() < 0.05:
+            xvector=np.flipud(xvector)
+        tmq=np.random.random()*0.15+0.25
+        for j in range(ndim):
+            rmin,rmax=bnds[j]
+            if np.random.random() < tmq:
+                xvector[j]=xvector[j]+(np.random.random()-0.5)*2.*(rmax-rmin)/2.
+        for j in range(ndim):
+            rmin,rmax=bnds[j]
+            if xvector[j] < rmin or xvector[j] > rmax :
+                xvector[j]=rmin+np.random.random()*(rmax-rmin)
+        return xvector
+
+    def crossover(self,xvector,yvector):
+        ndim = self.ndim
+        bnds = self.bnds
+        if np.random.random() < 0.05:
+            xvector=np.flipud(xvector)
+        tmq=np.random.random()*0.25+0.25
+        for j in range(ndim):
+            if np.random.random() < tmq:
+                xvector[j]=yvector[j]
+        for j in range(ndim):
+            rmin,rmax=bnds[j]
+            if xvector[j] < rmin or xvector[j] > rmax :
+                xvector[j]=rmin+np.random.random()*(rmax-rmin)
+        return xvector
+
+    def selection(self):
+        npop0=min(self.npop,50)
+        k0=0 ; k1=0
+        while k0 == k1 :
+            i=np.random.randint(npop0) ;  j=np.random.randint(npop0)  ; k0=j
+            if i < j :
+                k0=i
+            i=np.random.randint(npop0) ;  j=np.random.randint(npop0)  ; k1=j
+            if i < j :
+                k1=i
+        return k0,k1
+
+    def gen_parents(self):
+        k0,k1=self.selection()
+        return k0,k1
+
+    def save_solutions(self):
+        fname=self.fname_dump #'dump.txt'
+        npop = self.npop
+        ndim = self.ndim
+        if os.path.isfile(fname) :
+            os.remove(fname)
+        lines_to_append=[]
+        astring=str(npop)+' ' +str(ndim)
+        lines_to_append.append(astring)
+        for i in range(npop):
+            astring=''
+            for j in range(ndim):
+                astring=astring+' '+str(self.static[i,j])
+            lines_to_append.append(astring)
+        for i in range(npop):
+            astring=''
+            for j in range(ndim):
+                astring=astring+' '+str(self.dynamic[i,j])
+            lines_to_append.append(astring)
+        astring=''
+        for i in range(npop):
+                astring=astring+' '+str(self.ostatic[i])
+        lines_to_append.append(astring)
+        astring=''
+        for i in range(npop):
+                astring=astring+' '+str(self.odynamic[i])
+        lines_to_append.append(astring)
+        self.append_multiple_lines(fname, lines_to_append)
+
+    def get_bnds(self,cpath):
+        if os.path.isfile(cpath) :
+            afile=open(cpath,'r')
+            j=0 ; i0=0
+            for line in afile:
+                if j == 0:
+                   ndim=int(line.split()[0])
+                   if ndim != self.ndim :
+                      print('check bnds.txt or ndim')
+                      sys.exit()
+                   self.ndim=ndim
+                   bnds=[ (-1.,1.) for _ in range(ndim)]
+                else :
+                   if i0 < ndim:
+                       bnds[i0]=(float(line.split()[0]),float(line.split()[1]))
+                   i0=i0+1
+                j=j+1
+            afile.close()
+        else:
+            bnds=[(self.rmin,self.rmax) for _ in range(ndim)]
+            print('no bnds.txt file is assumed. MIN and MAX = ',self.rmin,self.rmax)
+        bnds=np.array(bnds)
+        return bnds
+
+    def csa_initial_step(self):
+        nin=0 ; nout=0
+        ndim = self.ndim
+        npop = self.npop
+        ntotal = self.ntotal
+
+        for iidd in range(npop):
+            if nin < ntotal :
+                self.write_trial_solution(-ndim,self.xvector,iidd,nin) ; nin=nin+1
+                for j in range(ndim):
+                    rmin,rmax=self.bnds[j]
+                    self.xvector[j]=rmin+(rmax-rmin)*np.random.random()
+                for j in range(ndim):
+                    self.dynamic[iidd,j]=self.xvector[j] ; self.static[iidd,j]=self.xvector[j]
+                    self.staticr[iidd,j]=self.xvector[j]
+
+        while nout < npop:
+            if nout <  ntotal:
+                trial,self.xvector,idledir,ncal0=self.get_solution() ; nout=nout+1
+                self.static[nout-1,:]=self.xvector[:] ; self.ostatic[nout-1]=trial
+                self.dynamic[nout-1,:]=self.xvector[:] ; self.odynamic[nout-1]=trial
+                print(nout,trial,' Loss',flush=True)
+    
+
+        if os.path.isfile(self.fname_dump) :
+            print(self.fname_dump,' is present, merge',flush=True)
+            npop1,ndim1,ostatic1,odynamic1,static1,dynamic1=self.load_solutions(self.fname_dump)
+            if ndim == ndim1:
+                print('ostatic old')
+                print(ostatic1)
+                print('ostatic try')
+                print(self.ostatic)
+                print('odynamic old')
+                print(odynamic1)
+                print('odynamic try')
+                print(self.odynamic)
+                i0=npop+npop1
+                static2=np.zeros((i0,ndim)) ; ostatic2=np.zeros(i0)
+                dynamic2=np.zeros((i0,ndim)) ; odynamic2=np.zeros(i0)
+                static2[0:npop,:]=self.static[0:npop,:] ; static2[npop:i0,:]=static1[0:npop1,:]
+                dynamic2[0:npop,:]=self.dynamic[0:npop,:] ; dynamic2[npop:i0,:]=dynamic1[0:npop1,:]
+                ostatic2[0:npop]=self.ostatic[0:npop] ; ostatic2[npop:i0]=ostatic1[0:npop1]
+                odynamic2[0:npop]=self.odynamic[0:npop] ; odynamic2[npop:i0]=odynamic1[0:npop1]
+                ind=ostatic2.argsort() ; ostatic2=ostatic2[ind]  ; static2=static2[ind,:]
+                ind=odynamic2.argsort() ; odynamic2=odynamic2[ind]  ; dynamic2=dynamic2[ind,:]
+                self.ostatic[0:npop]=ostatic2[0:npop] ; self.odynamic[0:npop]=odynamic2[0:npop]
+                self.static[0:npop,:]=static2[0:npop,:] ; self.dynamic[0:npop,:]=dynamic2[0:npop,:]
+                del ostatic1,static1,ostatic2,static2
+                del odynamic1,dynamic1,odynamic2,dynamic2
+                del npop1,ndim1
+                gc.collect()
+        else :
+                ind=self.ostatic.argsort() ; self.ostatic=self.ostatic[ind] ; self.static=self.static[ind,:]
+                self.dynamic[:,:]=self.static[:,:] ; self.odynamic[:]=self.ostatic[:]
+
+        if nout == npop:
+            print('nout,npop ',nout,npop,flush=True)
+            ind=self.ostatic.argsort() ; self.ostatic=self.ostatic[ind] ; self.static=self.static[ind,:]
+            self.staticr[:,:]=self.static[:,:]
+            best=self.odynamic[0] ; davg=0. ; i0=0
+            for i in range(npop):
+                for j in range(npop):
+                    if i > j:
+                        davg=davg+self.csadistance(self.static[i,:],self.static[j,:]) ; i0=i0+1
+            davg=davg/i0 ; dcut=davg/2.
+            print('dcut ',dcut,flush=True)
+            self.save_solutions()
+            print(self.ostatic,flush=True)
+            for iidd in range(npop):
+                k0,k1=self.gen_parents() ; self.xvector[:]=self.dynamic[k0,:]
+                if np.random.random() < 0.1:
+                    self.xvector[:]=self.static[k0,:]
+                if np.random.random() < 0.5:
+                    self.xvector=self.mutation(self.xvector)
+                else:
+                    self.yvector[:]=self.dynamic[k1,:]
+                    if np.random.random() < 0.1:
+                        self.yvector[:]=self.static[k1,:]
+                    self.xvector=self.crossover(self.xvector,self.yvector)
+                if nin < ntotal :
+                    self.write_trial_solution(ndim,self.xvector,iidd,nin) ; nin=nin+1
+
+        self.nin = nin
+        self.nout = nout
+        self.dcut = dcut
+        self.best = best
+        self.davg = davg
+
+    def csa_main_step(self):
+        ntotal = self.ntotal
+        ndim   = self.ndim
+        npop   = self.npop
+        nin    = self.nin
+        nout   = self.nout
+        dcut   = self.dcut
+        best   = self.best
+        davg   = self.davg
+
+        while True:
+            if nout <  ntotal:
+                trial,self.xvector,idledir,ncal0=self.get_solution() ; nout=nout+1
+                print(nout,trial,' Loss',flush=True)
+                lupdate=False ; dsmall=9e99 ; i0=npop-1
+                for i in range(npop):
+                    tmp=self.csadistance(self.xvector,self.dynamic[i,:])
+                    if dsmall > tmp:
+                        i0=i ; dsmall=tmp
+                if dcut > dsmall :
+                    if self.odynamic[i0] > trial:
+                        tmq=self.odynamic[i0] ; self.odynamic[i0]=trial  ;  self.dynamic[i0,:]=self.xvector[:]
+                        lupdate=True
+                        print(tmq,trial,tmq-trial,' old type',nin,nout,flush=True)
+                else:
+                    i0=npop-1
+                    if self.odynamic[i0] > trial:
+                        tmq=self.odynamic[i0] ; self.odynamic[i0]=trial ;  self.dynamic[i0,:]=self.xvector[:]
+                        lupdate=True
+                        print(tmq,trial,tmq-trial,' new type',nin,nout,flush=True)
+                ind = self.odynamic.argsort() ; self.odynamic=self.odynamic[ind] ; self.dynamic=self.dynamic[ind,:]
+                if best > self.odynamic[0] :
+                    tmq=best ; best=self.odynamic[0] ; self.xvector[:]=self.dynamic[0,:]
+                    print('best ',tmq,best,tmq-best,flush=True)
+                if lupdate :
+                    self.save_solutions()
+                if nout > npop*2 and np.mod(nout,npop) == 0:
+                    self.staticr[0,:]=self.dynamic[0,:]
+                    self.staticr=self.coulomb(self.staticr)
+                    dcut=dcut*0.99
+                if dcut < davg/5. :
+                    dcut=davg/5.
+                if nout == ntotal:
+                    return
+                if nin < ntotal :
+                    k0,k1=self.gen_parents() ; self.xvector[:]=self.dynamic[k0,:]
+                    if np.random.random() < 0.1:
+                        self.xvector[:]=self.static[k0,:]
+                        if np.random.random() < 0.1:
+                            self.xvector[:]=self.staticr[k0,:]
+                    if np.random.random() < 0.5:
+                        self.xvector=self.mutation(self.xvector)
+                    else:
+                        self.yvector[:]=self.dynamic[k1,:]
+                        if np.random.random() < 0.1:
+                            self.yvector[:]=self.static[k1,:]
+                            if np.random.random() < 0.1:
+                                self.yvector[:]=self.staticr[k1,:]
+                        self.xvector=self.crossover(self.xvector,self.yvector)
+                    self.write_trial_solution(ndim,self.xvector,idledir,nin) ; nin=nin+1
+            else :
+                return
+
+    def csa_run(self):
+        self.csa_initial_step()
+        self.csa_main_step()
+
+
+    # for CSA_SOLDIER
+class csa_soldier_tools:
+
+    def __init__(self,param_type):
+        # iparam_type : array of parameter type: mytb.ppram.iparam_type
+        # check only valid parameters: onsite and hopping. 
+        #                              default value of overlap and scale parameters will be used.
+        self.valid_param_idx = np.ma.masked_less_equal(param_type,2).mask
+        self.nparam = np.count_nonzero(self.valid_param_idx)
+
+    def read_csa_input(self,fname='input.txt'):
+        if os.path.isfile(fname):
+            ncal = 0
+            afile = open('input.txt','r')
+            jline = 0; i0 = 0
+            for line in afile:
+                if jline == 0 :
+                    ndim = int(line.split()[0])
+                    xvector = np.zeros(ndim)
+                else:
+                    if i0 < ndim:
+                        xvector[i0]=float(line.split()[0])
+                    i0 = i0 + 1
+                if jline == ndim+1:
+                    if len(line.split()) > 0:
+                        ncal = int(line.split()[0])
+                jline = jline + 1
+            afile.close()
+        else:
+            print('input.txt is not preset',flush=True)
+            ndim = self.nparam
+            xvector = np.zeros(ndim)
+            for i in range(ndim):
+                xvector[i] = (np.random.random()-0.5)*2.*5.
+            ncal = 0
+
+        self.ndim = ndim
+        self.xvector = xvector
+        self.ncal = ncal
+       #return ndim, xvector, ncal
+        return xvector
+
+    def write_csa_output(self, obj = None):
+        file_name = 'output.txt'
+        ndim = self.ndim
+        xvector = self.xvector
+        ncal = self.ncal
+
+        if os.path.isfile(file_name):
+            os.remove(file_name)
+        lines_to_append=[]
+        lines_to_append.append(str(ndim))
+        for j in range(ndim):
+            lines_to_append.append(str(xvector[j]))
+        lines_to_append.append(str(obj))
+        lines_to_append.append(str(ncal))
+        self.append_multiple_lines(file_name, lines_to_append)
+
+
+    def check_obj_rank(self,obj,dump_path):
+        if os.path.isfile(dump_path):
+            with open(dump_path, "r") as file:
+                first_line = file.readline()
+                for last_line in file:
+                    pass
+            npop = int(first_line.split()[0])
+            obj_last = float(last_line.split()[npop-1])
+            if obj<obj_last:
+                return True
+            else:
+                return False
+        else:
+            return True
+
+    def append_multiple_lines(self, file_name, lines_to_append):
+        with open(file_name, "a+") as file_object:
+            appendEOL = False
+            file_object.seek(0)
+            data = file_object.read(100)
+            if len(data) > 0:
+                appendEOL = True
+            for line in lines_to_append:
+                if appendEOL == True:
+                    file_object.write("\n")
+                else:
+                    appendEOL = True
+                file_object.write(line)
+
+    def update_csa_result(self, obj, dump_path):
+        if self.check_obj_rank(obj,dump_path) is True:
+            j=np.random.randint(90000)
+            file_name='solution_'+str(self.ncal).zfill(8)+'_'+str(obj)+'.txt'
+            if os.path.isfile(file_name):
+                os.remove(file_name)
+            lines_to_append=[]
+            for j in range(self.ndim):
+                lines_to_append.append(str(self.xvector[j]))
+            lines_to_append.append(str(obj))
+            lines_to_append.append(str(self.ncal))
+            self.append_multiple_lines(file_name, lines_to_append)
+            flag_save_result = True
+            return flag_save_result
+        else:
+            flag_save_result = False
+            return flag_save_result
+
+    def update_status(self,sleep=1.0):
+        time.sleep(sleep)
+        os.system('touch STOP')
+        os.system('echo "DONE" >> STATUS')
+

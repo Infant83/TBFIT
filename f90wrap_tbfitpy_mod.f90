@@ -6030,33 +6030,286 @@ subroutine f90wrap_energy_py_finalise(this)
     deallocate(this_ptr%p)
 end subroutine f90wrap_energy_py_finalise
 
-subroutine f90wrap_init3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+subroutine f90wrap_init5(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
-    edft_py3, etba_py3, pfilenm_parse)
-    use pyfit, only: incar_py, params_py, hopping_py, init3, energy_py, poscar_py, weight_py, kpoints_py
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4, pkpts_py5, pwght_py5, &
+    pgeom_py5, nn_table_py5, edft_py5, etba_py5, pfilenm_parse)
+    use pyfit, only: weight_py, kpoints_py, init5, hopping_py, poscar_py, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(in) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    type(kpoints_py_ptr_type) :: pkpts_py5_ptr
+    integer, intent(in), dimension(2) :: pkpts_py5
+    type(weight_py_ptr_type) :: pwght_py5_ptr
+    integer, intent(in), dimension(2) :: pwght_py5
+    type(poscar_py_ptr_type) :: pgeom_py5_ptr
+    integer, intent(in), dimension(2) :: pgeom_py5
+    type(hopping_py_ptr_type) :: nn_table_py5_ptr
+    integer, intent(in), dimension(2) :: nn_table_py5
+    type(energy_py_ptr_type) :: edft_py5_ptr
+    integer, intent(in), dimension(2) :: edft_py5
+    type(energy_py_ptr_type) :: etba_py5_ptr
+    integer, intent(in), dimension(2) :: etba_py5
+    character(132), intent(in) :: pfilenm_parse
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    pkpts_py5_ptr = transfer(pkpts_py5, pkpts_py5_ptr)
+    pwght_py5_ptr = transfer(pwght_py5, pwght_py5_ptr)
+    pgeom_py5_ptr = transfer(pgeom_py5, pgeom_py5_ptr)
+    nn_table_py5_ptr = transfer(nn_table_py5, nn_table_py5_ptr)
+    edft_py5_ptr = transfer(edft_py5, edft_py5_ptr)
+    etba_py5_ptr = transfer(etba_py5, etba_py5_ptr)
+    call init5(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, PKPTS_PY5=pkpts_py5_ptr%p, &
+        PWGHT_PY5=pwght_py5_ptr%p, PGEOM_PY5=pgeom_py5_ptr%p, NN_TABLE_PY5=nn_table_py5_ptr%p, EDFT_PY5=edft_py5_ptr%p, &
+        ETBA_PY5=etba_py5_ptr%p, pfilenm_parse=pfilenm_parse)
+end subroutine f90wrap_init5
+
+subroutine f90wrap_init4(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4, pfilenm_parse)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, init4, energy_py, incar_py
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(in) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    character(132), intent(in) :: pfilenm_parse
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    call init4(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, pfilenm_parse=pfilenm_parse)
+end subroutine f90wrap_init4
+
+subroutine f90wrap_init3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3, pfilenm_parse)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, energy_py, incar_py, init3
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6129,30 +6382,30 @@ end subroutine f90wrap_init3
 
 subroutine f90wrap_init2(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pfilenm_parse)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, poscar_py, weight_py, kpoints_py, init2
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, init2, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6205,30 +6458,30 @@ end subroutine f90wrap_init2
 
 subroutine f90wrap_init(comm, pinpt_py, ppram_py, pkpts_py, pwght_py, pgeom_py, nn_table_py, edft_py, etba_py, &
     pfilenm_parse)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, poscar_py, weight_py, init, kpoints_py
+    use pyfit, only: weight_py, init, kpoints_py, hopping_py, poscar_py, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6260,33 +6513,288 @@ subroutine f90wrap_init(comm, pinpt_py, ppram_py, pkpts_py, pwght_py, pgeom_py, 
         pfilenm_parse=pfilenm_parse)
 end subroutine f90wrap_init
 
-subroutine f90wrap_pso3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+subroutine f90wrap_pso5(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
-    edft_py3, etba_py3, iseed, pso_miter)
-    use pyfit, only: incar_py, params_py, hopping_py, pso3, poscar_py, weight_py, energy_py, kpoints_py
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4, pkpts_py5, pwght_py5, &
+    pgeom_py5, nn_table_py5, edft_py5, etba_py5, iseed, pso_miter)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, pso5, poscar_py, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(inout) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    type(kpoints_py_ptr_type) :: pkpts_py5_ptr
+    integer, intent(in), dimension(2) :: pkpts_py5
+    type(weight_py_ptr_type) :: pwght_py5_ptr
+    integer, intent(in), dimension(2) :: pwght_py5
+    type(poscar_py_ptr_type) :: pgeom_py5_ptr
+    integer, intent(in), dimension(2) :: pgeom_py5
+    type(hopping_py_ptr_type) :: nn_table_py5_ptr
+    integer, intent(in), dimension(2) :: nn_table_py5
+    type(energy_py_ptr_type) :: edft_py5_ptr
+    integer, intent(in), dimension(2) :: edft_py5
+    type(energy_py_ptr_type) :: etba_py5_ptr
+    integer, intent(in), dimension(2) :: etba_py5
+    integer(4), intent(inout) :: iseed
+    integer(4), intent(inout) :: pso_miter
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    pkpts_py5_ptr = transfer(pkpts_py5, pkpts_py5_ptr)
+    pwght_py5_ptr = transfer(pwght_py5, pwght_py5_ptr)
+    pgeom_py5_ptr = transfer(pgeom_py5, pgeom_py5_ptr)
+    nn_table_py5_ptr = transfer(nn_table_py5, nn_table_py5_ptr)
+    edft_py5_ptr = transfer(edft_py5, edft_py5_ptr)
+    etba_py5_ptr = transfer(etba_py5, etba_py5_ptr)
+    call pso5(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, PKPTS_PY5=pkpts_py5_ptr%p, &
+        PWGHT_PY5=pwght_py5_ptr%p, PGEOM_PY5=pgeom_py5_ptr%p, NN_TABLE_PY5=nn_table_py5_ptr%p, EDFT_PY5=edft_py5_ptr%p, &
+        ETBA_PY5=etba_py5_ptr%p, iseed=iseed, pso_miter=pso_miter)
+end subroutine f90wrap_pso5
+
+subroutine f90wrap_pso4(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4, iseed, pso_miter)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, pso4, poscar_py, params_py, energy_py, incar_py
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(inout) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    integer(4), intent(inout) :: iseed
+    integer(4), intent(inout) :: pso_miter
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    call pso4(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, iseed=iseed, pso_miter=pso_miter)
+end subroutine f90wrap_pso4
+
+subroutine f90wrap_pso3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3, iseed, pso_miter)
+    use pyfit, only: weight_py, kpoints_py, pso3, hopping_py, poscar_py, params_py, energy_py, incar_py
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6360,30 +6868,30 @@ end subroutine f90wrap_pso3
 
 subroutine f90wrap_pso2(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, iseed, pso_miter)
-    use pyfit, only: incar_py, params_py, pso2, hopping_py, energy_py, poscar_py, weight_py, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, pso2, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6437,30 +6945,30 @@ end subroutine f90wrap_pso2
 
 subroutine f90wrap_pso(comm, pinpt_py, ppram_py, pkpts_py, pwght_py, pgeom_py, nn_table_py, edft_py, etba_py, iseed, &
     pso_miter)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, pso, weight_py, poscar_py, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, pso, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6493,29 +7001,213 @@ subroutine f90wrap_pso(comm, pinpt_py, ppram_py, pkpts_py, pwght_py, pgeom_py, n
         pso_miter=pso_miter)
 end subroutine f90wrap_pso
 
-subroutine f90wrap_eig3(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py, pkpts_py2, pgeom_py2, &
-    nn_table_py2, etba_py2, pkpts_py3, pgeom_py3, nn_table_py3, etba_py3)
-    use pyfit, only: incar_py, hopping_py, params_py, energy_py, poscar_py, kpoints_py, eig3
+subroutine f90wrap_eig5(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py, pkpts_py2, pgeom_py2, &
+    nn_table_py2, etba_py2, pkpts_py3, pgeom_py3, nn_table_py3, etba_py3, pkpts_py4, pgeom_py4, nn_table_py4, etba_py4, &
+    pkpts_py5, pgeom_py5, nn_table_py5, etba_py5)
+    use pyfit, only: kpoints_py, hopping_py, eig5, poscar_py, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(inout) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py_ptr
+    integer, intent(in), dimension(2) :: pkpts_py
+    type(poscar_py_ptr_type) :: pgeom_py_ptr
+    integer, intent(in), dimension(2) :: pgeom_py
+    type(hopping_py_ptr_type) :: nn_table_py_ptr
+    integer, intent(in), dimension(2) :: nn_table_py
+    type(energy_py_ptr_type) :: etba_py_ptr
+    integer, intent(in), dimension(2) :: etba_py
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    type(kpoints_py_ptr_type) :: pkpts_py5_ptr
+    integer, intent(in), dimension(2) :: pkpts_py5
+    type(poscar_py_ptr_type) :: pgeom_py5_ptr
+    integer, intent(in), dimension(2) :: pgeom_py5
+    type(hopping_py_ptr_type) :: nn_table_py5_ptr
+    integer, intent(in), dimension(2) :: nn_table_py5
+    type(energy_py_ptr_type) :: etba_py5_ptr
+    integer, intent(in), dimension(2) :: etba_py5
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py_ptr = transfer(pkpts_py, pkpts_py_ptr)
+    pgeom_py_ptr = transfer(pgeom_py, pgeom_py_ptr)
+    nn_table_py_ptr = transfer(nn_table_py, nn_table_py_ptr)
+    etba_py_ptr = transfer(etba_py, etba_py_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    pkpts_py5_ptr = transfer(pkpts_py5, pkpts_py5_ptr)
+    pgeom_py5_ptr = transfer(pgeom_py5, pgeom_py5_ptr)
+    nn_table_py5_ptr = transfer(nn_table_py5, nn_table_py5_ptr)
+    etba_py5_ptr = transfer(etba_py5, etba_py5_ptr)
+    call eig5(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY=pkpts_py_ptr%p, PGEOM_PY=pgeom_py_ptr%p, &
+        NN_TABLE_PY=nn_table_py_ptr%p, ETBA_PY=etba_py_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, &
+        NN_TABLE_PY3=nn_table_py3_ptr%p, ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, PKPTS_PY5=pkpts_py5_ptr%p, PGEOM_PY5=pgeom_py5_ptr%p, &
+        NN_TABLE_PY5=nn_table_py5_ptr%p, ETBA_PY5=etba_py5_ptr%p)
+end subroutine f90wrap_eig5
+
+subroutine f90wrap_eig4(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py, pkpts_py2, pgeom_py2, &
+    nn_table_py2, etba_py2, pkpts_py3, pgeom_py3, nn_table_py3, etba_py3, pkpts_py4, pgeom_py4, nn_table_py4, etba_py4)
+    use pyfit, only: eig4, kpoints_py, hopping_py, poscar_py, params_py, energy_py, incar_py
+    implicit none
+    
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(inout) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py_ptr
+    integer, intent(in), dimension(2) :: pkpts_py
+    type(poscar_py_ptr_type) :: pgeom_py_ptr
+    integer, intent(in), dimension(2) :: pgeom_py
+    type(hopping_py_ptr_type) :: nn_table_py_ptr
+    integer, intent(in), dimension(2) :: nn_table_py
+    type(energy_py_ptr_type) :: etba_py_ptr
+    integer, intent(in), dimension(2) :: etba_py
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py_ptr = transfer(pkpts_py, pkpts_py_ptr)
+    pgeom_py_ptr = transfer(pgeom_py, pgeom_py_ptr)
+    nn_table_py_ptr = transfer(nn_table_py, nn_table_py_ptr)
+    etba_py_ptr = transfer(etba_py, etba_py_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    call eig4(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY=pkpts_py_ptr%p, PGEOM_PY=pgeom_py_ptr%p, &
+        NN_TABLE_PY=nn_table_py_ptr%p, ETBA_PY=etba_py_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, &
+        NN_TABLE_PY3=nn_table_py3_ptr%p, ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p)
+end subroutine f90wrap_eig4
+
+subroutine f90wrap_eig3(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py, pkpts_py2, pgeom_py2, &
+    nn_table_py2, etba_py2, pkpts_py3, pgeom_py3, nn_table_py3, etba_py3)
+    use pyfit, only: eig3, kpoints_py, hopping_py, poscar_py, params_py, energy_py, incar_py
+    implicit none
+    
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6567,27 +7259,27 @@ end subroutine f90wrap_eig3
 
 subroutine f90wrap_eig2(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py, pkpts_py2, pgeom_py2, &
     nn_table_py2, etba_py2)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, poscar_py, kpoints_py, eig2
+    use pyfit, only: kpoints_py, hopping_py, poscar_py, params_py, energy_py, eig2, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6625,27 +7317,27 @@ subroutine f90wrap_eig2(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_p
 end subroutine f90wrap_eig2
 
 subroutine f90wrap_eig(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py, etba_py)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, poscar_py, kpoints_py, eig
+    use pyfit, only: kpoints_py, hopping_py, poscar_py, params_py, eig, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(inout) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6670,21 +7362,21 @@ subroutine f90wrap_eig(comm, pinpt_py, ppram_py, pkpts_py, pgeom_py, nn_table_py
 end subroutine f90wrap_eig
 
 subroutine f90wrap_toten(comm, pinpt_py, pkpts_py, pgeom_py, etba_py)
-    use pyfit, only: incar_py, toten, energy_py, poscar_py, kpoints_py
+    use pyfit, only: kpoints_py, poscar_py, energy_py, toten, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
     type energy_py_ptr_type
         type(energy_py), pointer :: p => NULL()
     end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6701,33 +7393,284 @@ subroutine f90wrap_toten(comm, pinpt_py, pkpts_py, pgeom_py, etba_py)
     call toten(comm=comm, PINPT_PY=pinpt_py_ptr%p, PKPTS_PY=pkpts_py_ptr%p, PGEOM_PY=pgeom_py_ptr%p, ETBA_PY=etba_py_ptr%p)
 end subroutine f90wrap_toten
 
-subroutine f90wrap_fit3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+subroutine f90wrap_fit5(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
-    edft_py3, etba_py3)
-    use pyfit, only: incar_py, params_py, hopping_py, fit3, energy_py, poscar_py, weight_py, kpoints_py
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4, pkpts_py5, pwght_py5, &
+    pgeom_py5, nn_table_py5, edft_py5, etba_py5)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, fit5, poscar_py, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(in) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    type(kpoints_py_ptr_type) :: pkpts_py5_ptr
+    integer, intent(in), dimension(2) :: pkpts_py5
+    type(weight_py_ptr_type) :: pwght_py5_ptr
+    integer, intent(in), dimension(2) :: pwght_py5
+    type(poscar_py_ptr_type) :: pgeom_py5_ptr
+    integer, intent(in), dimension(2) :: pgeom_py5
+    type(hopping_py_ptr_type) :: nn_table_py5_ptr
+    integer, intent(in), dimension(2) :: nn_table_py5
+    type(energy_py_ptr_type) :: edft_py5_ptr
+    integer, intent(in), dimension(2) :: edft_py5
+    type(energy_py_ptr_type) :: etba_py5_ptr
+    integer, intent(in), dimension(2) :: etba_py5
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    pkpts_py5_ptr = transfer(pkpts_py5, pkpts_py5_ptr)
+    pwght_py5_ptr = transfer(pwght_py5, pwght_py5_ptr)
+    pgeom_py5_ptr = transfer(pgeom_py5, pgeom_py5_ptr)
+    nn_table_py5_ptr = transfer(nn_table_py5, nn_table_py5_ptr)
+    edft_py5_ptr = transfer(edft_py5, edft_py5_ptr)
+    etba_py5_ptr = transfer(etba_py5, etba_py5_ptr)
+    call fit5(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p, PKPTS_PY5=pkpts_py5_ptr%p, &
+        PWGHT_PY5=pwght_py5_ptr%p, PGEOM_PY5=pgeom_py5_ptr%p, NN_TABLE_PY5=nn_table_py5_ptr%p, EDFT_PY5=edft_py5_ptr%p, &
+        ETBA_PY5=etba_py5_ptr%p)
+end subroutine f90wrap_fit5
+
+subroutine f90wrap_fit4(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3, pkpts_py4, pwght_py4, pgeom_py4, nn_table_py4, edft_py4, etba_py4)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, fit4, energy_py, incar_py
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
+    integer, intent(in) :: comm
+    type(incar_py_ptr_type) :: pinpt_py_ptr
+    integer, intent(in), dimension(2) :: pinpt_py
+    type(params_py_ptr_type) :: ppram_py_ptr
+    integer, intent(in), dimension(2) :: ppram_py
+    type(kpoints_py_ptr_type) :: pkpts_py1_ptr
+    integer, intent(in), dimension(2) :: pkpts_py1
+    type(weight_py_ptr_type) :: pwght_py1_ptr
+    integer, intent(in), dimension(2) :: pwght_py1
+    type(poscar_py_ptr_type) :: pgeom_py1_ptr
+    integer, intent(in), dimension(2) :: pgeom_py1
+    type(hopping_py_ptr_type) :: nn_table_py1_ptr
+    integer, intent(in), dimension(2) :: nn_table_py1
+    type(energy_py_ptr_type) :: edft_py1_ptr
+    integer, intent(in), dimension(2) :: edft_py1
+    type(energy_py_ptr_type) :: etba_py1_ptr
+    integer, intent(in), dimension(2) :: etba_py1
+    type(kpoints_py_ptr_type) :: pkpts_py2_ptr
+    integer, intent(in), dimension(2) :: pkpts_py2
+    type(weight_py_ptr_type) :: pwght_py2_ptr
+    integer, intent(in), dimension(2) :: pwght_py2
+    type(poscar_py_ptr_type) :: pgeom_py2_ptr
+    integer, intent(in), dimension(2) :: pgeom_py2
+    type(hopping_py_ptr_type) :: nn_table_py2_ptr
+    integer, intent(in), dimension(2) :: nn_table_py2
+    type(energy_py_ptr_type) :: edft_py2_ptr
+    integer, intent(in), dimension(2) :: edft_py2
+    type(energy_py_ptr_type) :: etba_py2_ptr
+    integer, intent(in), dimension(2) :: etba_py2
+    type(kpoints_py_ptr_type) :: pkpts_py3_ptr
+    integer, intent(in), dimension(2) :: pkpts_py3
+    type(weight_py_ptr_type) :: pwght_py3_ptr
+    integer, intent(in), dimension(2) :: pwght_py3
+    type(poscar_py_ptr_type) :: pgeom_py3_ptr
+    integer, intent(in), dimension(2) :: pgeom_py3
+    type(hopping_py_ptr_type) :: nn_table_py3_ptr
+    integer, intent(in), dimension(2) :: nn_table_py3
+    type(energy_py_ptr_type) :: edft_py3_ptr
+    integer, intent(in), dimension(2) :: edft_py3
+    type(energy_py_ptr_type) :: etba_py3_ptr
+    integer, intent(in), dimension(2) :: etba_py3
+    type(kpoints_py_ptr_type) :: pkpts_py4_ptr
+    integer, intent(in), dimension(2) :: pkpts_py4
+    type(weight_py_ptr_type) :: pwght_py4_ptr
+    integer, intent(in), dimension(2) :: pwght_py4
+    type(poscar_py_ptr_type) :: pgeom_py4_ptr
+    integer, intent(in), dimension(2) :: pgeom_py4
+    type(hopping_py_ptr_type) :: nn_table_py4_ptr
+    integer, intent(in), dimension(2) :: nn_table_py4
+    type(energy_py_ptr_type) :: edft_py4_ptr
+    integer, intent(in), dimension(2) :: edft_py4
+    type(energy_py_ptr_type) :: etba_py4_ptr
+    integer, intent(in), dimension(2) :: etba_py4
+    pinpt_py_ptr = transfer(pinpt_py, pinpt_py_ptr)
+    ppram_py_ptr = transfer(ppram_py, ppram_py_ptr)
+    pkpts_py1_ptr = transfer(pkpts_py1, pkpts_py1_ptr)
+    pwght_py1_ptr = transfer(pwght_py1, pwght_py1_ptr)
+    pgeom_py1_ptr = transfer(pgeom_py1, pgeom_py1_ptr)
+    nn_table_py1_ptr = transfer(nn_table_py1, nn_table_py1_ptr)
+    edft_py1_ptr = transfer(edft_py1, edft_py1_ptr)
+    etba_py1_ptr = transfer(etba_py1, etba_py1_ptr)
+    pkpts_py2_ptr = transfer(pkpts_py2, pkpts_py2_ptr)
+    pwght_py2_ptr = transfer(pwght_py2, pwght_py2_ptr)
+    pgeom_py2_ptr = transfer(pgeom_py2, pgeom_py2_ptr)
+    nn_table_py2_ptr = transfer(nn_table_py2, nn_table_py2_ptr)
+    edft_py2_ptr = transfer(edft_py2, edft_py2_ptr)
+    etba_py2_ptr = transfer(etba_py2, etba_py2_ptr)
+    pkpts_py3_ptr = transfer(pkpts_py3, pkpts_py3_ptr)
+    pwght_py3_ptr = transfer(pwght_py3, pwght_py3_ptr)
+    pgeom_py3_ptr = transfer(pgeom_py3, pgeom_py3_ptr)
+    nn_table_py3_ptr = transfer(nn_table_py3, nn_table_py3_ptr)
+    edft_py3_ptr = transfer(edft_py3, edft_py3_ptr)
+    etba_py3_ptr = transfer(etba_py3, etba_py3_ptr)
+    pkpts_py4_ptr = transfer(pkpts_py4, pkpts_py4_ptr)
+    pwght_py4_ptr = transfer(pwght_py4, pwght_py4_ptr)
+    pgeom_py4_ptr = transfer(pgeom_py4, pgeom_py4_ptr)
+    nn_table_py4_ptr = transfer(nn_table_py4, nn_table_py4_ptr)
+    edft_py4_ptr = transfer(edft_py4, edft_py4_ptr)
+    etba_py4_ptr = transfer(etba_py4, etba_py4_ptr)
+    call fit4(comm=comm, PINPT_PY=pinpt_py_ptr%p, PPRAM_PY=ppram_py_ptr%p, PKPTS_PY1=pkpts_py1_ptr%p, &
+        PWGHT_PY1=pwght_py1_ptr%p, PGEOM_PY1=pgeom_py1_ptr%p, NN_TABLE_PY1=nn_table_py1_ptr%p, EDFT_PY1=edft_py1_ptr%p, &
+        ETBA_PY1=etba_py1_ptr%p, PKPTS_PY2=pkpts_py2_ptr%p, PWGHT_PY2=pwght_py2_ptr%p, PGEOM_PY2=pgeom_py2_ptr%p, &
+        NN_TABLE_PY2=nn_table_py2_ptr%p, EDFT_PY2=edft_py2_ptr%p, ETBA_PY2=etba_py2_ptr%p, PKPTS_PY3=pkpts_py3_ptr%p, &
+        PWGHT_PY3=pwght_py3_ptr%p, PGEOM_PY3=pgeom_py3_ptr%p, NN_TABLE_PY3=nn_table_py3_ptr%p, EDFT_PY3=edft_py3_ptr%p, &
+        ETBA_PY3=etba_py3_ptr%p, PKPTS_PY4=pkpts_py4_ptr%p, PWGHT_PY4=pwght_py4_ptr%p, PGEOM_PY4=pgeom_py4_ptr%p, &
+        NN_TABLE_PY4=nn_table_py4_ptr%p, EDFT_PY4=edft_py4_ptr%p, ETBA_PY4=etba_py4_ptr%p)
+end subroutine f90wrap_fit4
+
+subroutine f90wrap_fit3(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
+    pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2, pkpts_py3, pwght_py3, pgeom_py3, nn_table_py3, &
+    edft_py3, etba_py3)
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, fit3, energy_py, incar_py
+    implicit none
+    
+    type weight_py_ptr_type
+        type(weight_py), pointer :: p => NULL()
+    end type weight_py_ptr_type
+    type kpoints_py_ptr_type
+        type(kpoints_py), pointer :: p => NULL()
+    end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6799,30 +7742,30 @@ end subroutine f90wrap_fit3
 
 subroutine f90wrap_fit2(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py1, nn_table_py1, edft_py1, etba_py1, &
     pkpts_py2, pwght_py2, pgeom_py2, nn_table_py2, edft_py2, etba_py2)
-    use pyfit, only: incar_py, params_py, hopping_py, energy_py, poscar_py, weight_py, fit2, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, fit2, params_py, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6873,30 +7816,30 @@ subroutine f90wrap_fit2(comm, pinpt_py, ppram_py, pkpts_py1, pwght_py1, pgeom_py
 end subroutine f90wrap_fit2
 
 subroutine f90wrap_fit(comm, pinpt_py, ppram_py, pkpts_py, pwght_py, pgeom_py, nn_table_py, edft_py, etba_py)
-    use pyfit, only: incar_py, params_py, hopping_py, fit, energy_py, poscar_py, weight_py, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, hopping_py, poscar_py, params_py, fit, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type params_py_ptr_type
-        type(params_py), pointer :: p => NULL()
-    end type params_py_ptr_type
-    type hopping_py_ptr_type
-        type(hopping_py), pointer :: p => NULL()
-    end type hopping_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type hopping_py_ptr_type
+        type(hopping_py), pointer :: p => NULL()
+    end type hopping_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type params_py_ptr_type
+        type(params_py), pointer :: p => NULL()
+    end type params_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     integer, intent(in) :: comm
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
@@ -6973,7 +7916,7 @@ subroutine f90wrap_copy_params_best(ppram_py, imode)
 end subroutine f90wrap_copy_params_best
 
 subroutine f90wrap_init_kpoints_py(ret_pkpts_py)
-    use pyfit, only: init_kpoints_py, kpoints_py
+    use pyfit, only: kpoints_py, init_kpoints_py
     implicit none
     
     type kpoints_py_ptr_type
@@ -6987,7 +7930,7 @@ subroutine f90wrap_init_kpoints_py(ret_pkpts_py)
 end subroutine f90wrap_init_kpoints_py
 
 subroutine f90wrap_init_weight_py(ret_pwght_py)
-    use pyfit, only: weight_py, init_weight_py
+    use pyfit, only: init_weight_py, weight_py
     implicit none
     
     type weight_py_ptr_type
@@ -7015,7 +7958,7 @@ subroutine f90wrap_init_poscar_py(ret_pgeom_py)
 end subroutine f90wrap_init_poscar_py
 
 subroutine f90wrap_init_hopping_py(ret_nn_table_py)
-    use pyfit, only: init_hopping_py, hopping_py
+    use pyfit, only: hopping_py, init_hopping_py
     implicit none
     
     type hopping_py_ptr_type
@@ -7029,7 +7972,7 @@ subroutine f90wrap_init_hopping_py(ret_nn_table_py)
 end subroutine f90wrap_init_hopping_py
 
 subroutine f90wrap_init_energy_py(ret_e_py)
-    use pyfit, only: init_energy_py, energy_py
+    use pyfit, only: energy_py, init_energy_py
     implicit none
     
     type energy_py_ptr_type
@@ -7043,15 +7986,15 @@ subroutine f90wrap_init_energy_py(ret_e_py)
 end subroutine f90wrap_init_energy_py
 
 subroutine f90wrap_print_param_py(pinpt_py, ppram_py, pfileoutnm)
-    use pyfit, only: incar_py, params_py, print_param_py
+    use pyfit, only: params_py, print_param_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
     type params_py_ptr_type
         type(params_py), pointer :: p => NULL()
     end type params_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
     type(params_py_ptr_type) :: ppram_py_ptr
@@ -7077,24 +8020,24 @@ subroutine f90wrap_print_weight(pwght_py, wfileoutnm)
 end subroutine f90wrap_print_weight
 
 subroutine f90wrap_print_target(pinpt_py, pkpts_py, edft_py, pwght_py, pgeom_py, tfileoutnm)
-    use pyfit, only: incar_py, print_target, energy_py, poscar_py, weight_py, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, poscar_py, energy_py, incar_py, print_target
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
     type(kpoints_py_ptr_type) :: pkpts_py_ptr
@@ -7116,24 +8059,24 @@ subroutine f90wrap_print_target(pinpt_py, pkpts_py, edft_py, pwght_py, pgeom_py,
 end subroutine f90wrap_print_target
 
 subroutine f90wrap_print_etba(pinpt_py, pkpts_py, etba_py, edft_py, pwght_py, pgeom_py, suffix, flag_use_overlap)
-    use pyfit, only: incar_py, print_etba, energy_py, poscar_py, weight_py, kpoints_py
+    use pyfit, only: weight_py, kpoints_py, poscar_py, print_etba, energy_py, incar_py
     implicit none
     
-    type incar_py_ptr_type
-        type(incar_py), pointer :: p => NULL()
-    end type incar_py_ptr_type
-    type energy_py_ptr_type
-        type(energy_py), pointer :: p => NULL()
-    end type energy_py_ptr_type
-    type poscar_py_ptr_type
-        type(poscar_py), pointer :: p => NULL()
-    end type poscar_py_ptr_type
     type weight_py_ptr_type
         type(weight_py), pointer :: p => NULL()
     end type weight_py_ptr_type
     type kpoints_py_ptr_type
         type(kpoints_py), pointer :: p => NULL()
     end type kpoints_py_ptr_type
+    type poscar_py_ptr_type
+        type(poscar_py), pointer :: p => NULL()
+    end type poscar_py_ptr_type
+    type energy_py_ptr_type
+        type(energy_py), pointer :: p => NULL()
+    end type energy_py_ptr_type
+    type incar_py_ptr_type
+        type(incar_py), pointer :: p => NULL()
+    end type incar_py_ptr_type
     type(incar_py_ptr_type) :: pinpt_py_ptr
     integer, intent(in), dimension(2) :: pinpt_py
     type(kpoints_py_ptr_type) :: pkpts_py_ptr

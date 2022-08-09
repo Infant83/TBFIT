@@ -296,7 +296,7 @@ subroutine param_select (PPRAM, i, i_fix, param_name, param, nsub)
     endif
 
     ! applying constraint that monotonic decrease rule
-    if( (param_name(1:2) .eq. 's_' .or. param_name(1:3) .eq. 'os_') .and. &    
+    if( (param_name(1:2) .eq. 's_' .or. param_name(1:3) .eq. 'os_') .and. &
         (PPRAM%slater_koster_type .eq. 4 .or. PPRAM%slater_koster_type .eq. 6) ) param = abs(param)
 
 return

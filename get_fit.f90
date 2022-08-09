@@ -390,6 +390,8 @@ subroutine set_free_parameters(PPRAM)
          PPRAM%nparam_nrl_free = PPRAM%nparam_nrl_free + PPRAM%param_nsub(i)
        endif
      enddo
+     if(allocated(PPRAM%iparam_free))      deallocate(PPRAM%iparam_free)
+     if(allocated(PPRAM%iparam_free_nrl))  deallocate(PPRAM%iparam_free_nrl)
      allocate(PPRAM%iparam_free(PPRAM%nparam_free))
      allocate(PPRAM%iparam_free_nrl(PPRAM%nparam_free))
      PPRAM%iparam_free(1:PPRAM%nparam_free) = iparam_free(1:PPRAM%nparam_free)
@@ -410,6 +412,8 @@ subroutine set_free_parameters(PPRAM)
          iparam_type_free(PPRAM%nparam_free) = PPRAM%iparam_type(i)
        endif
      enddo
+     if(allocated(PPRAM%iparam_free))      deallocate(PPRAM%iparam_free)
+     if(allocated(PPRAM%iparam_type_free)) deallocate(PPRAM%iparam_type_free)
      allocate(PPRAM%iparam_free(PPRAM%nparam_free))
      allocate(PPRAM%iparam_type_free(PPRAM%nparam_free))
      PPRAM%iparam_free(1:PPRAM%nparam_free) = iparam_free(1:PPRAM%nparam_free)

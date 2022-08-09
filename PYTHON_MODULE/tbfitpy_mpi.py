@@ -19,6 +19,9 @@ warnings.filterwarnings("ignore")
 # last update: 21.06.2022 HJ Kim
 # last update: 16.07.2022 HJ Kim - add nsystem=4,5
 # last update: 22.07.2022 HJ Kim - add CSA class
+# last update: 31.07.2022 HJ Kim - add parameter constraint function
+# last update: 09.08.2022 HJ Kim - fixed parameters are to be excluded (CSA class)
+# last update: 10.08.2022 HJ Kim - update parameter constraint function
 
 # IMPORT NOTE:
 # if you want to run tbfitpy_mod_mpi with MPI implementation, 
@@ -330,6 +333,51 @@ class pytbfit:
             orb_target = None
         return energy_target, orb_target 
 
+    def constraint_param(self,iparam_type=None, iparam=None, fix=None, ub=None, lb=None):
+        # Note: iparam -> param index, ppram.param_const[:,iparam], 1 ~ self.ppram.nparam
+        # note: ppram.param_const[:, :].shape = (5,nparam)
+        #       i=0 : 'is same as'
+        #       i=1 : 'is lower than' (.le.) : maximum/upper bound  ! <=  20
+        #       i=2 : 'is greater than' (.ge.) : minimum/lower bound  ! >= -20 or >= 0.001 (if scale factor)
+        #       i=3 : 'is fixed' : fixed during fitting (1 if fixed, 0 if not fixed)
+        #       i=4 : if 'fixed', original value will be copied to PINPT%param_const(i=5,:)
+        if iparam_type is None:
+            pass
+        else:
+            # Note: iparam_type = 1 -> onsite        (e_, ...) 
+            #       iparam_type = 2 -> hopping       (sss_, sps_, pps_, ..., etc)
+            #       iparam_type = 3 -> hopping_scale (s_sss_, s_pps_, s_pps_, ..., etc)
+            #       iparam_type = 4 -> overlap       (o_sss_, o_pps_, o_pps_, ..., etc)
+            #       iparam_type = 5 -> overlap_scale (os_sss_, os_pps_, os_sps_, ..., etc)
+            if isinstance(iparam_type, int):
+                valid_param_idx=np.ma.masked_equal(self.ppram.iparam_type,iparam_type).mask            
+                self.set_param_fix(fix=fix,param_idx=valid_param_idx)
+                self.set_param_bound(bnds=[lb,ub],param_idx=valid_param_idx)
+            elif isinstance(iparam_type, list) or isinstance(iparam_type, tuple):
+                for itype in iparam_type:
+                    valid_param_idx=np.ma.masked_equal(self.ppram.iparam_type,itype).mask
+                    self.set_param_fix(fix=fix,param_idx=valid_param_idx)
+                    self.set_param_bound(bnds=[lb,ub],param_idx=valid_param_idx)
+
+        if iparam is not None:
+            self.set_param_fix(fix=fix,param_idx=iparam)
+
+    def set_param_bound(self, bnds=None, param_idx=None):
+        if bnds is not None:
+            lb = bnds[0] # lower bound
+            ub = bnds[1] # upper bound
+            if ub is not None:
+                self.ppram.param_const[1,param_idx] = ub
+            if lb is not None:
+                self.ppram.param_const[2,param_idx] = lb
+
+    def set_param_fix(self, fix=None, param_idx=None): 
+        if fix is True:
+            self.ppram.param_const[3,param_idx] = 1.0
+            self.ppram.param_const[4,param_idx] = self.ppram.param[param_idx]
+        elif fix is False:
+            self.ppram.param_const[3,param_idx] = 0.0
+
     def fit(self, verbose=False, miter=None, tol=None, pso_miter=None, 
             method='lmdif', pso_options=None, n_particles=None, iseed=None, sigma=400, sigma_orb=4000):
         '''
@@ -503,6 +551,8 @@ class pytbfit:
             sys.stdout.flush()
 
         self.pinpt.flag_tbfit = flag_tbfit
+
+        #return self.ppram.param
 
     def get_eig(self, verbose=None, sys=None):
         if verbose is not None:
@@ -1473,10 +1523,6 @@ class csa_tools:
             lines_to_append.append(str(ncal)+'\n')
             self.append_multiple_lines(fname, lines_to_append)
         astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; ' + self.csa_soldier_command
-#       if self.flag_iffslurm_sbatch is True:
-#           astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; srun --nodes=1  --ntasks=1 --exclusive python CSA_SOLDIER.py &'
-#       else: # sinteractive
-#           astring='cd '+apath+'/'+str(iidd).zfill(4)+' ; srun --mpi=pmi2 --ntasks=1 --exclusive python CSA_SOLDIER.py &'
         os.system(astring)
         astring='echo "ING" >> '+gname
         os.system(astring)
@@ -1799,11 +1845,14 @@ class csa_tools:
     # for CSA_SOLDIER
 class csa_soldier_tools:
 
-    def __init__(self,param_type):
+    def __init__(self,param_type, param_const):
         # iparam_type : array of parameter type: mytb.ppram.iparam_type
         # check only valid parameters: onsite and hopping. 
         #                              default value of overlap and scale parameters will be used.
-        self.valid_param_idx = np.ma.masked_less_equal(param_type,2).mask
+        # Be aware that csa_soldier_tools.nparam is not always equal to nparam from pytbfit.ppram.nparam (depend on the constraint such as 'fix')
+        #self.valid_param_idx = np.ma.masked_less_equal(param_type,2).mask
+        param_fix = param_const[3,:]
+        self.valid_param_idx = np.logical_and(np.ma.masked_less_equal(param_type,2).mask, [np.invert(np.bool(x)) for x in np.int64(param_fix)])
         self.nparam = np.count_nonzero(self.valid_param_idx)
 
     def read_csa_input(self,fname='input.txt'):

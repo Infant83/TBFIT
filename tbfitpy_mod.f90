@@ -333,7 +333,7 @@ subroutine init5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
       PINPT_%title(i) = PINPT%title(i)
       PINPT_%ifilenm(i)= PINPT%ifilenm(i)
       PINPT = PINPT_
-      PPRAM = PPRAM1
+    ! PPRAM = PPRAM1
     enddo
 
     call set_free_parameters(PPRAM)
@@ -472,7 +472,7 @@ subroutine init4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
       PINPT_%title(i) = PINPT%title(i)
       PINPT_%ifilenm(i)= PINPT%ifilenm(i)
       PINPT = PINPT_
-      PPRAM = PPRAM1
+    ! PPRAM = PPRAM1
     enddo
 
     call set_free_parameters(PPRAM)
@@ -601,7 +601,7 @@ subroutine init3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
       PINPT_%title(i) = PINPT%title(i)
       PINPT_%ifilenm(i)= PINPT%ifilenm(i)
       PINPT = PINPT_
-      PPRAM = PPRAM1
+    ! PPRAM = PPRAM1
     enddo
 
     call set_free_parameters(PPRAM)
@@ -717,7 +717,7 @@ subroutine init2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_T
     PINPT_%title(2) = PINPT%title(2)
     PINPT_%ifilenm(2)= PINPT%ifilenm(2)
     PINPT = PINPT_
-    PPRAM = PPRAM1
+  ! PPRAM = PPRAM1
 
     call set_free_parameters(PPRAM)
 
@@ -1590,6 +1590,9 @@ subroutine fit5(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TA
     call set_verbose(PINPT_PY%iverbose)
     if(iverbose .eq. 1) flag_write_info = .true.
 
+    ! reset free parameters according to the constraint setting of PPRAM_PY
+    call set_free_parameters(PPRAM)
+
     call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=3
     call copy_params(PPRAM_PY, PPRAM, 2)
     call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
@@ -1684,6 +1687,9 @@ subroutine fit4(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TA
     call set_verbose(PINPT_PY%iverbose)
     if(iverbose .eq. 1) flag_write_info = .true.
 
+    ! reset free parameters according to the constraint setting of PPRAM_PY
+    call set_free_parameters(PPRAM)
+
     call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=3
     call copy_params(PPRAM_PY, PPRAM, 2)
     call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
@@ -1774,6 +1780,9 @@ subroutine fit3(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TA
     call set_verbose(PINPT_PY%iverbose)
     if(iverbose .eq. 1) flag_write_info = .true.
 
+    ! reset free parameters according to the constraint setting of PPRAM_PY
+    call set_free_parameters(PPRAM)
+
     call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=3
     call copy_params(PPRAM_PY, PPRAM, 2)
     call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
@@ -1860,6 +1869,9 @@ subroutine fit2(comm, PINPT_PY, PPRAM_PY, PKPTS_PY1, PWGHT_PY1, PGEOM_PY1, NN_TA
     call set_verbose(PINPT_PY%iverbose)
     if(iverbose .eq. 1) flag_write_info = .true.
 
+    ! reset free parameters according to the constraint setting of PPRAM_PY
+    call set_free_parameters(PPRAM)
+
     call copy_incar(PINPT_PY, PINPT, 2) ; PINPT%nsystem=2
     call copy_params(PPRAM_PY, PPRAM, 2)
     call copy_all(PKPTS_PY1, PGEOM_PY1, PWGHT_PY1, NN_TABLE_PY1, EDFT_PY1, ETBA_PY1, &
@@ -1944,6 +1956,9 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     call set_verbose(PINPT_PY%iverbose)
     if(iverbose .eq. 1) flag_write_info = .true.
 
+    ! reset free parameters according to the constraint setting of PPRAM_PY
+    call set_free_parameters(PPRAM)    
+
     ! init system
     ! NOTE: in this subroutine, we assume that nsystem=1. nsystem>1 case, it will be updated in near future. H.-J. Kim. (01. Feb. 2021)
     call copy_incar(PINPT_PY, PINPT, 2)
@@ -1954,7 +1969,8 @@ subroutine fit(comm, PINPT_PY, PPRAM_PY, PKPTS_PY, PWGHT_PY, PGEOM_PY, NN_TABLE_
     call copy_hopping(NN_TABLE_PY, NN_TABLE(1), 2)
     call copy_energy(EDFT_PY, EDFT(1), 2)
     call copy_energy(ETBA_PY, ETBA(1), 2)
-    
+
+
     nparam_free = PPRAM%nparam_free ! total number of free parameters. Note: nrl parameterization is not supported yet.
     imode  = 13 !
     factor = 100.0D+00

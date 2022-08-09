@@ -255,8 +255,8 @@ module parameters
        character(len=40), allocatable  :: c_const(:,:)             
 !      real(kind=dp),       allocatable  :: param_const_best(:,:)         ! i=1 -> 'is same as'
        real(kind=dp),       allocatable  :: param_const(:,:)         ! i=1 -> 'is same as'
-                                                              ! i=2 -> 'is lower than' (.le.) : maximum bound  ! <=  20 
-                                                              ! i=3 -> 'is lower than' (.ge.) : minimum bound  ! >= -20 or >= 0.001 (if scale factor)
+                                                              ! i=2 -> 'is lower than' (.le.) : maximum/upper bound  ! <=  20 
+                                                              ! i=3 -> 'is greater than' (.ge.) : minimum/lower bound  ! >= -20 or >= 0.001 (if scale factor)
                                                               ! i=4 -> 'is fixed' : fixed during fitting       ! original value will be 
                                                                                                                ! copied to PINPT%param_const(i=5,:)
        real(kind=dp),       allocatable  :: param_const_nrl(:,:,:)   ! (i,j,nparam) ! j=1:4 -> a, b, c, d  for sk-parameters 

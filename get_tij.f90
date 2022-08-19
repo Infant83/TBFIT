@@ -560,9 +560,9 @@ function f_s(dda_s,d0,dc,d, mode)
 !  5 = linear scaling
 !    f_s= 1 - SFACTOR(1) * ( d - d0 )
 !  6 = f_s with mode=4 multiplied with Fermi-Dirac type cutoff function. 
-!    f_s= f_s(mode=4) * 1/(1+exp[(d-(d0+(dcut-d0)/b))/beta]) , b=2.1, beta = (dcut-d0)/(b*ln((1-0.001)/0.001))
-!    Note: beta is chosen so that the Fermi-Dirac function is lower than 0.001 at d=dc and larger than 1-0.001 at d=d0
-!          with b = 2.1 determining the center of FD: d0+(dcut-d0)/b
+!    f_s= f_s(mode=4) * 1/(1+exp[(d-(d0+(dcut-d0)/b))/beta]) , b=2.2, beta = (dcut-d0)/(b*ln((1-0.002)/0.002))
+!    Note: beta is chosen so that the Fermi-Dirac function is lower than 0.002 at d=dc and larger than 1-0.002 at d=d0
+!          with b = 2.2 determining the center of FD: d0+(dcut-d0)/b
 !  x = see Europhys.Lett.9.701 (1989): GSP parameterization for carbon system
 !      SFACTOR(1) = m ; SFACTOR(2) = d_c , critical distance ; SFACTOR(3) = m_c
 !    f_s=(d0/d)^(SFACTOR(1))*exp(SFACTOR(1)*( -(d/SFACTOR(2))^(SFACTOR(3)) + -(d0/SFACTOR(2))^(SFACTOR(3)) ))

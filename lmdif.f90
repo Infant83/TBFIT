@@ -329,13 +329,28 @@ subroutine lmdif(get_eig, NN_TABLE, ldjac, imode, PINPT, PPRAM, PKPTS, PGEOM, ED
 !  Calculate the norm of P.
         wa1(1:nparam_free) = -wa1(1:nparam_free)
 
+        ! NOTE: paramter constraint for upper/lower bound is applied only for (PPRAM%slater_koster_type .le. 10) cases.
+        !       KHJ, 19.Aug.2022
         do j = 1, PPRAM%nparam_free
           if(PPRAM%slater_koster_type .gt. 10) then
             nsub = PPRAM%param_nsub(PPRAM%iparam_free(j)) 
             i    = PPRAM%iparam_free_nrl(j)
             wa2(i:i+nsub-1) = PPRAM%param_nrl(1:nsub,PPRAM%iparam_free(j)) + wa1(i:i+nsub-1)
           else
-            wa2(j) = PPRAM%param(PPRAM%iparam_free(j)) + wa1(j)
+           !wa2(j) = PPRAM%param(PPRAM%iparam_free(j)) + wa1(j)
+            if(PPRAM%param(PPRAM%iparam_free(j)) + wa1(j) .lt. PPRAM%param_const(3,PPRAM%iparam_free(j))) then ! lower bound
+             !wa2(j) = PPRAM%param(PPRAM%iparam_free(j))
+             !wa1(j) = 0.d0
+              wa2(j) = PPRAM%param_const(3,PPRAM%iparam_free(j))
+              wa1(j) = PPRAM%param_const(3,PPRAM%iparam_free(j)) - PPRAM%param(PPRAM%iparam_free(j))
+            elseif( PPRAM%param(PPRAM%iparam_free(j)) + wa1(j) .gt. PPRAM%param_const(2,PPRAM%iparam_free(j))) then ! upper bound
+             !wa2(j) = PPRAM%param(PPRAM%iparam_free(j))
+             !wa1(j) = 0.d0
+              wa2(j) = PPRAM%param_const(2,PPRAM%iparam_free(j))
+              wa1(j) = PPRAM%param_const(2,PPRAM%iparam_free(j)) - PPRAM%param(PPRAM%iparam_free(j))
+            else
+              wa2(j) = PPRAM%param(PPRAM%iparam_free(j)) + wa1(j)
+            endif
           endif
         enddo
         wa3(1:nparam_free) = diag(1:nparam_free) * wa1(1:nparam_free)

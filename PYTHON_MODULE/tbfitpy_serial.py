@@ -1852,6 +1852,8 @@ class csa_soldier_tools:
         # Be aware that csa_soldier_tools.nparam is not always equal to nparam from pytbfit.ppram.nparam (depend on the constraint such as 'fix')
         #self.valid_param_idx = np.ma.masked_less_equal(param_type,2).mask
         param_fix = param_const[3,:]
+
+        # parameters with ( param_type <=2  .AND. parameters not fixed )
         self.valid_param_idx = np.logical_and(np.ma.masked_less_equal(param_type,2).mask, [np.invert(np.bool(x)) for x in np.int64(param_fix)])
         self.nparam = np.count_nonzero(self.valid_param_idx)
 

@@ -579,7 +579,7 @@ module parameters
        character(len=40)             unfold_kfilenm_SBZ ! kpoint file name for supercell
        character(len=40)             unfold_gfilenm_PC  ! geometry file for primitive cell
        character(len=40)             unfold_gfilenm_SC  ! geometry file for super cell
-       real(kind=sp)                 unfold_nkpoint
+       integer(kind=sp)              unfold_nkpoint     ! number of nkpoint in PBZ. (Thanks to Daniel G. Martínez for reporting bug fix)
        real(kind=dp), allocatable :: unfold_kpoint_PBZ(:,:)
        integer(kind=sp)              unfold_nediv
        integer(kind=sp)              unfold_nemax  ! ne_max between emin:emax for sparse eigen solver
